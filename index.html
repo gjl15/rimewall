@@ -585,7 +585,7 @@ function routeLength(half, side) {
   const nodes = [SPAWNS[half][side], ...ROUTES[half][side]];
   let total = 0;
   for (let i = 0; i < nodes.length - 1; i += 1) {
-    const segment = findPath(nodes[i], nodes[i + 1], null, false, i < 3);
+    const segment = findPath(nodes[i], nodes[i + 1]);
     if (!segment) return null;
     total += segment.length - 1;
   }
@@ -721,9 +721,9 @@ function ensurePath(creep) {
   const goals = creepGoals(creep);
   const goal = goals[creep.cpIndex];
   if (!goal) return false;
-  // air waves fly over towers: terrain-only pathing, and they can never be blocked;
-  // flags are waypoint regions — touching any adjacent cell satisfies them
-  const path = findPath(creepCell(creep), goal, null, creep.air, creep.cpIndex < 3);
+  // air waves fly over towers: terrain-only pathing, and they can never be blocked.
+  // Every unit must cross the flag square itself — exact-cell goals, no regions.
+  const path = findPath(creepCell(creep), goal, null, creep.air);
   if (!path) { creep.path = null; return false; }
   creep.path = path; creep.pathStep = path.length > 1 ? 1 : 0; creep.pathVersion = towersVersion;
   return true;
@@ -776,8 +776,8 @@ function updateCreep(creep, dt) {
   const goals = creepGoals(creep);
   const goal = goals[creep.cpIndex];
   if (!goal) return resolveLeak(creep);
-  const reach = creep.cpIndex < 3 ? 1.2 : .25;   // flags are regions; gate and ship are exact
-  if (Math.abs(creep.x - (goal.c + .5)) < reach && Math.abs(creep.y - (goal.r + .5)) < reach) {
+  // flags, gates, and the ship are all exact: the creep must cross the square
+  if (Math.abs(creep.x - (goal.c + .5)) < .25 && Math.abs(creep.y - (goal.r + .5)) < .25) {
     creep.cpIndex += 1; creep.path = null;
     if (creep.cpIndex >= goals.length) return resolveLeak(creep);
     if (creep.cpIndex <= 3) flagReached(creep.half, creep.side, creep.cpIndex - 1);
