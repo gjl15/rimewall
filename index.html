@@ -106,8 +106,6 @@ h2 span { color:#7583a6; }
 .ov-gate small { color:#ffe9a5; font-size:6.5px; }
 .ov-shrine { text-align:center; color:#d9c2ff; font-size:12px; text-shadow:0 1px 3px #14372f; }
 .ov-shrine small { color:#cbb3f2; font-size:6.5px; }
-.ov-flag { padding:2px 4px; border:1px solid #17325a77; border-radius:4px; color:#e6fff8; background:#1a3765cc; font-size:6.5px; font-weight:500; transition:.18s; }
-.ov-flag.reached { border-color:#ffd86b; color:#fff0b8; background:#5a3f20ee; box-shadow:0 0 0 3px #ffd86b33,0 0 14px #ffd86b99; }
 .ov-spot { text-align:center; color:#17325a; opacity:.85; }
 .ov-spot small { color:#285879; }
 .ov-spot-you { color:#0d3a56; }
@@ -518,15 +516,10 @@ const ROUTES = {
   south:{ west:[{r:29,c:4},{r:41,c:4},{r:41,c:12},{r:46,c:15},{r:48,c:15}], east:[{r:29,c:27},{r:41,c:27},{r:41,c:19},{r:46,c:16},{r:48,c:16}] }
 };
 const SPAWNS = { north:{ west:{r:23,c:15}, east:{r:23,c:16} }, south:{ west:{r:25,c:15}, east:{r:25,c:16} } };
+// Flags occupy exactly one square: only the flag's own cell is unbuildable.
+// Pathing stays forgiving because touching any adjacent cell satisfies a flag.
 const protectedCells = new Set();
-Object.values(ROUTES).forEach((sides) => Object.values(sides).forEach((nodes) => nodes.forEach((cell, i) => {
-  protectedCells.add(idx(cell.r, cell.c));
-  // flags (the first three nodes) keep their four orthogonal neighbors open so a
-  // maze can never seal a waypoint and pathing around flags stays clean
-  if (i < 3) [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dr, dc]) => {
-    if (inBounds(cell.r + dr, cell.c + dc)) protectedCells.add(idx(cell.r + dr, cell.c + dc));
-  });
-})));
+Object.values(ROUTES).forEach((sides) => Object.values(sides).forEach((nodes) => nodes.forEach((cell) => protectedCells.add(idx(cell.r, cell.c)))));
 
 const PLAYER_HALF = 'south', ENEMY_HALF = 'north';
 function halfOfRow(r) { return r <= 24 ? 'north' : 'south'; }
@@ -823,11 +816,9 @@ function resolveLeak(creep) {
   if (owner.lives <= 0) endMatch(creep.half === PLAYER_HALF ? 'defeat' : 'victory');
 }
 
-const flagFlashes = new Map(); // "half-side-i" → until time
+const flagFlashes = new Map(); // "half-side-i" → until time (drawn as a glow on the fx canvas)
 function flagReached(half, side, flagIndex) {
   flagFlashes.set(`${half}-${side}-${flagIndex}`, simTime + 1.4);
-  const el = document.querySelector(`[data-flag="${half}-${side}-${flagIndex}"]`);
-  if (el) { el.classList.add('reached'); window.setTimeout(() => el.classList.remove('reached'), 1400); }
 }
 
 /* ---------------- Damage & effects (WC3 armor formula + source-map specials) ---------------- */
@@ -1165,6 +1156,17 @@ function drawTerrain(ctx, scale = 1) {
   for (let r = 26; r <= 45; r += 1) for (let c = 0; c < COLS; c += 1) {
     if (terrain[idx(r, c)] === T.FLOOR) ctx.fillRect(c * CELL, r * CELL, CELL, CELL);
   }
+  // one-square waypoint flags: pole, banner, and the touch order number
+  ['north', 'south'].forEach((half) => ['west', 'east'].forEach((side) => ROUTES[half][side].slice(0, 3).forEach((cell, i) => {
+    const x = cell.c * CELL, y = cell.r * CELL;
+    ctx.fillStyle = '#ffffff30'; ctx.fillRect(x + 1.5, y + 1.5, CELL - 3, CELL - 3);
+    ctx.strokeStyle = '#17325a'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(x + 8, y + 20.5); ctx.lineTo(x + 8, y + 4); ctx.stroke();
+    ctx.fillStyle = '#ff9f69';
+    ctx.beginPath(); ctx.moveTo(x + 9, y + 4); ctx.lineTo(x + 19.5, y + 7.5); ctx.lineTo(x + 9, y + 11); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#17325a'; ctx.font = '700 8px "DM Mono", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText(String(i + 1), x + 15, y + 20.5);
+  })));
   ctx.restore();
 }
 function redrawBoard() { boardCtx.clearRect(0, 0, BOARD_W, BOARD_H); drawTerrain(boardCtx); }
@@ -1352,6 +1354,17 @@ function drawDebug(ctx) {
 function renderFrame() {
   fxCtx.clearRect(0, 0, BOARD_W, BOARD_H);
   drawDebug(fxCtx);
+  flagFlashes.forEach((until, key) => {
+    if (until <= simTime) return;
+    const [half, side, i] = key.split('-');
+    const cell = ROUTES[half]?.[side]?.[Number(i)];
+    if (!cell) return;
+    const k = Math.min(1, (until - simTime) / 1.4);
+    fxCtx.save();
+    fxCtx.strokeStyle = '#ffd86b'; fxCtx.globalAlpha = k * .9; fxCtx.lineWidth = 2.5;
+    fxCtx.beginPath(); fxCtx.arc(cell.c * CELL + CELL / 2, cell.r * CELL + CELL / 2, 16 - k * 5, 0, Math.PI * 2); fxCtx.stroke();
+    fxCtx.restore();
+  });
   towers.forEach((tower) => drawTower(fxCtx, tower));
   creeps.forEach((creep) => drawCreep(fxCtx, creep));
   projectiles.forEach((projectile) => drawProjectile(fxCtx, projectile));
@@ -1371,16 +1384,12 @@ function overlayItem(cls, r, c, html, dataAttr = '') {
   return `<div class="ov ${cls}" ${dataAttr} style="left:${pct((c) * CELL, BOARD_W)};top:${pct((r) * CELL, BOARD_H)}">${html}</div>`;
 }
 function buildOverlay() {
-  const flagNames = ['FLAG 1', 'FLAG 2', 'FLAG 3'];
   let html = '';
   html += overlayItem('ov-ship', 1, 15.5, '⛵<small>NORTH SHIP</small>');
   html += overlayItem('ov-ship ov-ship-player', 47.9, 15.5, `⛵<small id="player-ship-label">YOUR SHIP</small>`);
   html += overlayItem('ov-gate', 24.5, 15.5, '✹<small>CREEP GATE</small>');
   html += overlayItem('ov-shrine', 12.5, 15.5, '✦<small>NORTH SHRINE</small>');
   html += overlayItem('ov-shrine', 35.5, 15.5, '✦<small>SOUTH SHRINE</small>');
-  ['north', 'south'].forEach((half) => ['west', 'east'].forEach((side) => ROUTES[half][side].slice(0, 3).forEach((cell, i) => {
-    html += overlayItem('ov-flag', cell.r + .5, cell.c + .5, `⚑ ${flagNames[i]}`, `data-flag="${half}-${side}-${i}"`);
-  })));
   [['RED', 13, 4.5], ['BLUE', 4.5, 15.5], ['TEAL', 13, 27.5]].forEach(([name, r, c]) => { html += overlayItem('ov-spot', r, c, `${name}<small>${name === 'BLUE' ? 'MID' : 'EDGE'} • RIVAL</small>`); });
   [['PURPLE', 36, 4.5], ['YELLOW', 44.5, 15.5], ['ORANGE', 36, 27.5]].forEach(([name, r, c]) => { html += overlayItem('ov-spot ov-spot-you', r, c, `${name}<small>${name === 'YELLOW' ? 'MID' : 'EDGE'}</small>`); });
   html += overlayItem('ov-force ov-force-north', 3.4, 2, 'NORTH FORCE • RIVAL');
