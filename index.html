@@ -173,7 +173,7 @@ h2 span { color:#7583a6; }
             <strong id="selected-name">Ice</strong>
             <span id="selected-desc">Slows enemies and buys your maze time.</span>
           </div>
-          <div class="selection-actions"><label class="lives-pick" for="lives-select">LIFEFORCE <select id="lives-select"><option value="25">25 • classic</option><option value="50">50 • veteran</option><option value="100" selected>100 • easy</option></select></label><button id="drawpad-button" class="ghost-button">Draw map</button><button id="collab-button" class="ghost-button">Build hub</button><button id="start-button" class="primary-button">Enter the battlefield <span>→</span></button></div>
+          <div class="selection-actions"><label class="lives-pick" for="mode-select">MODE <select id="mode-select"><option value="skirmish" selected>Waves vs rival</option><option value="classic">Classic Wars • sends only</option></select></label><label class="lives-pick" for="lives-select">LIFEFORCE <select id="lives-select"><option value="25">25 • classic</option><option value="50">50 • veteran</option><option value="100" selected>100 • easy</option></select></label><button id="drawpad-button" class="ghost-button">Draw map</button><button id="collab-button" class="ghost-button">Build hub</button><button id="start-button" class="primary-button">Enter the battlefield <span>→</span></button></div>
         </div>
       </section>
 
@@ -461,7 +461,21 @@ function towerDef(raceId, tier) {
   const isLaser = def === LASER_TOWER;
   return { ...def, raceId:race.id, tier, color:isLaser ? '#ff5f8f' : race.color, symbol:isLaser ? '✦' : race.symbol };
 }
-function towerLiveStats(tower) { return towerDef(tower.raceId, tower.tier); }
+/* Level upgrades: +15% damage and +0.25 range per level (max +3).
+   Tier upgrades: pay the price difference to turn a tower into the next one. */
+const MAX_LEVEL = 3;
+function towerLiveStats(tower) {
+  const def = towerDef(tower.raceId, tower.tier);
+  const level = tower.level || 0;
+  return { ...def, dmg:Math.round(def.dmg * (1 + .15 * level)), range:def.range + .25 * level };
+}
+function towerLevelCost(tower) { return Math.max(5, Math.ceil(towerDef(tower.raceId, tower.tier).cost * .4 * ((tower.level || 0) + 1))); }
+function towerTierUp(tower) {
+  const list = towerListFor(tower.raceId);
+  if (tower.tier >= list.length - 1) return null;
+  const next = towerDef(tower.raceId, tower.tier + 1);
+  return { next, cost:Math.max(5, next.cost - towerDef(tower.raceId, tower.tier).cost) };
+}
 function towerSellValue(tower) { return Math.round(tower.invested * .75); }
 
 /* ---------------- Authoritative map model (traced from assets/reference-map.png) ----------------
@@ -485,8 +499,9 @@ function buildBaseTerrain() {
     else if (r >= 23 && r <= 25) baseTerrain[idx(r, c)] = T.RIVER;
     else if (c === 0 || c === 31) baseTerrain[idx(r, c)] = T.CLIFF;
   }
-  for (let r = 11; r <= 14; r += 1) for (let c = 9; c <= 22; c += 1) baseTerrain[idx(r, c)] = T.CLIFF;
-  for (let r = 34; r <= 37; r += 1) for (let c = 9; c <= 22; c += 1) baseTerrain[idx(r, c)] = T.CLIFF;
+  // massif exactly centered (cols 11–20) so the west and east lanes are both 10 towers wide
+  for (let r = 11; r <= 14; r += 1) for (let c = 11; c <= 20; c += 1) baseTerrain[idx(r, c)] = T.CLIFF;
+  for (let r = 34; r <= 37; r += 1) for (let c = 11; c <= 20; c += 1) baseTerrain[idx(r, c)] = T.CLIFF;
   // Gates: the center river spawn and the two harbor exits stay walkable, never buildable.
   [15, 16].forEach((c) => {
     baseTerrain[idx(2, c)] = T.GATE; baseTerrain[idx(46, c)] = T.GATE;
@@ -504,7 +519,14 @@ const ROUTES = {
 };
 const SPAWNS = { north:{ west:{r:23,c:15}, east:{r:23,c:16} }, south:{ west:{r:25,c:15}, east:{r:25,c:16} } };
 const protectedCells = new Set();
-Object.values(ROUTES).forEach((sides) => Object.values(sides).forEach((nodes) => nodes.forEach((cell) => protectedCells.add(idx(cell.r, cell.c)))));
+Object.values(ROUTES).forEach((sides) => Object.values(sides).forEach((nodes) => nodes.forEach((cell, i) => {
+  protectedCells.add(idx(cell.r, cell.c));
+  // flags (the first three nodes) keep their four orthogonal neighbors open so a
+  // maze can never seal a waypoint and pathing around flags stays clean
+  if (i < 3) [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dr, dc]) => {
+    if (inBounds(cell.r + dr, cell.c + dc)) protectedCells.add(idx(cell.r + dr, cell.c + dc));
+  });
+})));
 
 const PLAYER_HALF = 'south', ENEMY_HALF = 'north';
 function halfOfRow(r) { return r <= 24 ? 'north' : 'south'; }
@@ -517,34 +539,52 @@ function isBuildableCell(r, c, forHalf = PLAYER_HALF) {
   return forHalf === PLAYER_HALF ? isPlayerBuildRow(r) : (r >= 3 && r <= 22);
 }
 
-/* ---------------- Pathfinding (A*, 4-neighbor, towers block) ---------------- */
-function findPath(start, goal, ignoredTowerKey = null, ignoreAllTowers = false) {
+/* ---------------- Pathfinding (A*, 8-neighbor with diagonals, towers block) ----------------
+   Diagonal steps cost √2 and never cut corners: a diagonal is legal only when
+   both adjacent orthogonal cells are open too, so creeps glide diagonally
+   through open floor instead of stair-stepping. regionGoal accepts any open
+   cell touching the goal (used for flags, which are waypoint areas). */
+function cellOpen(r, c, ignoredTowerKey, ignoreAllTowers, goalKey) {
+  if (!inBounds(r, c) || !isWalkable(r, c)) return false;
+  const key = idx(r, c);
+  return ignoreAllTowers || !towers.has(key) || key === ignoredTowerKey || key === goalKey;
+}
+function findPath(start, goal, ignoredTowerKey = null, ignoreAllTowers = false, regionGoal = false) {
   const open = [idx(start.r, start.c)];
   const came = new Map(), gScore = new Map([[open[0], 0]]), fScore = new Map([[open[0], 0]]);
   const goalKey = idx(goal.r, goal.c);
+  const isGoal = (key) => {
+    if (key === goalKey) return true;
+    if (!regionGoal) return false;
+    const r = Math.floor(key / COLS), c = key % COLS;
+    return Math.abs(r - goal.r) <= 1 && Math.abs(c - goal.c) <= 1;
+  };
   while (open.length) {
     let bestI = 0;
     for (let i = 1; i < open.length; i += 1) if ((fScore.get(open[i]) ?? Infinity) < (fScore.get(open[bestI]) ?? Infinity)) bestI = i;
     const current = open.splice(bestI, 1)[0];
-    if (current === goalKey) {
+    if (isGoal(current)) {
       const path = [current];
       let cursor = current;
       while (came.has(cursor)) { cursor = came.get(cursor); path.unshift(cursor); }
       return path.map((key) => ({ r:Math.floor(key / COLS), c:key % COLS }));
     }
     const cr = Math.floor(current / COLS), cc = current % COLS;
-    [[cr - 1, cc], [cr + 1, cc], [cr, cc - 1], [cr, cc + 1]].forEach(([nr, nc]) => {
-      if (!inBounds(nr, nc) || !isWalkable(nr, nc)) return;
+    for (let dr = -1; dr <= 1; dr += 1) for (let dc = -1; dc <= 1; dc += 1) {
+      if (!dr && !dc) continue;
+      const nr = cr + dr, nc = cc + dc;
+      if (!cellOpen(nr, nc, ignoredTowerKey, ignoreAllTowers, goalKey)) continue;
+      if (dr && dc && (!cellOpen(cr + dr, cc, ignoredTowerKey, ignoreAllTowers, goalKey) || !cellOpen(cr, cc + dc, ignoredTowerKey, ignoreAllTowers, goalKey))) continue;
       const nKey = idx(nr, nc);
-      if (!ignoreAllTowers && towers.has(nKey) && nKey !== ignoredTowerKey && nKey !== goalKey) return;
-      const tentative = (gScore.get(current) ?? Infinity) + 1;
-      if (tentative < (gScore.get(nKey) ?? Infinity)) {
+      const tentative = (gScore.get(current) ?? Infinity) + (dr && dc ? 1.41421 : 1);
+      if (tentative < (gScore.get(nKey) ?? Infinity) - 1e-9) {
         came.set(nKey, current);
         gScore.set(nKey, tentative);
-        fScore.set(nKey, tentative + Math.abs(nr - goal.r) + Math.abs(nc - goal.c));
+        const adr = Math.abs(nr - goal.r), adc = Math.abs(nc - goal.c);
+        fScore.set(nKey, tentative + Math.max(adr, adc) + .41421 * Math.min(adr, adc));
         if (!open.includes(nKey)) open.push(nKey);
       }
-    });
+    }
   }
   return null;
 }
@@ -552,7 +592,7 @@ function routeLength(half, side) {
   const nodes = [SPAWNS[half][side], ...ROUTES[half][side]];
   let total = 0;
   for (let i = 0; i < nodes.length - 1; i += 1) {
-    const segment = findPath(nodes[i], nodes[i + 1]);
+    const segment = findPath(nodes[i], nodes[i + 1], null, false, i < 3);
     if (!segment) return null;
     total += segment.length - 1;
   }
@@ -619,6 +659,7 @@ const BOUNTY_MULT = 2;
 function startingLives() { return Number(document.getElementById('lives-select')?.value) || 100; }
 let selectedRace = races[0];
 let selectedTowerTier = 0;
+let matchMode = 'skirmish';        // 'skirmish' = rounds vs the rival AI; 'classic' = sends only, no neutral waves
 let selectedTowerKey = null;       // key of a placed tower currently inspected
 const towers = new Map();          // idx(r,c) → tower instance
 let towersVersion = 0;
@@ -626,7 +667,7 @@ const creeps = [];
 const projectiles = [];
 const effects = [];                // transient visual effects on the fx canvas
 const pendingSpawns = [];
-let player, enemy, wave, waveClock, battleRunning = false, battlePaused = false, matchOver = false, finalWaveLaunched = false;
+let player, enemy, wave, waveClock, battleRunning = false, battlePaused = false, matchOver = false;
 let simTime = 0, lastFrame = 0, creepSerial = 0;
 const debug = { routes:false, ranges:false, ref:false };
 let cachedRouteText = '';
@@ -635,10 +676,11 @@ let incomeClock = INCOME_PERIOD, waypointFxClock = 2;
 function resetMatchState() {
   towers.clear(); towersVersion += 1;
   creeps.length = 0; projectiles.length = 0; effects.length = 0; pendingSpawns.length = 0;
+  matchMode = document.getElementById('mode-select')?.value === 'classic' ? 'classic' : 'skirmish';
   const lives = startingLives();
   player = { gold:START_GOLD, income:0, lives, kills:0 };
-  enemy = { gold:START_GOLD, income:0, lives, raceId:races[Math.floor(Math.random() * races.length)].id, spotIndex:0, buildClock:2, sendClock:24 };
-  wave = 0; waveClock = FIRST_WAVE_DELAY; incomeClock = INCOME_PERIOD; simTime = 0; battlePaused = false; matchOver = false; finalWaveLaunched = false;
+  enemy = { gold:START_GOLD, income:0, lives, raceId:races[Math.floor(Math.random() * races.length)].id, spotIndex:0, buildClock:2, sendClock:matchMode === 'classic' ? 14 : 24 };
+  wave = 0; waveClock = FIRST_WAVE_DELAY; incomeClock = INCOME_PERIOD; simTime = 0; battlePaused = false; matchOver = false;
   selectedTowerKey = null;
   refreshRouteDebug();
 }
@@ -646,7 +688,7 @@ function resetMatchState() {
 const priorities = ['first', 'last', 'strong', 'weak', 'near'];
 function makeTower(r, c, raceId, tier, owner) {
   const def = towerDef(raceId, tier);
-  return { key:idx(r, c), r, c, raceId, tier, owner, cooldown:0, priority:'first', kills:0, invested:def.cost, blockHp:4 + tier, blockMaxHp:4 + tier, underAttack:0 };
+  return { key:idx(r, c), r, c, raceId, tier, level:0, owner, cooldown:0, priority:'first', kills:0, invested:def.cost, blockHp:4 + tier, blockMaxHp:4 + tier, underAttack:0 };
 }
 function addTower(tower) { towers.set(tower.key, tower); towersVersion += 1; refreshRouteDebug(); }
 function removeTower(key) { towers.delete(key); towersVersion += 1; if (selectedTowerKey === key) selectedTowerKey = null; refreshRouteDebug(); }
@@ -686,8 +728,9 @@ function ensurePath(creep) {
   const goals = creepGoals(creep);
   const goal = goals[creep.cpIndex];
   if (!goal) return false;
-  // air waves fly over towers: terrain-only pathing, and they can never be blocked
-  const path = findPath(creepCell(creep), goal, null, creep.air);
+  // air waves fly over towers: terrain-only pathing, and they can never be blocked;
+  // flags are waypoint regions — touching any adjacent cell satisfies them
+  const path = findPath(creepCell(creep), goal, null, creep.air, creep.cpIndex < 3);
   if (!path) { creep.path = null; return false; }
   creep.path = path; creep.pathStep = path.length > 1 ? 1 : 0; creep.pathVersion = towersVersion;
   return true;
@@ -740,7 +783,8 @@ function updateCreep(creep, dt) {
   const goals = creepGoals(creep);
   const goal = goals[creep.cpIndex];
   if (!goal) return resolveLeak(creep);
-  if (Math.abs(creep.x - (goal.c + .5)) < .2 && Math.abs(creep.y - (goal.r + .5)) < .2) {
+  const reach = creep.cpIndex < 3 ? 1.2 : .25;   // flags are regions; gate and ship are exact
+  if (Math.abs(creep.x - (goal.c + .5)) < reach && Math.abs(creep.y - (goal.r + .5)) < reach) {
     creep.cpIndex += 1; creep.path = null;
     if (creep.cpIndex >= goals.length) return resolveLeak(creep);
     if (creep.cpIndex <= 3) flagReached(creep.half, creep.side, creep.cpIndex - 1);
@@ -945,7 +989,8 @@ const ENEMY_SPOTS = aiSpots();
 function updateEnemyAI(dt) {
   enemy.buildClock -= dt;
   enemy.sendClock -= dt;
-  const maxTierNow = Math.min(5, Math.floor(wave / 3.2));
+  // in classic mode there are no waves, so the AI's ambition scales with time instead
+  const maxTierNow = Math.min(5, matchMode === 'classic' ? Math.floor(simTime / 75) : Math.floor(wave / 3.2));
   if (enemy.buildClock <= 0) {
     enemy.buildClock = 1.6;
     const list = towerListFor(enemy.raceId);
@@ -954,7 +999,9 @@ function updateEnemyAI(dt) {
       let buyTier = Math.min(maxTierNow, list.length - 2);
       while (buyTier > 0 && list[buyTier].cost > enemy.gold) buyTier -= 1;
       const def = towerDef(enemy.raceId, buyTier);
-      if (enemy.gold >= def.cost && isBuildableCell(spot.r, spot.c, ENEMY_HALF)) {
+      // in classic mode the AI keeps a send reserve so its income engine runs too
+      const buildBudget = matchMode === 'classic' ? enemy.gold - 60 : enemy.gold;
+      if (buildBudget >= def.cost && isBuildableCell(spot.r, spot.c, ENEMY_HALF)) {
         enemy.gold -= def.cost;
         addTower(makeTower(spot.r, spot.c, enemy.raceId, buyTier, 'enemy'));
         enemy.spotIndex += 1;
@@ -975,9 +1022,9 @@ function updateEnemyAI(dt) {
       }
     }
   }
-  if (wave >= 2 && enemy.sendClock <= 0) {
-    enemy.sendClock = 20;
-    const unlocked = SENDS.filter((send) => wave >= send.unlockWave);
+  if ((matchMode === 'classic' ? simTime > 20 : wave >= 2) && enemy.sendClock <= 0) {
+    enemy.sendClock = matchMode === 'classic' ? 12 : 20;
+    const unlocked = SENDS.filter((send) => matchMode === 'classic' || wave >= send.unlockWave);
     const affordable = [...unlocked].reverse().find((send) => enemy.gold - 60 >= send.cost);
     if (affordable) {
       enemy.gold -= affordable.cost; enemy.income += affordable.income;
@@ -988,17 +1035,24 @@ function updateEnemyAI(dt) {
 }
 
 /* ---------------- Wave / match flow ---------------- */
+/* Past wave 20 the ladder loops endlessly with compounding HP — the match only
+   ends when a force runs out of lifeforce. */
+function waveDefFor(waveNumber) {
+  const base = WAVES[(waveNumber - 1) % WAVES.length];
+  const loop = Math.floor((waveNumber - 1) / WAVES.length);
+  if (!loop) return base;
+  return { ...base, hp:Math.round(base.hp * Math.pow(1.5, loop)), bounty:base.bounty + loop * 2 };
+}
 function launchNextWave() {
-  if (wave >= WAVES.length) return;
+  if (matchMode === 'classic') return;
   wave += 1;
   // the source map's per-level defender payout, alongside the Wars income clock
-  const levelPay = 10 + 2 * wave;
+  const levelPay = 10 + 2 * Math.min(wave, 30);
   player.gold += levelPay;
   enemy.gold += levelPay;
-  const def = WAVES[wave - 1];
+  const def = waveDefFor(wave);
   queueWaveSpawns(def);
   waveClock = WAVE_PERIOD;
-  if (wave >= WAVES.length) finalWaveLaunched = true;
   log(`Wave ${wave} — ${def.name}${def.air ? ' (AIR — flies over the maze!)' : ''} (${def.count} per side) entered the Creep Gate. Level pay +${levelPay}.`);
   renderHud();
 }
@@ -1011,16 +1065,17 @@ function endMatch(result) {
   if (matchOver) return;
   matchOver = true; battleRunning = false;
   const banner = $('wave-banner');
-  if (result === 'victory') { banner.textContent = '★ VICTORY — THE ENEMY SHIP HAS FALLEN'; log('Victory! The rival force is out of lives. Restart to run it back.'); }
-  else if (result === 'defeat') { banner.textContent = '☠ DEFEAT — YOUR SHIP HAS FALLEN'; log('Your ship has fallen. Restart the match to test another maze.'); }
-  else { banner.textContent = `MATCH COMPLETE — YOU ${player.lives} : ${enemy.lives} RIVAL`; log(player.lives > enemy.lives ? 'All 20 waves cleared — you out-defended the rival force!' : player.lives < enemy.lives ? 'All 20 waves done — the rival force kept more lives.' : 'All 20 waves done — dead even.'); }
+  if (result === 'victory') { banner.textContent = '★ VICTORY — THE ENEMY SHIP HAS FALLEN'; log('Victory! The rival force is out of lifeforce. Restart to run it back.'); }
+  else { banner.textContent = '☠ DEFEAT — YOUR SHIP HAS FALLEN'; log('Your ship has fallen. Restart the match to test another maze.'); }
   renderHud();
 }
 
 function simulate(dt) {
   simTime += dt;
-  waveClock -= dt;
-  if (waveClock <= 0 && !finalWaveLaunched) launchNextWave();
+  if (matchMode !== 'classic') {
+    waveClock -= dt;
+    if (waveClock <= 0) launchNextWave();
+  }
   incomeClock -= dt;
   if (incomeClock <= 0) { incomeClock = INCOME_PERIOD; payIncome(); }
   waypointFxClock -= dt;
@@ -1042,7 +1097,6 @@ function simulate(dt) {
   for (let i = effects.length - 1; i >= 0; i -= 1) if (effects[i].until <= simTime) effects.splice(i, 1);
   if (effects.length > 140) effects.splice(0, effects.length - 140);
   updateEnemyAI(dt);
-  if (finalWaveLaunched && !matchOver && !pendingSpawns.length && !creeps.length) endMatch('complete');
 }
 
 /* ---------------- Rendering ---------------- */
@@ -1087,7 +1141,7 @@ function drawTerrain(ctx, scale = 1) {
     if (r < ROWS - 1 && terrain[idx(r + 1, c)] !== T.CLIFF) ctx.fillRect(c * CELL, r * CELL + CELL - 3, CELL, 3);
   }
   ctx.fillStyle = '#245e54';
-  [[10.6, 11], [10.6, 15], [10.6, 19], [37.6, 11], [37.6, 15], [37.6, 19]].forEach(([r, c]) => ctx.fillRect(c * CELL, r * CELL, CELL, CELL * .4));
+  [[10.6, 12], [10.6, 15], [10.6, 18], [37.6, 12], [37.6, 15], [37.6, 18]].forEach(([r, c]) => ctx.fillRect(c * CELL, r * CELL, CELL, CELL * .4));
   // buildable grid hint
   ctx.strokeStyle = '#123f5b22'; ctx.lineWidth = 1;
   for (let r = 0; r < ROWS; r += 1) for (let c = 0; c < COLS; c += 1) {
@@ -1128,6 +1182,8 @@ function drawTower(ctx, tower) {
   ctx.fillStyle = stats.color; ctx.font = `${tower.tier >= 3 ? 14 : 12}px "DM Mono", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(stats.symbol, 0, 1);
   for (let i = 0; i < Math.min(5, tower.tier); i += 1) { ctx.fillRect(-half + 2 + i * 3.4, half - 4, 2.4, 2); }
+  ctx.fillStyle = '#ffd86b';
+  for (let i = 0; i < (tower.level || 0); i += 1) { ctx.fillRect(-half + 2 + i * 3.4, -half + 2, 2.4, 2); }
   if (tower.blockHp < tower.blockMaxHp) {
     ctx.fillStyle = '#5a2635'; ctx.fillRect(-half, -half - 4, half * 2, 2.5);
     ctx.fillStyle = '#ff8a9a'; ctx.fillRect(-half, -half - 4, half * 2 * tower.blockHp / tower.blockMaxHp, 2.5);
@@ -1340,14 +1396,20 @@ function renderHud() {
   $('lives-label').textContent = player.lives;
   $('enemy-lives-label').textContent = enemy.lives;
   $('player-ship-label').textContent = `YOUR SHIP • ${player.lives}`;
-  $('wave-label').textContent = `WAVE ${String(Math.max(1, wave)).padStart(2, '0')}/20`;
-  const upcoming = WAVES[Math.min(wave, WAVES.length - 1)];
-  if (!matchOver) $('wave-banner').textContent = wave === 0 ? `FIRST WAVE INBOUND — ${WAVES[0].name.toUpperCase()}` : `WAVE ${String(wave).padStart(2, '0')} • ${WAVES[wave - 1].name.toUpperCase()}${wave < WAVES.length ? ` • NEXT: ${upcoming.name.toUpperCase()}` : ' • FINAL WAVE'}`;
+  if (matchMode === 'classic') {
+    $('wave-label').textContent = 'CLASSIC WARS';
+    if (!matchOver) $('wave-banner').textContent = 'CLASSIC WARS • SENDS ONLY — RACE THE RIVAL’S LIFEFORCE';
+    $('timer-label').textContent = `+${String(Math.max(0, Math.ceil(incomeClock))).padStart(2, '0')}s`;
+  } else {
+    $('wave-label').textContent = wave <= WAVES.length ? `WAVE ${String(Math.max(1, wave)).padStart(2, '0')}/20` : `WAVE ${wave} ∞`;
+    const upcoming = waveDefFor(wave + 1);
+    if (!matchOver) $('wave-banner').textContent = wave === 0 ? `FIRST WAVE INBOUND — ${WAVES[0].name.toUpperCase()}` : `WAVE ${String(wave).padStart(2, '0')}${wave > WAVES.length ? ' • ENDLESS' : ''} • ${waveDefFor(wave).name.toUpperCase()} • NEXT: ${upcoming.name.toUpperCase()}`;
+    const clock = Math.max(0, Math.ceil(waveClock));
+    $('timer-label').textContent = `00:${String(clock).padStart(2, '0')}`;
+  }
   $('pause-button').textContent = battlePaused ? 'Resume' : 'Pause';
   $('pause-button').setAttribute('aria-pressed', String(battlePaused));
   $('dbg-stats').textContent = `${creeps.length} creeps • ${towers.size} towers • ${cachedRouteText}`;
-  const clock = Math.max(0, Math.ceil(waveClock));
-  $('timer-label').textContent = finalWaveLaunched ? 'FINAL' : `00:${String(clock).padStart(2, '0')}`;
 }
 function renderTowerList() {
   $('tower-list').innerHTML = towerListFor(selectedRace.id).map((entry, tier) => {
@@ -1369,18 +1431,38 @@ function renderTowerDetails() {
   const stats = towerLiveStats(tower);
   const isYours = tower.owner === 'player';
   panel.classList.remove('hidden');
+  const tierUp = towerTierUp(tower);
+  const levelCost = towerLevelCost(tower);
   panel.innerHTML = `
     <div class="td-head"><span class="td-rune" style="--race:${stats.color}">${stats.symbol}</span>
-      <div><strong>${stats.name}</strong><small>${isYours ? `${tower.kills} kills` : 'Rival tower'}</small></div>
+      <div><strong>${stats.name}</strong><small>${isYours ? `Level ${(tower.level || 0) + 1} • ${tower.kills} kills` : 'Rival tower'}</small></div>
       <button id="td-close" class="ghost-button" aria-label="Close tower details">✕</button></div>
     <p class="td-desc">${stats.desc} ${specialBlurbs[stats.special] || ''}</p>
     <div class="td-stats"><span>DMG <b>${stats.dmg}</b></span><span>RANGE <b>${stats.range.toFixed(1)}</b></span><span>RATE <b>${stats.cd.toFixed(2)}s</b></span></div>
     ${isYours ? `<div class="td-actions">
+      <button id="td-level" class="action-button" ${tower.level >= MAX_LEVEL || player.gold < levelCost ? 'disabled' : ''}>${tower.level >= MAX_LEVEL ? 'Max level' : `Upgrade level ${levelCost}g`}</button>
+      ${tierUp ? `<button id="td-tier" class="action-button td-tier" ${player.gold < tierUp.cost ? 'disabled' : ''}>→ ${tierUp.next.name} ${tierUp.cost}g</button>` : ''}
       <button id="td-sell" class="ghost-button">Sell ${towerSellValue(tower)}g</button>
       <button id="td-priority" class="ghost-button">Target: ${tower.priority}</button>
     </div>` : ''}`;
   $('td-close').addEventListener('click', () => { selectedTowerKey = null; renderTowerDetails(); });
   if (!isYours) return;
+  $('td-level').addEventListener('click', () => {
+    const cost = towerLevelCost(tower);
+    if (tower.level >= MAX_LEVEL || player.gold < cost) return;
+    player.gold -= cost; tower.invested += cost; tower.level += 1;
+    log(`${stats.name} upgraded to level ${tower.level + 1} (+15% damage, +0.25 range).`);
+    renderHud(); renderTowerDetails();
+  });
+  if (tierUp) $('td-tier').addEventListener('click', () => {
+    const up = towerTierUp(tower);
+    if (!up || player.gold < up.cost) return;
+    player.gold -= up.cost; tower.invested += up.cost;
+    tower.tier += 1; tower.level = 0;
+    tower.blockHp = tower.blockMaxHp = 4 + tower.tier;
+    log(`Upgraded into ${up.next.name} — kills carry over.`);
+    renderHud(); renderTowerDetails();
+  });
   $('td-sell').addEventListener('click', () => {
     player.gold += towerSellValue(tower);
     removeTower(tower.key);
@@ -1398,10 +1480,10 @@ function renderSendPanel() {
   document.querySelectorAll('[data-send]').forEach((button) => button.addEventListener('click', () => {
     const send = SENDS.find((item) => item.id === button.dataset.send);
     if (!battleRunning) return log('Start a match before sending.');
-    if (wave < send.unlockWave) return log(`${send.name} unlocks at wave ${send.unlockWave}.`);
+    if (matchMode !== 'classic' && wave < send.unlockWave) return log(`${send.name} unlocks at wave ${send.unlockWave}.`);
     if (player.gold < send.cost) return log(`Not enough gold — ${send.name} costs ${send.cost}g.`);
     player.gold -= send.cost; player.income += send.income;
-    spawnCreep({ name:send.name, role:'standard', hp:send.hp, spd:send.spd, armor:send.armor, aClass:send.aClass, bounty:0, lives:1 }, ENEMY_HALF, Math.random() < .5 ? 'west' : 'east', true);
+    spawnCreep({ name:send.name, role:'standard', hp:send.hp, spd:send.spd, armor:send.armor, aClass:send.aClass, bounty:Math.round(send.cost * .25), lives:1 }, ENEMY_HALF, Math.random() < .5 ? 'west' : 'east', true);
     log(`${send.name} sent at the rival lane. Send income is now +${player.income} per wave.`);
     renderHud();
   }));
@@ -1412,7 +1494,7 @@ function refreshSendLocks() {
     const button = document.querySelector(`[data-send="${send.id}"]`);
     const note = document.querySelector(`[data-send-note="${send.id}"]`);
     if (!button || !note) return;
-    const locked = wave < send.unlockWave;
+    const locked = matchMode !== 'classic' && wave < send.unlockWave;
     button.classList.toggle('send-locked', locked);
     note.textContent = locked ? `+${send.income} income • unlocks wave ${send.unlockWave}` : `+${send.income} income`;
   });
@@ -1583,16 +1665,18 @@ function startBattle() {
   buildOverlay(); setupCanvasesOnce(); redrawBoard();
   fitBoardToViewport(); resetMapZoom();
   renderHud();
-  log(`Match started vs the ${races.find((race) => race.id === enemy.raceId).name} rival. First wave in ${Math.ceil(waveClock)}s — place starter towers near the gate.`);
+  log(matchMode === 'classic'
+    ? `Classic Wars vs the ${races.find((race) => race.id === enemy.raceId).name} rival: no neutral waves — build a maze, send attackers from the Shrine, and race their lifeforce to zero.`
+    : `Match started vs the ${races.find((race) => race.id === enemy.raceId).name} rival. First wave in ${Math.ceil(waveClock)}s — place starter towers near the gate.`);
 }
 let canvasesReady = false;
 function setupCanvasesOnce() { if (!canvasesReady) { setupCanvases(); canvasesReady = true; } }
 function pushWaveForTesting() {
   if (!battleRunning) return log('Start a match before pushing a test wave.');
   if (battlePaused) return log('Resume the match before pushing a test wave.');
-  if (finalWaveLaunched) return log('Wave 20 is already out — finish the fight.');
+  if (matchMode === 'classic') return log('Classic Wars has no neutral waves — send attackers from the Shrine instead.');
   launchNextWave();
-  log(`TEST: pushed wave ${wave} immediately. Income +${player.income} paid.`);
+  log(`TEST: pushed wave ${wave} immediately.`);
 }
 function toggleBattlePause() {
   if (!battleRunning) return;
