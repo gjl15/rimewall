@@ -2715,7 +2715,7 @@ function handleBoardTap(event) {
   if (towers.has(key)) {
     const now = performance.now();
     const tower = towers.get(key);
-    if (lastTapKey === key && now - lastTapAt < 420 && tower.owner === 'player' && underConstruction(tower)) {
+    if (lastTapKey === key && now - lastTapAt < 550 && tower.owner === 'player' && underConstruction(tower)) {
       // double-tap while the scaffold is still up = cancel for a full refund
       const refund = towerSellValue(tower);
       sellTowerAt({ r:tower.r, c:tower.c });
@@ -2847,7 +2847,7 @@ function applyMapTransform() {
   $('zoom-label').textContent = `${Math.round(mapZoomScale * 100)}%`;
   // arena (touch match): the map owns all gestures. Otherwise: unzoomed maps
   // let one finger scroll the page; zoomed maps pan with one finger.
-  viewport.style.touchAction = (document.body.classList.contains('arena') || mapZoomScale > 1) ? 'none' : 'pan-y';
+  viewport.style.touchAction = (document.body.classList.contains('arena') || mapZoomScale > 1) ? 'none' : 'manipulation';
 }
 function setMapZoom(nextScale, anchor = null, fromScale = mapZoomScale, fromOffset = { x:mapOffsetX, y:mapOffsetY }) {
   const viewport = $('map-viewport');
@@ -3694,7 +3694,7 @@ function applyUiMode() {
   document.body.classList.toggle('arena', arena);
   if (arena) { const shell = document.querySelector('.app-shell'); if (shell) shell.scrollTop = 0; }
   const vp = $('map-viewport');
-  if (vp) vp.style.touchAction = (arena || mapZoomScale > 1) ? 'none' : 'pan-y';
+  if (vp) vp.style.touchAction = (arena || mapZoomScale > 1) ? 'none' : 'manipulation';
   const wisp = $('wisp');
   if (wisp) wisp.classList.toggle('hidden', !battleRunning);
   const modeSel = $('ui-mode-select');
