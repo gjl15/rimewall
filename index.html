@@ -397,6 +397,26 @@ h2 span { color:#7583a6; }
 .race-grid::-webkit-scrollbar { display:none; }
 .race-grid .race-card { flex:0 0 clamp(112px, 26vw, 148px); aspect-ratio:3/4; scroll-snap-align:center; }
 
+/* wave-clear grade stinger */
+.wave-grade { position:absolute; left:50%; top:34%; transform:translate(-50%,-50%); z-index:40; display:flex; flex-direction:column; align-items:center; gap:2px; pointer-events:none; animation:grade-pop 1.7s ease forwards; }
+.wave-grade b { font:900 64px 'DM Mono',monospace; text-shadow:0 0 24px currentColor, 0 2px 0 #000a; }
+.wave-grade span { font:700 10px 'DM Mono',monospace; letter-spacing:.14em; color:#eafcff; text-shadow:0 1px 2px #000; }
+@keyframes grade-pop { 0% { transform:translate(-50%,-50%) scale(.3); opacity:0; } 12% { transform:translate(-50%,-50%) scale(1.15); opacity:1; } 22% { transform:translate(-50%,-50%) scale(1); } 78% { opacity:1; } 100% { transform:translate(-50%,-62%) scale(.94); opacity:0; } }
+/* daily quests strip */
+.daily-quests { margin-top:10px; padding:12px 14px; border:1px solid #2c4a7a; border-radius:14px; background:#0d1424; }
+.dq-title { margin:0 0 8px; font:700 11px 'DM Mono',monospace; letter-spacing:.1em; color:#ffd86b; }
+.dq-title small { font-weight:400; letter-spacing:.02em; color:#bcd2ff; margin-left:6px; }
+.dq-rows { display:flex; flex-direction:column; gap:6px; }
+.dq-row { display:grid; grid-template-columns:1fr 90px 44px; gap:10px; align-items:center; font-size:11px; color:#eafcff; }
+.dq-bar { height:7px; border-radius:99px; background:#111a30; border:1px solid #2c4a7a; overflow:hidden; }
+.dq-bar i { display:block; height:100%; background:linear-gradient(90deg,#77d6ff,#8fe6b8); }
+.dq-row b { text-align:right; font:700 10px 'DM Mono',monospace; color:#bcd2ff; }
+.dq-done { opacity:.75; } .dq-done b { color:#8fe6b8; }
+/* summary grades row */
+.summary-grades { display:flex; gap:5px; justify-content:center; margin:8px 0 2px; flex-wrap:wrap; }
+.summary-grades span { min-width:24px; padding:3px 0; text-align:center; border-radius:6px; background:#111a30; border:1px solid #2c4a7a; font:700 13px 'DM Mono',monospace; }
+.summary-grades .grade-S { color:#ffd86b; border-color:#ffd86b88; } .summary-grades .grade-A { color:#8fe6b8; } .summary-grades .grade-B { color:#77d6ff; } .summary-grades .grade-C { color:#ff9faf; }
+
 </style>
 </head>
 <body>
@@ -432,6 +452,7 @@ h2 span { color:#7583a6; }
         </div>
 
         <div id="profile-strip" class="profile-strip"></div>
+        <div id="daily-quests" class="daily-quests"></div>
 
         <div class="mp-panel">
           <div class="mp-head"><span class="selection-kicker">MULTIPLAYER • LIVE 1V1</span><strong>Challenge a real commander.</strong></div>
@@ -1045,6 +1066,61 @@ let ghost = null, ghostChips = [];   // staged placement preview (tap → previe
 let wager = { tokens:3, cooldownUntil:0, pending:null };   // rush-the-wave wager: accept rewards BOTH sides
 let chipAutoHideAt = 0;   // placement auto-select retires its chips after a beat; manual selection persists
 let buildSeq = 0;   // monotonic placement order — same-tick placements still undo newest-first
+let waveBoards = {}, matchGrades = [], spawningWaveIdx = null;   // wave-clear grading (player half)
+/* ---------------- Daily quests (date-seeded rotation, local progress) ---------------- */
+const QUEST_POOL = [
+  { id:'win_any', icon:'🏆', name:'Win a match', target:1 },
+  { id:'reach_12', icon:'🌊', name:'Reach wave 12', target:12, absolute:true },
+  { id:'send_slayer', icon:'⚔', name:'Kill 25 sent creeps', target:25 },
+  { id:'architect', icon:'🏗', name:'Build 20 towers', target:20 },
+  { id:'s_hunter', icon:'🅂', name:'Earn 3 S-grade waves', target:3 },
+  { id:'untouchable', icon:'🛡', name:'Reach wave 8 at full lifeforce', target:1 },
+  { id:'dealmaker', icon:'⏩', name:'Get a rush wager accepted', target:1 },
+  { id:'race_day', icon:'🎲', name:'Win with the element of the day', target:1 },
+];
+function todayKey() { return new Date().toISOString().slice(0, 10); }
+function daySeed() { return Number(todayKey().replace(/-/g, '')); }
+function raceOfDay() { return races[daySeed() % races.length]; }
+function dailyQuests() {
+  const seed = daySeed();
+  const picks = [];
+  for (let i = 0; picks.length < 3 && i < 24; i += 1) {
+    const q = QUEST_POOL[(seed * 7 + i * 5) % QUEST_POOL.length];
+    if (!picks.includes(q)) picks.push(q);
+  }
+  return picks;
+}
+function ensureDaily() {
+  if (!profile.daily || profile.daily.date !== todayKey()) {
+    profile.daily = { date:todayKey(), progress:{}, done:[] };
+    saveProfile();
+  }
+  return profile.daily;
+}
+function questEvent(id, amount = 1, absolute = false) {
+  const daily = ensureDaily();
+  const quest = dailyQuests().find((q) => q.id === id);
+  if (!quest || daily.done.includes(id)) return;
+  daily.progress[id] = absolute ? Math.max(daily.progress[id] || 0, amount) : (daily.progress[id] || 0) + amount;
+  if (daily.progress[id] >= quest.target) {
+    daily.done.push(id);
+    showToast(`<b>${quest.icon} Daily quest complete!</b><span>${quest.name} — +25g starting gold today (${daily.done.length}/3)</span>`);
+  }
+  saveProfile();
+  if (typeof renderDailyQuests === 'function') renderDailyQuests();
+}
+function showWaveGrade(waveIdx, leaked) {
+  const grade = leaked === 0 ? 'S' : leaked <= 2 ? 'A' : leaked <= 5 ? 'B' : 'C';
+  matchGrades.push(grade);
+  if (grade === 'S') questEvent('s_hunter');
+  const colors = { S:'#ffd86b', A:'#8fe6b8', B:'#77d6ff', C:'#ff9faf' };
+  const el = document.createElement('div');
+  el.className = 'wave-grade';
+  el.style.color = colors[grade];
+  el.innerHTML = `<b>${grade}</b><span>WAVE ${waveIdx} CLEAR${leaked ? ` • ${leaked} leaked` : ' • FLAWLESS'}</span>`;
+  $('map-viewport')?.appendChild(el);
+  window.setTimeout(() => el.remove(), 1700);
+}
 const WAGER_COOLDOWN = 90, WAGER_WINDOW = 10;
 function wagerBonus() { return Math.max(10, Math.round(player.income * .4)); }
 function applyWagerBenefit() {
@@ -1058,7 +1134,7 @@ function applyWagerBenefit() {
 function resolveWager(accepted) {
   wager.pending = null;
   wager.cooldownUntil = simTime + WAGER_COOLDOWN;
-  if (accepted) { wager.tokens -= 1; applyWagerBenefit(); }
+  if (accepted) { wager.tokens -= 1; applyWagerBenefit(); questEvent('dealmaker'); }
   else log('Wager refused — your token is returned. Cooldown before the next proposal.');
   sheetKey = ''; renderCommandSheet();
 }
@@ -1119,6 +1195,8 @@ function resetMatchState() {
   matchMode = document.getElementById('mode-select')?.value === 'classic' ? 'classic' : 'skirmish';
   const lives = startingLives();
   player = { gold:START_GOLD, income:0, lives, kills:0, lumber:0, shrine:1, races:[selectedRace.id], lumberSpent:0, startLives:lives };
+  const questGold = mp.active ? 0 : 25 * (ensureDaily().done.length || 0);
+  if (questGold) { player.gold += questGold; log(`🗒 Daily quest reward: +${questGold}g starting gold.`); }
   buildRaceIdx = 0;
   enemy = { gold:START_GOLD, income:0, lives, lumber:0, shrine:1, raceId:races[Math.floor(Math.random() * races.length)].id, spotIndex:0, buildClock:2, sendClock:matchMode === 'classic' ? 14 : 24 };
   wave = 0; waveClock = FIRST_WAVE_DELAY; incomeClock = INCOME_PERIOD; simTime = 0; battlePaused = false; matchOver = false;
@@ -1152,13 +1230,29 @@ function spawnCreep(waveDef, half, side, sent = false) {
     state:'walk', blockTargetKey:null, attackClock:0,
     slowUntil:0, stunUntil:0, poisonUntil:0, poisonDps:0, armorShred:0
   };
+  if (!sent && half === PLAYER_HALF && spawningWaveIdx != null) {
+    creep.waveIdx = spawningWaveIdx;
+    const board = waveBoards[spawningWaveIdx] = waveBoards[spawningWaveIdx] || { spawned:0, gone:0, leaked:0 };
+    board.spawned += 1;
+  }
   creeps.push(creep);
+}
+function waveBoardRetire(creep, leaked) {
+  if (creep.waveIdx == null) return;
+  const board = waveBoards[creep.waveIdx];
+  if (!board) return;
+  board.gone += 1;
+  if (leaked) board.leaked += 1;
+  if (board.gone >= board.spawned && !board.graded && !pendingSpawns.some((s) => s.waveIdx === creep.waveIdx)) {
+    board.graded = true;
+    showWaveGrade(creep.waveIdx, board.leaked);
+  }
 }
 function queueWaveSpawns(waveDef) {
   (mp.active ? ['south'] : ['north', 'south']).forEach((half) => {
     for (let i = 0; i < waveDef.count; i += 1) {
       const side = i % 2 === 0 ? 'west' : 'east';
-      pendingSpawns.push({ at:simTime + i * (waveDef.role === 'swarm' ? .32 : .55), waveDef, half, side });
+      pendingSpawns.push({ at:simTime + i * (waveDef.role === 'swarm' ? .32 : .55), waveDef, half, side, waveIdx:wave });
     }
   });
 }
@@ -1261,6 +1355,7 @@ function resolveLeak(creep) {
   const owner = creep.half === PLAYER_HALF ? player : enemy;
   owner.lives = Math.max(0, owner.lives - creep.livesCost);
   effects.push({ kind:'leak', x:creep.x, y:creep.y, until:simTime + .6 });
+  if (creep.half === PLAYER_HALF) waveBoardRetire(creep, true);
   if (creep.half === PLAYER_HALF) log(`${creep.name} reached your ship — that is a leak (−${creep.livesCost} ${creep.livesCost > 1 ? 'lives' : 'life'}).`);
   else if (creep.sent) log(`Your ${creep.name} broke through! Enemy loses ${creep.livesCost} ${creep.livesCost > 1 ? 'lives' : 'life'}.`);
   if (owner.lives <= 0) endMatch(creep.half === PLAYER_HALF ? 'defeat' : 'victory');
@@ -1287,12 +1382,19 @@ function applyDamage(creep, amount, tower, isDot = false) {
     }
   }
   creep.hp -= dmg;
+  if (!isDot) creep.hitAt = simTime;
   if (!isDot && dmg >= 60) effects.push({ kind:'num', x:creep.x, y:creep.y - .4, text:String(Math.round(dmg)), until:simTime + .7 });
   if (creep.hp <= 0) {
     creep.hp = 0;
     const owner = creep.half === PLAYER_HALF ? player : enemy;
     if (!creep.sent) { owner.gold += creep.bounty * BOUNTY_MULT; }
     else { owner.gold += creep.bounty; }   // send kill: bounty = its income value
+    if (creep.half === PLAYER_HALF) {
+      const paid = creep.sent ? creep.bounty : creep.bounty * BOUNTY_MULT;
+      if (paid >= 1) effects.push({ kind:'num', x:creep.x, y:creep.y - .7, text:`+${Math.round(paid)}g`, until:simTime + .9, color:'#ffd86b' });
+      if (creep.sent) questEvent('send_slayer');
+      waveBoardRetire(creep, false);
+    }
     if (creep.half === PLAYER_HALF) player.kills += 1;
     if (creep.half === PLAYER_HALF) {
       profile.totalKills += 1;
@@ -1511,6 +1613,8 @@ function launchNextWave() {
   enemy.gold += levelPay;
   if (wave >= 15) award('wave_15');
   if (wave === 11 && player.lives === player.startLives) award('perfect_10');
+  questEvent('reach_12', wave, true);
+  if (wave >= 8 && player.lives === player.startLives) questEvent('untouchable');
   const def = waveDefFor(wave);
   queueWaveSpawns(def);
   waveClock = WAVE_PERIOD;
@@ -1531,7 +1635,11 @@ function endMatch(result) {
   if (mp.active) mpSend({ t:'over', result });
   const earnedBefore = Object.keys(profile.achievements).length;
   profile.matches += 1;
-  if (result === 'victory') { profile.wins += 1; award('first_win'); }
+  if (result === 'victory') {
+    profile.wins += 1; award('first_win');
+    questEvent('win_any');
+    if (selectedRace.id === raceOfDay().id) questEvent('race_day');
+  }
   profile.bestWave = Math.max(profile.bestWave, wave);
   saveProfile();
   showMatchSummary(result, earnedBefore);
@@ -1551,12 +1659,56 @@ function showMatchSummary(result, earnedBefore) {
       <span>Send income<b>+${player.income}</b></span><span>Lifeforce<b>${player.lives} : ${enemy.lives}</b></span>
     </div>
     ${newBadges.length ? `<div class="summary-badges">${newBadges.map((a) => `<span>${a.icon} ${a.name}</span>`).join('')}</div>` : ''}
-    <div class="summary-actions"><button id="summary-again" class="action-button">Play again</button><button id="summary-back" class="ghost-button">Change race</button></div>
+    ${matchGrades.length ? `<div class="summary-grades">${matchGrades.map((g) => `<span class="grade-${g}">${g}</span>`).join('')}</div>` : ''}
+    <div class="summary-actions"><button id="summary-share" class="ghost-button">📸 Share</button><button id="summary-again" class="action-button">Play again</button><button id="summary-back" class="ghost-button">Change race</button></div>
   </div>`;
+  $('summary-share').addEventListener('click', () => shareMatchCard(result));
   $('summary-again').addEventListener('click', () => { box.classList.add('hidden'); if (mp.active) mpLeave(); startBattle(); });
   $('summary-back').addEventListener('click', () => { box.classList.add('hidden'); if (mp.active) mpLeave(); battleRunning = false; matchOver = false; $('battle-screen').classList.add('hidden'); $('race-screen').classList.remove('hidden'); renderRaceCards(); });
 }
 
+async function shareMatchCard(result) {
+  const card = document.createElement('canvas');
+  card.width = 840; card.height = 440;
+  const ctx = card.getContext('2d');
+  const race = selectedRace;
+  const grad = ctx.createLinearGradient(0, 0, 840, 440);
+  grad.addColorStop(0, '#0b1020'); grad.addColorStop(1, '#101a33');
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, 840, 440);
+  ctx.fillStyle = race.color; ctx.fillRect(0, 0, 10, 440);
+  ctx.globalAlpha = .12; ctx.fillStyle = race.color;
+  ctx.font = '300px sans-serif'; ctx.textAlign = 'right'; ctx.fillText(race.symbol, 830, 400);
+  ctx.globalAlpha = 1;
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#eafcff'; ctx.font = "700 44px 'DM Mono', monospace";
+  ctx.fillText('RIMEWALL', 44, 78);
+  ctx.fillStyle = result === 'victory' ? '#8fe6b8' : '#ff9faf'; ctx.font = "700 58px 'DM Mono', monospace";
+  ctx.fillText(result === 'victory' ? '★ VICTORY' : '☠ DEFEAT', 44, 160);
+  ctx.fillStyle = '#bcd2ff'; ctx.font = "24px 'DM Mono', monospace";
+  ctx.fillText(`${race.symbol} ${race.name} commander`, 44, 205);
+  ctx.fillStyle = '#eafcff'; ctx.font = "700 30px 'DM Mono', monospace";
+  ctx.fillText(`waves ${wave}   kills ${player.kills}   income +${player.income}`, 44, 265);
+  if (matchGrades.length) {
+    const colors = { S:'#ffd86b', A:'#8fe6b8', B:'#77d6ff', C:'#ff9faf' };
+    ctx.font = "700 34px 'DM Mono', monospace";
+    matchGrades.slice(0, 16).forEach((g, i) => { ctx.fillStyle = colors[g]; ctx.fillText(g, 44 + i * 34, 318); });
+  }
+  ctx.fillStyle = '#7f97c9'; ctx.font = "20px 'DM Mono', monospace";
+  ctx.fillText(`${todayKey()}  •  gjl15.github.io/rimewall`, 44, 396);
+  const blob = await new Promise((resolve) => card.toBlob(resolve, 'image/png'));
+  const file = new File([blob], 'rimewall-match.png', { type:'image/png' });
+  try {
+    if (navigator.canShare && navigator.canShare({ files:[file] })) { await navigator.share({ files:[file], title:'Rimewall' }); return; }
+  } catch (e) { /* fall through to clipboard/download */ }
+  try {
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png':blob })]);
+    showToast('<b>📸 Score card copied</b><span>Paste it anywhere — iMessage, Reddit, Discord.</span>');
+    return;
+  } catch (e) { /* fall through */ }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'rimewall-match.png'; a.click();
+  URL.revokeObjectURL(a.href);
+}
 function simulate(dt) {
   simTime += dt;
   if (matchMode !== 'classic') {
@@ -1575,7 +1727,7 @@ function simulate(dt) {
     effects.push({ kind:'skybolt', x:flag.c + .5, y:flag.r + .5, until:simTime + .3 });
   }
   for (let i = pendingSpawns.length - 1; i >= 0; i -= 1) {
-    if (pendingSpawns[i].at <= simTime) { const s = pendingSpawns.splice(i, 1)[0]; spawnCreep(s.waveDef, s.half, s.side, false); }
+    if (pendingSpawns[i].at <= simTime) { const s = pendingSpawns.splice(i, 1)[0]; spawningWaveIdx = s.waveIdx; spawnCreep(s.waveDef, s.half, s.side, false); spawningWaveIdx = null; }
   }
   creeps.forEach((creep) => updateCreep(creep, dt));
   for (let i = creeps.length - 1; i >= 0; i -= 1) if (creeps[i].hp <= 0) creeps.splice(i, 1);
@@ -1879,7 +2031,15 @@ function renderFrame() {
   });
   drawOpponentMirror(fxCtx);
   towers.forEach((tower) => drawTower(fxCtx, tower));
-  creeps.forEach((creep) => drawCreep(fxCtx, creep));
+  creeps.forEach((creep) => {
+    drawCreep(fxCtx, creep);
+    if (creep.hitAt && simTime - creep.hitAt < .1 && creep.hp > 0) {
+      fxCtx.save(); fxCtx.globalAlpha = .55 * (1 - (simTime - creep.hitAt) / .1);
+      fxCtx.fillStyle = '#ffffff';
+      fxCtx.beginPath(); fxCtx.arc(creep.x * CELL, creep.y * CELL, creep.boss ? 11 : 7, 0, Math.PI * 2); fxCtx.fill();
+      fxCtx.restore();
+    }
+  });
   projectiles.forEach((projectile) => drawProjectile(fxCtx, projectile));
   effects.forEach((effect) => drawEffect(fxCtx, effect));
   if (marquee) {
@@ -2406,6 +2566,7 @@ function buildAt(cell) {
   if (def.name === 'Laser Cannon' && player.lumber < 1) return log('The Laser Cannon costs 650g + 1 lumber, as in the original map.');
   player.gold -= def.cost;
   if (def.name === 'Laser Cannon') { player.lumber -= 1; player.lumberSpent += 1; if (player.lumberSpent >= 3) award('lumberjack'); renderTowerList(); }
+  questEvent('architect');
   const placed = makeTower(cell.r, cell.c, raceId, selectedTowerTier, 'player');
   placed.seq = ++buildSeq;
   addTower(placed);
@@ -2687,6 +2848,7 @@ function startBattle() {
   buildOverlay(); setupCanvasesOnce(); redrawBoard();
   ghost = null; ghostChips = []; flingV = null;
   wager = { tokens:3, cooldownUntil:0, pending:null };
+  waveBoards = {}; matchGrades = [];
   document.getElementById('wager-prompt')?.remove();
   fitBoardToViewport(); resetMapZoom();
   const rivalLabel = $('rival-name-label');
@@ -2992,6 +3154,7 @@ function renderRaceCards() {
     renderRaceDetail();
     $('race-detail')?.scrollIntoView({ block:'nearest', behavior:'smooth' });
   }));
+  renderDailyQuests();
   const cardSymbol = $('race-card-symbol');
   if (cardSymbol) { cardSymbol.textContent = selectedRace.symbol; cardSymbol.style.color = selectedRace.color; }
   const grid = $('race-grid');
@@ -3004,6 +3167,19 @@ function renderRaceCards() {
   const focusCard = grid.querySelector('.race-card.previewed') || grid.querySelector('.race-card.selected');
   focusCard?.scrollIntoView({ inline:'center', block:'nearest', behavior:'smooth' });
   renderProfileStrip();
+}
+function renderDailyQuests() {
+  const box = $('daily-quests');
+  if (!box) return;
+  const daily = ensureDaily();
+  const rod = raceOfDay();
+  box.innerHTML = `<p class="dq-title">🗒 DAILY QUESTS <small>element of the day: <span style="color:${rod.color}">${rod.symbol} ${rod.name}</span> • +25g starting gold each</small></p>
+    <div class="dq-rows">${dailyQuests().map((q) => {
+      const done = daily.done.includes(q.id);
+      const cur = Math.min(q.target, daily.progress[q.id] || 0);
+      return `<div class="dq-row ${done ? 'dq-done' : ''}"><span>${q.icon} ${q.name.replace('the element of the day', `${rod.symbol} ${rod.name}`)}</span>
+        <div class="dq-bar"><i style="width:${Math.round(cur / q.target * 100)}%"></i></div><b>${done ? '✓' : `${cur}/${q.target}`}</b></div>`;
+    }).join('')}</div>`;
 }
 function renderProfileStrip() {
   const strip = $('profile-strip');
