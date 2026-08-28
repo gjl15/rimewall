@@ -140,12 +140,13 @@ h1 span { color:var(--ice); }
 .resource b { font-size:11px; }
 .resource em { font-style:normal; }
 .battle-content { display:grid; grid-template-columns:minmax(0,1fr) 310px; gap:20px; padding-top:38px; }
+.battle-content > * { min-width:0; }   /* never let panel content (e.g. the tower strip) inflate the layout */
 .battle-title-row { justify-content:space-between; margin-bottom:22px; }
 h2 { margin-top:7px; font-size:clamp(23px,3vw,36px); letter-spacing:-.06em; }
 h2 span { color:#7583a6; }
 /* One finger scrolls the page over an unzoomed map (touch-action pan-y);
    JS switches to none while zoomed so one finger pans the map instead. */
-.map-viewport { position:relative; height:640px; overflow:hidden; border-radius:16px; background:#0a1626; border:1px solid #1d2c4a; touch-action:pan-y; }
+.map-viewport { position:relative; height:min(82vh, 940px); min-height:520px; overflow:hidden; border-radius:16px; background:#0a1626; border:1px solid #1d2c4a; touch-action:pan-y; }
 .map-frame { position:absolute; left:0; top:0; overflow:hidden; border:2px solid #d4f2ef; border-radius:10px; background:#7fc6d5; box-shadow:0 12px 30px #0006; transform-origin:0 0; will-change:transform; }
 #board-canvas,#fx-canvas { position:absolute; inset:0; width:100%; height:100%; display:block; }
 #fx-canvas { z-index:2; touch-action:none; }
@@ -177,7 +178,8 @@ h2 span { color:#7583a6; }
 .laser-row { border-color:#ff5f8f66 !important; }
 .profile-line { color:#8ba7c9 !important; }
 .td-sell-danger { color:#ff9faf !important; border-color:#5a2f3a !important; }
-.quick-send { position:absolute; left:50%; bottom:52px; transform:translateX(-50%); z-index:31; display:flex; gap:5px; max-width:94%; overflow-x:auto; padding:5px; border:1px solid #17325a99; border-radius:12px; background:#0d1424ee; box-shadow:0 6px 18px #0007; scrollbar-width:none; }
+.quick-send { position:absolute; left:50%; top:calc(100% - 104px); transform:translateX(-50%); z-index:31; display:flex; gap:5px; max-width:94%; overflow-x:auto; padding:5px; border:1px solid #17325a99; border-radius:12px; background:#0d1424ee; box-shadow:0 6px 18px #0007; scrollbar-width:none; }
+.quick-send:empty { display:none; }
 .qs-chip { display:flex; flex-direction:column; align-items:center; gap:1px; min-width:42px; min-height:42px; padding:5px 6px; border:1px solid #2e3b5c; border-radius:9px; background:#131b30; color:#e9edff; }
 .qs-chip span { font-size:15px; line-height:1.1; }
 .qs-chip b { color:#f5d36d; font:600 8px 'DM Mono',monospace; }
@@ -224,7 +226,13 @@ h2 span { color:#7583a6; }
   .match-state { grid-column:2/4; justify-self:end; }
   .test-button { min-height:38px; padding:8px 6px; font-size:9px; }
   .resources { grid-column:1/-1; width:100%; justify-content:space-between; gap:7px; }
-  .battle-content { padding-top:24px; }.battle-title-row { align-items:flex-start; gap:12px; }.battle-title-row .ghost-button { white-space:nowrap; }.map-viewport { height:74vh; min-height:430px; }.wave-banner { font-size:8px; }.ov { font-size:7px; }.ov small { font-size:6px; }.map-zoom-controls { right:8px; bottom:8px; }.zoom-hint { left:8px; bottom:11px; font-size:7px; }.debug-bar { gap:9px; font-size:8px; }.dbg-stats { flex-basis:100%; margin-left:0; }
+  .battle-content { padding-top:10px; }
+  /* phones: strip the header chrome so the board owns the screen */
+  .battle-title-row { margin-bottom:10px; align-items:center; gap:8px; }
+  .battle-title-row h2, .battle-title-row .eyebrow { display:none; }
+  .battle-title-row .title-actions { margin-left:auto; }
+  .battle-title-row .ghost-button { white-space:nowrap; padding:9px 10px; font-size:10px; }
+  .map-viewport { height:calc(100dvh - 200px); min-height:430px; }.wave-banner { font-size:8px; }.ov { font-size:7px; }.ov small { font-size:6px; }.map-zoom-controls { right:8px; bottom:8px; }.zoom-hint { left:8px; bottom:11px; font-size:7px; }.debug-bar { gap:9px; font-size:8px; }.dbg-stats { flex-basis:100%; margin-left:0; }
   /* tower line becomes a horizontal chip strip so the map stays on screen */
   .tower-list { display:grid; grid-auto-flow:column; grid-auto-columns:168px; max-height:none; overflow-x:auto; overflow-y:hidden; padding-bottom:6px; scrollbar-width:thin; }
   .tower-row { flex-direction:column; align-items:flex-start; gap:4px; }
@@ -1971,18 +1979,29 @@ let mapZoomScale = 1, mapOffsetX = 0, mapOffsetY = 0, frameBase = { left:0, top:
 const activeMapPointers = new Map();
 let pinchStartDistance = 0, pinchStartScale = 1, pinchStartOffset = { x:0, y:0 }, panStart = null, tapCandidate = null;
 
+let lastFitW = -1, lastFitH = -1;
 function fitBoardToViewport() {
   const viewport = $('map-viewport');
   const frame = $('map-frame');
-  if (!viewport || !frame) return;
+  if (!viewport || !frame) return false;
   const vw = viewport.clientWidth, vh = viewport.clientHeight;
+  if (vw < 60 || vh < 60) return false;   // layout not settled yet — the frame loop retries
+  lastFitW = vw; lastFitH = vh;
   const scale = Math.min(vw / BOARD_W, vh / BOARD_H);
   frameBase = { width:BOARD_W * scale, height:BOARD_H * scale, left:(vw - BOARD_W * scale) / 2, top:(vh - BOARD_H * scale) / 2 };
   frame.style.width = `${frameBase.width}px`;
   frame.style.height = `${frameBase.height}px`;
   frame.style.left = `${frameBase.left}px`;
   frame.style.top = `${frameBase.top}px`;
+  // the quick-send bar rides the board's bottom edge, wherever the board sits
+  const bar = $('quick-send');
+  if (bar) {
+    bar.style.left = `${frameBase.left + frameBase.width / 2}px`;
+    bar.style.bottom = '';
+    bar.style.top = `${Math.max(0, frameBase.top + frameBase.height - 104)}px`;
+  }
   applyMapTransform();
+  return true;
 }
 function applyMapTransform() {
   const viewport = $('map-viewport');
@@ -2098,7 +2117,11 @@ function frame(now) {
     hudClock -= dt;
     if (hudClock <= 0) { hudClock = .2; renderHud(); if (selectedTowerKey !== null) renderTowerDetails(); }
   }
-  if (!$('battle-screen').classList.contains('hidden')) renderFrame();
+  if (!$('battle-screen').classList.contains('hidden')) {
+    const viewport = $('map-viewport');
+    if (viewport && (frameBase.width < 10 || Math.abs(viewport.clientWidth - lastFitW) > 1 || Math.abs(viewport.clientHeight - lastFitH) > 1)) fitBoardToViewport();
+    renderFrame();
+  }
   requestAnimationFrame(frame);
 }
 
