@@ -91,6 +91,22 @@ h1 span { color:var(--ice); }
 .selection-bar #selected-desc { display:block; margin-top:3px; color:#929dbc; font-size:12px; }
 .selection-actions,.title-actions { display:flex; align-items:center; gap:8px; }
 .lives-pick { display:flex; align-items:center; gap:6px; color:#7185a7; font:500 9px 'DM Mono',monospace; letter-spacing:.1em; }
+.setup-bar { flex-direction:column; align-items:stretch; gap:12px; }
+.race-card-toggle { display:flex; align-items:center; gap:14px; padding:14px; border:1px solid var(--line); border-radius:12px; background:linear-gradient(150deg,#151e34,#0f1526); text-align:left; }
+.race-card-toggle .race-symbol { margin:0; flex:0 0 36px; }
+.race-card-copy { flex:1; min-width:0; }
+.race-card-copy strong { display:block; margin-top:4px; font-size:18px; }
+.race-card-copy span:last-child { display:block; margin-top:2px; color:#929dbc; font-size:11px; }
+.race-card-caret { color:#657293; font-size:14px; }
+.race-card-toggle[aria-expanded="true"] .race-card-caret { transform:rotate(180deg); }
+.setup-bar .selection-actions { justify-content:space-between; }
+.setup-bar .primary-button { width:100%; }
+.race-grid-wrap { margin-top:16px; }
+.tool-cards { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; }
+.tool-card { display:flex; flex-direction:column; align-items:flex-start; gap:3px; padding:13px 14px; border:1px solid #2b3859; border-radius:12px; background:#121a2eaa; text-align:left; color:inherit; }
+.tool-card span { font-size:17px; }
+.tool-card strong { font-size:13px; }
+.tool-card small { color:#8590ae; font-size:10px; }
 .lives-pick select { padding:8px 6px; border:1px solid #2e3b5c; border-radius:8px; color:#a5afd0; background:#10172a; font:500 10px 'DM Mono',monospace; }
 .primary-button,.action-button { border:0; border-radius:10px; background:var(--ice); color:#07101c; font-weight:800; box-shadow:0 8px 22px #77d6ff24; }
 .primary-button { padding:14px 18px; white-space:nowrap; }
@@ -251,8 +267,11 @@ h2 span { color:#7583a6; }
 .resource.enemy b { color:#ff8a9a; font:700 9px 'DM Mono',monospace; letter-spacing:.06em; }
 .resource.enemy em { color:#ff8a9a; font-weight:700; }
 .vs-mark { color:#657293; font-size:11px; }
-.undo-pill { position:fixed; left:50%; bottom:max(150px, calc(env(safe-area-inset-bottom) + 136px)); transform:translateX(-50%); z-index:185; padding:11px 16px; border:1px solid #ffd86b; border-radius:99px; background:#182761f5; color:#ffe9a5; font:600 12px 'DM Mono',monospace; box-shadow:0 8px 24px #000a, 0 0 14px #ffd86b55; animation:toast-in .2s ease; }
-.undo-pill:active { transform:translateX(-50%) scale(.95); }
+.undo-slot { opacity:.45; }
+.undo-slot.undo-live { opacity:1; border-color:#ffd86b; color:#ffe9a5; background:#3a3010; box-shadow:0 0 10px #ffd86b44; }
+.undo-slot.spotlight { animation:spotlight-pulse 1.1s ease-in-out infinite; }
+@keyframes spotlight-pulse { 50% { box-shadow:0 0 0 7px #ffd86b33, 0 0 22px #ffd86baa; } }
+@media (prefers-reduced-motion: reduce) { .undo-slot.spotlight { animation:none; box-shadow:0 0 0 4px #ffd86b55; } }
 .race-chips { display:flex; gap:6px; margin-bottom:8px; }
 .race-chip { flex:1; min-height:38px; padding:8px; border:1px solid #2e3b5c; border-radius:8px; color:#a5afd0; background:#10172a; font-size:11px; }
 .race-chip.active { border-color:var(--race); color:#ecf0ff; box-shadow:inset 0 0 0 1px var(--race); }
@@ -278,7 +297,7 @@ h2 span { color:#7583a6; }
 .td-actions .ghost-button { flex:1; }.send-card > div { flex:1; }.send-card strong,.send-card small { display:block; }.send-card strong { font-size:10px; }.send-card small { margin-top:3px; color:#8995b4; font-size:9px; }.send-card b { color:#f5d36d; font:10px 'DM Mono',monospace; }.send-icon { display:grid; place-items:center; width:28px; height:28px; border-radius:7px; color:#ff9faf; background:#ff8a9a16; }.hint-box { margin-top:22px; padding:12px; border-left:2px solid #77d6ff; background:#0c1526; }.hint-box span { color:#77d6ff; font:500 9px 'DM Mono',monospace; letter-spacing:.13em; }.hint-box p { margin-top:7px; color:#93a0be; font-size:10px; line-height:1.5; }
 .income-callout { margin:0 0 10px; padding:9px; border:1px solid #385848; border-radius:8px; background:#12271f; }.income-callout strong,.income-callout span { display:block; }.income-callout strong { color:#9de4b5; font-size:10px; }.income-callout span { margin-top:3px; color:#779d89; font-size:9px; line-height:1.35; }
 @media (max-width:900px) { .race-grid { grid-template-columns:repeat(2,1fr); }.battle-content { grid-template-columns:1fr; }.battle-main { min-width:0; }.map-viewport { height:600px; } }
-@media (max-width:560px) { .app-shell { padding:16px max(14px, env(safe-area-inset-left)) max(24px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-right)); }.brand-row { margin-bottom:32px; align-items:flex-start; }.version-pill { font-size:8px; padding:8px; }.race-grid { gap:8px; }.race-card { min-height:126px; padding:14px; }.race-symbol { margin-bottom:12px; }.race-card strong { font-size:14px; }.selection-bar { align-items:flex-start; flex-direction:column; }.primary-button { width:100%; }
+@media (max-width:560px) { .app-shell { padding:16px max(14px, env(safe-area-inset-left)) max(24px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-right)); }.brand-row { margin-bottom:16px; align-items:flex-start; } h1 { font-size:34px; } .lede { display:none; } .setup-bar .selection-actions { flex-wrap:wrap; }.version-pill { font-size:8px; padding:8px; }.race-grid { gap:8px; }.race-card { min-height:126px; padding:14px; }.race-symbol { margin-bottom:12px; }.race-card strong { font-size:14px; }.selection-bar { align-items:flex-start; flex-direction:column; }.primary-button { width:100%; }
   /* compact HUD grid: brand+wave row, three equal buttons, full-width resources */
   .hud { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; padding:10px; }
   .hud-brand { grid-column:1/2; }
@@ -312,7 +331,6 @@ h2 span { color:#7583a6; }
       <div id="toast-layer" class="toast-layer" aria-live="polite"></div>
       <div id="match-summary" class="match-summary hidden"></div>
       <button id="wisp" class="wisp hidden" aria-label="Command wisp — tap for towers and sends, drag to move"><span>✦</span></button>
-      <button id="undo-pill" class="undo-pill hidden">↩ Undo</button>
       <div id="command-sheet" class="command-sheet hidden"></div>
       <section id="race-screen" class="screen race-screen">
         <div class="brand-row">
@@ -324,9 +342,20 @@ h2 span { color:#7583a6; }
           <div class="version-pill">v3.0-inspired</div>
         </div>
 
-        <div class="rule-line"><span>SELECT YOUR RACE</span><i></i><small>9 ELEMENTS</small></div>
+        <div class="selection-bar setup-bar">
+          <button id="race-card" class="race-card-toggle" aria-expanded="false">
+            <span id="race-card-symbol" class="race-symbol">❄</span>
+            <span class="race-card-copy"><span class="selection-kicker">YOUR ELEMENT — TAP TO CHANGE</span><strong id="selected-name">Ice</strong><span id="selected-desc">Slows enemies and buys your maze time.</span></span>
+            <span class="race-card-caret">▾</span>
+          </button>
+          <div class="selection-actions"><label class="lives-pick" for="mode-select">MODE <select id="mode-select"><option value="skirmish" selected>Waves vs rival</option><option value="classic">Classic Wars • sends only</option></select></label><label class="lives-pick" for="lives-select">LIFEFORCE <select id="lives-select"><option value="25">25 • classic</option><option value="50">50 • veteran</option><option value="100" selected>100 • easy</option></select></label></div>
+          <button id="start-button" class="primary-button">Enter the battlefield <span>→</span></button>
+        </div>
 
-        <div id="race-grid" class="race-grid" aria-label="Race selection"></div>
+        <div id="race-grid-wrap" class="race-grid-wrap hidden">
+          <div class="rule-line"><span>SELECT YOUR RACE</span><i></i><small>9 ELEMENTS</small></div>
+          <div id="race-grid" class="race-grid" aria-label="Race selection"></div>
+        </div>
 
         <div id="profile-strip" class="profile-strip"></div>
 
@@ -341,14 +370,12 @@ h2 span { color:#7583a6; }
           <p id="mp-status" class="mp-status" aria-live="polite"></p>
         </div>
 
-        <div class="selection-bar">
-          <div id="selection-copy">
-            <span class="selection-kicker">CURRENT CHOICE</span>
-            <strong id="selected-name">Ice</strong>
-            <span id="selected-desc">Slows enemies and buys your maze time.</span>
-          </div>
-          <div class="selection-actions"><label class="lives-pick" for="mode-select">MODE <select id="mode-select"><option value="skirmish" selected>Waves vs rival</option><option value="classic">Classic Wars • sends only</option></select></label><label class="lives-pick" for="lives-select">LIFEFORCE <select id="lives-select"><option value="25">25 • classic</option><option value="50">50 • veteran</option><option value="100" selected>100 • easy</option></select></label><button id="drawpad-button" class="ghost-button">Draw map</button><button id="collab-button" class="ghost-button">Build hub</button><button id="start-button" class="primary-button">Enter the battlefield <span>→</span></button></div>
+        <div class="tool-cards">
+          <button id="open-drawpad-card" class="tool-card"><span>🗺</span><strong>Map builder</strong><small>Sketch your own battlefield</small></button>
+          <button id="open-collab-card" class="tool-card"><span>🤝</span><strong>Build hub</strong><small>Tasks, notes, and handoff</small></button>
         </div>
+
+
       </section>
 
       <section id="collab-screen" class="screen collab-screen hidden">
@@ -447,6 +474,7 @@ h2 span { color:#7583a6; }
           <button id="push-wave-button" class="test-button" title="Testing shortcut: immediately start the next wave">Push wave</button>
           <button id="pause-button" class="test-button" aria-pressed="false">Pause</button>
           <button id="restart-button" class="test-button">Restart</button>
+          <button id="undo-slot" class="test-button undo-slot" disabled>↩ UNDO</button>
           <div class="resources">
             <span class="resource gold"><b>◆</b><em id="gold-label">30</em></span>
             <span class="resource lumber" title="Lumber — buys shrine upgrades, a second element, or a Laser Cannon"><b>🪵</b><em id="lumber-label">0</em></span>
@@ -464,7 +492,7 @@ h2 span { color:#7583a6; }
                 <p class="eyebrow">FORCE 1 VS FORCE 2</p>
                 <h2>Your defense <span>is the weapon.</span></h2>
               </div>
-              <div class="title-actions"><button id="drawpad-battle-button" class="ghost-button">Draw map</button><button id="back-button" class="ghost-button">← Change race</button></div>
+              <div class="title-actions"><button id="back-button" class="ghost-button">← Change race</button></div>
             </div>
 
             <div class="map-viewport" id="map-viewport" aria-label="Zoomable WMW map">
@@ -678,9 +706,8 @@ function towerTierUp(tower) {
   const next = towerDef(tower.raceId, tower.tier + 1);
   return { next, cost:Math.max(5, next.cost - towerDef(tower.raceId, tower.tier).cost) };
 }
-const SELL_GRACE = 3;   // seconds after placing during which selling refunds 100%
-function sellInGrace(tower) { return typeof simTime === 'number' && simTime - (tower.placedAt ?? -99) < SELL_GRACE; }
-function towerSellValue(tower) { return sellInGrace(tower) ? tower.invested : Math.round(tower.invested * .75); }
+function underConstruction(tower) { return typeof simTime === 'number' && simTime < (tower.buildUntil ?? 0); }
+function towerSellValue(tower) { return underConstruction(tower) ? tower.invested : Math.round(tower.invested * .75); }
 
 /* ---------------- Authoritative map model (traced from assets/reference-map.png) ----------------
    32×49 cells. Horizontal navy river band through the middle with the creep gate at its center;
@@ -937,7 +964,7 @@ let selectedTowerKey = null;       // primary selected tower
 let selectedGroupKeys = [];        // all selected towers (double-tap selects every like tower)
 let lastTapKey = null, lastTapAt = 0;
 let lastPlaced = null;   // drives the 3-second undo pill
-let boxSelectMode = false, marquee = null;   // ▭ utility: drag a rectangle to select towers
+let selectMode = null, marquee = null;   // ▭ box / ➰ lasso tower selection utilities
 const towers = new Map();          // idx(r,c) → tower instance
 let towersVersion = 0;
 const creeps = [];
@@ -966,7 +993,8 @@ function resetMatchState() {
 const priorities = ['first', 'last', 'strong', 'weak', 'near'];
 function makeTower(r, c, raceId, tier, owner) {
   const def = towerDef(raceId, tier);
-  return { key:idx(r, c), r, c, raceId, tier, level:0, owner, cooldown:0, priority:'first', kills:0, invested:def.cost, placedAt:simTime, blockHp:4 + tier, blockMaxHp:4 + tier, underAttack:0 };
+  const buildTime = 1.2 + tier * .4;   // WC3-style construction; canceling during it refunds fully
+  return { key:idx(r, c), r, c, raceId, tier, level:0, owner, cooldown:0, priority:'first', kills:0, invested:def.cost, placedAt:simTime, buildTime, buildUntil:simTime + buildTime, blockHp:4 + tier, blockMaxHp:4 + tier, underAttack:0 };
 }
 function addTower(tower) { towers.set(tower.key, tower); towersVersion += 1; refreshRouteDebug(); }
 function removeTower(key) { towers.delete(key); towersVersion += 1; if (selectedTowerKey === key) selectedTowerKey = null; selectedGroupKeys = selectedGroupKeys.filter((k) => k !== key); refreshRouteDebug(); }
@@ -1234,6 +1262,7 @@ function projectileFlightTime(special) {
   return .22;
 }
 function updateTower(tower, dt) {
+  if (underConstruction(tower)) return;   // still building — inert but blocks the maze
   tower.cooldown -= dt;
   if (tower.cooldown > 0) return;
   const stats = towerLiveStats(tower);
@@ -1508,12 +1537,23 @@ function drawTower(ctx, tower) {
   const stats = towerLiveStats(tower);
   const x = tower.c * CELL, y = tower.r * CELL;
   const shake = tower.underAttack > simTime ? (Math.random() - .5) * 3 : 0;
+  const building = underConstruction(tower);
   ctx.save();
   ctx.translate(x + CELL / 2 + shake, y + CELL / 2);
+  if (building) ctx.globalAlpha = .6;
   ctx.fillStyle = '#0b1425';
   ctx.strokeStyle = stats.color; ctx.lineWidth = tower.key === selectedTowerKey ? 3 : 1.6;
+  if (building) ctx.setLineDash([4, 3]);
   const half = CELL / 2 - 2.5;
   ctx.beginPath(); ctx.roundRect(-half, -half, half * 2, half * 2, 5); ctx.fill(); ctx.stroke();
+  ctx.setLineDash([]);
+  if (building) {
+    const progress = 1 - (tower.buildUntil - simTime) / tower.buildTime;
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#1b0d18'; ctx.fillRect(-half, half + 1, half * 2, 3);
+    ctx.fillStyle = '#ffd86b'; ctx.fillRect(-half, half + 1, half * 2 * Math.max(0, Math.min(1, progress)), 3);
+    ctx.globalAlpha = .6;
+  }
   ctx.fillStyle = stats.color; ctx.font = `${tower.tier >= 3 ? 14 : 12}px "DM Mono", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(stats.symbol, 0, 1);
   for (let i = 0; i < Math.min(5, tower.tier); i += 1) { ctx.fillRect(-half + 2 + i * 3.4, half - 4, 2.4, 2); }
@@ -1707,9 +1747,15 @@ function renderFrame() {
     fxCtx.save();
     fxCtx.strokeStyle = '#77d6ff'; fxCtx.lineWidth = 1.6; fxCtx.setLineDash([6, 4]); fxCtx.globalAlpha = .9;
     fxCtx.fillStyle = '#77d6ff18';
-    const mx = Math.min(marquee.x0, marquee.x1) * CELL, my = Math.min(marquee.y0, marquee.y1) * CELL;
-    const mw = Math.abs(marquee.x1 - marquee.x0) * CELL, mh = Math.abs(marquee.y1 - marquee.y0) * CELL;
-    fxCtx.fillRect(mx, my, mw, mh); fxCtx.strokeRect(mx, my, mw, mh);
+    if (marquee.mode === 'lasso') {
+      fxCtx.beginPath();
+      marquee.points.forEach((p, i) => i ? fxCtx.lineTo(p.x * CELL, p.y * CELL) : fxCtx.moveTo(p.x * CELL, p.y * CELL));
+      fxCtx.closePath(); fxCtx.fill(); fxCtx.stroke();
+    } else {
+      const mx = Math.min(marquee.x0, marquee.x1) * CELL, my = Math.min(marquee.y0, marquee.y1) * CELL;
+      const mw = Math.abs(marquee.x1 - marquee.x0) * CELL, mh = Math.abs(marquee.y1 - marquee.y0) * CELL;
+      fxCtx.fillRect(mx, my, mw, mh); fxCtx.strokeRect(mx, my, mw, mh);
+    }
     fxCtx.restore();
   }
   // selection feedback: pulsing gold brackets on every selected tower, range ring on the primary
@@ -1775,12 +1821,21 @@ function renderQuickSend() {
     document.querySelector(`[data-send="${chip.dataset.qsend}"]`)?.click();
   }));
 }
-function renderUndoPill() {
-  const pill = $('undo-pill');
-  if (!pill) return;
-  const live = lastPlaced && towers.has(lastPlaced.key) && simTime - lastPlaced.at < SELL_GRACE;
-  pill.classList.toggle('hidden', !live);
-  if (live) pill.textContent = `↩ Undo ${lastPlaced.name} (+${lastPlaced.cost}g)`;
+function renderUndoSlot() {
+  const slot = $('undo-slot');
+  if (!slot) return;
+  const t = lastPlaced ? towers.get(lastPlaced.key) : null;
+  const live = Boolean(t && t.owner === 'player' && underConstruction(t));
+  slot.disabled = !live;
+  slot.classList.toggle('undo-live', live);
+  slot.textContent = live ? `↩ CANCEL +${t.invested}g` : '↩ UNDO';
+  if (live && !profile.tutorialUndoSeen) {
+    profile.tutorialUndoSeen = true;
+    saveProfile();
+    slot.classList.add('spotlight');
+    showToast('<b>↩ Undo, the WC3 way</b><span>Towers take a moment to build — hit CANCEL during construction for a FULL refund.</span>');
+    window.setTimeout(() => slot.classList.remove('spotlight'), 9000);
+  }
 }
 function renderHud() {
   $('gold-label').textContent = Math.floor(player.gold);
@@ -1796,7 +1851,7 @@ function renderHud() {
   refreshSendLocks();
   renderQuickSend();
   renderCommandSheet();
-  renderUndoPill();
+  renderUndoSlot();
   $('lives-label').textContent = player.lives;
   $('enemy-lives-label').textContent = enemy.lives;
   $('player-ship-label').textContent = `YOUR SHIP • ${player.lives}`;
@@ -1936,7 +1991,7 @@ function renderTowerDetails() {
   const tierable = group.filter((t) => towerTierUp(t));
   const tierCostAll = tierable.reduce((sum, t) => sum + towerTierUp(t).cost, 0);
   const sellAll = group.reduce((sum, t) => sum + towerSellValue(t), 0);
-  const graceNote = !many && sellInGrace(tower) ? ' • full refund' : many ? '' : ' • 75%';
+  const graceNote = !many && underConstruction(tower) ? ' • cancel build, full refund' : many ? '' : ' • 75%';
   panel.innerHTML = `
     <div class="td-head"><span class="td-rune" style="--race:${stats.color}">${stats.symbol}</span>
       <div><strong>${many ? `${group.length} × ` : ''}${stats.name}</strong><small>${isYours ? (many ? 'Batch selection — actions apply to all' : `Level ${(tower.level || 0) + 1} • ${tower.kills} kills`) : 'Rival tower'}</small></div>
@@ -2025,12 +2080,12 @@ function sellTowerAt(cell) {
   if (!tower || tower.owner !== 'player') return false;
   const name = towerLiveStats(tower).name;
   const refund = towerSellValue(tower);
-  const full = refund === tower.invested;
+  const full = underConstruction(tower);
   player.gold += refund;
   removeTower(key);
   if (navigator.vibrate) navigator.vibrate(25);
-  log(`${name} sold for ${refund}g${full ? ' (full refund)' : ' (75%)'}. ${cachedRouteText}.`);
-  showToast(`<b>Sold ${name}</b><span>+${refund}g${full ? ' — full refund' : ''}</span>`);
+  log(`${name} ${full ? 'construction canceled' : 'sold'} for ${refund}g${full ? ' (full refund)' : ' (75%)'}. ${cachedRouteText}.`);
+  showToast(`<b>${full ? 'Canceled' : 'Sold'} ${name}</b><span>+${refund}g${full ? ' — full refund' : ''}</span>`);
   renderHud(); renderTowerDetails();
   return true;
 }
@@ -2156,15 +2211,14 @@ function setupMapZoom() {
     if (cell) sellTowerAt(cell);
   });
   viewport.addEventListener('pointerdown', (event) => {
-    if ((boxSelectMode || event.shiftKey) && battleRunning && event.button !== 2) {
+    if ((selectMode || event.shiftKey) && battleRunning && event.button !== 2) {
       const rect = $('fx-canvas').getBoundingClientRect();
-      marquee = {
-        x0:(event.clientX - rect.left) / rect.width * COLS,
-        y0:(event.clientY - rect.top) / rect.height * ROWS,
-        x1:(event.clientX - rect.left) / rect.width * COLS,
-        y1:(event.clientY - rect.top) / rect.height * ROWS,
-        id:event.pointerId
-      };
+      const px = (event.clientX - rect.left) / rect.width * COLS;
+      const py = (event.clientY - rect.top) / rect.height * ROWS;
+      const mode = selectMode || 'box';
+      marquee = mode === 'lasso'
+        ? { mode, points:[{ x:px, y:py }], id:event.pointerId }
+        : { mode:'box', x0:px, y0:py, x1:px, y1:py, id:event.pointerId };
       try { viewport.setPointerCapture(event.pointerId); } catch (e) {}
       event.preventDefault();
       return;
@@ -2195,8 +2249,14 @@ function setupMapZoom() {
   viewport.addEventListener('pointermove', (event) => {
     if (marquee && marquee.id === event.pointerId) {
       const rect = $('fx-canvas').getBoundingClientRect();
-      marquee.x1 = (event.clientX - rect.left) / rect.width * COLS;
-      marquee.y1 = (event.clientY - rect.top) / rect.height * ROWS;
+      const px = (event.clientX - rect.left) / rect.width * COLS;
+      const py = (event.clientY - rect.top) / rect.height * ROWS;
+      if (marquee.mode === 'lasso') {
+        const last = marquee.points[marquee.points.length - 1];
+        if (Math.hypot(px - last.x, py - last.y) > .3) marquee.points.push({ x:px, y:py });
+      } else {
+        marquee.x1 = px; marquee.y1 = py;
+      }
       event.preventDefault();
       return;
     }
@@ -2219,16 +2279,32 @@ function setupMapZoom() {
   });
   const endPointer = (event) => {
     if (marquee && marquee.id === event.pointerId) {
-      const [xa, xb] = [Math.min(marquee.x0, marquee.x1), Math.max(marquee.x0, marquee.x1)];
-      const [ya, yb] = [Math.min(marquee.y0, marquee.y1), Math.max(marquee.y0, marquee.y1)];
-      const picked = [...towers.values()].filter((t) => t.owner === 'player' && t.c + .5 >= xa && t.c + .5 <= xb && t.r + .5 >= ya && t.r + .5 <= yb);
-      marquee = null; boxSelectMode = false;
+      let picked = [];
+      if (marquee.mode === 'lasso' && marquee.points.length > 2) {
+        const poly = marquee.points;
+        const inside = (x, y) => {
+          let hit = false;
+          for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+            if ((poly[i].y > y) !== (poly[j].y > y) && x < (poly[j].x - poly[i].x) * (y - poly[i].y) / (poly[j].y - poly[i].y) + poly[i].x) hit = !hit;
+          }
+          return hit;
+        };
+        picked = [...towers.values()].filter((t) => t.owner === 'player' && inside(t.c + .5, t.r + .5));
+      } else if (marquee.mode === 'box') {
+        const [xa, xb] = [Math.min(marquee.x0, marquee.x1), Math.max(marquee.x0, marquee.x1)];
+        const [ya, yb] = [Math.min(marquee.y0, marquee.y1), Math.max(marquee.y0, marquee.y1)];
+        picked = [...towers.values()].filter((t) => t.owner === 'player' && t.c + .5 >= xa && t.c + .5 <= xb && t.r + .5 >= ya && t.r + .5 <= yb);
+      }
+      marquee = null;
       if (picked.length) {
+        selectMode = null;   // disarm only on a successful catch
         selectedGroupKeys = picked.map((t) => t.key);
         selectedTowerKey = picked[0].key;
-        log(`${picked.length} tower${picked.length > 1 ? 's' : ''} box-selected.`);
+        log(`${picked.length} tower${picked.length > 1 ? 's' : ''} selected.`);
         renderTowerDetails();
         if (touchUI()) openCommandSheet('tower'); else { sheetKey = ''; renderCommandSheet(); }
+      } else if (selectMode) {
+        log('Nothing caught — still armed. Drag over your own towers, or reopen the wisp to disarm.');
       }
       return;
     }
@@ -2546,8 +2622,14 @@ function renderRaceCards() {
     selectedRace = race;
     $('selected-name').textContent = selectedRace.name;
     $('selected-desc').textContent = selectedRace.desc;
+    const cardSymbol = $('race-card-symbol');
+    if (cardSymbol) { cardSymbol.textContent = selectedRace.symbol; cardSymbol.style.color = selectedRace.color; }
+    $('race-grid-wrap')?.classList.add('hidden');
+    $('race-card')?.setAttribute('aria-expanded', 'false');
     renderRaceCards();
   }));
+  const cardSymbol = $('race-card-symbol');
+  if (cardSymbol) { cardSymbol.textContent = selectedRace.symbol; cardSymbol.style.color = selectedRace.color; }
   renderProfileStrip();
 }
 function renderProfileStrip() {
@@ -2928,14 +3010,17 @@ function renderCommandSheet() {
     <div class="sheet-bar">
       <button class="sheet-tab ${sheetTab === 'towers' ? 'on' : ''}" data-sheet-tab="towers">⛫ Towers</button>
       <button class="sheet-tab ${sheetTab === 'sends' ? 'on' : ''}" data-sheet-tab="sends">✦ Sends</button>
-      <button class="sheet-tab ${sheetTab === 'tower' ? 'on' : ''}" data-sheet-tab="tower">🔍 Tower</button>
+      <button class="sheet-tab ${sheetTab === 'tower' ? 'on' : ''}" data-sheet-tab="tower">🛠 Inspect</button>
       <button class="sheet-tab ${sheetTab === 'learn' ? 'on' : ''}" data-sheet-tab="learn">🎓 Learn</button>
       <button id="sheet-close" class="sheet-tab" aria-label="Close">✕</button>
     </div>
     <div class="sheet-econ">
       <button id="sheet-lumber" class="econ-chip" ${player.gold < LUMBER_PRICE ? 'disabled' : ''}>🪵 ×${player.lumber} <i>buy • ${LUMBER_PRICE}g</i></button>
       ${player.shrine < SHRINE_MAX ? `<button id="sheet-shrine" class="econ-chip" ${player.lumber < 1 ? 'disabled' : ''}>⛩ Shrine L${player.shrine} <i>upgrade • 1🪵</i></button>` : `<span class="econ-chip econ-max">⛩ Shrine MAX</span>`}
-      <button id="sheet-boxsel" class="econ-chip ${boxSelectMode ? 'econ-on' : ''}">▭ <i>box select</i></button>
+      <button id="sheet-boxsel" class="econ-chip ${selectMode === 'box' ? 'econ-on' : ''}">▭ <i>box</i></button>
+      <button id="sheet-lasso" class="econ-chip ${selectMode === 'lasso' ? 'econ-on' : ''}">➰ <i>lasso</i></button>
+      <button id="sheet-routes" class="econ-chip ${debug.routes ? 'econ-on' : ''}">🧭 <i>routes</i></button>
+      <button id="sheet-ranges" class="econ-chip ${debug.ranges ? 'econ-on' : ''}">◎ <i>ranges</i></button>
       <button id="sheet-exit" class="econ-chip">⏏ <i>exit</i></button>
       <label class="sheet-opacity" title="Slide left to see the board through this panel">◐<input id="sheet-opacity" type="range" min="25" max="100" value="${sheetOpacity()}" /></label>
     </div>${body}`;
@@ -2961,10 +3046,17 @@ function renderCommandSheet() {
   sheet.querySelectorAll('[data-sheet-act]').forEach((b) => b.addEventListener('click', () => towerAction(b.dataset.sheetAct)));
   $('sheet-exit').addEventListener('click', () => { closeCommandSheet(); $('back-button')?.click(); });
   $('sheet-boxsel').addEventListener('click', () => {
-    boxSelectMode = !boxSelectMode;
-    if (boxSelectMode) { closeCommandSheet(); log('Box select armed — drag a rectangle over your towers.'); }
+    selectMode = selectMode === 'box' ? null : 'box';
+    if (selectMode) { closeCommandSheet(); log('Box select armed — drag a rectangle over your towers. It stays armed until it catches some.'); }
     sheetKey = ''; renderCommandSheet();
   });
+  $('sheet-lasso').addEventListener('click', () => {
+    selectMode = selectMode === 'lasso' ? null : 'lasso';
+    if (selectMode) { closeCommandSheet(); log('Lasso armed — draw freehand around your towers.'); }
+    sheetKey = ''; renderCommandSheet();
+  });
+  $('sheet-routes').addEventListener('click', () => { debug.routes = !debug.routes; const cb = $('dbg-routes'); if (cb) cb.checked = debug.routes; sheetKey = ''; renderCommandSheet(); });
+  $('sheet-ranges').addEventListener('click', () => { debug.ranges = !debug.ranges; const cb = $('dbg-ranges'); if (cb) cb.checked = debug.ranges; sheetKey = ''; renderCommandSheet(); });
 }
 function setupWisp() {
   const wisp = $('wisp');
@@ -3004,8 +3096,8 @@ document.querySelectorAll('[data-tab]').forEach((tab) => tab.addEventListener('c
   $('send-panel').classList.toggle('hidden', tab.dataset.tab !== 'send');
 }));
 $('start-button').addEventListener('click', startBattle);
-$('drawpad-button').addEventListener('click', () => openDrawpad('race-screen'));
-$('collab-button').addEventListener('click', openCollabDashboard);
+$('open-drawpad-card')?.addEventListener('click', () => openDrawpad('race-screen'));
+$('open-collab-card')?.addEventListener('click', openCollabDashboard);
 $('collab-back-button').addEventListener('click', () => { $('collab-screen').classList.add('hidden'); $('race-screen').classList.remove('hidden'); });
 $('collab-map-button').addEventListener('click', () => openDrawpad('collab-screen'));
 $('collab-test-button').addEventListener('click', startBattle);
@@ -3030,7 +3122,7 @@ $('collab-export-button').addEventListener('click', () => {
   const payload = JSON.stringify({ project:'Wintermaul Wars Remake', exportedAt:new Date().toISOString(), tasks:collabTasks }, null, 2);
   const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([payload], { type:'application/json' })); link.download = 'wmw-collaboration-tasks.json'; link.click(); URL.revokeObjectURL(link.href);
 });
-$('drawpad-battle-button').addEventListener('click', () => openDrawpad('battle-screen'));
+$('drawpad-battle-button')?.addEventListener('click', () => openDrawpad('battle-screen'));
 $('drawpad-back-button').addEventListener('click', closeDrawpad);
 $('back-button').addEventListener('click', () => {
   if (mp.active) mpLeave();
@@ -3071,10 +3163,17 @@ document.addEventListener('keydown', (event) => {
   if (key === 'escape') { selectedTowerKey = null; selectedGroupKeys = []; renderTowerDetails(); }
   if (key === 'p') toggleBattlePause();
 });
-$('undo-pill')?.addEventListener('click', () => {
-  if (lastPlaced && towers.has(lastPlaced.key)) sellTowerAt({ r:lastPlaced.r, c:lastPlaced.c });
+$('race-card')?.addEventListener('click', () => {
+  const wrap = $('race-grid-wrap');
+  if (!wrap) return;
+  const open = wrap.classList.toggle('hidden');
+  $('race-card').setAttribute('aria-expanded', String(!open));
+});
+$('undo-slot')?.addEventListener('click', () => {
+  const t = lastPlaced ? towers.get(lastPlaced.key) : null;
+  if (t && underConstruction(t)) sellTowerAt({ r:lastPlaced.r, c:lastPlaced.c });
   lastPlaced = null;
-  renderUndoPill();
+  renderUndoSlot();
 });
 setupWisp();
 $('ui-mode-select')?.addEventListener('change', (event) => {
