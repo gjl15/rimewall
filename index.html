@@ -553,7 +553,9 @@ function towerTierUp(tower) {
   const next = towerDef(tower.raceId, tower.tier + 1);
   return { next, cost:Math.max(5, next.cost - towerDef(tower.raceId, tower.tier).cost) };
 }
-function towerSellValue(tower) { return Math.round(tower.invested * .75); }
+const SELL_GRACE = 3;   // seconds after placing during which selling refunds 100%
+function sellInGrace(tower) { return typeof simTime === 'number' && simTime - (tower.placedAt ?? -99) < SELL_GRACE; }
+function towerSellValue(tower) { return sellInGrace(tower) ? tower.invested : Math.round(tower.invested * .75); }
 
 /* ---------------- Authoritative map model (traced from assets/reference-map.png) ----------------
    32×49 cells. Horizontal navy river band through the middle with the creep gate at its center;
@@ -787,7 +789,8 @@ function showToast(html) {
 }
 loadProfile();
 function sendCreepDef(send) {
-  return { name:send.name, role:send.air ? 'air' : 'standard', hp:send.hp, spd:send.spd, armor:send.armor, aClass:send.aClass, air:Boolean(send.air), bounty:Math.round(send.cost * .125), lives:1 };
+  // killing a send pays the defender exactly the income it granted its sender
+  return { name:send.name, role:send.air ? 'air' : 'standard', hp:send.hp, spd:send.spd, armor:send.armor, aClass:send.aClass, air:Boolean(send.air), bounty:send.income, lives:1 };
 }
 
 /* ---------------- Match state ---------------- */
@@ -804,7 +807,9 @@ let selectedRace = races[0];
 let selectedTowerTier = 0;
 let buildRaceIdx = 0;              // index into player.races — which licensed element the build panel shows
 let matchMode = 'skirmish';        // 'skirmish' = rounds vs the rival AI; 'classic' = sends only, no neutral waves
-let selectedTowerKey = null;       // key of a placed tower currently inspected
+let selectedTowerKey = null;       // primary selected tower
+let selectedGroupKeys = [];        // all selected towers (double-tap selects every like tower)
+let lastTapKey = null, lastTapAt = 0;
 const towers = new Map();          // idx(r,c) → tower instance
 let towersVersion = 0;
 const creeps = [];
@@ -826,17 +831,17 @@ function resetMatchState() {
   buildRaceIdx = 0;
   enemy = { gold:START_GOLD, income:0, lives, lumber:0, shrine:1, raceId:races[Math.floor(Math.random() * races.length)].id, spotIndex:0, buildClock:2, sendClock:matchMode === 'classic' ? 14 : 24 };
   wave = 0; waveClock = FIRST_WAVE_DELAY; incomeClock = INCOME_PERIOD; simTime = 0; battlePaused = false; matchOver = false;
-  selectedTowerKey = null;
+  selectedTowerKey = null; selectedGroupKeys = [];
   refreshRouteDebug();
 }
 
 const priorities = ['first', 'last', 'strong', 'weak', 'near'];
 function makeTower(r, c, raceId, tier, owner) {
   const def = towerDef(raceId, tier);
-  return { key:idx(r, c), r, c, raceId, tier, level:0, owner, cooldown:0, priority:'first', kills:0, invested:def.cost, blockHp:4 + tier, blockMaxHp:4 + tier, underAttack:0 };
+  return { key:idx(r, c), r, c, raceId, tier, level:0, owner, cooldown:0, priority:'first', kills:0, invested:def.cost, placedAt:simTime, blockHp:4 + tier, blockMaxHp:4 + tier, underAttack:0 };
 }
 function addTower(tower) { towers.set(tower.key, tower); towersVersion += 1; refreshRouteDebug(); }
-function removeTower(key) { towers.delete(key); towersVersion += 1; if (selectedTowerKey === key) selectedTowerKey = null; refreshRouteDebug(); }
+function removeTower(key) { towers.delete(key); towersVersion += 1; if (selectedTowerKey === key) selectedTowerKey = null; selectedGroupKeys = selectedGroupKeys.filter((k) => k !== key); refreshRouteDebug(); }
 
 function refreshRouteDebug() {
   const sw = routeLength('south', 'west'), se = routeLength('south', 'east');
@@ -991,7 +996,9 @@ function applyDamage(creep, amount, tower, isDot = false) {
   if (creep.hp <= 0) {
     creep.hp = 0;
     const owner = creep.half === PLAYER_HALF ? player : enemy;
-    if (!creep.sent) { owner.gold += creep.bounty * BOUNTY_MULT; if (creep.half === PLAYER_HALF) player.kills += 1; }
+    if (!creep.sent) { owner.gold += creep.bounty * BOUNTY_MULT; }
+    else { owner.gold += creep.bounty; }   // send kill: bounty = its income value
+    if (creep.half === PLAYER_HALF) player.kills += 1;
     if (creep.half === PLAYER_HALF) {
       profile.totalKills += 1;
       if (profile.totalKills >= 500) award('kills_500');
@@ -1561,10 +1568,28 @@ function renderFrame() {
   creeps.forEach((creep) => drawCreep(fxCtx, creep));
   projectiles.forEach((projectile) => drawProjectile(fxCtx, projectile));
   effects.forEach((effect) => drawEffect(fxCtx, effect));
+  // selection feedback: pulsing gold brackets on every selected tower, range ring on the primary
+  if (selectedGroupKeys.length) {
+    const pulse = 1 + Math.sin(simTime * 5) * .6;
+    selectedGroupKeys.forEach((key) => {
+      const tower = towers.get(key);
+      if (!tower) return;
+      const x = tower.c * CELL, y = tower.r * CELL;
+      fxCtx.save();
+      fxCtx.fillStyle = '#ffd86b22';
+      fxCtx.fillRect(x - 2, y - 2, CELL + 4, CELL + 4);
+      fxCtx.strokeStyle = '#ffd86b'; fxCtx.lineWidth = 2; fxCtx.globalAlpha = .95;
+      const o = 2 + pulse, l = 7;
+      [[x - o, y - o, 1, 1], [x + CELL + o, y - o, -1, 1], [x - o, y + CELL + o, 1, -1], [x + CELL + o, y + CELL + o, -1, -1]].forEach(([cx, cy, sx, sy]) => {
+        fxCtx.beginPath(); fxCtx.moveTo(cx + sx * l, cy); fxCtx.lineTo(cx, cy); fxCtx.lineTo(cx, cy + sy * l); fxCtx.stroke();
+      });
+      fxCtx.restore();
+    });
+  }
   if (selectedTowerKey !== null && towers.has(selectedTowerKey)) {
     const tower = towers.get(selectedTowerKey);
     const stats = towerLiveStats(tower);
-    fxCtx.save(); fxCtx.strokeStyle = stats.color; fxCtx.globalAlpha = .55; fxCtx.lineWidth = 1.5; fxCtx.setLineDash([5, 4]);
+    fxCtx.save(); fxCtx.strokeStyle = stats.color; fxCtx.globalAlpha = .6; fxCtx.lineWidth = 1.8; fxCtx.setLineDash([5, 4]);
     fxCtx.beginPath(); fxCtx.arc(tower.c * CELL + CELL / 2, tower.r * CELL + CELL / 2, stats.range * CELL, 0, Math.PI * 2); fxCtx.stroke();
     fxCtx.restore();
   }
@@ -1674,53 +1699,77 @@ function renderBuildExtras() {
     renderHud(); renderTowerList();
   });
 }
+function selectionTowers() {
+  return selectedGroupKeys.map((key) => towers.get(key)).filter(Boolean);
+}
 function renderTowerDetails() {
   const panel = $('tower-details');
   const tower = selectedTowerKey !== null ? towers.get(selectedTowerKey) : null;
   if (!tower) { panel.classList.add('hidden'); return; }
+  const group = selectionTowers().filter((t) => t.owner === tower.owner);
+  const many = group.length > 1;
   const stats = towerLiveStats(tower);
   const isYours = tower.owner === 'player';
   panel.classList.remove('hidden');
-  const tierUp = towerTierUp(tower);
-  const levelCost = towerLevelCost(tower);
+  const upgradable = group.filter((t) => t.level < MAX_LEVEL);
+  const levelCostAll = upgradable.reduce((sum, t) => sum + towerLevelCost(t), 0);
+  const tierable = group.filter((t) => towerTierUp(t));
+  const tierCostAll = tierable.reduce((sum, t) => sum + towerTierUp(t).cost, 0);
+  const sellAll = group.reduce((sum, t) => sum + towerSellValue(t), 0);
+  const graceNote = !many && sellInGrace(tower) ? ' • full refund' : many ? '' : ' • 75%';
   panel.innerHTML = `
     <div class="td-head"><span class="td-rune" style="--race:${stats.color}">${stats.symbol}</span>
-      <div><strong>${stats.name}</strong><small>${isYours ? `Level ${(tower.level || 0) + 1} • ${tower.kills} kills` : 'Rival tower'}</small></div>
+      <div><strong>${many ? `${group.length} × ` : ''}${stats.name}</strong><small>${isYours ? (many ? 'Batch selection — actions apply to all' : `Level ${(tower.level || 0) + 1} • ${tower.kills} kills`) : 'Rival tower'}</small></div>
       <button id="td-close" class="ghost-button" aria-label="Close tower details">✕</button></div>
-    <p class="td-desc">${stats.desc} ${specialBlurbs[stats.special] || ''}</p>
+    <p class="td-desc">${many ? 'Double-tap selected every like tower.' : `${stats.desc} ${specialBlurbs[stats.special] || ''}`}</p>
     <div class="td-stats"><span>DMG <b>${stats.dmg}</b></span><span>RANGE <b>${stats.range.toFixed(1)}</b></span><span>RATE <b>${stats.cd.toFixed(2)}s</b></span></div>
     ${isYours ? `<div class="td-actions">
-      <button id="td-level" class="action-button" ${tower.level >= MAX_LEVEL || player.gold < levelCost ? 'disabled' : ''}>${tower.level >= MAX_LEVEL ? 'Max level' : `Upgrade level ${levelCost}g`}</button>
-      ${tierUp ? `<button id="td-tier" class="action-button td-tier" ${player.gold < tierUp.cost ? 'disabled' : ''}>→ ${tierUp.next.name} ${tierUp.cost}g</button>` : ''}
-      <button id="td-sell" class="ghost-button">Sell ${towerSellValue(tower)}g</button>
+      <button id="td-level" class="action-button" ${!upgradable.length || player.gold < (many ? 1 : levelCostAll) ? 'disabled' : ''}>${!upgradable.length ? 'Max level' : many ? `Upgrade all • ${levelCostAll}g` : `Upgrade level ${levelCostAll}g`}</button>
+      ${tierable.length ? (() => { const laserNext = towerTierUp(tower)?.next.name === 'Laser Cannon'; const blocked = player.gold < (many ? 1 : tierCostAll) || (laserNext && player.lumber < 1); return `<button id="td-tier" class="action-button td-tier" ${blocked ? 'disabled' : ''}>→ ${towerTierUp(tower)?.next.name || 'next tier'}${many ? ` all • ${tierCostAll}g` : ` ${tierCostAll}g`}${laserNext ? ' +1🪵' : ''}</button>`; })() : ''}
+      <button id="td-sell" class="ghost-button">Sell${many ? ' all' : ''} ${sellAll}g${graceNote}</button>
       <button id="td-priority" class="ghost-button">Target: ${tower.priority}</button>
     </div>` : ''}`;
-  $('td-close').addEventListener('click', () => { selectedTowerKey = null; renderTowerDetails(); });
+  $('td-close').addEventListener('click', () => { selectedTowerKey = null; selectedGroupKeys = []; renderTowerDetails(); });
   if (!isYours) return;
   $('td-level').addEventListener('click', () => {
-    const cost = towerLevelCost(tower);
-    if (tower.level >= MAX_LEVEL || player.gold < cost) return;
-    player.gold -= cost; tower.invested += cost; tower.level += 1;
-    log(`${stats.name} upgraded to level ${tower.level + 1} (+15% damage, +0.25 range).`);
+    let done = 0;
+    for (const t of group.sort((a, b) => towerLevelCost(a) - towerLevelCost(b))) {
+      if (t.level >= MAX_LEVEL) continue;
+      const cost = towerLevelCost(t);
+      if (player.gold < cost) break;
+      player.gold -= cost; t.invested += cost; t.level += 1; done += 1;
+    }
+    if (done) log(many ? `Upgraded ${done} of ${group.length} towers one level.` : `${stats.name} upgraded to level ${tower.level + 1} (+15% damage, +0.25 range).`);
     renderHud(); renderTowerDetails();
   });
-  if (tierUp) $('td-tier').addEventListener('click', () => {
-    const up = towerTierUp(tower);
-    if (!up || player.gold < up.cost) return;
-    player.gold -= up.cost; tower.invested += up.cost;
-    tower.tier += 1; tower.level = 0;
-    tower.blockHp = tower.blockMaxHp = 4 + tower.tier;
-    log(`Upgraded into ${up.next.name} — kills carry over.`);
+  $('td-tier')?.addEventListener('click', () => {
+    let done = 0;
+    for (const t of group.sort((a, b) => (towerTierUp(a)?.cost ?? 1e9) - (towerTierUp(b)?.cost ?? 1e9))) {
+      const up = towerTierUp(t);
+      if (!up || player.gold < up.cost) continue;
+      if (up.next.name === 'Laser Cannon') {
+        if (player.lumber < 1) { log('Upgrading into a Laser Cannon costs its 1 lumber too.'); continue; }
+        player.lumber -= 1; player.lumberSpent += 1; if (player.lumberSpent >= 3) award('lumberjack');
+      }
+      player.gold -= up.cost; t.invested += up.cost;
+      t.tier += 1; t.level = 0;
+      t.blockHp = t.blockMaxHp = 4 + t.tier;
+      done += 1;
+    }
+    if (done) log(many ? `Upgraded ${done} tower${done > 1 ? 's' : ''} into the next tier.` : `Upgraded into ${towerLiveStats(tower).name} — kills carry over.`);
     renderHud(); renderTowerDetails();
   });
   $('td-sell').addEventListener('click', () => {
-    player.gold += towerSellValue(tower);
-    removeTower(tower.key);
-    log(`${stats.name} sold for ${towerSellValue(tower)}g (75% refund). ${cachedRouteText}.`);
+    let refund = 0;
+    group.forEach((t) => { refund += towerSellValue(t); removeTower(t.key); });
+    player.gold += refund;
+    selectedGroupKeys = [];
+    log(`${many ? `${group.length} towers` : stats.name} sold for ${refund}g${!many && refund === tower.invested ? ' (full refund — sold within 3s)' : ''}. ${cachedRouteText}.`);
     renderHud(); renderTowerDetails();
   });
   $('td-priority').addEventListener('click', () => {
-    tower.priority = priorities[(priorities.indexOf(tower.priority) + 1) % priorities.length];
+    const next = priorities[(priorities.indexOf(tower.priority) + 1) % priorities.length];
+    group.forEach((t) => { t.priority = next; });
     renderTowerDetails();
   });
 }
@@ -1788,8 +1837,23 @@ function handleBoardTap(event) {
   const cell = cellFromEvent(event);
   if (!cell) return;
   const key = idx(cell.r, cell.c);
-  if (towers.has(key)) { selectedTowerKey = key; renderTowerDetails(); return; }
-  selectedTowerKey = null; renderTowerDetails();
+  if (towers.has(key)) {
+    const now = performance.now();
+    const tower = towers.get(key);
+    if (lastTapKey === key && now - lastTapAt < 420 && tower.owner === 'player') {
+      // double-tap: select every like tower (same element and tier) for batch actions
+      selectedGroupKeys = [...towers.values()].filter((t) => t.owner === 'player' && t.raceId === tower.raceId && t.tier === tower.tier).map((t) => t.key);
+      log(`${selectedGroupKeys.length} × ${towerLiveStats(tower).name} selected — batch upgrade or sell from the panel.`);
+    } else {
+      selectedGroupKeys = [key];
+    }
+    lastTapKey = key; lastTapAt = now;
+    selectedTowerKey = key;
+    renderTowerDetails();
+    return;
+  }
+  lastTapKey = null;
+  selectedTowerKey = null; selectedGroupKeys = []; renderTowerDetails();
   if (matchOver) return;
   const t = terrainAt(cell.r, cell.c);
   if (t !== T.FLOOR) return log(t === T.CLIFF ? 'That is cliff wall — creeps and towers cannot use it.' : t === T.RIVER ? 'The river cannot hold towers.' : 'Gates and harbors stay open for the creeps.');
