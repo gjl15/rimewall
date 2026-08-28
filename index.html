@@ -162,7 +162,7 @@ h2 { margin-top:7px; font-size:clamp(23px,3vw,36px); letter-spacing:-.06em; }
 h2 span { color:#7583a6; }
 /* One finger scrolls the page over an unzoomed map (touch-action pan-y);
    JS switches to none while zoomed so one finger pans the map instead. */
-.map-viewport { position:relative; height:min(82vh, 940px); min-height:520px; overflow:hidden; border-radius:16px; background:#0a1626; border:1px solid #1d2c4a; touch-action:pan-y; }
+.map-viewport { position:relative; height:min(78vh, 940px); min-height:300px; overflow:hidden; border-radius:16px; background:#0a1626; border:1px solid #1d2c4a; touch-action:pan-y; }
 .map-frame { position:absolute; left:0; top:0; overflow:hidden; border:2px solid #d4f2ef; border-radius:10px; background:#7fc6d5; box-shadow:0 12px 30px #0006; transform-origin:0 0; will-change:transform; }
 #board-canvas,#fx-canvas { position:absolute; inset:0; width:100%; height:100%; display:block; }
 #fx-canvas { z-index:2; touch-action:none; }
@@ -392,6 +392,11 @@ h2 span { color:#7583a6; }
 .wisp { transition:left .28s cubic-bezier(.4,1.4,.5,1), top .28s cubic-bezier(.4,1.4,.5,1); }
 .wisp.wisp-docked { box-shadow:0 0 26px #77d6ffcc, 0 8px 24px #0009; border-color:#eafcff; }
 
+/* fighter-select carousel: swipe/scroll sideways, cards snap centered */
+.race-grid { display:flex; grid-template-columns:none; overflow-x:auto; scroll-snap-type:x mandatory; gap:10px; padding:4px 2px 10px; scrollbar-width:none; -webkit-overflow-scrolling:touch; mask-image:linear-gradient(90deg, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%); -webkit-mask-image:linear-gradient(90deg, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%); }
+.race-grid::-webkit-scrollbar { display:none; }
+.race-grid .race-card { flex:0 0 clamp(112px, 26vw, 148px); aspect-ratio:3/4; scroll-snap-align:center; }
+
 </style>
 </head>
 <body>
@@ -403,11 +408,11 @@ h2 span { color:#7583a6; }
       <section id="race-screen" class="screen race-screen">
         <div class="brand-row">
           <div>
-            <p class="eyebrow">ROC ERA • PLAYABLE MOCK</p>
+            <p class="eyebrow">FROZEN RIVER • TOWER WARS</p>
             <h1>Rime<span>wall</span></h1>
             <p class="lede">Choose your element. Build the maze. Break theirs.</p>
           </div>
-          <div class="version-pill">v3.0-inspired</div>
+          <div class="version-pill">beta</div>
         </div>
 
         <div class="selection-bar setup-bar">
@@ -2422,6 +2427,14 @@ function fitBoardToViewport() {
   const viewport = $('map-viewport');
   const frame = $('map-frame');
   if (!viewport || !frame) return false;
+  if (!document.body.classList.contains('arena')) {
+    // pin the viewport's bottom edge inside the window — a bottom below the fold
+    // was why the lower map kept getting lost on laptops and tablets
+    const top = viewport.getBoundingClientRect().top;
+    const room = Math.round(window.innerHeight - top - 14);
+    if (room >= 300) viewport.style.height = `${room}px`;
+    else viewport.style.height = '';   // cramped window (page scrolled): let CSS rule
+  } else viewport.style.height = '';
   const vw = viewport.clientWidth, vh = viewport.clientHeight;
   if (vw < 60 || vh < 60) return false;   // layout not settled yet — the frame loop retries
   lastFitW = vw; lastFitH = vh;
@@ -2598,9 +2611,13 @@ function setupMapZoom() {
   viewport.addEventListener('gesturestart', (event) => event.preventDefault());
   viewport.addEventListener('gesturechange', (event) => event.preventDefault());
   viewport.addEventListener('wheel', (event) => {
-    if (!event.ctrlKey && !event.metaKey) return;
+    if (!battleRunning && !event.ctrlKey && !event.metaKey) return;   // outside battle the page scrolls normally
     const rect = viewport.getBoundingClientRect();
-    setMapZoom(mapZoomScale * (event.deltaY < 0 ? 1.1 : 1 / 1.1), { x:event.clientX - rect.left, y:event.clientY - rect.top });
+    if (event.shiftKey && mapZoomScale > 1) {
+      mapOffsetX -= event.deltaY; applyMapTransform();   // shift+wheel pans sideways when zoomed
+    } else {
+      setMapZoom(mapZoomScale * (event.deltaY < 0 ? 1.1 : 1 / 1.1), { x:event.clientX - rect.left, y:event.clientY - rect.top });
+    }
     event.preventDefault();
   }, { passive:false });
   $('zoom-in-button').addEventListener('click', () => setMapZoom(mapZoomScale + .25));
@@ -2958,6 +2975,15 @@ function renderRaceCards() {
   }));
   const cardSymbol = $('race-card-symbol');
   if (cardSymbol) { cardSymbol.textContent = selectedRace.symbol; cardSymbol.style.color = selectedRace.color; }
+  const grid = $('race-grid');
+  if (!grid._wheelWired) {
+    grid._wheelWired = true;
+    grid.addEventListener('wheel', (event) => {
+      if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) { grid.scrollLeft += event.deltaY; event.preventDefault(); }
+    }, { passive:false });
+  }
+  const focusCard = grid.querySelector('.race-card.previewed') || grid.querySelector('.race-card.selected');
+  focusCard?.scrollIntoView({ inline:'center', block:'nearest', behavior:'smooth' });
   renderProfileStrip();
 }
 function renderProfileStrip() {
