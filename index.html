@@ -218,6 +218,20 @@ h2 span { color:#7583a6; }
 .sheet-detail { margin-top:8px; padding:8px 10px; border:1px solid #2b3859; border-radius:9px; background:#10182b; color:#c5cde0; font-size:11px; line-height:1.5; }
 .sheet-detail em { color:#8ba7c9; font-style:normal; font:500 9px 'DM Mono',monospace; }
 .debug-bar select { padding:4px 6px; border:1px solid #2e3b5c; border-radius:6px; background:#10172a; color:#a5afd0; font:500 9px 'DM Mono',monospace; }
+.econ-on { border-color:#77d6ff !important; color:#bfeaff !important; box-shadow:inset 0 0 0 1px #77d6ff66; }
+.sell-chip { border-color:#5a2f3a !important; }
+.sell-chip small, .sell-chip b { color:#ff9faf !important; }
+/* Arena mode: on touch, a match is screen-bound like a native game — no page
+   scrolling; the board fills the display and the wisp carries everything. */
+.arena .app-shell { overflow:hidden; }
+.arena .battle-title-row, .arena .debug-bar, .arena .quick-send, .arena .log-strip, .arena .command-panel, .arena .hint-box { display:none !important; }
+.arena .battle-content { display:block; padding-top:8px; }
+.arena .map-viewport { height:calc(100dvh - 118px); min-height:300px; }
+.arena .hud { padding:8px 10px; }
+.arena-log { display:none; }
+.arena #arena-log { display:block; position:absolute; left:50%; bottom:6px; transform:translateX(-50%); z-index:32; max-width:92%; padding:6px 12px; border-radius:99px; background:#0d1424d9; color:#9ba7c4; font:500 9px 'DM Mono',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; pointer-events:none; opacity:0; }
+.arena #arena-log.fade { animation:arena-log-fade 4s ease forwards; }
+@keyframes arena-log-fade { 0% { opacity:0; } 8% { opacity:1; } 75% { opacity:1; } 100% { opacity:0; } }
 .qs-chip { display:flex; flex-direction:column; align-items:center; gap:1px; min-width:42px; min-height:42px; padding:5px 6px; border:1px solid #2e3b5c; border-radius:9px; background:#131b30; color:#e9edff; }
 .qs-chip span { font-size:15px; line-height:1.1; }
 .qs-chip b { color:#f5d36d; font:600 8px 'DM Mono',monospace; }
@@ -460,6 +474,7 @@ h2 span { color:#7583a6; }
                 <div id="board-overlay" class="board-overlay" aria-hidden="true"></div>
                 <div id="wave-banner" class="wave-banner">FIRST WAVE INBOUND</div>
               </div>
+              <div id="arena-log" class="arena-log" aria-live="polite"></div>
               <div class="map-zoom-controls" aria-label="Map zoom controls"><button id="zoom-out-button" aria-label="Zoom out">−</button><span id="zoom-label">100%</span><button id="zoom-in-button" aria-label="Zoom in">+</button><button id="zoom-reset-button" aria-label="Reset map zoom">reset</button></div>
               <div class="zoom-hint">PINCH TO ZOOM • DRAG WHEN ZOOMED<span class="hotkey-hint"> • 1–9 SEND • Q–U TOWERS • RIGHT-CLICK / HOLD = SELL</span></div>
             </div>
@@ -922,6 +937,7 @@ let selectedTowerKey = null;       // primary selected tower
 let selectedGroupKeys = [];        // all selected towers (double-tap selects every like tower)
 let lastTapKey = null, lastTapAt = 0;
 let lastPlaced = null;   // drives the 3-second undo pill
+let boxSelectMode = false, marquee = null;   // ▭ utility: drag a rectangle to select towers
 const towers = new Map();          // idx(r,c) → tower instance
 let towersVersion = 0;
 const creeps = [];
@@ -1355,6 +1371,7 @@ function endMatch(result) {
   saveProfile();
   showMatchSummary(result, earnedBefore);
   renderHud();
+  applyUiMode();
 }
 function showMatchSummary(result, earnedBefore) {
   const box = $('match-summary');
@@ -1686,6 +1703,15 @@ function renderFrame() {
   creeps.forEach((creep) => drawCreep(fxCtx, creep));
   projectiles.forEach((projectile) => drawProjectile(fxCtx, projectile));
   effects.forEach((effect) => drawEffect(fxCtx, effect));
+  if (marquee) {
+    fxCtx.save();
+    fxCtx.strokeStyle = '#77d6ff'; fxCtx.lineWidth = 1.6; fxCtx.setLineDash([6, 4]); fxCtx.globalAlpha = .9;
+    fxCtx.fillStyle = '#77d6ff18';
+    const mx = Math.min(marquee.x0, marquee.x1) * CELL, my = Math.min(marquee.y0, marquee.y1) * CELL;
+    const mw = Math.abs(marquee.x1 - marquee.x0) * CELL, mh = Math.abs(marquee.y1 - marquee.y0) * CELL;
+    fxCtx.fillRect(mx, my, mw, mh); fxCtx.strokeRect(mx, my, mw, mh);
+    fxCtx.restore();
+  }
   // selection feedback: pulsing gold brackets on every selected tower, range ring on the primary
   if (selectedGroupKeys.length) {
     const pulse = 1 + Math.sin(simTime * 5) * .6;
@@ -1853,6 +1879,46 @@ function renderBuildExtras() {
     renderHud(); renderTowerList();
   });
 }
+function towerAction(kind) {
+  const group = selectionTowers().filter((t) => t.owner === 'player');
+  if (!group.length) return;
+  if (kind === 'level') {
+    let done = 0;
+    for (const t of group.sort((a, b) => towerLevelCost(a) - towerLevelCost(b))) {
+      if (t.level >= MAX_LEVEL) continue;
+      const cost = towerLevelCost(t);
+      if (player.gold < cost) break;
+      player.gold -= cost; t.invested += cost; t.level += 1; done += 1;
+    }
+    if (done) log(`Upgraded ${done} tower${done > 1 ? 's' : ''} one level (+15% damage, +0.25 range).`);
+  } else if (kind === 'tier') {
+    let done = 0;
+    for (const t of group.sort((a, b) => (towerTierUp(a)?.cost ?? 1e9) - (towerTierUp(b)?.cost ?? 1e9))) {
+      const up = towerTierUp(t);
+      if (!up || player.gold < up.cost) continue;
+      if (up.next.name === 'Laser Cannon') {
+        if (player.lumber < 1) { log('Upgrading into a Laser Cannon costs its 1 lumber too.'); continue; }
+        player.lumber -= 1; player.lumberSpent += 1; if (player.lumberSpent >= 3) award('lumberjack');
+      }
+      player.gold -= up.cost; t.invested += up.cost;
+      t.tier += 1; t.level = 0;
+      t.blockHp = t.blockMaxHp = 4 + t.tier;
+      done += 1;
+    }
+    if (done) log(`Upgraded ${done} tower${done > 1 ? 's' : ''} into the next tier.`);
+  } else if (kind === 'sell') {
+    let refund = 0;
+    const n = group.length;
+    group.forEach((t) => { refund += towerSellValue(t); removeTower(t.key); });
+    player.gold += refund;
+    selectedGroupKeys = []; selectedTowerKey = null;
+    log(`${n > 1 ? `${n} towers` : 'Tower'} sold for ${refund}g. ${cachedRouteText}.`);
+  } else if (kind === 'priority') {
+    const next = priorities[(priorities.indexOf(group[0].priority) + 1) % priorities.length];
+    group.forEach((t) => { t.priority = next; });
+  }
+  renderHud(); renderTowerDetails(); sheetKey = ''; renderCommandSheet();
+}
 function selectionTowers() {
   return selectedGroupKeys.map((key) => towers.get(key)).filter(Boolean);
 }
@@ -1886,48 +1952,12 @@ function renderTowerDetails() {
     </div>` : ''}`;
   $('td-close').addEventListener('click', () => { selectedTowerKey = null; selectedGroupKeys = []; renderTowerDetails(); });
   if (!isYours) return;
-  $('td-level').addEventListener('click', () => {
-    let done = 0;
-    for (const t of group.sort((a, b) => towerLevelCost(a) - towerLevelCost(b))) {
-      if (t.level >= MAX_LEVEL) continue;
-      const cost = towerLevelCost(t);
-      if (player.gold < cost) break;
-      player.gold -= cost; t.invested += cost; t.level += 1; done += 1;
-    }
-    if (done) log(many ? `Upgraded ${done} of ${group.length} towers one level.` : `${stats.name} upgraded to level ${tower.level + 1} (+15% damage, +0.25 range).`);
-    renderHud(); renderTowerDetails();
-  });
-  $('td-tier')?.addEventListener('click', () => {
-    let done = 0;
-    for (const t of group.sort((a, b) => (towerTierUp(a)?.cost ?? 1e9) - (towerTierUp(b)?.cost ?? 1e9))) {
-      const up = towerTierUp(t);
-      if (!up || player.gold < up.cost) continue;
-      if (up.next.name === 'Laser Cannon') {
-        if (player.lumber < 1) { log('Upgrading into a Laser Cannon costs its 1 lumber too.'); continue; }
-        player.lumber -= 1; player.lumberSpent += 1; if (player.lumberSpent >= 3) award('lumberjack');
-      }
-      player.gold -= up.cost; t.invested += up.cost;
-      t.tier += 1; t.level = 0;
-      t.blockHp = t.blockMaxHp = 4 + t.tier;
-      done += 1;
-    }
-    if (done) log(many ? `Upgraded ${done} tower${done > 1 ? 's' : ''} into the next tier.` : `Upgraded into ${towerLiveStats(tower).name} — kills carry over.`);
-    renderHud(); renderTowerDetails();
-  });
-  $('td-sell').addEventListener('click', () => {
-    let refund = 0;
-    group.forEach((t) => { refund += towerSellValue(t); removeTower(t.key); });
-    player.gold += refund;
-    selectedGroupKeys = [];
-    log(`${many ? `${group.length} towers` : stats.name} sold for ${refund}g${!many && refund === tower.invested ? ' (full refund — sold within 3s)' : ''}. ${cachedRouteText}.`);
-    renderHud(); renderTowerDetails();
-  });
-  $('td-priority').addEventListener('click', () => {
-    const next = priorities[(priorities.indexOf(tower.priority) + 1) % priorities.length];
-    group.forEach((t) => { t.priority = next; });
-    renderTowerDetails();
-  });
+  $('td-level').addEventListener('click', () => towerAction('level'));
+  $('td-tier')?.addEventListener('click', () => towerAction('tier'));
+  $('td-sell').addEventListener('click', () => towerAction('sell'));
+  $('td-priority').addEventListener('click', () => towerAction('priority'));
 }
+
 function renderSendPanel() {
   const shrineBox = $('shrine-status');
   if (shrineBox && player) {
@@ -1976,7 +2006,11 @@ function renderBattleIdentity() {
   $('battle-race').textContent = selectedRace.name;
   $('battle-builder').textContent = selectedRace.builder;
 }
-function log(message) { $('event-log').innerHTML = `<span class="log-dot"></span> ${message}`; }
+function log(message) {
+  $('event-log').innerHTML = `<span class="log-dot"></span> ${message}`;
+  const arenaLog = $('arena-log');
+  if (arenaLog) { arenaLog.textContent = message; arenaLog.classList.remove('fade'); void arenaLog.offsetWidth; arenaLog.classList.add('fade'); }
+}
 
 /* ---------------- Board interaction ---------------- */
 function cellFromEvent(event) {
@@ -2004,7 +2038,20 @@ function handleBoardTap(event) {
   if (!battleRunning && !matchOver) return;
   const cell = cellFromEvent(event);
   if (!cell) return;
-  const key = idx(cell.r, cell.c);
+  let key = idx(cell.r, cell.c);
+  if (!towers.has(key)) {
+    // snap assist: a tap landing within 0.6 cells of one of your towers selects it
+    const rect = $('fx-canvas').getBoundingClientRect();
+    const px = (event.clientX - rect.left) / rect.width * COLS;
+    const py = (event.clientY - rect.top) / rect.height * ROWS;
+    let best = null, bestD = .6;
+    towers.forEach((t) => {
+      if (t.owner !== 'player') return;
+      const d = Math.hypot(t.c + .5 - px, t.r + .5 - py);
+      if (d < bestD) { bestD = d; best = t; }
+    });
+    if (best) key = best.key;
+  }
   if (towers.has(key)) {
     const now = performance.now();
     const tower = towers.get(key);
@@ -2018,6 +2065,7 @@ function handleBoardTap(event) {
     lastTapKey = key; lastTapAt = now;
     selectedTowerKey = key;
     renderTowerDetails();
+    if (touchUI() && tower.owner === 'player') openCommandSheet('tower');
     return;
   }
   lastTapKey = null;
@@ -2080,8 +2128,9 @@ function applyMapTransform() {
   else mapOffsetY = Math.max(vh - scaledH - frameBase.top, Math.min(-frameBase.top, mapOffsetY));
   $('map-frame').style.transform = `translate(${mapOffsetX}px, ${mapOffsetY}px) scale(${mapZoomScale})`;
   $('zoom-label').textContent = `${Math.round(mapZoomScale * 100)}%`;
-  // unzoomed: one finger scrolls the page; zoomed: one finger pans the map
-  viewport.style.touchAction = mapZoomScale > 1 ? 'none' : 'pan-y';
+  // arena (touch match): the map owns all gestures. Otherwise: unzoomed maps
+  // let one finger scroll the page; zoomed maps pan with one finger.
+  viewport.style.touchAction = (document.body.classList.contains('arena') || mapZoomScale > 1) ? 'none' : 'pan-y';
 }
 function setMapZoom(nextScale, anchor = null, fromScale = mapZoomScale, fromOffset = { x:mapOffsetX, y:mapOffsetY }) {
   const viewport = $('map-viewport');
@@ -2107,6 +2156,19 @@ function setupMapZoom() {
     if (cell) sellTowerAt(cell);
   });
   viewport.addEventListener('pointerdown', (event) => {
+    if ((boxSelectMode || event.shiftKey) && battleRunning && event.button !== 2) {
+      const rect = $('fx-canvas').getBoundingClientRect();
+      marquee = {
+        x0:(event.clientX - rect.left) / rect.width * COLS,
+        y0:(event.clientY - rect.top) / rect.height * ROWS,
+        x1:(event.clientX - rect.left) / rect.width * COLS,
+        y1:(event.clientY - rect.top) / rect.height * ROWS,
+        id:event.pointerId
+      };
+      try { viewport.setPointerCapture(event.pointerId); } catch (e) {}
+      event.preventDefault();
+      return;
+    }
     activeMapPointers.set(event.pointerId, { x:event.clientX, y:event.clientY });
     try { viewport.setPointerCapture(event.pointerId); } catch (error) { /* capture is best-effort */ }
     tapCandidate = { x:event.clientX, y:event.clientY, id:event.pointerId };
@@ -2131,6 +2193,13 @@ function setupMapZoom() {
     }
   });
   viewport.addEventListener('pointermove', (event) => {
+    if (marquee && marquee.id === event.pointerId) {
+      const rect = $('fx-canvas').getBoundingClientRect();
+      marquee.x1 = (event.clientX - rect.left) / rect.width * COLS;
+      marquee.y1 = (event.clientY - rect.top) / rect.height * ROWS;
+      event.preventDefault();
+      return;
+    }
     if (!activeMapPointers.has(event.pointerId)) return;
     activeMapPointers.set(event.pointerId, { x:event.clientX, y:event.clientY });
     if (tapCandidate && tapCandidate.id === event.pointerId && Math.hypot(event.clientX - tapCandidate.x, event.clientY - tapCandidate.y) > 7) { tapCandidate = null; window.clearTimeout(viewport._holdTimer); }
@@ -2138,19 +2207,8 @@ function setupMapZoom() {
       const points = [...activeMapPointers.values()];
       const rect = viewport.getBoundingClientRect();
       const dist = pointerDistance(points[0], points[1]);
-      const midY = (points[0].y + points[1].y) / 2;
-      const prev = viewport._twoPrev || { dist, midY };
-      const distDelta = Math.abs(dist - prev.dist);
-      const midDelta = midY - prev.midY;
-      viewport._twoPrev = { dist, midY };
-      if (Math.abs(midDelta) > distDelta * 1.5 && Math.abs(midDelta) > 2) {
-        // two fingers moving together: scroll the page, even while zoomed
-        const shell = document.querySelector('.app-shell');
-        if (shell) shell.scrollTop -= midDelta;
-      } else {
-        const mid = { x:(points[0].x + points[1].x) / 2 - rect.left, y:midY - rect.top };
-        setMapZoom(pinchStartScale * dist / pinchStartDistance, mid, pinchStartScale, pinchStartOffset);
-      }
+      const mid = { x:(points[0].x + points[1].x) / 2 - rect.left, y:(points[0].y + points[1].y) / 2 - rect.top };
+      setMapZoom(pinchStartScale * dist / pinchStartDistance, mid, pinchStartScale, pinchStartOffset);
       event.preventDefault();
     } else if (activeMapPointers.size === 1 && panStart && mapZoomScale > 1) {
       mapOffsetX = panStart.offsetX + event.clientX - panStart.x;
@@ -2160,11 +2218,25 @@ function setupMapZoom() {
     }
   });
   const endPointer = (event) => {
+    if (marquee && marquee.id === event.pointerId) {
+      const [xa, xb] = [Math.min(marquee.x0, marquee.x1), Math.max(marquee.x0, marquee.x1)];
+      const [ya, yb] = [Math.min(marquee.y0, marquee.y1), Math.max(marquee.y0, marquee.y1)];
+      const picked = [...towers.values()].filter((t) => t.owner === 'player' && t.c + .5 >= xa && t.c + .5 <= xb && t.r + .5 >= ya && t.r + .5 <= yb);
+      marquee = null; boxSelectMode = false;
+      if (picked.length) {
+        selectedGroupKeys = picked.map((t) => t.key);
+        selectedTowerKey = picked[0].key;
+        log(`${picked.length} tower${picked.length > 1 ? 's' : ''} box-selected.`);
+        renderTowerDetails();
+        if (touchUI()) openCommandSheet('tower'); else { sheetKey = ''; renderCommandSheet(); }
+      }
+      return;
+    }
     window.clearTimeout(viewport._holdTimer);
     if (tapCandidate && tapCandidate.id === event.pointerId) handleBoardTap(event);
     tapCandidate = null;
     activeMapPointers.delete(event.pointerId);
-    if (activeMapPointers.size < 2) { pinchStartDistance = 0; viewport._twoPrev = null; }
+    if (activeMapPointers.size < 2) pinchStartDistance = 0;
     if (activeMapPointers.size === 1 && mapZoomScale > 1) {
       const remaining = [...activeMapPointers.values()][0];
       panStart = { x:remaining.x, y:remaining.y, offsetX:mapOffsetX, offsetY:mapOffsetY };
@@ -2766,6 +2838,13 @@ function touchUI() {
 }
 function applyUiMode() {
   document.body.classList.toggle('touch-ui', touchUI());
+  // arena mode: on touch, the match is screen-bound — no page scrolling, the
+  // board fills the display and the wisp is the master controller
+  const arena = touchUI() && battleRunning;
+  document.body.classList.toggle('arena', arena);
+  if (arena) { const shell = document.querySelector('.app-shell'); if (shell) shell.scrollTop = 0; }
+  const vp = $('map-viewport');
+  if (vp) vp.style.touchAction = (arena || mapZoomScale > 1) ? 'none' : 'pan-y';
   const wisp = $('wisp');
   if (wisp) wisp.classList.toggle('hidden', !battleRunning);
   const modeSel = $('ui-mode-select');
@@ -2820,6 +2899,28 @@ function renderCommandSheet() {
       <button class="sheet-chip ${player.shrine < send.shrine ? 'locked' : ''} ${player.gold < send.cost ? 'poor' : ''}" data-sheet-send="${send.id}">
         <span>${send.air ? '🐉' : send.symbol}</span><small>${send.name.split(' ')[0]}</small><b>${send.cost}g<i>+${send.income}</i></b></button>`).join('')}</div>
       <p class="sheet-hint">Sends run both rival lanes and raise your income. ${player.shrine < SHRINE_MAX ? 'Higher shrine levels unlock the elite tiers.' : 'Shrine is maxed.'}</p>`;
+  } else if (sheetTab === 'tower') {
+    const sel = selectionTowers().filter((t) => t.owner === 'player');
+    if (!sel.length) { body = '<p class="sheet-hint">Tap one of your towers on the board — or use ▭ Box select — to inspect it here.</p>'; }
+    else {
+      const t0 = sel[0];
+      const stats = towerLiveStats(t0);
+      const many = sel.length > 1;
+      const upgradable = sel.filter((t) => t.level < MAX_LEVEL);
+      const levelCostAll = upgradable.reduce((sum, t) => sum + towerLevelCost(t), 0);
+      const tierable = sel.filter((t) => towerTierUp(t));
+      const tierCostAll = tierable.reduce((sum, t) => sum + towerTierUp(t).cost, 0);
+      const sellAll = sel.reduce((sum, t) => sum + towerSellValue(t), 0);
+      const laserNext = towerTierUp(t0)?.next.name === 'Laser Cannon';
+      body = `
+        <div class="sheet-detail"><strong>${many ? `${sel.length} × ` : ''}${stats.name}</strong>${many ? ' — batch selection' : ` — Level ${(t0.level || 0) + 1} • ${t0.kills} kills`}<br>${stats.desc} ${specialBlurbs[stats.special] || ''}<br><em>${stats.dmg} dmg • ${stats.range.toFixed(1)} rng • ${stats.cd.toFixed(2)}s • ${attackProfileText(t0.raceId)}</em></div>
+        <div class="sheet-grid sheet-actions">
+          <button class="sheet-chip ${!upgradable.length || player.gold < 1 ? 'poor' : ''}" data-sheet-act="level"><span>⬆</span><small>Level${many ? ' all' : ''}</small><b>${upgradable.length ? `${levelCostAll}g` : 'MAX'}</b></button>
+          ${tierable.length ? `<button class="sheet-chip ${player.gold < 1 || (laserNext && player.lumber < 1) ? 'poor' : ''}" data-sheet-act="tier"><span>⏫</span><small>${towerTierUp(t0)?.next.name.split(' ')[0] || 'Tier'}</small><b>${tierCostAll}g${laserNext ? '+🪵' : ''}</b></button>` : ''}
+          <button class="sheet-chip" data-sheet-act="priority"><span>🎯</span><small>Target</small><b>${t0.priority}</b></button>
+          <button class="sheet-chip sell-chip" data-sheet-act="sell"><span>💰</span><small>Sell${many ? ' all' : ''}</small><b>${sellAll}g</b></button>
+        </div>`;
+    }
   } else {
     body = learnContent();
   }
@@ -2827,12 +2928,15 @@ function renderCommandSheet() {
     <div class="sheet-bar">
       <button class="sheet-tab ${sheetTab === 'towers' ? 'on' : ''}" data-sheet-tab="towers">⛫ Towers</button>
       <button class="sheet-tab ${sheetTab === 'sends' ? 'on' : ''}" data-sheet-tab="sends">✦ Sends</button>
+      <button class="sheet-tab ${sheetTab === 'tower' ? 'on' : ''}" data-sheet-tab="tower">🔍 Tower</button>
       <button class="sheet-tab ${sheetTab === 'learn' ? 'on' : ''}" data-sheet-tab="learn">🎓 Learn</button>
       <button id="sheet-close" class="sheet-tab" aria-label="Close">✕</button>
     </div>
     <div class="sheet-econ">
       <button id="sheet-lumber" class="econ-chip" ${player.gold < LUMBER_PRICE ? 'disabled' : ''}>🪵 ×${player.lumber} <i>buy • ${LUMBER_PRICE}g</i></button>
       ${player.shrine < SHRINE_MAX ? `<button id="sheet-shrine" class="econ-chip" ${player.lumber < 1 ? 'disabled' : ''}>⛩ Shrine L${player.shrine} <i>upgrade • 1🪵</i></button>` : `<span class="econ-chip econ-max">⛩ Shrine MAX</span>`}
+      <button id="sheet-boxsel" class="econ-chip ${boxSelectMode ? 'econ-on' : ''}">▭ <i>box select</i></button>
+      <button id="sheet-exit" class="econ-chip">⏏ <i>exit</i></button>
       <label class="sheet-opacity" title="Slide left to see the board through this panel">◐<input id="sheet-opacity" type="range" min="25" max="100" value="${sheetOpacity()}" /></label>
     </div>${body}`;
   sheet.style.opacity = sheetOpacity() / 100;
@@ -2854,6 +2958,13 @@ function renderCommandSheet() {
     document.querySelector(`[data-send="${b.dataset.sheetSend}"]`)?.click();
     sheetKey = ''; renderCommandSheet();
   }));
+  sheet.querySelectorAll('[data-sheet-act]').forEach((b) => b.addEventListener('click', () => towerAction(b.dataset.sheetAct)));
+  $('sheet-exit').addEventListener('click', () => { closeCommandSheet(); $('back-button')?.click(); });
+  $('sheet-boxsel').addEventListener('click', () => {
+    boxSelectMode = !boxSelectMode;
+    if (boxSelectMode) { closeCommandSheet(); log('Box select armed — drag a rectangle over your towers.'); }
+    sheetKey = ''; renderCommandSheet();
+  });
 }
 function setupWisp() {
   const wisp = $('wisp');
