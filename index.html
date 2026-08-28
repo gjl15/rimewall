@@ -6,6 +6,9 @@
 <meta name="theme-color" content="#0b1020" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icon-180.png" />
+<link rel="icon" type="image/png" href="icon-512.png" />
 <title>Wintermaul Wars Remake</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
@@ -136,6 +139,20 @@ h2 span { color:#7583a6; }
 .tower-row { display:flex; justify-content:space-between; gap:10px; padding:10px; border:1px solid #273554; border-radius:8px; background:#10182b; }.tower-row strong { display:block; font-size:11px; }.tower-row small { display:block; margin-top:3px; color:#8590ae; font-size:9px; }.tower-row b { align-self:center; color:#f5d36d; font:11px 'DM Mono',monospace; }.tower-row.selected { border-color:var(--race); box-shadow:inset 0 0 0 1px var(--race); }
 .action-button { width:100%; margin-top:12px; padding:12px 13px; font-size:11px; }.action-button:disabled { opacity:.45; cursor:not-allowed; }.send-action { background:#ff8a9a; }.send-card { width:100%; justify-content:space-between; text-align:left; gap:8px; margin-bottom:8px; padding:10px; border:1px solid #2a3654; border-radius:8px; background:#10182b; color:inherit; }.send-card:hover { border-color:#ff8a9a; }
 .tower-stats { color:#6f7c9e !important; font:500 8px 'DM Mono',monospace !important; }
+.send-stats { color:#6f7c9e !important; font:500 8px 'DM Mono',monospace !important; }
+.air-tag { margin-left:4px; padding:1px 4px; border:1px solid #9fd8ff88; border-radius:4px; color:#9fd8ff; background:#9fd8ff14; font:700 7px 'DM Mono',monospace; letter-spacing:.08em; font-style:normal; vertical-align:1px; }
+.resource.lumber b { font-size:12px; }
+.resource.lumber em { color:#c6a269; }
+.race-chips { display:flex; gap:6px; margin-bottom:8px; }
+.race-chip { flex:1; min-height:38px; padding:8px; border:1px solid #2e3b5c; border-radius:8px; color:#a5afd0; background:#10172a; font-size:11px; }
+.race-chip.active { border-color:var(--race); color:#ecf0ff; box-shadow:inset 0 0 0 1px var(--race); }
+.license-row { display:flex; gap:6px; margin-bottom:8px; }
+.license-row select { flex:1; min-width:0; padding:8px; border:1px solid #2e3b5c; border-radius:8px; color:#a5afd0; background:#10172a; font:500 11px 'DM Mono',monospace; }
+.license-row .ghost-button { white-space:nowrap; }
+.lumber-button { width:100%; margin-bottom:8px; color:#d9c39a; border-color:#4a4030; }
+.lumber-button:disabled { opacity:.5; }
+.shrine-status { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; }
+.shrine-status .ghost-button { white-space:nowrap; }
 .gold b { color:#f5d36d; }.income b { color:#84d8a6; }.lives b { color:#ff8a9a; }.enemy b,.enemy em { color:#c48cff; }
 .tower-details { margin-top:12px; padding:12px; border:1px solid var(--race,#77d6ff); border-radius:11px; background:#0c1526; }
 .td-head { display:flex; align-items:center; gap:10px; }
@@ -151,7 +168,23 @@ h2 span { color:#7583a6; }
 .td-actions .ghost-button { flex:1; }.send-card > div { flex:1; }.send-card strong,.send-card small { display:block; }.send-card strong { font-size:10px; }.send-card small { margin-top:3px; color:#8995b4; font-size:9px; }.send-card b { color:#f5d36d; font:10px 'DM Mono',monospace; }.send-icon { display:grid; place-items:center; width:28px; height:28px; border-radius:7px; color:#ff9faf; background:#ff8a9a16; }.hint-box { margin-top:22px; padding:12px; border-left:2px solid #77d6ff; background:#0c1526; }.hint-box span { color:#77d6ff; font:500 9px 'DM Mono',monospace; letter-spacing:.13em; }.hint-box p { margin-top:7px; color:#93a0be; font-size:10px; line-height:1.5; }
 .income-callout { margin:0 0 10px; padding:9px; border:1px solid #385848; border-radius:8px; background:#12271f; }.income-callout strong,.income-callout span { display:block; }.income-callout strong { color:#9de4b5; font-size:10px; }.income-callout span { margin-top:3px; color:#779d89; font-size:9px; line-height:1.35; }
 @media (max-width:900px) { .race-grid { grid-template-columns:repeat(2,1fr); }.battle-content { grid-template-columns:1fr; }.battle-main { min-width:0; }.map-viewport { height:600px; } }
-@media (max-width:560px) { .app-shell { padding:16px max(14px, env(safe-area-inset-left)) max(24px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-right)); }.brand-row { margin-bottom:32px; align-items:flex-start; }.version-pill { font-size:8px; padding:8px; }.race-grid { gap:8px; }.race-card { min-height:126px; padding:14px; }.race-symbol { margin-bottom:12px; }.race-card strong { font-size:14px; }.selection-bar { align-items:flex-start; flex-direction:column; }.primary-button { width:100%; }.hud { flex-wrap:wrap; gap:10px; }.hud-brand { order:1; }.match-state { order:2; }.test-button { order:3; }.resources { order:4; width:100%; justify-content:space-between; gap:7px; }.battle-content { padding-top:24px; }.battle-title-row { align-items:flex-start; gap:12px; }.battle-title-row .ghost-button { white-space:nowrap; }.map-viewport { height:74vh; min-height:430px; }.wave-banner { font-size:8px; }.ov { font-size:7px; }.ov small { font-size:6px; }.map-zoom-controls { right:8px; bottom:8px; }.zoom-hint { left:8px; bottom:11px; font-size:7px; }.debug-bar { gap:9px; font-size:8px; }.dbg-stats { flex-basis:100%; margin-left:0; } }
+@media (max-width:560px) { .app-shell { padding:16px max(14px, env(safe-area-inset-left)) max(24px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-right)); }.brand-row { margin-bottom:32px; align-items:flex-start; }.version-pill { font-size:8px; padding:8px; }.race-grid { gap:8px; }.race-card { min-height:126px; padding:14px; }.race-symbol { margin-bottom:12px; }.race-card strong { font-size:14px; }.selection-bar { align-items:flex-start; flex-direction:column; }.primary-button { width:100%; }
+  /* compact HUD grid: brand+wave row, three equal buttons, full-width resources */
+  .hud { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; padding:10px; }
+  .hud-brand { grid-column:1/2; }
+  .match-state { grid-column:2/4; justify-self:end; }
+  .test-button { min-height:38px; padding:8px 6px; font-size:9px; }
+  .resources { grid-column:1/-1; width:100%; justify-content:space-between; gap:7px; }
+  .battle-content { padding-top:24px; }.battle-title-row { align-items:flex-start; gap:12px; }.battle-title-row .ghost-button { white-space:nowrap; }.map-viewport { height:74vh; min-height:430px; }.wave-banner { font-size:8px; }.ov { font-size:7px; }.ov small { font-size:6px; }.map-zoom-controls { right:8px; bottom:8px; }.zoom-hint { left:8px; bottom:11px; font-size:7px; }.debug-bar { gap:9px; font-size:8px; }.dbg-stats { flex-basis:100%; margin-left:0; }
+  /* tower line becomes a horizontal chip strip so the map stays on screen */
+  .tower-list { display:grid; grid-auto-flow:column; grid-auto-columns:168px; max-height:none; overflow-x:auto; overflow-y:hidden; padding-bottom:6px; scrollbar-width:thin; }
+  .tower-row { flex-direction:column; align-items:flex-start; gap:4px; }
+  .tower-row b { align-self:flex-end; } }
+/* landscape phones: map and command panel side by side */
+@media (max-height:520px) and (orientation:landscape) {
+  .battle-content { grid-template-columns:minmax(0,1fr) 300px; gap:12px; }
+  .map-viewport { height:calc(100vh - 150px); min-height:300px; }
+  .hud { padding:8px 10px; } .test-button { min-height:34px; padding:7px 8px; } }
 @media (max-width:900px) { .drawpad-layout { grid-template-columns:1fr; }.drawpad-guide { order:-1; } }
 @media (max-width:560px) { .selection-actions { width:100%; flex-direction:column; align-items:stretch; }.selection-actions button { width:100%; }.drawpad-header { align-items:stretch; flex-direction:column; }.drawpad-header .ghost-button { align-self:flex-start; }.drawpad-toolbar { flex-direction:column; }.drawpad-reference-bar { align-items:stretch; flex-direction:column; }.drawpad-reference-bar input[type="range"] { flex:1; width:auto; }.drawpad-actions { justify-content:space-between; }.drawpad-actions .ghost-button { flex:1; }.drawpad-guide { order:2; padding:13px; }.drawpad-key { grid-template-columns:repeat(2,1fr); font-size:8px; }.collab-grid,.collab-columns { grid-template-columns:1fr; }.collab-card { padding:14px; }.collab-actions { flex-direction:column; }.collab-actions button { width:100%; } }
 .collab-empty { margin-top:12px !important; color:#7185a7 !important; }
@@ -280,8 +313,9 @@ h2 span { color:#7583a6; }
           <button id="pause-button" class="test-button" aria-pressed="false">Pause</button>
           <button id="restart-button" class="test-button">Restart</button>
           <div class="resources">
-            <span class="resource gold"><b>◆</b><em id="gold-label">300</em></span>
-            <span class="resource income"><b>↗</b><em id="income-label">+10</em></span>
+            <span class="resource gold"><b>◆</b><em id="gold-label">30</em></span>
+            <span class="resource lumber" title="Lumber — buys shrine upgrades, a second element, or a Laser Cannon"><b>🪵</b><em id="lumber-label">0</em></span>
+            <span class="resource income"><b>↗</b><em id="income-label">+33</em></span>
             <span class="resource lives"><b>♥</b><em id="lives-label">25</em></span>
             <span class="resource enemy" title="Rival force lives"><b>☠</b><em id="enemy-lives-label">25</em></span>
           </div>
@@ -327,11 +361,12 @@ h2 span { color:#7583a6; }
             <div id="tower-details" class="tower-details hidden"></div>
             <div id="build-panel" class="command-body">
               <p class="panel-heading">TOWER LINE</p>
+              <div id="build-extras"></div>
               <div id="tower-list" class="tower-list"></div>
               <button id="build-mode-button" class="action-button">Place selected tower <span>+</span></button>
             </div>
             <div id="send-panel" class="command-body hidden">
-              <p class="panel-heading">YOUR SHRINE → RIVAL LANE</p>
+              <div id="shrine-status" class="shrine-status"></div>
               <div class="income-callout"><strong>Send to grow income</strong><span>Income pays out as gold every 25 seconds. Sends that break through cost the rival lifeforce.</span></div>
               <div id="send-list"></div>
             </div>
@@ -518,12 +553,15 @@ function buildBaseTerrain() {
 buildBaseTerrain();
 terrain.set(baseTerrain);
 
-/* Ordered route checkpoints per half/side: flag 1 (river corner), flag 2 (outer top corner),
-   flag 3 (return toward middle), then the final gate and the ship. */
+/* Ordered route checkpoints per half/side: node 0 is the river's end — every
+   creep walks the full river before advancing (the reference map's long west
+   arrow) — then flag 1 (river corner), flag 2 (outer turn), flag 3 (return
+   toward the middle), the final gate, and the ship. Flags are nodes 1–3. */
 const ROUTES = {
-  north:{ west:[{r:19,c:4},{r:7,c:4},{r:7,c:12},{r:2,c:15},{r:0,c:15}], east:[{r:19,c:27},{r:7,c:27},{r:7,c:19},{r:2,c:16},{r:0,c:16}] },
-  south:{ west:[{r:29,c:4},{r:41,c:4},{r:41,c:12},{r:46,c:15},{r:48,c:15}], east:[{r:29,c:27},{r:41,c:27},{r:41,c:19},{r:46,c:16},{r:48,c:16}] }
+  north:{ west:[{r:23,c:2},{r:19,c:4},{r:7,c:4},{r:7,c:12},{r:2,c:15},{r:0,c:15}], east:[{r:23,c:29},{r:19,c:27},{r:7,c:27},{r:7,c:19},{r:2,c:16},{r:0,c:16}] },
+  south:{ west:[{r:25,c:2},{r:29,c:4},{r:41,c:4},{r:41,c:12},{r:46,c:15},{r:48,c:15}], east:[{r:25,c:29},{r:29,c:27},{r:41,c:27},{r:41,c:19},{r:46,c:16},{r:48,c:16}] }
 };
+const FLAG_START = 1, FLAG_END = 4;   // ROUTES[..][..].slice(FLAG_START, FLAG_END) are the flags
 const SPAWNS = { north:{ west:{r:23,c:15}, east:{r:23,c:16} }, south:{ west:{r:25,c:15}, east:{r:25,c:16} } };
 // Flags occupy exactly one square: only the flag's own cell is unbuildable.
 // Pathing stays forgiving because touching any adjacent cell satisfies a flag.
@@ -535,7 +573,7 @@ function halfOfRow(r) { return r <= 24 ? 'north' : 'south'; }
 function isPlayerBuildRow(r) { return r >= 26 && r <= 45; }
 
 function terrainAt(r, c) { return inBounds(r, c) ? terrain[idx(r, c)] : T.CLIFF; }
-function isWalkable(r, c) { const t = terrainAt(r, c); return t === T.FLOOR || t === T.GATE || t === T.HARBOR; }
+function isWalkable(r, c) { const t = terrainAt(r, c); return t === T.FLOOR || t === T.GATE || t === T.HARBOR || t === T.RIVER; }
 function isBuildableCell(r, c, forHalf = PLAYER_HALF) {
   if (terrainAt(r, c) !== T.FLOOR || protectedCells.has(idx(r, c)) || towers.has(idx(r, c))) return false;
   return forHalf === PLAYER_HALF ? isPlayerBuildRow(r) : (r >= 3 && r <= 22);
@@ -636,18 +674,29 @@ const roleStyle = {
 };
 const roleColors = { standard:'#ff9faf', runner:'#ffd27d', air:'#9fd8ff', armored:'#9fb6cf', boss:'#ff6b81' };
 
-/* Shrine send ladder (Wintermaul Wars): buy an attacker, it runs the rival
-   lane and permanently raises your income. Costs and income deltas are the
-   observed originals (~11–21% of cost); units reuse the creep roster stats. */
+/* Shrine send ladder (Wintermaul Wars): buy an attacker and one runs EACH
+   lane of the rival half, permanently raising your income. HP, speed (WC3
+   ÷128), and armor come from the source map's creep table; costs and income
+   deltas follow the observed originals (~11–21% of cost). Dragons are AIR:
+   they fly straight over the maze. Higher shrine levels unlock the upgraded
+   counterparts (Baby → Matured → Adult Dragon, and the elite ground units). */
 const SENDS = [
-  { id:'miner', name:'Miner', symbol:'⛏', cost:20, income:5, hp:100, spd:1.9, armor:0, aClass:'unarmored', unlockWave:1 },
-  { id:'stalker', name:'Stalker', symbol:'☠', cost:48, income:10, hp:265, spd:2.2, armor:3, aClass:'light', unlockWave:2 },
-  { id:'wolfrider', name:'Wolf Rider', symbol:'◈', cost:126, income:26, hp:400, spd:2.5, armor:7, aClass:'medium', unlockWave:5 },
-  { id:'reptile', name:'Frosty Reptile', symbol:'❄', cost:500, income:56, hp:782, spd:2.9, armor:10, aClass:'medium', unlockWave:9 },
-  { id:'spirit', name:'Eternal Spirit', symbol:'❖', cost:1590, income:180, hp:1300, spd:2.9, armor:14, aClass:'unarmored', unlockWave:13 },
-  { id:'totem', name:'Totem Carrier', symbol:'⬢', cost:3995, income:450, hp:2500, spd:3.0, armor:15, aClass:'heavy', unlockWave:16 },
-  { id:'unholy', name:'Unholy Knight', symbol:'♞', cost:5330, income:600, hp:2875, spd:3.1, armor:15, aClass:'heavy', unlockWave:18 }
+  { id:'scout', name:'Scout', symbol:'•', cost:5, income:1, hp:19, spd:1.6, armor:0, aClass:'unarmored', shrine:1 },
+  { id:'miner', name:'Miner', symbol:'⛏', cost:20, income:5, hp:100, spd:1.9, armor:0, aClass:'unarmored', shrine:1 },
+  { id:'stalker', name:'Stalker', symbol:'☠', cost:48, income:10, hp:265, spd:2.2, armor:3, aClass:'light', shrine:1 },
+  { id:'wolfrider', name:'Wolf Rider', symbol:'◈', cost:126, income:26, hp:400, spd:2.5, armor:7, aClass:'medium', shrine:1 },
+  { id:'babydragon', name:'Baby Dragon', symbol:'▲', cost:40, income:8, hp:110, spd:2.2, armor:0, aClass:'light', air:true, shrine:1 },
+  { id:'reptile', name:'Frosty Reptile', symbol:'❄', cost:500, income:56, hp:782, spd:2.9, armor:10, aClass:'medium', shrine:2 },
+  { id:'spirit', name:'Eternal Spirit', symbol:'❖', cost:1590, income:180, hp:1300, spd:2.9, armor:14, aClass:'unarmored', shrine:2 },
+  { id:'matureddragon', name:'Matured Dragon', symbol:'▲', cost:800, income:90, hp:825, spd:2.9, armor:12, aClass:'light', air:true, shrine:2 },
+  { id:'totem', name:'Totem Carrier', symbol:'⬢', cost:3995, income:450, hp:2500, spd:3.0, armor:15, aClass:'heavy', shrine:3 },
+  { id:'unholy', name:'Unholy Knight', symbol:'♞', cost:5330, income:600, hp:2875, spd:3.1, armor:15, aClass:'heavy', shrine:3 },
+  { id:'adultdragon', name:'Adult Dragon', symbol:'▲', cost:3200, income:360, hp:3000, spd:3.1, armor:20, aClass:'heavy', air:true, shrine:3 }
 ];
+const SHRINE_MAX = 3, LUMBER_PRICE = 500;
+function sendCreepDef(send) {
+  return { name:send.name, role:send.air ? 'air' : 'standard', hp:send.hp, spd:send.spd, armor:send.armor, aClass:send.aClass, air:Boolean(send.air), bounty:Math.round(send.cost * .125), lives:1 };
+}
 
 /* ---------------- Match state ---------------- */
 const WAVE_PERIOD = 30;
@@ -661,6 +710,7 @@ const BOUNTY_MULT = 2;
 function startingLives() { return Number(document.getElementById('lives-select')?.value) || 100; }
 let selectedRace = races[0];
 let selectedTowerTier = 0;
+let buildRaceIdx = 0;              // index into player.races — which licensed element the build panel shows
 let matchMode = 'skirmish';        // 'skirmish' = rounds vs the rival AI; 'classic' = sends only, no neutral waves
 let selectedTowerKey = null;       // key of a placed tower currently inspected
 const towers = new Map();          // idx(r,c) → tower instance
@@ -680,8 +730,9 @@ function resetMatchState() {
   creeps.length = 0; projectiles.length = 0; effects.length = 0; pendingSpawns.length = 0;
   matchMode = document.getElementById('mode-select')?.value === 'classic' ? 'classic' : 'skirmish';
   const lives = startingLives();
-  player = { gold:START_GOLD, income:0, lives, kills:0 };
-  enemy = { gold:START_GOLD, income:0, lives, raceId:races[Math.floor(Math.random() * races.length)].id, spotIndex:0, buildClock:2, sendClock:matchMode === 'classic' ? 14 : 24 };
+  player = { gold:START_GOLD, income:0, lives, kills:0, lumber:0, shrine:1, races:[selectedRace.id] };
+  buildRaceIdx = 0;
+  enemy = { gold:START_GOLD, income:0, lives, lumber:0, shrine:1, raceId:races[Math.floor(Math.random() * races.length)].id, spotIndex:0, buildClock:2, sendClock:matchMode === 'classic' ? 14 : 24 };
   wave = 0; waveClock = FIRST_WAVE_DELAY; incomeClock = INCOME_PERIOD; simTime = 0; battlePaused = false; matchOver = false;
   selectedTowerKey = null;
   refreshRouteDebug();
@@ -789,7 +840,8 @@ function updateCreep(creep, dt) {
   if (Math.abs(creep.x - (goal.c + .5)) < .25 && Math.abs(creep.y - (goal.r + .5)) < .25) {
     creep.cpIndex += 1; creep.path = null;
     if (creep.cpIndex >= goals.length) return resolveLeak(creep);
-    if (creep.cpIndex <= 3) flagReached(creep.half, creep.side, creep.cpIndex - 1);
+    const reachedNode = creep.cpIndex - 1;
+    if (reachedNode >= FLAG_START && reachedNode < FLAG_END) flagReached(creep.half, creep.side, reachedNode - FLAG_START);
     return;
   }
   if (!ensurePath(creep)) {
@@ -1022,14 +1074,21 @@ function updateEnemyAI(dt) {
       }
     }
   }
-  if ((matchMode === 'classic' ? simTime > 20 : wave >= 2) && enemy.sendClock <= 0) {
+  // the rival buys lumber and levels its shrine on a schedule mirroring a player
+  const wantShrine = matchMode === 'classic' ? 1 + Math.min(2, Math.floor(simTime / 210)) : 1 + Math.min(2, Math.floor(wave / 7));
+  if (enemy.shrine < wantShrine) {
+    if (enemy.lumber >= 1) { enemy.lumber -= 1; enemy.shrine += 1; }
+    else if (enemy.gold >= LUMBER_PRICE + 150) { enemy.gold -= LUMBER_PRICE; enemy.lumber += 1; }
+  }
+  if ((matchMode === 'classic' ? simTime > 20 : wave >= 2) && enemy.shrine >= wantShrine && enemy.sendClock <= 0) {
     enemy.sendClock = matchMode === 'classic' ? 12 : 20;
-    const unlocked = SENDS.filter((send) => matchMode === 'classic' || wave >= send.unlockWave);
+    const unlocked = SENDS.filter((send) => enemy.shrine >= send.shrine);
     const affordable = [...unlocked].reverse().find((send) => enemy.gold - 60 >= send.cost);
     if (affordable) {
       enemy.gold -= affordable.cost; enemy.income += affordable.income;
-      spawnCreep({ name:affordable.name, role:'standard', hp:affordable.hp, spd:affordable.spd, armor:affordable.armor, aClass:affordable.aClass, bounty:Math.round(affordable.cost * .25), lives:1 }, PLAYER_HALF, Math.random() < .5 ? 'west' : 'east', true);
-      log(`Rival force sent a ${affordable.name} at your lane! (their income +${affordable.income})`);
+      spawnCreep(sendCreepDef(affordable), PLAYER_HALF, 'west', true);
+      spawnCreep(sendCreepDef(affordable), PLAYER_HALF, 'east', true);
+      log(`Rival force sent ${affordable.name} × 2 at your lanes!${affordable.air ? ' They fly over your maze!' : ''} (their income +${affordable.income})`);
     }
   }
 }
@@ -1167,7 +1226,7 @@ function drawTerrain(ctx, scale = 1) {
     if (terrain[idx(r, c)] === T.FLOOR) ctx.fillRect(c * CELL, r * CELL, CELL, CELL);
   }
   // one-square waypoint flags: pole, banner, and the touch order number
-  ['north', 'south'].forEach((half) => ['west', 'east'].forEach((side) => ROUTES[half][side].slice(0, 3).forEach((cell, i) => {
+  ['north', 'south'].forEach((half) => ['west', 'east'].forEach((side) => ROUTES[half][side].slice(FLAG_START, FLAG_END).forEach((cell, i) => {
     const x = cell.c * CELL, y = cell.r * CELL;
     ctx.fillStyle = '#ffffff30'; ctx.fillRect(x + 1.5, y + 1.5, CELL - 3, CELL - 3);
     ctx.strokeStyle = '#17325a'; ctx.lineWidth = 1.6;
@@ -1367,7 +1426,7 @@ function renderFrame() {
   flagFlashes.forEach((until, key) => {
     if (until <= simTime) return;
     const [half, side, i] = key.split('-');
-    const cell = ROUTES[half]?.[side]?.[Number(i)];
+    const cell = ROUTES[half]?.[side]?.[Number(i) + FLAG_START];
     if (!cell) return;
     const k = Math.min(1, (until - simTime) / 1.4);
     fxCtx.save();
@@ -1411,6 +1470,14 @@ function buildOverlay() {
 function renderHud() {
   $('gold-label').textContent = Math.floor(player.gold);
   $('income-label').textContent = `+${BASE_INCOME + player.income}`;
+  $('lumber-label').textContent = player.lumber;
+  // keep economy buttons in step with live gold/lumber
+  const buyLumber = $('buy-lumber');
+  if (buyLumber) { buyLumber.disabled = player.gold < LUMBER_PRICE; buyLumber.textContent = `Buy 1 lumber — ${LUMBER_PRICE}g (you have ${player.lumber}🪵)`; }
+  const licenseButton = $('license-button');
+  if (licenseButton) licenseButton.disabled = player.lumber < 1;
+  const shrineUpgrade = $('shrine-upgrade');
+  if (shrineUpgrade) shrineUpgrade.disabled = player.lumber < 1;
   refreshSendLocks();
   $('lives-label').textContent = player.lives;
   $('enemy-lives-label').textContent = enemy.lives;
@@ -1430,18 +1497,59 @@ function renderHud() {
   $('pause-button').setAttribute('aria-pressed', String(battlePaused));
   $('dbg-stats').textContent = `${creeps.length} creeps • ${towers.size} towers • ${cachedRouteText}`;
 }
+function currentBuildRaceId() { return player?.races?.[buildRaceIdx] || selectedRace.id; }
 function renderTowerList() {
-  $('tower-list').innerHTML = towerListFor(selectedRace.id).map((entry, tier) => {
-    const def = towerDef(selectedRace.id, tier);
-    return `<button class="tower-row ${tier === selectedTowerTier ? 'selected' : ''} ${def.name === 'Laser Cannon' ? 'laser-row' : ''}" data-tower="${tier}">
-      <span><strong>${def.name}</strong><small>${def.desc}</small><small class="tower-stats">${def.dmg} dmg • ${def.range.toFixed(1)} rng • ${def.cd.toFixed(2)}s${def.groundOnly ? ' • no air' : ''}</small></span><b>${def.cost}g</b></button>`;
+  const raceId = currentBuildRaceId();
+  renderBuildExtras();
+  $('tower-list').innerHTML = towerListFor(raceId).map((entry, tier) => {
+    const def = towerDef(raceId, tier);
+    const isLaser = def.name === 'Laser Cannon';
+    return `<button class="tower-row ${tier === selectedTowerTier ? 'selected' : ''} ${isLaser ? 'laser-row' : ''}" data-tower="${tier}">
+      <span><strong>${def.name}</strong><small>${def.desc}</small><small class="tower-stats">${def.dmg} dmg • ${def.range.toFixed(1)} rng • ${def.cd.toFixed(2)}s${def.groundOnly ? ' • no air' : ''}</small></span><b>${def.cost}g${isLaser ? ' +1🪵' : ''}</b></button>`;
   }).join('');
   document.querySelectorAll('[data-tower]').forEach((button) => button.addEventListener('click', () => {
     selectedTowerTier = Number(button.dataset.tower);
     selectedTowerKey = null;
     renderTowerList(); renderTowerDetails();
-    log(`Selected ${towerDef(selectedRace.id, selectedTowerTier).name}. Tap an open tile on your half (south) to build.`);
+    log(`Selected ${towerDef(currentBuildRaceId(), selectedTowerTier).name}. Tap an open tile on your half (south) to build.`);
   }));
+}
+/* Race chips (licensed elements), the second-element license, and lumber. */
+function renderBuildExtras() {
+  const box = $('build-extras');
+  if (!box || !player) return;
+  let html = '';
+  if (player.races.length > 1) {
+    html += `<div class="race-chips">${player.races.map((id, i) => {
+      const race = races.find((item) => item.id === id);
+      return `<button class="race-chip ${i === buildRaceIdx ? 'active' : ''}" data-chip="${i}" style="--race:${race.color}">${race.symbol} ${race.name}</button>`;
+    }).join('')}</div>`;
+  } else {
+    const options = races.filter((race) => race.id !== player.races[0]).map((race) => `<option value="${race.id}">${race.name}</option>`).join('');
+    html += `<div class="license-row"><select id="license-select" aria-label="Second element">${options}</select><button id="license-button" class="ghost-button" ${player.lumber < 1 ? 'disabled' : ''}>License 2nd element • 1🪵</button></div>`;
+  }
+  html += `<button id="buy-lumber" class="ghost-button lumber-button" ${player.gold < LUMBER_PRICE ? 'disabled' : ''}>Buy 1 lumber — ${LUMBER_PRICE}g (you have ${player.lumber}🪵)</button>`;
+  box.innerHTML = html;
+  document.querySelectorAll('[data-chip]').forEach((chip) => chip.addEventListener('click', () => {
+    buildRaceIdx = Number(chip.dataset.chip);
+    selectedTowerTier = 0;
+    renderTowerList();
+  }));
+  $('buy-lumber')?.addEventListener('click', () => {
+    if (player.gold < LUMBER_PRICE) return log(`Lumber costs ${LUMBER_PRICE}g.`);
+    player.gold -= LUMBER_PRICE; player.lumber += 1;
+    log(`Bought 1 lumber (${player.lumber}🪵). Spend it on a shrine upgrade, a second element, or a Laser Cannon.`);
+    renderHud(); renderTowerList(); renderSendPanel();
+  });
+  $('license-button')?.addEventListener('click', () => {
+    if (player.lumber < 1) return log('A second element license costs 1 lumber (the original map’s rule).');
+    const id = $('license-select').value;
+    player.lumber -= 1;
+    player.races.push(id);
+    buildRaceIdx = 1; selectedTowerTier = 0;
+    log(`${races.find((race) => race.id === id).name} licensed! Switch elements with the chips above the tower line.`);
+    renderHud(); renderTowerList();
+  });
 }
 function renderTowerDetails() {
   const panel = $('tower-details');
@@ -1494,28 +1602,45 @@ function renderTowerDetails() {
   });
 }
 function renderSendPanel() {
+  const shrineBox = $('shrine-status');
+  if (shrineBox && player) {
+    shrineBox.innerHTML = `<span class="panel-heading">SHRINE LEVEL ${player.shrine}${player.shrine >= SHRINE_MAX ? ' • MAX' : ''}</span>
+      ${player.shrine < SHRINE_MAX ? `<button id="shrine-upgrade" class="ghost-button" ${player.lumber < 1 ? 'disabled' : ''}>Upgrade to L${player.shrine + 1} • 1🪵</button>` : ''}`;
+    $('shrine-upgrade')?.addEventListener('click', () => {
+      if (player.lumber < 1) return log('A shrine upgrade costs 1 lumber — buy lumber in the Build tab.');
+      player.lumber -= 1; player.shrine += 1;
+      log(`Shrine upgraded to level ${player.shrine}! Stronger attackers are now for sale.`);
+      renderHud(); renderSendPanel(); renderTowerList();
+    });
+  }
   $('send-list').innerHTML = SENDS.map((send) => `
-    <button class="send-card" data-send="${send.id}"><span class="send-icon">${send.symbol}</span><div><strong>${send.name}</strong><small data-send-note="${send.id}">+${send.income} income</small></div><b>${send.cost}g</b></button>`).join('');
+    <button class="send-card" data-send="${send.id}"><span class="send-icon">${send.air ? '🐉' : send.symbol}</span>
+      <div><strong>${send.name}${send.air ? ' <em class="air-tag">AIR</em>' : ''}</strong>
+      <small data-send-note="${send.id}">+${send.income} income</small>
+      <small class="send-stats">${send.hp} HP • ${send.spd.toFixed(1)} spd • ${send.armor} armor</small></div><b>${send.cost}g</b></button>`).join('');
   document.querySelectorAll('[data-send]').forEach((button) => button.addEventListener('click', () => {
     const send = SENDS.find((item) => item.id === button.dataset.send);
     if (!battleRunning) return log('Start a match before sending.');
-    if (matchMode !== 'classic' && wave < send.unlockWave) return log(`${send.name} unlocks at wave ${send.unlockWave}.`);
+    if (player.shrine < send.shrine) return log(`${send.name} needs Shrine level ${send.shrine}.`);
     if (player.gold < send.cost) return log(`Not enough gold — ${send.name} costs ${send.cost}g.`);
     player.gold -= send.cost; player.income += send.income;
-    spawnCreep({ name:send.name, role:'standard', hp:send.hp, spd:send.spd, armor:send.armor, aClass:send.aClass, bounty:Math.round(send.cost * .25), lives:1 }, ENEMY_HALF, Math.random() < .5 ? 'west' : 'east', true);
-    log(`${send.name} sent at the rival lane. Send income is now +${player.income} per wave.`);
+    // one purchase sends a unit down BOTH rival lanes
+    spawnCreep(sendCreepDef(send), ENEMY_HALF, 'west', true);
+    spawnCreep(sendCreepDef(send), ENEMY_HALF, 'east', true);
+    log(`${send.name} × 2 sent (west + east)${send.air ? ' — flying over the maze' : ''}. Send income is now +${player.income}.`);
     renderHud();
   }));
   refreshSendLocks();
 }
 function refreshSendLocks() {
+  if (!player) return;
   SENDS.forEach((send) => {
     const button = document.querySelector(`[data-send="${send.id}"]`);
     const note = document.querySelector(`[data-send-note="${send.id}"]`);
     if (!button || !note) return;
-    const locked = matchMode !== 'classic' && wave < send.unlockWave;
+    const locked = player.shrine < send.shrine;
     button.classList.toggle('send-locked', locked);
-    note.textContent = locked ? `+${send.income} income • unlocks wave ${send.unlockWave}` : `+${send.income} income`;
+    note.textContent = locked ? `+${send.income} income • Shrine L${send.shrine}` : `+${send.income} income`;
   });
 }
 function renderBattleIdentity() {
@@ -1546,10 +1671,13 @@ function handleBoardTap(event) {
   if (!isPlayerBuildRow(cell.r)) return log('That is the rival half. Build on your half — south of the river.');
   if (protectedCells.has(key)) return log('Route flags and gates are protected. Maze around them.');
   if (creeps.some((creep) => creep.hp > 0 && Math.floor(creep.x) === cell.c && Math.floor(creep.y) === cell.r)) return log('A creep is standing there — wait for it to pass.');
-  const def = towerDef(selectedRace.id, selectedTowerTier);
+  const raceId = currentBuildRaceId();
+  const def = towerDef(raceId, selectedTowerTier);
   if (player.gold < def.cost) return log(`Not enough gold — ${def.name} costs ${def.cost}g.`);
+  if (def.name === 'Laser Cannon' && player.lumber < 1) return log('The Laser Cannon costs 650g + 1 lumber, as in the original map.');
   player.gold -= def.cost;
-  addTower(makeTower(cell.r, cell.c, selectedRace.id, selectedTowerTier, 'player'));
+  if (def.name === 'Laser Cannon') { player.lumber -= 1; renderTowerList(); }
+  addTower(makeTower(cell.r, cell.c, raceId, selectedTowerTier, 'player'));
   creeps.forEach((creep) => { if (creep.half === PLAYER_HALF) creep.path = null; });
   log(`${def.name} placed. ${cachedRouteText}.`);
   renderHud();
