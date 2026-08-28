@@ -1043,6 +1043,7 @@ let selectMode = null, marquee = null;   // ▭ box / ➰ lasso tower selection 
 let actionChips = [];   // floating sell/info chips beside the selected tower
 let ghost = null, ghostChips = [];   // staged placement preview (tap → preview → confirm)
 let wager = { tokens:3, cooldownUntil:0, pending:null };   // rush-the-wave wager: accept rewards BOTH sides
+let chipAutoHideAt = 0;   // placement auto-select retires its chips after a beat; manual selection persists
 const WAGER_COOLDOWN = 90, WAGER_WINDOW = 10;
 function wagerBonus() { return Math.max(10, Math.round(player.income * .4)); }
 function applyWagerBenefit() {
@@ -1913,7 +1914,7 @@ function renderFrame() {
     const chipPxG = Math.min(30, Math.max(10, 16 / scaleG));
     const gapG = Math.max(.85, (chipPxG + 9) / CELL);
     const cyG = ghost.r - Math.max(.55, (chipPxG + 4) / CELL);
-    const radG = (chipPxG + 7) / CELL;
+    const radG = (chipPxG + 3) / CELL;
     const build = { kind:'build', x:ghost.c + .5 - gapG, y:cyG, rad:radG };
     const dismiss = { kind:'dismiss', x:ghost.c + .5 + gapG, y:cyG, rad:radG };
     ghostChips = [build, dismiss];
@@ -1931,6 +1932,9 @@ function renderFrame() {
   }
   // floating action chips beside a single selected tower: sell/cancel + inspect
   actionChips = [];
+  if (chipAutoHideAt && performance.now() > chipAutoHideAt) {
+    chipAutoHideAt = 0; selectedGroupKeys = []; selectedTowerKey = null; renderTowerDetails();
+  }
   if (selectedGroupKeys.length === 1) {
     const tower = towers.get(selectedGroupKeys[0]);
     if (tower && tower.owner === 'player') {
@@ -1941,7 +1945,7 @@ function renderFrame() {
       const chipPx = Math.min(30, Math.max(10, 16 / screenScale));
       const gap = Math.max(.85, (chipPx + 9) / CELL);
       const cy = tower.r - Math.max(.55, (chipPx + 4) / CELL);
-      const rad = (chipPx + 7) / CELL;
+      const rad = (chipPx + 3) / CELL;
       const sell = { kind:'sell', x:tower.c + .5 - gap, y:cy, rad };
       const info = { kind:'info', x:tower.c + .5 + gap, y:cy, rad };
       actionChips = [sell, info];
@@ -2350,6 +2354,7 @@ function handleBoardTap(event) {
     }
     lastTapKey = key; lastTapAt = now;
     selectedTowerKey = key;
+    chipAutoHideAt = 0;   // deliberate selection: chips stay until tapped off
     renderTowerDetails();
     return;
   }
@@ -2394,6 +2399,7 @@ function buildAt(cell) {
   addTower(makeTower(cell.r, cell.c, raceId, selectedTowerTier, 'player'));
   lastPlaced = { key, r:cell.r, c:cell.c, at:simTime, name:def.name, cost:def.cost };
   selectedTowerKey = key; selectedGroupKeys = [selectedTowerKey];   // chips appear beside the new tower
+  chipAutoHideAt = performance.now() + 2600;   // then they bow out so the next cell is clear
   creeps.forEach((creep) => { if (creep.half === PLAYER_HALF) creep.path = null; });
   log(`${def.name} placed. ${cachedRouteText}.`);
   renderHud();
