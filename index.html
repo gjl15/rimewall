@@ -451,7 +451,7 @@ h2 span { color:#7583a6; }
 .bar-card.poor { opacity:.45; }
 .bar-card.locked { opacity:.35; filter:grayscale(.8); }
 .bar-card.toggle-on { border-color:#8fe6b8; background:#0f2b1f; }
-.arena .map-viewport { height:calc(100dvh - 118px - 128px); }
+.arena .map-viewport { min-height:260px; }
 .arena .quick-send { display:none !important; }
 .arena .wisp { right:max(10px, env(safe-area-inset-right)); bottom:calc(140px + env(safe-area-inset-bottom)); }
 /* P1 — screen-space action ring (fixed px, fixed angular slots) */
@@ -461,6 +461,12 @@ h2 span { color:#7583a6; }
 .ring-btn i { font:700 7px 'DM Mono',monospace; font-style:normal; letter-spacing:.04em; }
 .ring-btn:active { transform:scale(.92); }
 .ring-label { position:absolute; transform:translate(-50%,-50%); padding:2px 8px; border-radius:99px; background:#0d1424e8; color:#ffd86b; font:700 9px 'DM Mono',monospace; white-space:nowrap; pointer-events:none; }
+
+/* the board border is the camera contract boundary: board never leaves it, UI never enters it */
+.map-viewport { border:2px solid #4aa3e055; border-radius:16px; }
+.arena .map-viewport { border-radius:10px; }
+.bar-card.bar-wide { flex:1 1 40%; flex-direction:row; gap:8px; min-height:52px; }
+.bar-card.bar-wide small { max-width:none; font-size:11px; }
 
 </style>
 </head>
@@ -1676,7 +1682,6 @@ function launchNextWave() {
   if (wave === 11 && player.lives === player.startLives) award('perfect_10');
   questEvent('reach_12', wave, true);
   if (autoSend.on && autoSend.last) document.querySelector(`[data-send="${autoSend.last}"]`)?.click();
-  if (touchUI() && mapZoomScale > 1.5 && performance.now() - lastMapTouchAt > 2000) camAnim = { z:1, x:0, y:0 };
   if (wave >= 8 && player.lives === player.startLives) questEvent('untouchable');
   const def = waveDefFor(wave);
   queueWaveSpawns(def);
@@ -2276,6 +2281,7 @@ function ringAction(act) {
 function renderRing() {
   const ring = $('action-ring');
   if (!ring) return;
+  if (touchUI()) { ring.classList.add('hidden'); ring._sig = ''; return; }   // touch: actions live in the bar
   let mode = null, cell = null, tower = null;
   if (ghost && battleRunning) { mode = 'ghost'; cell = ghost; }
   else if (selectedGroupKeys.length === 1 && battleRunning) {
@@ -2751,8 +2757,9 @@ function handleBoardTap(event) {
     }
     lastTapKey = key; lastTapAt = now;
     selectedTowerKey = key;
-    chipAutoHideAt = 0;   // deliberate selection: chips stay until tapped off
+    chipAutoHideAt = 0;
     renderTowerDetails();
+    if (touchUI()) { barTab = 'info'; barKey = ''; renderCommandBar(); }
     return;
   }
   lastTapKey = null;
@@ -2772,16 +2779,18 @@ function handleBoardTap(event) {
   if (!isPlayerBuildRow(cell.r)) return log('That is the rival half. Build on your half — south of the river.');
   if (protectedCells.has(key)) return log('Route flags and gates are protected. Maze around them.');
   if (creeps.some((creep) => creep.hp > 0 && Math.floor(creep.x) === cell.c && Math.floor(creep.y) === cell.r)) return log('A creep is standing there — wait for it to pass.');
-  // ghost flow (R6): tap stages; tap the SAME cell (or ✓) builds; tap anywhere else dismisses free
-  if (ghost && (ghost.r !== cell.r || ghost.c !== cell.c)) { ghost = null; return; }
+  // ghost flow: tap stages; tapping another cell MOVES the ghost; same cell (or ✓) builds; ✖ dismisses
+  if (ghost && (ghost.r !== cell.r || ghost.c !== cell.c)) { ghost = { r:cell.r, c:cell.c }; barKey = ''; renderCommandBar(); return; }
   if (!ghost) {
     ghost = { r:cell.r, c:cell.c };
     const def = towerDef(currentBuildRaceId(), selectedTowerTier);
-    log(`${def.name} staged — ✓ or tap again builds; tap elsewhere cancels.`);
+    log(`${def.name} staged — ✓ builds, tap another cell to move it.`);
+    barKey = ''; renderCommandBar();
     return;
   }
   ghost = null;
   buildAt(cell);
+  barKey = ''; renderCommandBar();
 }
 function buildAt(cell) {
   const key = idx(cell.r, cell.c);
@@ -2799,8 +2808,7 @@ function buildAt(cell) {
   placed.seq = ++buildSeq;
   addTower(placed);
   lastPlaced = { key, r:cell.r, c:cell.c, at:simTime, name:def.name, cost:def.cost };
-  selectedTowerKey = key; selectedGroupKeys = [selectedTowerKey];   // chips appear beside the new tower
-  chipAutoHideAt = performance.now() + 2600;   // then they bow out so the next cell is clear
+  if (!touchUI()) { selectedTowerKey = key; selectedGroupKeys = [selectedTowerKey]; chipAutoHideAt = performance.now() + 2600; }
   creeps.forEach((creep) => { if (creep.half === PLAYER_HALF) creep.path = null; });
   log(`${def.name} placed. ${cachedRouteText}.`);
   renderHud();
@@ -2822,7 +2830,7 @@ function smoothZoomTo(nextScale, anchor = null) {
   const fromY = camAnim ? camAnim.y : mapOffsetY;
   const contentX = (point.x - frameBase.left - fromX) / fromScale;
   const contentY = (point.y - frameBase.top - fromY) / fromScale;
-  const z = Math.min(4, Math.max(.7, nextScale));
+  const z = Math.min(3, Math.max(1, nextScale));
   let x = point.x - frameBase.left - contentX * z;
   let y = point.y - frameBase.top - contentY * z;
   const sw = frameBase.width * z, sh = frameBase.height * z;
@@ -2854,14 +2862,15 @@ function fitBoardToViewport() {
   const viewport = $('map-viewport');
   const frame = $('map-frame');
   if (!viewport || !frame) return false;
-  if (!document.body.classList.contains('arena')) {
-    // pin the viewport's bottom edge inside the window — a bottom below the fold
-    // was why the lower map kept getting lost on laptops and tablets
+  {
+    // border contract: the viewport bottom edge always clears the window AND the command bar
     const top = viewport.getBoundingClientRect().top;
-    const room = Math.round(window.innerHeight - top - 14);
-    if (room >= 300) viewport.style.height = `${room}px`;
-    else viewport.style.height = '';   // cramped window (page scrolled): let CSS rule
-  } else viewport.style.height = '';
+    const bar = $('command-bar');
+    const barH = bar && !bar.classList.contains('hidden') ? bar.offsetHeight : 0;
+    const room = Math.round(window.innerHeight - top - barH - 10);
+    if (room >= 260) viewport.style.height = `${room}px`;
+    else viewport.style.height = '';
+  }
   const vw = viewport.clientWidth, vh = viewport.clientHeight;
   if (vw < 60 || vh < 60) return false;   // layout not settled yet — the frame loop retries
   lastFitW = vw; lastFitH = vh;
@@ -2894,7 +2903,7 @@ function setMapZoom(nextScale, anchor = null, fromScale = mapZoomScale, fromOffs
   const point = anchor || { x:rect.width / 2, y:rect.height / 2 };
   const contentX = (point.x - frameBase.left - fromOffset.x) / fromScale;
   const contentY = (point.y - frameBase.top - fromOffset.y) / fromScale;
-  mapZoomScale = Math.min(4, Math.max(.7, nextScale));
+  mapZoomScale = Math.min(3, Math.max(1, nextScale));
   mapOffsetX = point.x - frameBase.left - contentX * mapZoomScale;
   mapOffsetY = point.y - frameBase.top - contentY * mapZoomScale;
   applyMapTransform();
@@ -3773,16 +3782,35 @@ function renderCommandBar() {
   const selTowers = selectionTowers().filter((t) => t.owner === 'player');
   const key = [barTab, raceId, selectedTowerTier, Math.floor(player.gold / 5), player.lumber, player.shrine,
     autoSend.on ? 1 : 0, autoSend.last || '', selTowers.map((t) => t.key + ':' + t.level + ':' + t.tier).join(','),
-    wager.tokens, wager.pending ? 1 : 0, Math.max(0, Math.ceil(wager.cooldownUntil - simTime)), debug.routes ? 1 : 0, debug.ranges ? 1 : 0].join('|');
+    wager.tokens, wager.pending ? 1 : 0, Math.max(0, Math.ceil(wager.cooldownUntil - simTime)), debug.routes ? 1 : 0, debug.ranges ? 1 : 0,
+    ghost ? `g${ghost.r},${ghost.c}` : '', (lastPlaced && towers.get(lastPlaced.key) && underConstruction(towers.get(lastPlaced.key))) ? 'u' : ''].join('|');
   if (key === barKey) return;
   barKey = key;
   document.querySelectorAll('[data-bar-tab]').forEach((b) => b.classList.toggle('on', b.dataset.barTab === barTab));
   const box = $('bar-content');
+  if (ghost) {
+    // BTD6 pattern: confirm/cancel pinned at a FIXED spot in the bar — zero board occlusion
+    const def = towerDef(raceId, selectedTowerTier);
+    box.innerHTML = `
+      <button id="bar-ghost-build" class="bar-card bar-wide toggle-on ${player.gold < def.cost ? 'poor' : ''}"><span>✓</span><small>BUILD ${def.name}</small><b>−${def.cost}g</b></button>
+      <button id="bar-ghost-cancel" class="bar-card bar-wide"><span>✖</span><small>CANCEL</small><b>free</b></button>`;
+    $('bar-ghost-build').addEventListener('click', () => { const cell = { ...ghost }; ghost = null; buildAt(cell); barKey = ''; renderCommandBar(); });
+    $('bar-ghost-cancel').addEventListener('click', () => { ghost = null; barKey = ''; renderCommandBar(); });
+    return;
+  }
+  const lastT = lastPlaced ? towers.get(lastPlaced.key) : null;
+  const undoLive = lastT && underConstruction(lastT);
+  const undoChip = undoLive ? `<button id="bar-undo" class="bar-card toggle-on"><span>↩</span><small>UNDO</small><b>+${lastT.invested}g</b></button>` : '';
   if (barTab === 'build') {
-    box.innerHTML = towerListFor(raceId).map((def, tier) => `
+    box.innerHTML = undoChip + towerListFor(raceId).map((def, tier) => `
       <button class="bar-card ${tier === selectedTowerTier ? 'on' : ''} ${player.gold < def.cost ? 'poor' : ''}" data-bar-tower="${tier}">
         <span>${towerDef(raceId, tier).symbol}</span><small>${def.name.split(' ')[0]}</small><b>${def.cost}g</b></button>`).join('');
     box.querySelectorAll('[data-bar-tower]').forEach((card) => wireTowerCard(card));
+    $('bar-undo')?.addEventListener('click', () => {
+      const t = lastPlaced ? towers.get(lastPlaced.key) : null;
+      if (t && underConstruction(t)) sellTowerAt({ r:t.r, c:t.c });
+      lastPlaced = null; barKey = ''; renderCommandBar();
+    });
   } else if (barTab === 'send') {
     const wagerReady = wager.tokens > 0 && simTime >= wager.cooldownUntil && !wager.pending;
     box.innerHTML = `
@@ -4008,7 +4036,7 @@ function setupWisp() {
     event.preventDefault();
   });
   wisp.addEventListener('pointermove', (event) => {
-    if (!drag || wisp.classList.contains('wisp-docked') || document.body.classList.contains('arena')) return;
+    if (!drag || wisp.classList.contains('wisp-docked')) return;
     const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
     if (Math.hypot(dx, dy) > 6) drag.moved = true;
     if (drag.moved) {
