@@ -416,7 +416,7 @@ h2 span { color:#7583a6; }
         </div>
 
         <div class="selection-bar setup-bar">
-          <button id="race-card" class="race-card-toggle" aria-expanded="false">
+          <button id="race-card" class="race-card-toggle" aria-expanded="true">
             <span id="race-card-symbol" class="race-symbol">❄</span>
             <span class="race-card-copy"><span class="selection-kicker">YOUR ELEMENT — TAP TO CHANGE</span><strong id="selected-name">Ice</strong><span id="selected-desc">Slows enemies and buys your maze time.</span></span>
             <span class="race-card-caret">▾</span>
@@ -425,7 +425,7 @@ h2 span { color:#7583a6; }
           <button id="start-button" class="primary-button">Enter the battlefield <span>→</span></button>
         </div>
 
-        <div id="race-grid-wrap" class="race-grid-wrap hidden">
+        <div id="race-grid-wrap" class="race-grid-wrap">
           <div class="rule-line"><span>SELECT YOUR RACE</span><i></i><small>9 ELEMENTS</small></div>
           <div id="race-grid" class="race-grid" aria-label="Element roster"></div>
           <div id="race-detail" class="race-detail hidden"></div>
@@ -2345,6 +2345,15 @@ function handleBoardTap(event) {
   if (towers.has(key)) {
     const now = performance.now();
     const tower = towers.get(key);
+    if (lastTapKey === key && now - lastTapAt < 420 && tower.owner === 'player' && underConstruction(tower)) {
+      // double-tap while the scaffold is still up = cancel for a full refund
+      const refund = towerSellValue(tower);
+      sellTowerAt({ r:tower.r, c:tower.c });
+      selectedGroupKeys = []; selectedTowerKey = null; lastTapKey = null;
+      renderTowerDetails();
+      log(`Construction canceled — ${refund}g refunded in full.`);
+      return;
+    }
     if (lastTapKey === key && now - lastTapAt < 420 && tower.owner === 'player') {
       // double-tap: select every like tower (same element and tier) for batch actions
       selectedGroupKeys = [...towers.values()].filter((t) => t.owner === 'player' && t.raceId === tower.raceId && t.tier === tower.tier).map((t) => t.key);
@@ -2622,7 +2631,8 @@ function setupMapZoom() {
     if (event.shiftKey && mapZoomScale > 1) {
       mapOffsetX -= event.deltaY; applyMapTransform();   // shift+wheel pans sideways when zoomed
     } else {
-      setMapZoom(mapZoomScale * (event.deltaY < 0 ? 1.1 : 1 / 1.1), { x:event.clientX - rect.left, y:event.clientY - rect.top });
+      const factor = Math.min(1.25, Math.max(.8, Math.exp(-event.deltaY * .0022)));
+      setMapZoom(mapZoomScale * factor, { x:event.clientX - rect.left, y:event.clientY - rect.top });
     }
     event.preventDefault();
   }, { passive:false });
