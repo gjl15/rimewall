@@ -579,7 +579,7 @@ h2 span { color:#7583a6; }
               <div id="arena-log" class="arena-log" aria-live="polite"></div>
               <div class="map-toggles" aria-label="Map indicators"><button id="mt-routes" title="Show creep routes">🧭</button><button id="mt-ranges" title="Show tower ranges">◎</button></div>
               <div class="map-zoom-controls" aria-label="Map zoom controls"><button id="zoom-out-button" aria-label="Zoom out">−</button><span id="zoom-label">100%</span><button id="zoom-in-button" aria-label="Zoom in">+</button><button id="zoom-reset-button" aria-label="Reset map zoom">reset</button></div>
-              <div class="zoom-hint">PINCH TO ZOOM • DRAG WHEN ZOOMED<span class="hotkey-hint"> • 1–9 SEND • Q–U TOWERS • RIGHT-CLICK / HOLD = SELL</span></div>
+              <div class="zoom-hint">PINCH TO ZOOM • DRAG WHEN ZOOMED<span class="hotkey-hint"> • 1–9 SEND • Q–U TOWERS • ESC / DBL-TAP SCAFFOLD = UNDO • RIGHT-CLICK / HOLD = SELL</span></div>
             </div>
 
             <div id="quick-send" class="quick-send" aria-label="Quick send bar"></div>
@@ -1044,6 +1044,7 @@ let actionChips = [];   // floating sell/info chips beside the selected tower
 let ghost = null, ghostChips = [];   // staged placement preview (tap → preview → confirm)
 let wager = { tokens:3, cooldownUntil:0, pending:null };   // rush-the-wave wager: accept rewards BOTH sides
 let chipAutoHideAt = 0;   // placement auto-select retires its chips after a beat; manual selection persists
+let buildSeq = 0;   // monotonic placement order — same-tick placements still undo newest-first
 const WAGER_COOLDOWN = 90, WAGER_WINDOW = 10;
 function wagerBonus() { return Math.max(10, Math.round(player.income * .4)); }
 function applyWagerBenefit() {
@@ -2405,7 +2406,9 @@ function buildAt(cell) {
   if (def.name === 'Laser Cannon' && player.lumber < 1) return log('The Laser Cannon costs 650g + 1 lumber, as in the original map.');
   player.gold -= def.cost;
   if (def.name === 'Laser Cannon') { player.lumber -= 1; player.lumberSpent += 1; if (player.lumberSpent >= 3) award('lumberjack'); renderTowerList(); }
-  addTower(makeTower(cell.r, cell.c, raceId, selectedTowerTier, 'player'));
+  const placed = makeTower(cell.r, cell.c, raceId, selectedTowerTier, 'player');
+  placed.seq = ++buildSeq;
+  addTower(placed);
   lastPlaced = { key, r:cell.r, c:cell.c, at:simTime, name:def.name, cost:def.cost };
   selectedTowerKey = key; selectedGroupKeys = [selectedTowerKey];   // chips appear beside the new tower
   chipAutoHideAt = performance.now() + 2600;   // then they bow out so the next cell is clear
@@ -3559,7 +3562,20 @@ document.addEventListener('keydown', (event) => {
     event.preventDefault();
     return;
   }
-  if (key === 'escape') { selectedTowerKey = null; selectedGroupKeys = []; renderTowerDetails(); }
+  if (key === 'escape') {
+    // layered escape: staged ghost → newest scaffold (full-refund undo) → sheet → selection
+    if (ghost) { ghost = null; ghostChips = []; event.preventDefault(); return; }
+    const building = [...towers.values()].filter((t) => t.owner === 'player' && underConstruction(t)).sort((a, b) => (b.seq || 0) - (a.seq || 0) || b.placedAt - a.placedAt)[0];
+    if (building) {
+      const refund = towerSellValue(building);
+      sellTowerAt({ r:building.r, c:building.c });
+      log(`ESC — construction canceled, ${refund}g refunded in full. Keep building.`);
+      event.preventDefault();
+      return;
+    }
+    if (!$('command-sheet').classList.contains('hidden')) { closeCommandSheet(); event.preventDefault(); return; }
+    selectedTowerKey = null; selectedGroupKeys = []; renderTowerDetails();
+  }
   if (key === 'p') toggleBattlePause();
 });
 $('race-card')?.addEventListener('click', () => {
