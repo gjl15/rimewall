@@ -1174,7 +1174,7 @@ function questEvent(id, amount = 1, absolute = false) {
 }
 function showWaveGrade(waveIdx, leaked) {
   const grade = leaked === 0 ? 'S' : leaked <= 2 ? 'A' : leaked <= 5 ? 'B' : 'C';
-  matchGrades.push(grade);
+  matchGrades.push(grade); if (matchGrades.length > 40) matchGrades.shift();
   if (grade === 'S') questEvent('s_hunter');
   const colors = { S:'#ffd86b', A:'#8fe6b8', B:'#77d6ff', C:'#ff9faf' };
   const el = document.createElement('div');
@@ -1313,6 +1313,7 @@ function waveBoardRetire(creep, leaked) {
   if (board.gone >= board.spawned && !board.graded && !pendingSpawns.some((s) => s.waveIdx === creep.waveIdx)) {
     board.graded = true;
     showWaveGrade(creep.waveIdx, board.leaked);
+    delete waveBoards[creep.waveIdx];   // graded boards are done — don't accumulate across endless waves
   }
 }
 function queueWaveSpawns(waveDef) {
@@ -1538,9 +1539,10 @@ function firePulse(tower, stats) {
   if (!eligible.length) return false;
   effects.push({ kind:'pulse', x:cx, y:cy, radius, color:stats.color, until:simTime + .45 });
   eligible.forEach((creep) => {
+    // thunder shreds % HP (never lethal); blackhole deals flat damage — applyDamage owns the
+    // kill payout/kills bookkeeping, so we must NOT re-award here (that tripled bounty + kills)
     if (stats.special === 'thunder') { if (!creep.boss) creep.hp = Math.max(1, creep.hp - creep.hp * .25); }
     else applyDamage(creep, 550, tower, true);
-    if (creep.hp <= 0) { creep.hp = 0; const owner = creep.half === PLAYER_HALF ? player : enemy; if (!creep.sent) { owner.gold += creep.bounty; if (creep.half === PLAYER_HALF) player.kills += 1; } tower.kills += 1; }
   });
   return true;
 }
@@ -1621,7 +1623,7 @@ function updateEnemyAI(dt) {
       while (buyTier > 0 && list[buyTier].cost > enemy.gold) buyTier -= 1;
       const def = towerDef(enemy.raceId, buyTier);
       // in classic mode the AI keeps a send reserve so its income engine runs too
-      const buildBudget = matchMode === 'classic' ? enemy.gold - 60 : enemy.gold;
+      const buildBudget = enemy.gold - (enemy.spotIndex >= 6 ? 120 : 0);   // once a maze exists, keep a send/shrine reserve
       if (buildBudget >= def.cost && isBuildableCell(spot.r, spot.c, ENEMY_HALF)) {
         enemy.gold -= def.cost;
         addTower(makeTower(spot.r, spot.c, enemy.raceId, buyTier, 'enemy'));
@@ -1634,7 +1636,7 @@ function updateEnemyAI(dt) {
       const mine = [...towers.values()].filter((tower) => tower.owner === 'enemy');
       const weakest = mine.sort((a, b) => a.tier - b.tier)[0];
       let buyTier = Math.min(maxTierNow, list.length - 2);
-      if (weakest && buyTier > weakest.tier && enemy.gold + towerSellValue(weakest) >= list[buyTier].cost + 60) {
+      if (weakest && buyTier > weakest.tier && enemy.gold + towerSellValue(weakest) >= list[buyTier].cost + 200) {
         const spot = { r:weakest.r, c:weakest.c };
         enemy.gold += towerSellValue(weakest);
         removeTower(weakest.key);
@@ -1647,7 +1649,7 @@ function updateEnemyAI(dt) {
   const wantShrine = matchMode === 'classic' ? 1 + Math.min(2, Math.floor(simTime / 210)) : 1 + Math.min(2, Math.floor(wave / 7));
   if (enemy.shrine < wantShrine) {
     if (enemy.lumber >= 1) { enemy.lumber -= 1; enemy.shrine += 1; }
-    else if (enemy.gold >= LUMBER_PRICE + 150) { enemy.gold -= LUMBER_PRICE; enemy.lumber += 1; }
+    else if (enemy.gold >= LUMBER_PRICE) { enemy.gold -= LUMBER_PRICE; enemy.lumber += 1; }
   }
   if ((matchMode === 'classic' ? simTime > 20 : wave >= 2) && enemy.shrine >= wantShrine && enemy.sendClock <= 0) {
     enemy.sendClock = matchMode === 'classic' ? 12 : 20;
@@ -3488,8 +3490,8 @@ const defaultCollabTasks = [
   { text:'Playtest a 3v3 lane split and record where leaks happen.', done:false }
 ];
 let collabTasks = [];
-function cleanName(value) { return escapeHTML(String(value == null ? '' : value).slice(0, 16)) || 'Rival'; }
-function clampLives(value) { const n = Number(value); return Number.isFinite(n) ? Math.max(0, Math.min(9999, Math.round(n))) : 0; }
+function cleanName(value) { let s = ''; try { s = typeof value === 'string' ? value : String(value ?? ''); } catch (e) { s = ''; } return escapeHTML(s.slice(0, 16)) || 'Rival'; }
+function clampLives(value) { let n = NaN; try { n = typeof value === 'number' ? value : Number(value); } catch (e) { n = NaN; } return Number.isFinite(n) ? Math.max(0, Math.min(9999, Math.round(n))) : 0; }
 function escapeHTML(value) { return String(value).replace(/[&<>'"]/g, (character) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[character])); }
 function loadCollabTasks() {
   try {
