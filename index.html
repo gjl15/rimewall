@@ -431,6 +431,37 @@ h2 span { color:#7583a6; }
 .hud-brand .crest-mark { vertical-align:middle; }
 @media (max-width:560px) { .wordmark-row { gap:9px; } .crest-mark { width:34px; height:34px; } }
 
+/* P2 — locked bottom command bar (thumb zone, fixed anchors) */
+.command-bar { position:fixed; left:0; right:0; bottom:0; z-index:160; display:flex; flex-direction:column; gap:6px; padding:7px 10px calc(8px + env(safe-area-inset-bottom)); background:#0d1424f6; border-top:1.5px solid #2c4a7a; box-shadow:0 -8px 24px #0008; }
+.command-bar.hidden { display:none; }
+.bar-top { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.bar-res { display:flex; gap:10px; font:700 11px 'DM Mono',monospace; color:#ffd86b; }
+.bar-res b { font-weight:700; white-space:nowrap; }
+.bar-tabs { display:flex; gap:5px; }
+.bar-tab { display:flex; align-items:center; gap:5px; padding:7px 12px; border:1px solid #2c4a7a; border-radius:9px; background:#111a30; color:#bcd2ff; font-size:13px; }
+.bar-tab i { font:700 9px 'DM Mono',monospace; font-style:normal; letter-spacing:.07em; }
+.bar-tab.on { color:#eafcff; border-color:#77d6ff; background:#77d6ff22; box-shadow:0 0 8px #77d6ff33; }
+.bar-content { display:flex; gap:7px; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; min-height:64px; align-items:stretch; }
+.bar-content::-webkit-scrollbar { display:none; }
+.bar-card { flex:0 0 auto; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-width:64px; padding:6px 8px; border:1.5px solid #2c4a7a; border-radius:11px; background:#111a30; color:#eafcff; touch-action:none; }
+.bar-card small { font:700 9px 'DM Mono',monospace; opacity:.9; max-width:74px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bar-card b { font:700 10px 'DM Mono',monospace; color:#ffd86b; }
+.bar-card span { font-size:17px; line-height:1; }
+.bar-card.on { border-color:#ffd86b; box-shadow:0 0 0 1.5px #ffd86b55; }
+.bar-card.poor { opacity:.45; }
+.bar-card.locked { opacity:.35; filter:grayscale(.8); }
+.bar-card.toggle-on { border-color:#8fe6b8; background:#0f2b1f; }
+.arena .map-viewport { height:calc(100dvh - 118px - 128px); }
+.arena .quick-send { display:none !important; }
+.arena .wisp { right:max(10px, env(safe-area-inset-right)); bottom:calc(140px + env(safe-area-inset-bottom)); }
+/* P1 — screen-space action ring (fixed px, fixed angular slots) */
+.action-ring { position:absolute; z-index:34; width:0; height:0; pointer-events:none; }
+.action-ring.hidden { display:none; }
+.ring-btn { position:absolute; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0; width:46px; height:46px; margin:-23px 0 0 -23px; border-radius:50%; border:2px solid var(--rc,#77d6ff); background:#0d1424f2; color:var(--rc,#77d6ff); font-size:15px; pointer-events:auto; box-shadow:0 4px 14px #000a; }
+.ring-btn i { font:700 7px 'DM Mono',monospace; font-style:normal; letter-spacing:.04em; }
+.ring-btn:active { transform:scale(.92); }
+.ring-label { position:absolute; transform:translate(-50%,-50%); padding:2px 8px; border-radius:99px; background:#0d1424e8; color:#ffd86b; font:700 9px 'DM Mono',monospace; white-space:nowrap; pointer-events:none; }
+
 </style>
 </head>
 <body>
@@ -612,12 +643,24 @@ h2 span { color:#7583a6; }
                 <div id="wave-banner" class="wave-banner">FIRST WAVE INBOUND</div>
               </div>
               <div id="arena-log" class="arena-log" aria-live="polite"></div>
+              <div id="action-ring" class="action-ring hidden"></div>
               <div class="map-toggles" aria-label="Map indicators"><button id="mt-routes" title="Show creep routes">🧭</button><button id="mt-ranges" title="Show tower ranges">◎</button></div>
               <div class="map-zoom-controls" aria-label="Map zoom controls"><button id="zoom-out-button" aria-label="Zoom out">−</button><span id="zoom-label">100%</span><button id="zoom-in-button" aria-label="Zoom in">+</button><button id="zoom-reset-button" aria-label="Reset map zoom">reset</button></div>
               <div class="zoom-hint">PINCH TO ZOOM • DRAG WHEN ZOOMED<span class="hotkey-hint"> • 1–9 SEND • Q–U TOWERS • ESC / DBL-TAP SCAFFOLD = UNDO • RIGHT-CLICK / HOLD = SELL</span></div>
             </div>
 
             <div id="quick-send" class="quick-send" aria-label="Quick send bar"></div>
+            <div id="command-bar" class="command-bar hidden" aria-label="Command bar">
+              <div class="bar-top">
+                <span class="bar-res"><b id="bar-gold">💰 0</b><b id="bar-lumber">🪵 ×0</b><b id="bar-income">↗ +0</b></span>
+                <span class="bar-tabs">
+                  <button id="bar-tab-build" class="bar-tab on" data-bar-tab="build">⛫<i>BUILD</i></button>
+                  <button id="bar-tab-send" class="bar-tab" data-bar-tab="send">⚔<i>SEND</i></button>
+                  <button id="bar-tab-info" class="bar-tab" data-bar-tab="info">🛠<i>INFO</i></button>
+                </span>
+              </div>
+              <div id="bar-content" class="bar-content"></div>
+            </div>
 
             <div class="debug-bar" aria-label="Debug toggles">
               <label><input id="dbg-routes" type="checkbox" /> Routes</label>
@@ -1632,6 +1675,8 @@ function launchNextWave() {
   if (wave >= 15) award('wave_15');
   if (wave === 11 && player.lives === player.startLives) award('perfect_10');
   questEvent('reach_12', wave, true);
+  if (autoSend.on && autoSend.last) document.querySelector(`[data-send="${autoSend.last}"]`)?.click();
+  if (touchUI() && mapZoomScale > 1.5 && performance.now() - lastMapTouchAt > 2000) camAnim = { z:1, x:0, y:0 };
   if (wave >= 8 && player.lives === player.startLives) questEvent('untouchable');
   const def = waveDefFor(wave);
   queueWaveSpawns(def);
@@ -2218,6 +2263,63 @@ function drawRiverFx(ctx) {
   });
   ctx.restore();
 }
+function ringAction(act) {
+  if (act === 'g-build') { const cell = { ...ghost }; ghost = null; buildAt(cell); }
+  else if (act === 'g-cancel') { ghost = null; }
+  else if (act === 't-cancel') {
+    const t = towers.get(selectedGroupKeys[0]);
+    if (t) sellTowerAt({ r:t.r, c:t.c });
+    selectedGroupKeys = []; selectedTowerKey = null; renderTowerDetails();
+  } else towerAction(act.slice(2));
+  renderRing();
+}
+function renderRing() {
+  const ring = $('action-ring');
+  if (!ring) return;
+  let mode = null, cell = null, tower = null;
+  if (ghost && battleRunning) { mode = 'ghost'; cell = ghost; }
+  else if (selectedGroupKeys.length === 1 && battleRunning) {
+    tower = towers.get(selectedGroupKeys[0]);
+    if (tower && tower.owner === 'player') { mode = underConstruction(tower) ? 'construction' : 'built'; cell = tower; }
+  }
+  if (!mode) { ring.classList.add('hidden'); ring._sig = ''; return; }
+  const cr = $('fx-canvas').getBoundingClientRect();
+  const vr = $('map-viewport').getBoundingClientRect();
+  const RAD = 56, pad = 28;
+  let x = cr.left - vr.left + (cell.c + .5) / COLS * cr.width;
+  let y = cr.top - vr.top + (cell.r + .5) / ROWS * cr.height;
+  x = Math.min(vr.width - pad - RAD, Math.max(pad + RAD, x));
+  y = Math.min(vr.height - pad - RAD, Math.max(pad + RAD, y));
+  ring.style.left = `${x}px`; ring.style.top = `${y}px`;
+  const sig = [mode, tower ? `${tower.key}:${tower.level}:${tower.tier}:${tower.priority}` : `g${cell.r},${cell.c}:${selectedTowerTier}`, Math.floor(player.gold / 10)].join('|');
+  if (ring._sig === sig) { ring.classList.remove('hidden'); return; }
+  ring._sig = sig;
+  ring.classList.remove('hidden');
+  // fixed angular slots forever: ✓/⏫ right, ✖/sell left, level top, target bottom (R10)
+  const slots = { right:[RAD, 0], left:[-RAD, 0], top:[0, -RAD], bottom:[0, RAD] };
+  let btns = [], label = '';
+  if (mode === 'ghost') {
+    const def = towerDef(currentBuildRaceId(), selectedTowerTier);
+    btns = [
+      { slot:'right', glyph:'✓', tag:'BUILD', color:'#8fe6b8', act:'g-build' },
+      { slot:'left', glyph:'✖', tag:'', color:'#ff9faf', act:'g-cancel' },
+    ];
+    label = `${def.name} −${def.cost}g`;
+  } else if (mode === 'construction') {
+    btns = [{ slot:'left', glyph:'↩', tag:`+${towerSellValue(tower)}g`, color:'#ffd86b', act:'t-cancel' }];
+    label = 'cancel = full refund';
+  } else {
+    btns = [
+      { slot:'top', glyph:'⬆', tag:'LVL', color:'#8fe6b8', act:'t-level' },
+      { slot:'right', glyph:'⏫', tag:'TIER', color:'#77d6ff', act:'t-tier' },
+      { slot:'left', glyph:'💰', tag:`+${towerSellValue(tower)}`, color:'#ff9faf', act:'t-sell' },
+      { slot:'bottom', glyph:'🎯', tag:tower.priority.toUpperCase().slice(0, 5), color:'#ffd86b', act:'t-priority' },
+    ];
+  }
+  ring.innerHTML = btns.map((b) => `<button class="ring-btn" style="--rc:${b.color}; left:${slots[b.slot][0]}px; top:${slots[b.slot][1]}px" data-ring="${b.act}">${b.glyph}${b.tag ? `<i>${b.tag}</i>` : ''}</button>`).join('')
+    + (label ? `<span class="ring-label" style="left:0; top:${-RAD - 34}px">${label}</span>` : '');
+  ring.querySelectorAll('[data-ring]').forEach((b) => b.addEventListener('click', (event) => { event.stopPropagation(); ringAction(b.dataset.ring); }));
+}
 function renderFrame() {
   fxCtx.clearRect(0, 0, BOARD_W, BOARD_H);
   drawRiverFx(fxCtx);
@@ -2261,7 +2363,7 @@ function renderFrame() {
     }
     fxCtx.restore();
   }
-  // staged ghost: translucent tower + dashed range preview + ✓/✖ chips
+  // staged ghost: translucent tower + dashed range preview (ring handles confirm/cancel)
   ghostChips = [];
   if (ghost && battleRunning) {
     const raceId = currentBuildRaceId();
@@ -2274,59 +2376,12 @@ function renderFrame() {
     fxCtx.globalAlpha = .55; fxCtx.setLineDash([6, 5]); fxCtx.strokeStyle = race.color; fxCtx.lineWidth = 2;
     fxCtx.beginPath(); fxCtx.arc(gx + CELL / 2, gy + CELL / 2, def.range * CELL, 0, Math.PI * 2); fxCtx.stroke();
     fxCtx.setLineDash([]);
-    const fxG = $('fx-canvas');
-    const scaleG = (fxG.getBoundingClientRect().width || fxG.width) / fxG.width;
-    const chipPxG = Math.min(30, Math.max(10, 16 / scaleG));
-    const gapG = Math.max(.85, (chipPxG + 9) / CELL);
-    const cyG = ghost.r - Math.max(.55, (chipPxG + 4) / CELL);
-    const radG = (chipPxG + 3) / CELL;
-    const build = { kind:'build', x:ghost.c + .5 - gapG, y:cyG, rad:radG };
-    const dismiss = { kind:'dismiss', x:ghost.c + .5 + gapG, y:cyG, rad:radG };
-    ghostChips = [build, dismiss];
-    [[build, '#8fe6b8', '✓'], [dismiss, '#ff9faf', '✖']].forEach(([chip, color, glyph]) => {
-      fxCtx.globalAlpha = 1;
-      fxCtx.beginPath(); fxCtx.arc(chip.x * CELL, chip.y * CELL, chipPxG, 0, Math.PI * 2);
-      fxCtx.fillStyle = '#0d1424f0'; fxCtx.fill();
-      fxCtx.lineWidth = Math.max(1.6, chipPxG * .14); fxCtx.strokeStyle = color; fxCtx.stroke();
-      fxCtx.fillStyle = color; fxCtx.font = `700 ${Math.round(chipPxG)}px "DM Mono", monospace`; fxCtx.textAlign = 'center'; fxCtx.textBaseline = 'middle';
-      fxCtx.fillText(glyph, chip.x * CELL, chip.y * CELL + .5);
-    });
-    fxCtx.fillStyle = '#8fe6b8'; fxCtx.font = `700 ${Math.max(8, Math.round(chipPxG * .8))}px "DM Mono", monospace`; fxCtx.textAlign = 'center';
-    fxCtx.fillText(`${def.name} −${def.cost}g`, ghost.c * CELL + CELL / 2, build.y * CELL - chipPxG - 4);
     fxCtx.restore();
   }
-  // floating action chips beside a single selected tower: sell/cancel + inspect
+  // action chips retired — the screen-space ring (renderRing) owns tower actions now
   actionChips = [];
   if (chipAutoHideAt && performance.now() > chipAutoHideAt) {
     chipAutoHideAt = 0; selectedGroupKeys = []; selectedTowerKey = null; renderTowerDetails();
-  }
-  if (selectedGroupKeys.length === 1) {
-    const tower = towers.get(selectedGroupKeys[0]);
-    if (tower && tower.owner === 'player') {
-      const building = underConstruction(tower);
-      // counter-scale so chips stay finger-sized when the canvas is shrunk to fit a phone
-      const fxEl = $('fx-canvas');
-      const screenScale = (fxEl.getBoundingClientRect().width || fxEl.width) / fxEl.width;
-      const chipPx = Math.min(30, Math.max(10, 16 / screenScale));
-      const gap = Math.max(.85, (chipPx + 9) / CELL);
-      const cy = tower.r - Math.max(.55, (chipPx + 4) / CELL);
-      const rad = (chipPx + 3) / CELL;
-      const sell = { kind:'sell', x:tower.c + .5 - gap, y:cy, rad };
-      const info = { kind:'info', x:tower.c + .5 + gap, y:cy, rad };
-      actionChips = [sell, info];
-      const refund = towerSellValue(tower);
-      fxCtx.save();
-      [[sell, building ? '#ffd86b' : '#ff8a9a', building ? '↩' : '✖'], [info, '#77d6ff', 'i']].forEach(([chip, color, glyph]) => {
-        fxCtx.beginPath(); fxCtx.arc(chip.x * CELL, chip.y * CELL, chipPx, 0, Math.PI * 2);
-        fxCtx.fillStyle = '#0d1424f0'; fxCtx.fill();
-        fxCtx.lineWidth = Math.max(1.6, chipPx * .14); fxCtx.strokeStyle = color; fxCtx.stroke();
-        fxCtx.fillStyle = color; fxCtx.font = `700 ${Math.round(chipPx)}px "DM Mono", monospace`; fxCtx.textAlign = 'center'; fxCtx.textBaseline = 'middle';
-        fxCtx.fillText(glyph, chip.x * CELL, chip.y * CELL + .5);
-      });
-      fxCtx.fillStyle = building ? '#ffd86b' : '#ff9faf'; fxCtx.font = `700 ${Math.max(8, Math.round(chipPx * .8))}px "DM Mono", monospace`; fxCtx.textAlign = 'center';
-      fxCtx.fillText(`+${refund}g`, sell.x * CELL, sell.y * CELL - chipPx - 4);
-      fxCtx.restore();
-    }
   }
   // selection feedback: pulsing gold brackets on every selected tower, range ring on the primary
   if (selectedGroupKeys.length) {
@@ -2669,35 +2724,6 @@ function handleBoardTap(event) {
   if (!battleRunning && !matchOver) return;
   const cell = cellFromEvent(event);
   if (!cell) return;
-  {
-    // ghost confirm/dismiss chips take top priority
-    const rectG = $('fx-canvas').getBoundingClientRect();
-    const gx = (event.clientX - rectG.left) / rectG.width * COLS;
-    const gy = (event.clientY - rectG.top) / rectG.height * ROWS;
-    const ghostHit = ghost && ghostChips.find((chip) => Math.hypot(chip.x - gx, chip.y - gy) <= chip.rad);
-    if (ghostHit) {
-      const cellG = { r:ghost.r, c:ghost.c };
-      ghost = null; ghostChips = [];
-      if (ghostHit.kind === 'build') buildAt(cellG);
-      return;
-    }
-  }
-  {
-    // action chips take priority: sell/cancel fast, or open the inspector
-    const rectC = $('fx-canvas').getBoundingClientRect();
-    const px = (event.clientX - rectC.left) / rectC.width * COLS;
-    const py = (event.clientY - rectC.top) / rectC.height * ROWS;
-    const hit = actionChips.find((chip) => Math.hypot(chip.x - px, chip.y - py) <= chip.rad);
-    if (hit && selectedGroupKeys.length === 1) {
-      const tower = towers.get(selectedGroupKeys[0]);
-      if (tower) {
-        if (hit.kind === 'sell') { sellTowerAt({ r:tower.r, c:tower.c }); selectedGroupKeys = []; selectedTowerKey = null; renderTowerDetails(); }
-        else if (touchUI()) openCommandSheet('tower');
-        else { renderTowerDetails(); log('Tower details are in the side panel.'); }
-      }
-      return;
-    }
-  }
   let key = idx(cell.r, cell.c);
   if (!towers.has(key)) {
     // snap assist: a tap landing within 0.6 cells of one of your towers selects it
@@ -2715,15 +2741,7 @@ function handleBoardTap(event) {
   if (towers.has(key)) {
     const now = performance.now();
     const tower = towers.get(key);
-    if (lastTapKey === key && now - lastTapAt < 550 && tower.owner === 'player' && underConstruction(tower)) {
-      // double-tap while the scaffold is still up = cancel for a full refund
-      const refund = towerSellValue(tower);
-      sellTowerAt({ r:tower.r, c:tower.c });
-      selectedGroupKeys = []; selectedTowerKey = null; lastTapKey = null;
-      renderTowerDetails();
-      log(`Construction canceled — ${refund}g refunded in full.`);
-      return;
-    }
+    if (ghost) ghost = null;   // selecting a tower dismisses any staged ghost (R6)
     if (lastTapKey === key && now - lastTapAt < 420 && tower.owner === 'player') {
       // double-tap: select every like tower (same element and tier) for batch actions
       selectedGroupKeys = [...towers.values()].filter((t) => t.owner === 'player' && t.raceId === tower.raceId && t.tier === tower.tier).map((t) => t.key);
@@ -2754,11 +2772,12 @@ function handleBoardTap(event) {
   if (!isPlayerBuildRow(cell.r)) return log('That is the rival half. Build on your half — south of the river.');
   if (protectedCells.has(key)) return log('Route flags and gates are protected. Maze around them.');
   if (creeps.some((creep) => creep.hp > 0 && Math.floor(creep.x) === cell.c && Math.floor(creep.y) === cell.r)) return log('A creep is standing there — wait for it to pass.');
-  // ghost flow: first tap stages a preview; tapping the same cell again (or the ✓ chip) builds
-  if (!ghost || ghost.r !== cell.r || ghost.c !== cell.c) {
+  // ghost flow (R6): tap stages; tap the SAME cell (or ✓) builds; tap anywhere else dismisses free
+  if (ghost && (ghost.r !== cell.r || ghost.c !== cell.c)) { ghost = null; return; }
+  if (!ghost) {
     ghost = { r:cell.r, c:cell.c };
     const def = towerDef(currentBuildRaceId(), selectedTowerTier);
-    log(`${def.name} staged — tap again or hit ✓ to build, ✖ to cancel.`);
+    log(`${def.name} staged — ✓ or tap again builds; tap elsewhere cancels.`);
     return;
   }
   ghost = null;
@@ -2792,6 +2811,26 @@ let mapZoomScale = 1, mapOffsetX = 0, mapOffsetY = 0, frameBase = { left:0, top:
 const activeMapPointers = new Map();
 let pinchStartDistance = 0, pinchStartScale = 1, pinchStartOffset = { x:0, y:0 }, panStart = null, tapCandidate = null;
 let flingV = null, lastPanSample = null, lastGroundTap = null;
+let camAnim = null, lastMapTouchAt = 0, pinchStartAt = 0, pinchMaxDelta = 0;
+// discrete zoom inputs glide through a spring (R16); pinch/pan stay 1:1 under the fingers
+function smoothZoomTo(nextScale, anchor = null) {
+  const viewport = $('map-viewport');
+  const rect = viewport.getBoundingClientRect();
+  const point = anchor || { x:rect.width / 2, y:rect.height / 2 };
+  const fromScale = camAnim ? camAnim.z : mapZoomScale;
+  const fromX = camAnim ? camAnim.x : mapOffsetX;
+  const fromY = camAnim ? camAnim.y : mapOffsetY;
+  const contentX = (point.x - frameBase.left - fromX) / fromScale;
+  const contentY = (point.y - frameBase.top - fromY) / fromScale;
+  const z = Math.min(4, Math.max(.7, nextScale));
+  let x = point.x - frameBase.left - contentX * z;
+  let y = point.y - frameBase.top - contentY * z;
+  const sw = frameBase.width * z, sh = frameBase.height * z;
+  x = sw <= rect.width ? (rect.width - sw) / 2 - frameBase.left : Math.max(rect.width - sw - frameBase.left, Math.min(-frameBase.left, x));
+  y = sh <= rect.height ? (rect.height - sh) / 2 - frameBase.top : Math.max(rect.height - sh - frameBase.top, Math.min(-frameBase.top, y));
+  camAnim = { z, x, y };
+}
+function camZoomNow() { return camAnim ? camAnim.z : mapZoomScale; }
 function maybeDoubleTapZoom(event, cell, terrain) {
   // double-tap water/cliff/rival ground toggles zoom, Google-Maps style
   const shrine = terrain === T.CLIFF && cell.r >= 34 && cell.r <= 37 && cell.c >= 11 && cell.c <= 20;
@@ -2803,7 +2842,7 @@ function maybeDoubleTapZoom(event, cell, terrain) {
   if (prior && now - prior.at < 380 && Math.hypot(prior.r - cell.r, prior.c - cell.c) < 1.2) {
     const rect = $('map-viewport').getBoundingClientRect();
     const anchor = { x:event.clientX - rect.left, y:event.clientY - rect.top };
-    if (mapZoomScale < 1.6) setMapZoom(2.2, anchor); else resetMapZoom();
+    if (camZoomNow() < 1.6) smoothZoomTo(2.2, anchor); else camAnim = { z:1, x:0, y:0 };
     lastGroundTap = null;
     return true;
   }
@@ -2873,6 +2912,7 @@ function setupMapZoom() {
     if (cell) sellTowerAt(cell);
   });
   viewport.addEventListener('pointerdown', (event) => {
+    if (event.target.closest && event.target.closest('.action-ring, .map-toggles, .map-zoom-controls')) return;
     if ((selectMode || event.shiftKey) && battleRunning && event.button !== 2) {
       const rect = $('fx-canvas').getBoundingClientRect();
       const px = (event.clientX - rect.left) / rect.width * COLS;
@@ -2887,6 +2927,7 @@ function setupMapZoom() {
     }
     activeMapPointers.set(event.pointerId, { x:event.clientX, y:event.clientY });
     try { viewport.setPointerCapture(event.pointerId); } catch (error) { /* capture is best-effort */ }
+    camAnim = null; lastMapTouchAt = performance.now();
     tapCandidate = { x:event.clientX, y:event.clientY, id:event.pointerId };
     // touch: press-and-hold a tower to sell it
     window.clearTimeout(viewport._holdTimer);
@@ -2903,6 +2944,7 @@ function setupMapZoom() {
       pinchStartDistance = pointerDistance(points[0], points[1]);
       pinchStartScale = mapZoomScale;
       pinchStartOffset = { x:mapOffsetX, y:mapOffsetY };
+      pinchStartAt = performance.now(); pinchMaxDelta = 0;
       panStart = null; tapCandidate = null;
     } else if (activeMapPointers.size === 1 && mapZoomScale > 1) {
       panStart = { x:event.clientX, y:event.clientY, offsetX:mapOffsetX, offsetY:mapOffsetY };
@@ -2929,6 +2971,7 @@ function setupMapZoom() {
       const points = [...activeMapPointers.values()];
       const rect = viewport.getBoundingClientRect();
       const dist = pointerDistance(points[0], points[1]);
+      pinchMaxDelta = Math.max(pinchMaxDelta, Math.abs(dist - pinchStartDistance));
       const mid = { x:(points[0].x + points[1].x) / 2 - rect.left, y:(points[0].y + points[1].y) / 2 - rect.top };
       setMapZoom(pinchStartScale * dist / pinchStartDistance, mid, pinchStartScale, pinchStartOffset);
       event.preventDefault();
@@ -2984,6 +3027,10 @@ function setupMapZoom() {
     }
     lastPanSample = null;
     activeMapPointers.delete(event.pointerId);
+    if (activeMapPointers.size === 1 && pinchStartDistance && performance.now() - pinchStartAt < 260 && pinchMaxDelta < 12) {
+      smoothZoomTo(Math.max(1, camZoomNow() / 2));   // two-finger tap: step back out
+      pinchStartDistance = 0;
+    }
     if (activeMapPointers.size < 2) pinchStartDistance = 0;
     if (activeMapPointers.size === 1 && mapZoomScale > 1) {
       const remaining = [...activeMapPointers.values()][0];
@@ -3002,16 +3049,16 @@ function setupMapZoom() {
     if (!battleRunning && !event.ctrlKey && !event.metaKey) return;   // outside battle the page scrolls normally
     const rect = viewport.getBoundingClientRect();
     if (event.shiftKey && mapZoomScale > 1) {
-      mapOffsetX -= event.deltaY; applyMapTransform();   // shift+wheel pans sideways when zoomed
+      mapOffsetX -= event.deltaY; camAnim = null; applyMapTransform();   // shift+wheel pans sideways when zoomed
     } else {
       const factor = Math.min(1.25, Math.max(.8, Math.exp(-event.deltaY * .0022)));
-      setMapZoom(mapZoomScale * factor, { x:event.clientX - rect.left, y:event.clientY - rect.top });
+      smoothZoomTo(camZoomNow() * factor, { x:event.clientX - rect.left, y:event.clientY - rect.top });
     }
     event.preventDefault();
   }, { passive:false });
-  $('zoom-in-button').addEventListener('click', () => setMapZoom(mapZoomScale + .25));
-  $('zoom-out-button').addEventListener('click', () => setMapZoom(mapZoomScale - .25));
-  $('zoom-reset-button').addEventListener('click', resetMapZoom);
+  $('zoom-in-button').addEventListener('click', () => smoothZoomTo(camZoomNow() + .25));
+  $('zoom-out-button').addEventListener('click', () => smoothZoomTo(camZoomNow() - .25));
+  $('zoom-reset-button').addEventListener('click', () => { camAnim = { z:1, x:0, y:0 }; });
   window.addEventListener('resize', fitBoardToViewport);
 }
 
@@ -3025,20 +3072,32 @@ function frame(now) {
     let acc = dt;
     while (acc > 0) { const step = Math.min(1 / 30, acc); simulate(step); acc -= step; }
     hudClock -= dt;
-    if (hudClock <= 0) { hudClock = .2; renderHud(); if (selectedTowerKey !== null) renderTowerDetails(); renderCommandSheet(); }
+    if (hudClock <= 0) { hudClock = .2; renderHud(); if (selectedTowerKey !== null) renderTowerDetails(); renderCommandSheet(); renderCommandBar(); }
   }
   if (!$('battle-screen').classList.contains('hidden')) {
     const viewport = $('map-viewport');
     if (viewport && (frameBase.width < 10 || Math.abs(viewport.clientWidth - lastFitW) > 1 || Math.abs(viewport.clientHeight - lastFitH) > 1)) fitBoardToViewport();
+    if (camAnim) {
+      const k = Math.pow(2, -12 * dt);   // frame-rate-independent spring, half-life ~58ms
+      mapZoomScale = camAnim.z + (mapZoomScale - camAnim.z) * k;
+      mapOffsetX = camAnim.x + (mapOffsetX - camAnim.x) * k;
+      mapOffsetY = camAnim.y + (mapOffsetY - camAnim.y) * k;
+      if (Math.abs(mapZoomScale - camAnim.z) < .002 && Math.abs(mapOffsetX - camAnim.x) < .5 && Math.abs(mapOffsetY - camAnim.y) < .5) {
+        mapZoomScale = camAnim.z; mapOffsetX = camAnim.x; mapOffsetY = camAnim.y; camAnim = null;
+      }
+      applyMapTransform();
+    }
     if (flingV && !activeMapPointers.size && mapZoomScale > 1) {
       const beforeX = mapOffsetX, beforeY = mapOffsetY;
       mapOffsetX += flingV.x * dt * 1000;
       mapOffsetY += flingV.y * dt * 1000;
-      flingV.x *= Math.pow(.0018, dt); flingV.y *= Math.pow(.0018, dt);
+      const fr = Math.pow(.98, dt * 1000 / 16);
+      flingV.x *= fr; flingV.y *= fr;
       applyMapTransform();
-      if ((Math.abs(flingV.x) < .02 && Math.abs(flingV.y) < .02) || (beforeX === mapOffsetX && beforeY === mapOffsetY)) flingV = null;
+      if ((Math.abs(flingV.x) < .01 && Math.abs(flingV.y) < .01) || (beforeX === mapOffsetX && beforeY === mapOffsetY)) flingV = null;
     } else if (flingV && activeMapPointers.size) flingV = null;
     renderFrame();
+    renderRing();
   }
   requestAnimationFrame(frame);
 }
@@ -3697,10 +3756,97 @@ function applyUiMode() {
   if (vp) vp.style.touchAction = (arena || mapZoomScale > 1) ? 'none' : 'manipulation';
   const wisp = $('wisp');
   if (wisp) wisp.classList.toggle('hidden', !battleRunning);
+  const bar = $('command-bar');
+  if (bar) { bar.classList.toggle('hidden', !arena); if (arena) { barKey = ''; renderCommandBar(); } }
   const modeSel = $('ui-mode-select');
   if (modeSel) modeSel.value = uiMode();
 }
 let sheetTab = 'sends', sheetKey = '';
+let barTab = 'build', barKey = '', autoSend = { on:false, last:null };
+function renderCommandBar() {
+  const bar = $('command-bar');
+  if (!bar || bar.classList.contains('hidden') || !player) return;
+  $('bar-gold').textContent = `💰 ${Math.floor(player.gold)}`;
+  $('bar-lumber').textContent = `🪵 ×${player.lumber}`;
+  $('bar-income').textContent = `↗ +${player.income}`;
+  const raceId = currentBuildRaceId();
+  const selTowers = selectionTowers().filter((t) => t.owner === 'player');
+  const key = [barTab, raceId, selectedTowerTier, Math.floor(player.gold / 5), player.lumber, player.shrine,
+    autoSend.on ? 1 : 0, autoSend.last || '', selTowers.map((t) => t.key + ':' + t.level + ':' + t.tier).join(','),
+    wager.tokens, wager.pending ? 1 : 0, Math.max(0, Math.ceil(wager.cooldownUntil - simTime)), debug.routes ? 1 : 0, debug.ranges ? 1 : 0].join('|');
+  if (key === barKey) return;
+  barKey = key;
+  document.querySelectorAll('[data-bar-tab]').forEach((b) => b.classList.toggle('on', b.dataset.barTab === barTab));
+  const box = $('bar-content');
+  if (barTab === 'build') {
+    box.innerHTML = towerListFor(raceId).map((def, tier) => `
+      <button class="bar-card ${tier === selectedTowerTier ? 'on' : ''} ${player.gold < def.cost ? 'poor' : ''}" data-bar-tower="${tier}">
+        <span>${towerDef(raceId, tier).symbol}</span><small>${def.name.split(' ')[0]}</small><b>${def.cost}g</b></button>`).join('');
+    box.querySelectorAll('[data-bar-tower]').forEach((card) => wireTowerCard(card));
+  } else if (barTab === 'send') {
+    const wagerReady = wager.tokens > 0 && simTime >= wager.cooldownUntil && !wager.pending;
+    box.innerHTML = `
+      <button id="bar-auto" class="bar-card ${autoSend.on ? 'toggle-on' : ''}"><span>🔁</span><small>AUTO</small><b>${autoSend.on ? 'ON' : 'off'}</b></button>
+      ${matchMode === 'classic' ? '' : `<button id="bar-wager" class="bar-card ${wagerReady ? '' : 'poor'}"><span>⏩</span><small>Rush</small><b>×${wager.tokens}</b></button>`}
+      ${SENDS.map((send) => `
+      <button class="bar-card ${player.shrine < send.shrine ? 'locked' : ''} ${player.gold < send.cost ? 'poor' : ''}" data-bar-send="${send.id}">
+        <span>${send.air ? '🐉' : send.symbol}</span><small>${send.name.split(' ')[0]}</small><b>${send.cost}g +${send.income}</b></button>`).join('')}`;
+    $('bar-auto').addEventListener('click', () => {
+      autoSend.on = !autoSend.on;
+      log(autoSend.on ? `AUTO-send on — repeats your last send each wave${autoSend.last ? '' : ' (make one send to arm it)'}.` : 'AUTO-send off.');
+      barKey = ''; renderCommandBar();
+    });
+    $('bar-wager')?.addEventListener('click', proposeWager);
+    box.querySelectorAll('[data-bar-send]').forEach((b) => b.addEventListener('click', () => {
+      autoSend.last = b.dataset.barSend;
+      document.querySelector(`[data-send="${b.dataset.barSend}"]`)?.click();
+      barKey = ''; renderCommandBar();
+    }));
+  } else {
+    const t0 = selTowers[0];
+    const stats = t0 ? towerLiveStats(t0) : null;
+    box.innerHTML = `
+      ${t0 ? `<button class="bar-card" data-bar-act="level"><span>⬆</span><small>Level</small><b>${selTowers.filter((t)=>t.level<MAX_LEVEL).reduce((s,t)=>s+towerLevelCost(t),0) || 'MAX'}g</b></button>
+      <button class="bar-card" data-bar-act="tier"><span>⏫</span><small>Tier</small><b>${selTowers.filter((t)=>towerTierUp(t)).reduce((s,t)=>s+(towerTierUp(t)?.cost||0),0)}g</b></button>
+      <button class="bar-card" data-bar-act="sell"><span>💰</span><small>Sell</small><b>+${selTowers.reduce((s,t)=>s+towerSellValue(t),0)}g</b></button>
+      <button class="bar-card" data-bar-act="priority"><span>🎯</span><small>${t0.priority}</small><b>target</b></button>` : ''}
+      <button id="bar-lumber-buy" class="bar-card ${player.gold < LUMBER_PRICE ? 'poor' : ''}"><span>🪵</span><small>Lumber</small><b>${LUMBER_PRICE}g</b></button>
+      ${player.shrine < SHRINE_MAX ? `<button id="bar-shrine" class="bar-card ${player.lumber < 1 ? 'poor' : ''}"><span>⛩</span><small>Shrine L${player.shrine}</small><b>1🪵</b></button>` : ''}
+      <button id="bar-routes" class="bar-card ${debug.routes ? 'toggle-on' : ''}"><span>🧭</span><small>Routes</small><b>${debug.routes ? 'ON' : 'off'}</b></button>
+      <button id="bar-ranges" class="bar-card ${debug.ranges ? 'toggle-on' : ''}"><span>◎</span><small>Ranges</small><b>${debug.ranges ? 'ON' : 'off'}</b></button>
+      <button id="bar-exit" class="bar-card"><span>⏏</span><small>Exit</small><b>match</b></button>`;
+    box.querySelectorAll('[data-bar-act]').forEach((b) => b.addEventListener('click', () => { towerAction(b.dataset.barAct); barKey = ''; renderCommandBar(); }));
+    $('bar-lumber-buy').addEventListener('click', () => { buyLumber(); barKey = ''; renderCommandBar(); });
+    $('bar-shrine')?.addEventListener('click', () => { upgradeShrine(); barKey = ''; renderCommandBar(); });
+    $('bar-routes').addEventListener('click', () => { debug.routes = !debug.routes; syncMapToggles(); barKey = ''; renderCommandBar(); });
+    $('bar-ranges').addEventListener('click', () => { debug.ranges = !debug.ranges; syncMapToggles(); barKey = ''; renderCommandBar(); });
+    $('bar-exit').addEventListener('click', () => $('back-button')?.click());
+  }
+}
+function wireTowerCard(card) {
+  // tap = select tier; drag onto the board = stage a ghost at the drop cell (R4)
+  const tier = Number(card.dataset.barTower);
+  let start = null;
+  card.addEventListener('pointerdown', (event) => {
+    start = { x:event.clientX, y:event.clientY };
+    try { card.setPointerCapture(event.pointerId); } catch (e) {}
+  });
+  card.addEventListener('pointerup', (event) => {
+    if (!start) return;
+    const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y);
+    start = null;
+    selectedTowerTier = tier;
+    renderTowerList(); barKey = ''; renderCommandBar();
+    if (moved > 24) {
+      const cell = cellFromEvent(event);
+      if (cell && terrainAt(cell.r, cell.c) === T.FLOOR && isPlayerBuildRow(cell.r) && !towers.has(idx(cell.r, cell.c))) {
+        ghost = { r:cell.r, c:cell.c };
+        selectedTowerKey = null; selectedGroupKeys = [];
+        log(`${towerDef(currentBuildRaceId(), tier).name} staged — ✓ builds, ✖ or tap elsewhere cancels.`);
+      }
+    }
+  });
+}
 let wispParked = null;   // where the wisp was before docking onto the open sheet
 function dockWisp() {
   const wisp = $('wisp');
@@ -3862,7 +4008,7 @@ function setupWisp() {
     event.preventDefault();
   });
   wisp.addEventListener('pointermove', (event) => {
-    if (!drag || wisp.classList.contains('wisp-docked')) return;
+    if (!drag || wisp.classList.contains('wisp-docked') || document.body.classList.contains('arena')) return;
     const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
     if (Math.hypot(dx, dy) > 6) drag.moved = true;
     if (drag.moved) {
@@ -3875,6 +4021,7 @@ function setupWisp() {
     if (!drag) return;
     if (wisp.classList.contains('wisp-docked')) { closeCommandSheet(); drag = null; return; }
     if (drag.moved) { profile.wispPos = { x:wisp.offsetLeft, y:wisp.offsetTop }; saveProfile(); }
+    else if (document.body.classList.contains('arena')) { const sheet = $('command-sheet'); sheet.classList.contains('hidden') ? openCommandSheet('learn') : closeCommandSheet(); }
     else { const sheet = $('command-sheet'); sheet.classList.contains('hidden') ? openCommandSheet() : closeCommandSheet(); }
     drag = null;
   };
@@ -3996,6 +4143,7 @@ $('wisp-undo')?.addEventListener('click', (event) => {
   lastPlaced = null;
   renderUndoSlot();
 });
+document.querySelectorAll('[data-bar-tab]').forEach((b) => b.addEventListener('click', () => { barTab = b.dataset.barTab; barKey = ''; renderCommandBar(); }));
 setupWisp();
 $('ui-mode-select')?.addEventListener('change', (event) => {
   profile.uiMode = event.target.value;
