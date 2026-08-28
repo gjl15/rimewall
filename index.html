@@ -330,6 +330,35 @@ h2 span { color:#7583a6; }
 @media (max-width:560px) { .selection-actions { width:100%; flex-direction:column; align-items:stretch; }.selection-actions button { width:100%; }.drawpad-header { align-items:stretch; flex-direction:column; }.drawpad-header .ghost-button { align-self:flex-start; }.drawpad-toolbar { flex-direction:column; }.drawpad-reference-bar { align-items:stretch; flex-direction:column; }.drawpad-reference-bar input[type="range"] { flex:1; width:auto; }.drawpad-actions { justify-content:space-between; }.drawpad-actions .ghost-button { flex:1; }.drawpad-guide { order:2; padding:13px; }.drawpad-key { grid-template-columns:repeat(2,1fr); font-size:8px; }.collab-grid,.collab-columns { grid-template-columns:1fr; }.collab-card { padding:14px; }.collab-actions { flex-direction:column; }.collab-actions button { width:100%; } }
 .collab-empty { margin-top:12px !important; color:#7185a7 !important; }
 
+/* fighter-select roster + dossier */
+.race-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(86px, 1fr)); gap:8px; }
+.race-card { position:relative; aspect-ratio:3/4; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:2px; padding:8px 4px; border:2px solid color-mix(in srgb, var(--race) 45%, #17325a); border-radius:12px; background:linear-gradient(180deg, color-mix(in srgb, var(--race) 38%, #0b1020) 0%, #0b1020 78%); color:#eafcff; overflow:hidden; }
+.race-card .race-symbol { position:absolute; top:14%; left:50%; transform:translateX(-50%); font-size:34px; color:var(--race); text-shadow:0 0 16px color-mix(in srgb, var(--race) 70%, transparent); }
+.race-card strong { font:700 12px 'DM Mono',monospace; letter-spacing:.04em; }
+.race-card small { font-size:8px; opacity:.75; }
+.race-card.previewed { border-color:#eafcff; box-shadow:0 0 0 2px #eafcff66, 0 0 18px color-mix(in srgb, var(--race) 55%, transparent); }
+.race-card.selected { border-color:#ffd86b; box-shadow:0 0 0 2px #ffd86b66; }
+.race-card.locked { filter:grayscale(.75) brightness(.7); }
+.race-detail { display:flex; gap:14px; align-items:stretch; margin-top:12px; padding:14px; border:1px solid #2c4a7a; border-radius:14px; background:#0d1424; }
+.race-detail.hidden { display:none; }
+.detail-portrait { flex:0 0 110px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; border:2px solid color-mix(in srgb, var(--race) 55%, #17325a); border-radius:12px; background:radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--race) 45%, #0b1020), #0b1020 80%); }
+.detail-portrait span { font-size:44px; color:var(--race); text-shadow:0 0 20px color-mix(in srgb, var(--race) 75%, transparent); }
+.detail-portrait b { font:700 13px 'DM Mono',monospace; }
+.detail-info { flex:1; min-width:0; display:flex; flex-direction:column; gap:7px; }
+.detail-info h3 { margin:0; font-size:14px; }
+.detail-info h3 small { font-weight:400; opacity:.7; }
+.detail-info p { margin:0; font-size:11px; opacity:.9; }
+.vs-row { display:flex; flex-wrap:wrap; align-items:center; gap:5px; font-size:10px; }
+.vs-row i { font-style:normal; opacity:.65; font-size:9px; text-transform:uppercase; letter-spacing:.08em; min-width:62px; }
+.vs-row em { font-style:normal; color:#ffd86b; font-size:10px; }
+.vs-chip { padding:2px 7px; border:1px solid #2c4a7a; border-radius:99px; background:#111a30; font-size:9px; }
+.vs-chip.vs-good { border-color:#4caf7d; color:#8fe6b8; }
+.vs-chip.vs-bad { border-color:#a94a5c; color:#ff9faf; }
+.detail-locked { margin:0; color:#ffd86b; font-size:10px; }
+.race-confirm { align-self:flex-start; margin-top:2px; padding:10px 18px; border:2px solid var(--race); border-radius:10px; background:color-mix(in srgb, var(--race) 24%, #0b1020); color:#eafcff; font:700 12px 'DM Mono',monospace; letter-spacing:.05em; }
+.race-confirm:disabled { opacity:.5; }
+@media (max-width:560px) { .race-detail { flex-direction:column; } .detail-portrait { flex-basis:auto; min-height:120px; } .race-confirm { align-self:stretch; text-align:center; } }
+
 </style>
 </head>
 <body>
@@ -360,7 +389,8 @@ h2 span { color:#7583a6; }
 
         <div id="race-grid-wrap" class="race-grid-wrap hidden">
           <div class="rule-line"><span>SELECT YOUR RACE</span><i></i><small>9 ELEMENTS</small></div>
-          <div id="race-grid" class="race-grid" aria-label="Race selection"></div>
+          <div id="race-grid" class="race-grid" aria-label="Element roster"></div>
+          <div id="race-detail" class="race-detail hidden"></div>
         </div>
 
         <div id="profile-strip" class="profile-strip"></div>
@@ -579,75 +609,75 @@ const races = [
    groundOnly towers cannot target air waves. */
 const TOWERS = {
   ice:[
-    { name:'Icicle Tosser', cost:10, dmg:6, cd:1.1, range:5.5, special:'slow', desc:'Frost bolts that slow the first target.' },
-    { name:'Snowball Launcher', cost:40, dmg:26, cd:1.0, range:5.5, special:'slow', desc:'Heavy snowballs chill whole lanes.' },
-    { name:'Blizzard Master', cost:100, dmg:85, cd:1.2, range:5.5, special:'slow', desc:'Freezing bursts on clustered creeps.' },
-    { name:'Water Sprayer', cost:200, dmg:50, cd:5.0, range:5.9, special:'pause', desc:'Locks a creep in place for a few seconds. Bosses resist.' },
-    { name:'Cold Exploder', cost:270, dmg:100, cd:2.25, range:5.5, special:'frostnova', desc:'Huge frost explosion that slows everything caught in it.' },
-    { name:'Nova Creator', cost:350, dmg:700, cd:1.0, range:6.1, special:null, desc:'A single devastating frozen bolt.' }
+    { name:'Frostflick', cost:10, dmg:6, cd:1.1, range:5.5, special:'slow', desc:'Frost bolts that slow the first target.' },
+    { name:'Hailslinger', cost:40, dmg:26, cd:1.0, range:5.5, special:'slow', desc:'Heavy snowballs chill whole lanes.' },
+    { name:'Whiteout Spire', cost:100, dmg:85, cd:1.2, range:5.5, special:'slow', desc:'Freezing bursts on clustered creeps.' },
+    { name:'Meltjet', cost:200, dmg:50, cd:5.0, range:5.9, special:'pause', desc:'Locks a creep in place for a few seconds. Bosses resist.' },
+    { name:'Shatterfrost', cost:270, dmg:100, cd:2.25, range:5.5, special:'frostnova', desc:'Huge frost explosion that slows everything caught in it.' },
+    { name:'Absolute Zero', cost:350, dmg:700, cd:1.0, range:6.1, special:null, desc:'A single devastating frozen bolt.' }
   ],
   fire:[
-    { name:'Flare Tower', cost:10, dmg:6, cd:.6, range:5.5, special:'smallsplash', desc:'Fast fireballs with light splash.' },
-    { name:'Flame Dancer', cost:45, dmg:35, cd:.9, range:5.5, special:'splash', desc:'Rapid flames splash across nearby creeps.' },
-    { name:'Meteor Watcher', cost:95, dmg:88, cd:1.2, range:7.0, special:'meteor', desc:'Calls down meteors with a large blast.' },
-    { name:'Blast Furnace', cost:200, dmg:238, cd:1.15, range:5.5, special:'splash', desc:'Furnace blasts melt tight groups.' },
-    { name:'Incinerator', cost:280, dmg:170, cd:.15, range:5.5, special:'machinegun', desc:'A machine-gun stream of fire. No splash.' },
-    { name:'Flame Staff', cost:350, dmg:125, cd:.35, range:5.5, special:'smallsplash', desc:'Very fast staff fire with light splash.' }
+    { name:'Kindler', cost:10, dmg:6, cd:.6, range:5.5, special:'smallsplash', desc:'Fast fireballs with light splash.' },
+    { name:'Emberwhirl', cost:45, dmg:35, cd:.9, range:5.5, special:'splash', desc:'Rapid flames splash across nearby creeps.' },
+    { name:'Skyfall Brazier', cost:95, dmg:88, cd:1.2, range:7.0, special:'meteor', desc:'Calls down meteors with a large blast.' },
+    { name:'Slagworks', cost:200, dmg:238, cd:1.15, range:5.5, special:'splash', desc:'Furnace blasts melt tight groups.' },
+    { name:'Ashmaker', cost:280, dmg:170, cd:.15, range:5.5, special:'machinegun', desc:'A machine-gun stream of fire. No splash.' },
+    { name:'Pyroclast Rod', cost:350, dmg:125, cd:.35, range:5.5, special:'smallsplash', desc:'Very fast staff fire with light splash.' }
   ],
   earth:[
-    { name:'Nature Pool', cost:10, dmg:5, cd:1.0, range:5.5, special:'smallsplash', desc:'Earth shocks with light splash.' },
-    { name:'Terran Protector', cost:40, dmg:35, cd:1.0, range:5.5, special:'splash', desc:'Boulder bursts bomb the front line.' },
-    { name:"Gaia's Box", cost:100, dmg:88, cd:1.5, range:5.5, special:'splash', desc:'Bombards a wide stretch of lane.' },
+    { name:'Verdant Spring', cost:10, dmg:5, cd:1.0, range:5.5, special:'smallsplash', desc:'Earth shocks with light splash.' },
+    { name:'Rootwarden', cost:40, dmg:35, cd:1.0, range:5.5, special:'splash', desc:'Boulder bursts bomb the front line.' },
+    { name:"Worldheart Coffer", cost:100, dmg:88, cd:1.5, range:5.5, special:'splash', desc:'Bombards a wide stretch of lane.' },
     { name:"Earth's Soul", cost:200, dmg:410, cd:1.2, range:5.5, special:'splash', desc:'Massive earthen impacts.' },
-    { name:'Gaia', cost:350, dmg:625, cd:1.0, range:5.9, special:'meteor', desc:'The living world drops mountains on creeps.' }
+    { name:'Worldheart', cost:350, dmg:625, cd:1.0, range:5.9, special:'meteor', desc:'The living world drops mountains on creeps.' }
   ],
   tech:[
-    { name:'Enhanced Arrow Tower', cost:7, dmg:5, cd:1.8, range:11.7, special:null, desc:'Cheap arrows at very long range.' },
-    { name:'Sniper Post', cost:30, dmg:31, cd:1.75, range:12.5, special:null, desc:'Sniper shots reach across the lane.' },
-    { name:'V2 Rocket Launcher', cost:80, dmg:115, cd:2.2, range:14, special:'rocket', groundOnly:true, desc:'Long-range rockets with splash. Ground only.' },
-    { name:'Ion Cannon Center', cost:170, dmg:338, cd:3.0, range:14, special:'ion', desc:'Ion beam; +500 bonus damage to healthy targets.' },
-    { name:'Cruise Missile Launcher', cost:250, dmg:850, cd:4.5, range:16, special:'rocket', desc:'Cruise missiles with an enormous blast.' },
-    { name:'Nuclear Missile Silo', cost:310, dmg:950, cd:7.0, range:16, special:'rocket', desc:'Slow reload. City-block splash radius.' }
+    { name:'Bolt Turret', cost:7, dmg:5, cd:1.8, range:11.7, special:null, desc:'Cheap arrows at very long range.' },
+    { name:'Longshot Nest', cost:30, dmg:31, cd:1.75, range:12.5, special:null, desc:'Sniper shots reach across the lane.' },
+    { name:'Rocket Rack', cost:80, dmg:115, cd:2.2, range:14, special:'rocket', groundOnly:true, desc:'Long-range rockets with splash. Ground only.' },
+    { name:'Ion Array', cost:170, dmg:338, cd:3.0, range:14, special:'ion', desc:'Ion beam; +500 bonus damage to healthy targets.' },
+    { name:'Seeker Launcher', cost:250, dmg:850, cd:4.5, range:16, special:'rocket', desc:'Cruise missiles with an enormous blast.' },
+    { name:'Doomsday Silo', cost:310, dmg:950, cd:7.0, range:16, special:'rocket', desc:'Slow reload. City-block splash radius.' }
   ],
   crystal:[
-    { name:'Crystal Shooter', cost:10, dmg:11, cd:.9, range:5.9, special:null, desc:'Chaos crystal bolts hurt every armor type.' },
-    { name:'Crystal Blaster', cost:50, dmg:40, cd:1.0, range:5.5, special:'smallsplash', desc:'Sprays sharp crystal shards.' },
-    { name:'Crystal Fury', cost:200, dmg:110, cd:.25, range:5.5, special:'crit', desc:'Blinding-fast bursts that can crit double.' },
-    { name:'Crystal Slower', cost:250, dmg:283, cd:.9, range:6.25, special:'slow', desc:'Heavy shards that chill and splash.' },
-    { name:'Crystal Buster', cost:400, dmg:750, cd:1.2, range:7.0, special:'splash', desc:'Huge crystalline explosions.' },
-    { name:'Crystal Dissolver', cost:650, dmg:700, cd:.35, range:5.5, special:null, desc:'The best non-laser tower in the game.' }
+    { name:'Shardcaster', cost:10, dmg:11, cd:.9, range:5.9, special:null, desc:'Chaos crystal bolts hurt every armor type.' },
+    { name:'Prism Cannon', cost:50, dmg:40, cd:1.0, range:5.5, special:'smallsplash', desc:'Sprays sharp crystal shards.' },
+    { name:'Facet Fury', cost:200, dmg:110, cd:.25, range:5.5, special:'crit', desc:'Blinding-fast bursts that can crit double.' },
+    { name:'Refraction Snare', cost:250, dmg:283, cd:.9, range:6.25, special:'slow', desc:'Heavy shards that chill and splash.' },
+    { name:'Geode Breaker', cost:400, dmg:750, cd:1.2, range:7.0, special:'splash', desc:'Huge crystalline explosions.' },
+    { name:'Lattice Annihilator', cost:650, dmg:700, cd:.35, range:5.5, special:null, desc:'The best non-laser tower in the game.' }
   ],
   poison:[
-    { name:'Envenomed Spike', cost:15, dmg:6, cd:1.25, range:7.8, special:'poison', desc:'Poison spikes slow and sicken.' },
-    { name:'Poison Spire', cost:60, dmg:28, cd:1.0, range:7.8, special:'poison', desc:'Steady venom over a long reach.' },
-    { name:'Sludge Flinger', cost:120, dmg:80, cd:1.2, range:8.6, special:'poison', groundOnly:true, desc:'Flings sticky sludge far downrange. Ground only.' },
-    { name:'Poison Crawler', cost:190, dmg:1, cd:1.3, range:5.9, special:'halve', desc:'Cuts a creep’s current HP in half. Bosses resist.' },
-    { name:'Grave Marker', cost:230, dmg:305, cd:1.15, range:7.0, special:'poison', desc:'Grave rot in heavy doses.' },
-    { name:'Gas Chamber', cost:390, dmg:545, cd:.9, range:7.8, special:'poison', desc:'Chokes lanes with lethal gas.' }
+    { name:'Venom Barb', cost:15, dmg:6, cd:1.25, range:7.8, special:'poison', desc:'Poison spikes slow and sicken.' },
+    { name:'Blightspire', cost:60, dmg:28, cd:1.0, range:7.8, special:'poison', desc:'Steady venom over a long reach.' },
+    { name:'Mirelobber', cost:120, dmg:80, cd:1.2, range:8.6, special:'poison', groundOnly:true, desc:'Flings sticky sludge far downrange. Ground only.' },
+    { name:'Toxin Creeper', cost:190, dmg:1, cd:1.3, range:5.9, special:'halve', desc:'Cuts a creep’s current HP in half. Bosses resist.' },
+    { name:'Carrion Totem', cost:230, dmg:305, cd:1.15, range:7.0, special:'poison', desc:'Grave rot in heavy doses.' },
+    { name:'Miasma Vent', cost:390, dmg:545, cd:.9, range:7.8, special:'poison', desc:'Chokes lanes with lethal gas.' }
   ],
   stone:[
-    { name:'Pebble Tower', cost:10, dmg:14, cd:1.07, range:3.1, special:'crit', desc:'Cheap stones that can hit double.' },
-    { name:'Rock Blaster', cost:40, dmg:43, cd:1.1, range:3.5, special:'crit', desc:'Heavy rocks for narrow turns.' },
-    { name:'Stone Projector', cost:100, dmg:140, cd:1.2, range:3.1, special:'crit', desc:'Crushing stone waves up close.' },
-    { name:'Faerie Mage', cost:200, dmg:350, cd:1.1, range:3.9, special:'armorshred', desc:'Faerie fire strips armor for every tower.' },
-    { name:'Stone Destroyer', cost:285, dmg:500, cd:.95, range:5.5, special:'crit', desc:'The only stone tower with real range.' },
-    { name:'Paralyzer', cost:350, dmg:0, cd:7.5, range:3.9, special:'paralyze', desc:'Drops a creep to 11 HP. Bosses resist.' }
+    { name:'Cairn', cost:10, dmg:14, cd:1.07, range:3.1, special:'crit', desc:'Cheap stones that can hit double.' },
+    { name:'Boulder Maw', cost:40, dmg:43, cd:1.1, range:3.5, special:'crit', desc:'Heavy rocks for narrow turns.' },
+    { name:'Monolith', cost:100, dmg:140, cd:1.2, range:3.1, special:'crit', desc:'Crushing stone waves up close.' },
+    { name:'Runestone Seer', cost:200, dmg:350, cd:1.1, range:3.9, special:'armorshred', desc:'Faerie fire strips armor for every tower.' },
+    { name:'Quakebreaker', cost:285, dmg:500, cd:.95, range:5.5, special:'crit', desc:'The only stone tower with real range.' },
+    { name:'Petrifier', cost:350, dmg:0, cd:7.5, range:3.9, special:'paralyze', desc:'Drops a creep to 11 HP. Bosses resist.' }
   ],
   electricity:[
-    { name:'Shock Tower', cost:10, dmg:4, cd:.6, range:4.7, special:null, desc:'Very fast shocks for early coverage.' },
-    { name:'Storm Caller', cost:40, dmg:30, cd:.8, range:3.9, special:null, desc:'Lightning strikes from a storm core.' },
-    { name:'Chain Lightning Caster', cost:100, dmg:60, cd:2.0, range:4.0, special:'chain', desc:'Casts chain lightning through the wave.' },
-    { name:'Thunder Rod', cost:200, dmg:0, cd:2.0, range:2.7, special:'thunder', desc:'Shocks 25% of current HP off every nearby creep. Bosses resist.' },
-    { name:'Sparkler', cost:285, dmg:310, cd:.4, range:5.5, special:null, desc:'Relentless dual-mode sparks; elite anti-air.' },
-    { name:'Battery', cost:350, dmg:175, cd:.5, range:5.1, special:null, desc:'The must-have electric tower.' }
+    { name:'Static Post', cost:10, dmg:4, cd:.6, range:4.7, special:null, desc:'Very fast shocks for early coverage.' },
+    { name:'Stormcrown', cost:40, dmg:30, cd:.8, range:3.9, special:null, desc:'Lightning strikes from a storm core.' },
+    { name:'Arc Weaver', cost:100, dmg:60, cd:2.0, range:4.0, special:'chain', desc:'Casts chain lightning through the wave.' },
+    { name:'Thunderspike', cost:200, dmg:0, cd:2.0, range:2.7, special:'thunder', desc:'Shocks 25% of current HP off every nearby creep. Bosses resist.' },
+    { name:'Coil Dynamo', cost:285, dmg:310, cd:.4, range:5.5, special:null, desc:'Relentless dual-mode sparks; elite anti-air.' },
+    { name:'Capacitor Bank', cost:350, dmg:175, cd:.5, range:5.1, special:null, desc:'The must-have electric tower.' }
   ],
   gravity:[
-    { name:'Gravity Source', cost:10, dmg:9, cd:.95, range:5.5, special:null, desc:'Dense slugs of collapsed matter.' },
+    { name:'Gravity Well', cost:10, dmg:9, cd:.95, range:5.5, special:null, desc:'Dense slugs of collapsed matter.' },
     { name:"Gravity's Pull", cost:50, dmg:44, cd:1.0, range:3.1, special:'slow', desc:'Drags creeps back with splashing pulls.' },
-    { name:'Mind Blaster', cost:150, dmg:1, cd:1.0, range:5.5, special:'mind', desc:'Tears 30% of current HP from the mind. Bosses resist.' },
-    { name:'Pulsar', cost:280, dmg:110, cd:.2, range:5.5, special:'smallsplash', desc:'Pulses splash damage extremely fast.' },
-    { name:'Gravity Bomber', cost:280, dmg:425, cd:1.9, range:6.25, special:'crit', desc:'Bombs that can collapse for double.' },
-    { name:'Black Hole', cost:350, dmg:0, cd:2.5, range:3.1, special:'blackhole', desc:'Rips 550 HP from everything nearby.' }
+    { name:'Psi Emitter', cost:150, dmg:1, cd:1.0, range:5.5, special:'mind', desc:'Tears 30% of current HP from the mind. Bosses resist.' },
+    { name:'Collapsar', cost:280, dmg:110, cd:.2, range:5.5, special:'smallsplash', desc:'Pulses splash damage extremely fast.' },
+    { name:'Singularity Mortar', cost:280, dmg:425, cd:1.9, range:6.25, special:'crit', desc:'Bombs that can collapse for double.' },
+    { name:'Event Horizon', cost:350, dmg:0, cd:2.5, range:3.1, special:'blackhole', desc:'Rips 550 HP from everything nearby.' }
   ]
 };
 const LASER_TOWER = { name:'Laser Cannon', cost:650, dmg:300, cd:.2, range:20, special:'laser', desc:'The forbidden capstone: crits, slows, and poisons at extreme speed.' };
@@ -843,26 +873,26 @@ function routesAreOpen() {
    bounties are the mined originals; counts are adapted to ~10 per half.
    Waves 5 and 14 are AIR: they fly over the maze and cannot be blocked. ---------------- */
 const WAVES = [
-  { name:'Scout', role:'standard', count:8, hp:19, spd:1.6, armor:0, aClass:'unarmored', bounty:1 },
-  { name:'Engineer', role:'standard', count:8, hp:60, spd:1.8, armor:0, aClass:'light', bounty:1 },
-  { name:'Night Ranger', role:'standard', count:8, hp:113, spd:2.0, armor:2, aClass:'light', bounty:1 },
-  { name:'Barbarian', role:'standard', count:8, hp:160, spd:1.9, armor:3, aClass:'medium', bounty:1 },
-  { name:'Baby Dragon', role:'air', count:6, hp:110, spd:2.2, armor:0, aClass:'light', bounty:2, air:true },
-  { name:'Stalker', role:'runner', count:8, hp:265, spd:2.2, armor:3, aClass:'light', bounty:2 },
-  { name:'Water Runner', role:'runner', count:8, hp:325, spd:2.2, armor:4, aClass:'medium', bounty:2 },
-  { name:'Ice Troll', role:'standard', count:8, hp:375, spd:2.3, armor:5, aClass:'medium', bounty:2 },
-  { name:'Wolf Rider', role:'runner', count:8, hp:400, spd:2.5, armor:7, aClass:'medium', bounty:2 },
-  { name:'Hovercraft', role:'armored', count:8, hp:450, spd:2.45, armor:7, aClass:'fortified', bounty:2 },
-  { name:'Goblin Machine', role:'armored', count:8, hp:625, spd:2.3, armor:8, aClass:'fortified', bounty:2 },
-  { name:'Frosty Reptile', role:'runner', count:8, hp:782, spd:2.9, armor:10, aClass:'medium', bounty:2 },
-  { name:'Demonic Pet', role:'standard', count:8, hp:900, spd:2.5, armor:10, aClass:'light', bounty:2 },
-  { name:'Matured Dragon', role:'air', count:6, hp:825, spd:2.9, armor:12, aClass:'light', bounty:3, air:true },
-  { name:'Ice Shard Golem', role:'armored', count:8, hp:1375, spd:2.7, armor:12, aClass:'heavy', bounty:3 },
-  { name:'Eternal Spirit', role:'standard', count:8, hp:1300, spd:2.9, armor:14, aClass:'unarmored', bounty:3 },
-  { name:'Supply Tank', role:'armored', count:8, hp:1525, spd:2.8, armor:10, aClass:'fortified', bounty:3 },
-  { name:'Walking Corpse', role:'standard', count:8, hp:2125, spd:2.8, armor:10, aClass:'medium', bounty:3 },
-  { name:'Totem Carrier', role:'armored', count:8, hp:2500, spd:3.0, armor:15, aClass:'heavy', bounty:4 },
-  { name:'Duke-Wintermaul', role:'boss', count:1, hp:45000, spd:2.6, armor:20, aClass:'heavy', bounty:150, lives:10, boss:true }
+  { name:'Pathfinder', role:'standard', count:8, hp:19, spd:1.6, armor:0, aClass:'unarmored', bounty:1 },
+  { name:'Sapper', role:'standard', count:8, hp:60, spd:1.8, armor:0, aClass:'light', bounty:1 },
+  { name:'Duskstalker', role:'standard', count:8, hp:113, spd:2.0, armor:2, aClass:'light', bounty:1 },
+  { name:'Marauder', role:'standard', count:8, hp:160, spd:1.9, armor:3, aClass:'medium', bounty:1 },
+  { name:'Drake Whelp', role:'air', count:6, hp:110, spd:2.2, armor:0, aClass:'light', bounty:2, air:true },
+  { name:'Prowler', role:'runner', count:8, hp:265, spd:2.2, armor:3, aClass:'light', bounty:2 },
+  { name:'Tideskimmer', role:'runner', count:8, hp:325, spd:2.2, armor:4, aClass:'medium', bounty:2 },
+  { name:'Rimeborn Brute', role:'standard', count:8, hp:375, spd:2.3, armor:5, aClass:'medium', bounty:2 },
+  { name:'Fang Outrider', role:'runner', count:8, hp:400, spd:2.5, armor:7, aClass:'medium', bounty:2 },
+  { name:'Skimmer Craft', role:'armored', count:8, hp:450, spd:2.45, armor:7, aClass:'fortified', bounty:2 },
+  { name:'Scrap Walker', role:'armored', count:8, hp:625, spd:2.3, armor:8, aClass:'fortified', bounty:2 },
+  { name:'Glacier Basilisk', role:'runner', count:8, hp:782, spd:2.9, armor:10, aClass:'medium', bounty:2 },
+  { name:'Imp Familiar', role:'standard', count:8, hp:900, spd:2.5, armor:10, aClass:'light', bounty:2 },
+  { name:'Elder Drake', role:'air', count:6, hp:825, spd:2.9, armor:12, aClass:'light', bounty:3, air:true },
+  { name:'Shardhide Golem', role:'armored', count:8, hp:1375, spd:2.7, armor:12, aClass:'heavy', bounty:3 },
+  { name:'Undying Shade', role:'standard', count:8, hp:1300, spd:2.9, armor:14, aClass:'unarmored', bounty:3 },
+  { name:'Siege Hauler', role:'armored', count:8, hp:1525, spd:2.8, armor:10, aClass:'fortified', bounty:3 },
+  { name:'Risen Husk', role:'standard', count:8, hp:2125, spd:2.8, armor:10, aClass:'medium', bounty:3 },
+  { name:'Idol Bearer', role:'armored', count:8, hp:2500, spd:3.0, armor:15, aClass:'heavy', bounty:4 },
+  { name:'The Frost Tyrant', role:'boss', count:1, hp:45000, spd:2.6, armor:20, aClass:'heavy', bounty:150, lives:10, boss:true }
 ];
 const roleStyle = {
   standard:{ symbol:'•', size:7 }, runner:{ symbol:'➤', size:6.5 }, air:{ symbol:'▲', size:6.5 },
@@ -877,17 +907,17 @@ const roleColors = { standard:'#ff9faf', runner:'#ffd27d', air:'#9fd8ff', armore
    they fly straight over the maze. Higher shrine levels unlock the upgraded
    counterparts (Baby → Matured → Adult Dragon, and the elite ground units). */
 const SENDS = [
-  { id:'scout', name:'Scout', symbol:'•', cost:5, income:1, hp:19, spd:1.6, armor:0, aClass:'unarmored', shrine:1 },
+  { id:'scout', name:'Pathfinder', symbol:'•', cost:5, income:1, hp:19, spd:1.6, armor:0, aClass:'unarmored', shrine:1 },
   { id:'miner', name:'Miner', symbol:'⛏', cost:20, income:5, hp:100, spd:1.9, armor:0, aClass:'unarmored', shrine:1 },
-  { id:'stalker', name:'Stalker', symbol:'☠', cost:48, income:10, hp:265, spd:2.2, armor:3, aClass:'light', shrine:1 },
-  { id:'wolfrider', name:'Wolf Rider', symbol:'◈', cost:126, income:26, hp:400, spd:2.5, armor:7, aClass:'medium', shrine:1 },
-  { id:'babydragon', name:'Baby Dragon', symbol:'▲', cost:40, income:8, hp:110, spd:2.2, armor:0, aClass:'light', air:true, shrine:1 },
-  { id:'reptile', name:'Frosty Reptile', symbol:'❄', cost:500, income:56, hp:782, spd:2.9, armor:10, aClass:'medium', shrine:2 },
-  { id:'spirit', name:'Eternal Spirit', symbol:'❖', cost:1590, income:180, hp:1300, spd:2.9, armor:14, aClass:'unarmored', shrine:2 },
-  { id:'matureddragon', name:'Matured Dragon', symbol:'▲', cost:800, income:90, hp:825, spd:2.9, armor:12, aClass:'light', air:true, shrine:2 },
-  { id:'totem', name:'Totem Carrier', symbol:'⬢', cost:3995, income:450, hp:2500, spd:3.0, armor:15, aClass:'heavy', shrine:3 },
-  { id:'unholy', name:'Unholy Knight', symbol:'♞', cost:5330, income:600, hp:2875, spd:3.1, armor:15, aClass:'heavy', shrine:3 },
-  { id:'adultdragon', name:'Adult Dragon', symbol:'▲', cost:3200, income:360, hp:3000, spd:3.1, armor:20, aClass:'heavy', air:true, shrine:3 }
+  { id:'stalker', name:'Prowler', symbol:'☠', cost:48, income:10, hp:265, spd:2.2, armor:3, aClass:'light', shrine:1 },
+  { id:'wolfrider', name:'Fang Outrider', symbol:'◈', cost:126, income:26, hp:400, spd:2.5, armor:7, aClass:'medium', shrine:1 },
+  { id:'babydragon', name:'Drake Whelp', symbol:'▲', cost:40, income:8, hp:110, spd:2.2, armor:0, aClass:'light', air:true, shrine:1 },
+  { id:'reptile', name:'Glacier Basilisk', symbol:'❄', cost:500, income:56, hp:782, spd:2.9, armor:10, aClass:'medium', shrine:2 },
+  { id:'spirit', name:'Undying Shade', symbol:'❖', cost:1590, income:180, hp:1300, spd:2.9, armor:14, aClass:'unarmored', shrine:2 },
+  { id:'matureddragon', name:'Elder Drake', symbol:'▲', cost:800, income:90, hp:825, spd:2.9, armor:12, aClass:'light', air:true, shrine:2 },
+  { id:'totem', name:'Idol Bearer', symbol:'⬢', cost:3995, income:450, hp:2500, spd:3.0, armor:15, aClass:'heavy', shrine:3 },
+  { id:'unholy', name:'Dread Knight', symbol:'♞', cost:5330, income:600, hp:2875, spd:3.1, armor:15, aClass:'heavy', shrine:3 },
+  { id:'adultdragon', name:'Ancient Drake', symbol:'▲', cost:3200, income:360, hp:3000, spd:3.1, armor:20, aClass:'heavy', air:true, shrine:3 }
 ];
 const SHRINE_MAX = 3, LUMBER_PRICE = 500;
 
@@ -901,7 +931,7 @@ const ACHIEVEMENTS = [
   { id:'wave_15', icon:'🌊', name:'Storm Chaser', desc:'Reach wave 15', unlocks:'electricity' },
   { id:'kills_500', icon:'⚔️', name:'Exterminator', desc:'500 lifetime kills', unlocks:'poison' },
   { id:'income_300', icon:'💰', name:'Tycoon', desc:'+300 send income in one match', unlocks:'crystal' },
-  { id:'boss_slain', icon:'👑', name:'Duke Slayer', desc:'Defeat Duke-Wintermaul', unlocks:'gravity' },
+  { id:'boss_slain', icon:'👑', name:'Tyrant Slayer', desc:'Defeat the Frost Tyrant', unlocks:'gravity' },
   { id:'perfect_10', icon:'🛡️', name:'Untouchable', desc:'No lifeforce lost through wave 10' },
   { id:'dragon_rider', icon:'🐉', name:'Dragon Rider', desc:'Send 10 dragon pairs (lifetime)' },
   { id:'lumberjack', icon:'🪵', name:'Lumberjack', desc:'Spend 3 lumber in one match' }
@@ -2657,23 +2687,45 @@ function closeDrawpad() {
 }
 
 /* ---------------- Race select / collab screens ---------------- */
-function renderRaceCards() {
-  if (!raceUnlocked(selectedRace.id)) selectedRace = races.find((race) => raceUnlocked(race.id)) || races[0];
-  $('race-grid').innerHTML = races.map((race) => {
-    const locked = !raceUnlocked(race.id);
-    return `
-    <button class="race-card ${race.id === selectedRace.id ? 'selected' : ''} ${locked ? 'locked' : ''}" style="--race:${race.color}" data-race="${race.id}">
-      <span class="active-mark">✓</span><span class="race-symbol">${locked ? '🔒' : race.symbol}</span><strong>${race.name}</strong><small>${locked ? unlockHint(race.id) : race.trait}</small>
-    </button>`;
-  }).join('');
-  document.querySelectorAll('[data-race]').forEach((button) => button.addEventListener('click', () => {
-    const race = races.find((item) => item.id === button.dataset.race);
-    if (!raceUnlocked(race.id)) {
-      $('selected-desc').textContent = `${race.name}: ${unlockHint(race.id)}`;
-      button.classList.add('shake');
-      window.setTimeout(() => button.classList.remove('shake'), 450);
-      return;
-    }
+function raceDossier(race) {
+  const prof = ATTACK_PROFILE[race.id] || { vs:{} };
+  const strong = Object.entries(prof.vs).filter(([, v]) => v > 1).sort((a, b) => b[1] - a[1])
+    .map(([k, v]) => `${k} +${Math.round((v - 1) * 100)}%`);
+  if (prof.air) strong.push(`air +${Math.round((prof.air - 1) * 100)}%`);
+  const weak = Object.entries(prof.vs).filter(([, v]) => v < 1).sort((a, b) => a[1] - b[1])
+    .map(([k, v]) => `${k} −${Math.round((1 - v) * 100)}%`);
+  const list = towerListFor(race.id);
+  const sig = [list[0], list[list.length - 2]].filter(Boolean);
+  return { prof, strong, weak, sig };
+}
+let previewRaceId = null;
+function renderRaceDetail() {
+  const box = $('race-detail');
+  if (!box) return;
+  const race = races.find((item) => item.id === previewRaceId);
+  if (!race) { box.classList.add('hidden'); return; }
+  const locked = !raceUnlocked(race.id);
+  const { prof, strong, weak, sig } = raceDossier(race);
+  const chips = (items, cls) => items.length
+    ? items.map((text) => `<span class="vs-chip ${cls}">${text}</span>`).join('')
+    : `<span class="vs-chip">even everywhere</span>`;
+  box.innerHTML = `
+    <div class="detail-portrait" style="--race:${race.color}"><span>${locked ? '🔒' : race.symbol}</span><b>${race.name}</b></div>
+    <div class="detail-info">
+      <h3>${race.title} <small>• ${race.builder}</small></h3>
+      <p>${race.desc}</p>
+      <div class="vs-row"><em>${prof.label || ''} damage${prof.chaos ? ' — ignores armor, full damage to every class' : ''}</em></div>
+      ${prof.chaos ? '' : `<div class="vs-row"><i>Strong vs</i>${chips(strong, 'vs-good')}</div>
+      <div class="vs-row"><i>Weak vs</i>${chips(weak, 'vs-bad')}</div>`}
+      <div class="vs-row"><i>Signature</i>${sig.map((t) => `<span class="vs-chip">${t.name} • ${t.cost}g</span>`).join('')}</div>
+      ${locked ? `<p class="detail-locked">🔒 ${unlockHint(race.id)}</p>` : ''}
+      <button id="race-confirm" class="race-confirm" ${locked ? 'disabled' : ''} style="--race:${race.color}">
+        ${locked ? 'Locked' : `Fight as ${race.name} ${race.symbol}`}
+      </button>
+    </div>`;
+  box.classList.remove('hidden');
+  $('race-confirm').addEventListener('click', () => {
+    if (locked) return;
     selectedRace = race;
     $('selected-name').textContent = selectedRace.name;
     $('selected-desc').textContent = selectedRace.desc;
@@ -2681,7 +2733,25 @@ function renderRaceCards() {
     if (cardSymbol) { cardSymbol.textContent = selectedRace.symbol; cardSymbol.style.color = selectedRace.color; }
     $('race-grid-wrap')?.classList.add('hidden');
     $('race-card')?.setAttribute('aria-expanded', 'false');
+    box.classList.add('hidden');
+    previewRaceId = null;
     renderRaceCards();
+  });
+}
+function renderRaceCards() {
+  if (!raceUnlocked(selectedRace.id)) selectedRace = races.find((race) => raceUnlocked(race.id)) || races[0];
+  $('race-grid').innerHTML = races.map((race) => {
+    const locked = !raceUnlocked(race.id);
+    return `
+    <button class="race-card ${race.id === selectedRace.id ? 'selected' : ''} ${race.id === previewRaceId ? 'previewed' : ''} ${locked ? 'locked' : ''}" style="--race:${race.color}" data-race="${race.id}">
+      <span class="active-mark">✓</span><span class="race-symbol">${locked ? '🔒' : race.symbol}</span><strong>${race.name}</strong><small>${locked ? 'locked' : race.trait}</small>
+    </button>`;
+  }).join('');
+  document.querySelectorAll('[data-race]').forEach((button) => button.addEventListener('click', () => {
+    previewRaceId = button.dataset.race;   // fighter-select: tap previews the dossier, confirm commits
+    renderRaceCards();
+    renderRaceDetail();
+    $('race-detail')?.scrollIntoView({ block:'nearest', behavior:'smooth' });
   }));
   const cardSymbol = $('race-card-symbol');
   if (cardSymbol) { cardSymbol.textContent = selectedRace.symbol; cardSymbol.style.color = selectedRace.color; }
