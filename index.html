@@ -203,6 +203,20 @@ h2 span { color:#7583a6; }
 .sheet-chip.locked { opacity:.3; }
 .sheet-chip:active { transform:scale(.95); }
 .sheet-hint { margin-top:8px !important; color:#7185a7; font-size:10px; }
+.sheet-econ { display:flex; align-items:center; gap:6px; margin-bottom:8px; }
+.econ-chip { display:flex; align-items:center; gap:5px; min-height:38px; padding:7px 10px; border:1px solid #4a4030; border-radius:9px; background:#1a1610; color:#e8cf9a; font-size:11px; }
+.econ-chip i { font-style:normal; color:#a08654; font:500 9px 'DM Mono',monospace; }
+.econ-chip:disabled { opacity:.45; }
+.econ-max { border-color:#2e3b5c; color:#8590ae; background:#131b30; }
+.sheet-opacity { display:flex; align-items:center; gap:4px; margin-left:auto; color:#77d6ff; }
+.sheet-opacity input { width:74px; accent-color:#77d6ff; }
+.sheet-heading { margin:10px 0 6px !important; color:#77d6ff; font:500 9px 'DM Mono',monospace; letter-spacing:.13em; }
+.learn-list { display:grid; gap:4px; }
+.learn-row { display:flex; gap:10px; align-items:baseline; padding:6px 8px; border:1px solid #22304f; border-radius:8px; background:#10182b; }
+.learn-row span { flex:0 0 118px; font:600 10px 'DM Mono',monospace; }
+.learn-row small { color:#93a0be; font-size:10px; line-height:1.45; }
+.sheet-detail { margin-top:8px; padding:8px 10px; border:1px solid #2b3859; border-radius:9px; background:#10182b; color:#c5cde0; font-size:11px; line-height:1.5; }
+.sheet-detail em { color:#8ba7c9; font-style:normal; font:500 9px 'DM Mono',monospace; }
 .debug-bar select { padding:4px 6px; border:1px solid #2e3b5c; border-radius:6px; background:#10172a; color:#a5afd0; font:500 9px 'DM Mono',monospace; }
 .qs-chip { display:flex; flex-direction:column; align-items:center; gap:1px; min-width:42px; min-height:42px; padding:5px 6px; border:1px solid #2e3b5c; border-radius:9px; background:#131b30; color:#e9edff; }
 .qs-chip span { font-size:15px; line-height:1.1; }
@@ -231,7 +245,7 @@ h2 span { color:#7583a6; }
 .license-row { display:flex; gap:6px; margin-bottom:8px; }
 .license-row select { flex:1; min-width:0; padding:8px; border:1px solid #2e3b5c; border-radius:8px; color:#a5afd0; background:#10172a; font:500 11px 'DM Mono',monospace; }
 .license-row .ghost-button { white-space:nowrap; }
-.lumber-button { width:100%; margin-bottom:8px; color:#d9c39a; border-color:#4a4030; }
+.lumber-button { width:100%; margin-bottom:8px; padding:12px; color:#e8cf9a; border-color:#6b5a35; background:#1a1610; font-size:12px; }
 .lumber-button:disabled { opacity:.5; }
 .shrine-status { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; }
 .shrine-status .ghost-button { white-space:nowrap; }
@@ -1792,6 +1806,21 @@ function renderTowerList() {
     log(`Selected ${towerDef(currentBuildRaceId(), selectedTowerTier).name}. Tap an open tile on your half (south) to build.`);
   }));
 }
+function buyLumber() {
+  if (!player || player.gold < LUMBER_PRICE) { log(`Lumber costs ${LUMBER_PRICE}g.`); return false; }
+  player.gold -= LUMBER_PRICE; player.lumber += 1;
+  log(`Bought 1 lumber (${player.lumber}🪵). Spend it on a shrine upgrade, a second element, or a Laser Cannon.`);
+  renderHud(); renderTowerList(); renderSendPanel();
+  return true;
+}
+function upgradeShrine() {
+  if (!player || player.shrine >= SHRINE_MAX) return false;
+  if (player.lumber < 1) { log('A shrine upgrade costs 1 lumber — buy lumber first.'); return false; }
+  player.lumber -= 1; player.shrine += 1; player.lumberSpent += 1; if (player.lumberSpent >= 3) award('lumberjack');
+  log(`Shrine upgraded to level ${player.shrine}! Stronger attackers are now for sale.`);
+  renderHud(); renderSendPanel(); renderTowerList();
+  return true;
+}
 /* Race chips (licensed elements), the second-element license, and lumber. */
 function renderBuildExtras() {
   const box = $('build-extras');
@@ -1813,12 +1842,7 @@ function renderBuildExtras() {
     selectedTowerTier = 0;
     renderTowerList();
   }));
-  $('buy-lumber')?.addEventListener('click', () => {
-    if (player.gold < LUMBER_PRICE) return log(`Lumber costs ${LUMBER_PRICE}g.`);
-    player.gold -= LUMBER_PRICE; player.lumber += 1;
-    log(`Bought 1 lumber (${player.lumber}🪵). Spend it on a shrine upgrade, a second element, or a Laser Cannon.`);
-    renderHud(); renderTowerList(); renderSendPanel();
-  });
+  $('buy-lumber')?.addEventListener('click', buyLumber);
   $('license-button')?.addEventListener('click', () => {
     if (player.lumber < 2) return log('A second element license costs 2 lumber.');
     const id = $('license-select').value;
@@ -1909,12 +1933,7 @@ function renderSendPanel() {
   if (shrineBox && player) {
     shrineBox.innerHTML = `<span class="panel-heading">SHRINE LEVEL ${player.shrine}${player.shrine >= SHRINE_MAX ? ' • MAX' : ''}</span>
       ${player.shrine < SHRINE_MAX ? `<button id="shrine-upgrade" class="ghost-button" ${player.lumber < 1 ? 'disabled' : ''}>Upgrade to L${player.shrine + 1} • 1🪵</button>` : ''}`;
-    $('shrine-upgrade')?.addEventListener('click', () => {
-      if (player.lumber < 1) return log('A shrine upgrade costs 1 lumber — buy lumber in the Build tab.');
-      player.lumber -= 1; player.shrine += 1; player.lumberSpent += 1; if (player.lumberSpent >= 3) award('lumberjack');
-      log(`Shrine upgraded to level ${player.shrine}! Stronger attackers are now for sale.`);
-      renderHud(); renderSendPanel(); renderTowerList();
-    });
+    $('shrine-upgrade')?.addEventListener('click', upgradeShrine);
   }
   $('send-list').innerHTML = SENDS.map((send) => `
     <button class="send-card" data-send="${send.id}"><span class="send-icon">${send.air ? '🐉' : send.symbol}</span>
@@ -2748,7 +2767,7 @@ function touchUI() {
 function applyUiMode() {
   document.body.classList.toggle('touch-ui', touchUI());
   const wisp = $('wisp');
-  if (wisp) wisp.classList.toggle('hidden', !(touchUI() && battleRunning));
+  if (wisp) wisp.classList.toggle('hidden', !battleRunning);
   const modeSel = $('ui-mode-select');
   if (modeSel) modeSel.value = uiMode();
 }
@@ -2760,35 +2779,72 @@ function openCommandSheet(tab) {
   renderCommandSheet();
 }
 function closeCommandSheet() { $('command-sheet').classList.add('hidden'); }
+function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? profile.sheetOpacity : 95; }
+function learnContent() {
+  const classWaves = {};
+  WAVES.forEach((def, i) => {
+    const label = `${def.aClass}${def.air ? ' (air)' : ''}`;
+    (classWaves[label] = classWaves[label] || []).push(i + 1);
+  });
+  return `
+    <p class="sheet-heading">ATTACK TYPES — what each element is good and bad against</p>
+    <div class="learn-list">${races.map((race) => `<div class="learn-row"><span style="color:${race.color}">${race.symbol} ${race.name}</span><small>${attackProfileText(race.id)}</small></div>`).join('')}</div>
+    <p class="sheet-heading">ARMOR BY WAVE — plan your build and time your sends</p>
+    <div class="learn-list">${Object.entries(classWaves).map(([cls, waves]) => `<div class="learn-row"><span>${cls}</span><small>waves ${waves.join(', ')}</small></div>`).join('')}</div>
+    <p class="sheet-heading">RULES OF THUMB</p>
+    <div class="learn-list">
+      <div class="learn-row"><span>Air waves (5, 14)</span><small>fly straight over your maze — Storm towers (+30% vs air) and long range answer them; V2 Rocket and Sludge Flinger cannot hit air</small></div>
+      <div class="learn-row"><span>Chaos</span><small>Crystal and the Laser Cannon ignore armor entirely</small></div>
+      <div class="learn-row"><span>Mono-element walls</span><small>fortified waves (10, 11, 17) punish Magic/Venom/Pierce — a second element (2🪵) or chaos towers break the wall</small></div>
+      <div class="learn-row"><span>Sends</span><small>each purchase runs BOTH rival lanes and permanently raises your income; killing sends pays their income value</small></div>
+      <div class="learn-row"><span>Lumber (500g)</span><small>buys shrine levels (stronger sends), a second element, or the Laser Cannon</small></div>
+    </div>`;
+}
 function renderCommandSheet() {
   const sheet = $('command-sheet');
   if (!sheet || sheet.classList.contains('hidden') || !player) return;
   const raceId = currentBuildRaceId();
-  const key = [sheetTab, raceId, player.shrine, selectedTowerTier, Math.floor(player.gold / 5)].join('|');
+  const key = [sheetTab, raceId, player.shrine, player.lumber, selectedTowerTier, Math.floor(player.gold / 5)].join('|');
   if (key === sheetKey) return;
   sheetKey = key;
   let body = '';
   if (sheetTab === 'towers') {
+    const sel = towerDef(raceId, selectedTowerTier);
     body = `<div class="sheet-grid">${towerListFor(raceId).map((def, tier) => `
       <button class="sheet-chip ${tier === selectedTowerTier ? 'on' : ''} ${player.gold < def.cost ? 'poor' : ''}" data-sheet-tower="${tier}">
         <span>${towerDef(raceId, tier).symbol}</span><small>${def.name.split(' ')[0]}</small><b>${def.cost}g</b></button>`).join('')}</div>
-      <p class="sheet-hint">Pick a tower, then tap the board to place. Hold a placed tower to sell.</p>`;
-  } else {
+      <div class="sheet-detail"><strong>${sel.name}</strong> — ${sel.desc} ${specialBlurbs[sel.special] || ''}<br><em>${sel.dmg} dmg • ${sel.range.toFixed(1)} rng • ${sel.cd.toFixed(2)}s • ${attackProfileText(raceId)}</em></div>
+      <p class="sheet-hint">Tap the board to place. Hold a placed tower to sell; the undo pill refunds fully for 3s.</p>`;
+  } else if (sheetTab === 'sends') {
     body = `<div class="sheet-grid">${SENDS.map((send) => `
       <button class="sheet-chip ${player.shrine < send.shrine ? 'locked' : ''} ${player.gold < send.cost ? 'poor' : ''}" data-sheet-send="${send.id}">
         <span>${send.air ? '🐉' : send.symbol}</span><small>${send.name.split(' ')[0]}</small><b>${send.cost}g<i>+${send.income}</i></b></button>`).join('')}</div>
-      <p class="sheet-hint">Sends run both rival lanes and raise your income. Shrine L${player.shrine}${player.shrine < SHRINE_MAX ? ` — upgrade in the Send panel (1🪵)` : ''}.</p>`;
+      <p class="sheet-hint">Sends run both rival lanes and raise your income. ${player.shrine < SHRINE_MAX ? 'Higher shrine levels unlock the elite tiers.' : 'Shrine is maxed.'}</p>`;
+  } else {
+    body = learnContent();
   }
   sheet.innerHTML = `
     <div class="sheet-bar">
       <button class="sheet-tab ${sheetTab === 'towers' ? 'on' : ''}" data-sheet-tab="towers">⛫ Towers</button>
       <button class="sheet-tab ${sheetTab === 'sends' ? 'on' : ''}" data-sheet-tab="sends">✦ Sends</button>
-      <button id="sheet-ghost" class="sheet-tab" title="Ghost mode — see the board through the sheet">◐</button>
+      <button class="sheet-tab ${sheetTab === 'learn' ? 'on' : ''}" data-sheet-tab="learn">🎓 Learn</button>
       <button id="sheet-close" class="sheet-tab" aria-label="Close">✕</button>
+    </div>
+    <div class="sheet-econ">
+      <button id="sheet-lumber" class="econ-chip" ${player.gold < LUMBER_PRICE ? 'disabled' : ''}>🪵 ×${player.lumber} <i>buy • ${LUMBER_PRICE}g</i></button>
+      ${player.shrine < SHRINE_MAX ? `<button id="sheet-shrine" class="econ-chip" ${player.lumber < 1 ? 'disabled' : ''}>⛩ Shrine L${player.shrine} <i>upgrade • 1🪵</i></button>` : `<span class="econ-chip econ-max">⛩ Shrine MAX</span>`}
+      <label class="sheet-opacity" title="Slide left to see the board through this panel">◐<input id="sheet-opacity" type="range" min="25" max="100" value="${sheetOpacity()}" /></label>
     </div>${body}`;
+  sheet.style.opacity = sheetOpacity() / 100;
   sheet.querySelectorAll('[data-sheet-tab]').forEach((b) => b.addEventListener('click', () => { sheetTab = b.dataset.sheetTab; sheetKey = ''; renderCommandSheet(); }));
-  $('sheet-ghost').addEventListener('click', () => sheet.classList.toggle('ghost'));
   $('sheet-close').addEventListener('click', closeCommandSheet);
+  $('sheet-opacity').addEventListener('input', (event) => {
+    profile.sheetOpacity = Number(event.target.value);
+    saveProfile();
+    sheet.style.opacity = profile.sheetOpacity / 100;
+  });
+  $('sheet-lumber').addEventListener('click', () => { buyLumber(); sheetKey = ''; renderCommandSheet(); });
+  $('sheet-shrine')?.addEventListener('click', () => { upgradeShrine(); sheetKey = ''; renderCommandSheet(); });
   sheet.querySelectorAll('[data-sheet-tower]').forEach((b) => b.addEventListener('click', () => {
     selectedTowerTier = Number(b.dataset.sheetTower);
     selectedTowerKey = null; selectedGroupKeys = [];
