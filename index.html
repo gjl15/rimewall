@@ -424,6 +424,13 @@ h2 span { color:#7583a6; }
 .wisp > span { display:inline-block; animation:wisp-spin 9s linear infinite; }
 @media (prefers-reduced-motion:reduce) { .wisp, .wisp > span { animation:none; } }
 
+/* brand lockup */
+.wordmark-row { display:flex; align-items:center; gap:14px; }
+.crest-mark { flex:0 0 auto; filter:drop-shadow(0 2px 8px #4aa3e055); }
+.crest-sm { filter:none; }
+.hud-brand .crest-mark { vertical-align:middle; }
+@media (max-width:560px) { .wordmark-row { gap:9px; } .crest-mark { width:34px; height:34px; } }
+
 </style>
 </head>
 <body>
@@ -434,9 +441,9 @@ h2 span { color:#7583a6; }
       <div id="command-sheet" class="command-sheet hidden"></div>
       <section id="race-screen" class="screen race-screen">
         <div class="brand-row">
-          <div>
+          <div class="brand-lockup">
             <p class="eyebrow">FROZEN RIVER • TOWER WARS</p>
-            <h1>Rime<span>wall</span></h1>
+            <div class="wordmark-row"><svg class="crest-mark" viewBox="0 0 48 48" width="46" height="46" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="crestG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bfeaff"/><stop offset="1" stop-color="#4aa3e0"/></linearGradient></defs><path d="M24 2 L42 11 V26 C42 37 34 44 24 46 C14 44 6 37 6 26 V11 Z" fill="#0d1f3a" stroke="url(#crestG)" stroke-width="2"/><g stroke="url(#crestG)" stroke-width="2.4" stroke-linecap="round"><path d="M24 12 V34 M14.5 18 L33.5 28 M33.5 18 L14.5 28"/></g><g stroke="#eafcff" stroke-width="1.3" stroke-linecap="round" opacity=".9"><path d="M24 15 l-2.4 2.6 M24 15 l2.4 2.6 M24 31 l-2.4 -2.6 M24 31 l2.4 -2.6"/></g></svg><h1>Rime<span>wall</span></h1></div>
             <p class="lede">Choose your element. Build the maze. Break theirs.</p>
           </div>
           <div class="version-pill">beta</div>
@@ -571,7 +578,7 @@ h2 span { color:#7583a6; }
 
       <section id="battle-screen" class="screen battle-screen hidden">
         <header class="hud">
-          <div class="hud-brand"><span class="crest">✦</span><span>RIMEWALL</span></div>
+          <div class="hud-brand"><svg class="crest-mark crest-sm" viewBox="0 0 48 48" width="22" height="22" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="crestG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bfeaff"/><stop offset="1" stop-color="#4aa3e0"/></linearGradient></defs><path d="M24 2 L42 11 V26 C42 37 34 44 24 46 C14 44 6 37 6 26 V11 Z" fill="#0d1f3a" stroke="url(#crestG)" stroke-width="2"/><g stroke="url(#crestG)" stroke-width="2.4" stroke-linecap="round"><path d="M24 12 V34 M14.5 18 L33.5 28 M33.5 18 L14.5 28"/></g><g stroke="#eafcff" stroke-width="1.3" stroke-linecap="round" opacity=".9"><path d="M24 15 l-2.4 2.6 M24 15 l2.4 2.6 M24 31 l-2.4 -2.6 M24 31 l2.4 -2.6"/></g></svg><span>RIMEWALL</span></div>
           <div class="match-state"><span class="live-dot"></span><strong id="wave-label">WAVE 01</strong><span id="timer-label">00:30</span></div>
           <button id="push-wave-button" class="test-button" title="Testing shortcut: immediately start the next wave">Push wave</button>
           <button id="pause-button" class="test-button" aria-pressed="false">Pause</button>
@@ -1771,12 +1778,19 @@ function setupCanvases() {
 function drawTerrain(ctx, scale = 1) {
   ctx.save();
   ctx.scale(scale, scale);
-  ctx.fillStyle = '#7fc6d5'; ctx.fillRect(0, 0, BOARD_W, BOARD_H);
+  // frozen-field base: cool vertical wash instead of a flat fill
+  const baseGrad = ctx.createLinearGradient(0, 0, 0, BOARD_H);
+  baseGrad.addColorStop(0, '#a8dbe6'); baseGrad.addColorStop(.5, '#84c8d6'); baseGrad.addColorStop(1, '#9ad3df');
+  ctx.fillStyle = baseGrad; ctx.fillRect(0, 0, BOARD_W, BOARD_H);
   for (let r = 0; r < ROWS; r += 1) for (let c = 0; c < COLS; c += 1) {
     const t = terrain[idx(r, c)];
     const x = c * CELL, y = r * CELL;
     if (t === T.HARBOR) { ctx.fillStyle = '#5b55c0'; ctx.fillRect(x, y, CELL, CELL); }
-    else if (t === T.RIVER) { ctx.fillStyle = '#17346f'; ctx.fillRect(x, y, CELL, CELL); }
+    else if (t === T.RIVER) {
+      const g = ctx.createLinearGradient(0, y, 0, y + CELL);
+      g.addColorStop(0, '#1a3d7a'); g.addColorStop(.5, '#12305f'); g.addColorStop(1, '#1a3d7a');
+      ctx.fillStyle = g; ctx.fillRect(x, y, CELL, CELL);
+    }
     else if (t === T.GATE) { ctx.fillStyle = r >= 23 && r <= 25 ? '#1d418a' : '#8ed2dd'; ctx.fillRect(x, y, CELL, CELL); }
     else if (t === T.CLIFF) { ctx.fillStyle = '#245e54'; ctx.fillRect(x, y, CELL, CELL); }
   }
@@ -1794,6 +1808,22 @@ function drawTerrain(ctx, scale = 1) {
   ctx.fillStyle = '#245e54';
   // notches mirror exactly: north pokes up into row 10, south pokes down into row 38
   [[10.6, 12], [10.6, 15], [10.6, 18], [38, 12], [38, 15], [38, 18]].forEach(([r, c]) => ctx.fillRect(c * CELL, r * CELL, CELL, CELL * .4));
+  // snow drift along the top edge of the river banks + a soft rim on floor near cliffs
+  ctx.fillStyle = '#eef7fb';
+  for (let c = 0; c < COLS; c += 1) {
+    for (let r = 1; r < ROWS; r += 1) {
+      if (terrain[idx(r, c)] === T.RIVER && terrain[idx(r - 1, c)] !== T.RIVER && terrain[idx(r - 1, c)] !== T.GATE) {
+        ctx.globalAlpha = .5; ctx.fillRect(c * CELL, r * CELL - 1, CELL, 2.5); ctx.globalAlpha = 1;
+      }
+    }
+  }
+  // cliff rock: darker inner body with a top-lit highlight band
+  for (let r = 0; r < ROWS; r += 1) for (let c = 0; c < COLS; c += 1) {
+    if (terrain[idx(r, c)] !== T.CLIFF) continue;
+    const g = ctx.createLinearGradient(0, r * CELL, 0, r * CELL + CELL);
+    g.addColorStop(0, '#2e6d60'); g.addColorStop(1, '#1c4c44');
+    ctx.fillStyle = g; ctx.fillRect(c * CELL, r * CELL, CELL, CELL);
+  }
   // static texture: floor speckles + cliff moss (deterministic per cell — repaints identically)
   for (let r = 0; r < ROWS; r += 1) for (let c = 0; c < COLS; c += 1) {
     const t = terrain[idx(r, c)];
@@ -1840,6 +1870,10 @@ function drawTerrain(ctx, scale = 1) {
     ctx.fillStyle = '#17325a'; ctx.font = '700 8px "DM Mono", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
     ctx.fillText(String(i + 1), x + 15, y + 20.5);
   })));
+  // soft vignette frames the board and lifts the center
+  const vg = ctx.createRadialGradient(BOARD_W / 2, BOARD_H / 2, BOARD_H * .25, BOARD_W / 2, BOARD_H / 2, BOARD_H * .62);
+  vg.addColorStop(0, '#00000000'); vg.addColorStop(1, '#0a142033');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, BOARD_W, BOARD_H);
   ctx.restore();
 }
 function redrawBoard() { boardCtx.clearRect(0, 0, BOARD_W, BOARD_H); drawTerrain(boardCtx); }
