@@ -175,6 +175,15 @@ h2 span { color:#7583a6; }
 .panel-tabs { gap:5px; padding:14px 0; }.panel-tabs button { flex:1; min-height:44px; padding:10px; border:0; border-radius:8px; background:transparent; color:#7785a6; font-size:12px; }.panel-tabs button.active { background:#273655; color:#ecf0ff; }
 .panel-heading { margin-bottom:10px; }.tower-list { display:grid; gap:7px; max-height:380px; overflow-y:auto; padding-right:2px; scrollbar-width:thin; }
 .laser-row { border-color:#ff5f8f66 !important; }
+.profile-line { color:#8ba7c9 !important; }
+.td-sell-danger { color:#ff9faf !important; border-color:#5a2f3a !important; }
+.quick-send { position:absolute; left:50%; bottom:52px; transform:translateX(-50%); z-index:31; display:flex; gap:5px; max-width:94%; overflow-x:auto; padding:5px; border:1px solid #17325a99; border-radius:12px; background:#0d1424ee; box-shadow:0 6px 18px #0007; scrollbar-width:none; }
+.qs-chip { display:flex; flex-direction:column; align-items:center; gap:1px; min-width:42px; min-height:42px; padding:5px 6px; border:1px solid #2e3b5c; border-radius:9px; background:#131b30; color:#e9edff; }
+.qs-chip span { font-size:15px; line-height:1.1; }
+.qs-chip b { color:#f5d36d; font:600 8px 'DM Mono',monospace; }
+.qs-chip:active { transform:scale(.94); }
+.qs-chip.qs-poor { opacity:.4; }
+@media (max-width:560px) { .quick-send { bottom:46px; } .hotkey-hint { display:none; } }
 .send-locked { opacity:.45; }
 .tower-row { display:flex; justify-content:space-between; gap:10px; padding:10px; border:1px solid #273554; border-radius:8px; background:#10182b; }.tower-row strong { display:block; font-size:11px; }.tower-row small { display:block; margin-top:3px; color:#8590ae; font-size:9px; }.tower-row b { align-self:center; color:#f5d36d; font:11px 'DM Mono',monospace; }.tower-row.selected { border-color:var(--race); box-shadow:inset 0 0 0 1px var(--race); }
 .action-button { width:100%; margin-top:12px; padding:12px 13px; font-size:11px; }.action-button:disabled { opacity:.45; cursor:not-allowed; }.send-action { background:#ff8a9a; }.send-card { width:100%; justify-content:space-between; text-align:left; gap:8px; margin-bottom:8px; padding:10px; border:1px solid #2a3654; border-radius:8px; background:#10182b; color:inherit; }.send-card:hover { border-color:#ff8a9a; }
@@ -394,8 +403,9 @@ h2 span { color:#7583a6; }
                 <div id="board-overlay" class="board-overlay" aria-hidden="true"></div>
                 <div id="wave-banner" class="wave-banner">FIRST WAVE INBOUND</div>
               </div>
+              <div id="quick-send" class="quick-send" aria-label="Quick send bar"></div>
               <div class="map-zoom-controls" aria-label="Map zoom controls"><button id="zoom-out-button" aria-label="Zoom out">−</button><span id="zoom-label">100%</span><button id="zoom-in-button" aria-label="Zoom in">+</button><button id="zoom-reset-button" aria-label="Reset map zoom">reset</button></div>
-              <div class="zoom-hint">PINCH TO ZOOM • DRAG WHEN ZOOMED</div>
+              <div class="zoom-hint">PINCH TO ZOOM • DRAG WHEN ZOOMED<span class="hotkey-hint"> • 1–9 SEND • Q–U TOWERS • RIGHT-CLICK / HOLD = SELL</span></div>
             </div>
 
             <div class="debug-bar" aria-label="Debug toggles">
@@ -538,10 +548,30 @@ function towerListFor(raceId) { return [...(TOWERS[raceId] || TOWERS.ice), LASER
    armor classes follow the source map's design notes. Poison/crystal/laser are
    chaos (full damage to everything). */
 function armorReduction(armor) { const k = armor * .06; return k / (1 + k); }
-const raceBonus = {
-  fire:{ heavy:1.4 }, tech:{ heavy:1.4 }, ice:{ light:1.4 }, electricity:{ light:1.4 },
-  stone:{ fortified:1.5 }, earth:{ fortified:1.25 }, poison:{ chaos:true }, crystal:{ chaos:true }, gravity:{}
+/* Full attack-type matrix, WC3-style: every race has strengths AND weaknesses
+   vs armor classes, so waves punish mono-race builds and the second element
+   is a real strategic answer (e.g. pierce shreds light but bounces off heavy
+   and fortified; siege cracks fortified; storm is elite anti-air). Crystal
+   and the Laser Cannon are chaos: full damage to everything, armor ignored. */
+const ATTACK_PROFILE = {
+  ice:{ label:'Magic', vs:{ light:1.25, heavy:1.25, fortified:.5 } },
+  fire:{ label:'Blast', vs:{ medium:1.25, heavy:1.25, fortified:.7 } },
+  earth:{ label:'Siege', vs:{ light:.75, fortified:1.6 } },
+  tech:{ label:'Pierce', vs:{ light:1.5, medium:1.15, heavy:.65, fortified:.35 } },
+  crystal:{ label:'Chaos', chaos:true, vs:{} },
+  poison:{ label:'Venom', vs:{ unarmored:1.15, light:1.25, heavy:.75, fortified:.5 } },
+  stone:{ label:'Crush', vs:{ unarmored:.9, light:.75, heavy:1.15, fortified:1.6 } },
+  electricity:{ label:'Storm', vs:{ light:1.5, fortified:.6 }, air:1.3 },
+  gravity:{ label:'Warp', vs:{ medium:1.15, fortified:.85 } }
 };
+function attackProfileText(raceId) {
+  const p = ATTACK_PROFILE[raceId];
+  if (!p) return '';
+  if (p.chaos) return 'Chaos: full damage vs everything';
+  const parts = Object.entries(p.vs).map(([cls, m]) => `${m >= 1.15 ? '+' : m <= .55 ? '−−' : '−'}${cls}`);
+  if (p.air && p.air > 1) parts.push('+air');
+  return `${p.label}: ${parts.join(' ')}`;
+}
 const specialBlurbs = {
   slow:'Hits slow the target 40% for 1.5s.', smallsplash:'Small splash for 40% nearby.', splash:'Splashes 50% in a wide ring.',
   meteor:'Falling blast; splashes 60% in a huge ring.', rocket:'Artillery blast; splashes 60% in a huge ring.',
@@ -811,7 +841,8 @@ function showToast(html) {
 loadProfile();
 function sendCreepDef(send) {
   // killing a send pays the defender exactly the income it granted its sender
-  return { name:send.name, role:send.air ? 'air' : 'standard', hp:send.hp, spd:send.spd, armor:send.armor, aClass:send.aClass, air:Boolean(send.air), bounty:send.income, lives:1 };
+  // the defender earns the send's income value per PURCHASE (each of the two units carries half)
+  return { name:send.name, role:send.air ? 'air' : 'standard', hp:send.hp, spd:send.spd, armor:send.armor, aClass:send.aClass, air:Boolean(send.air), bounty:Math.max(1, Math.round(send.income / 2)), lives:1 };
 }
 
 /* ---------------- Match state ---------------- */
@@ -1006,11 +1037,14 @@ function applyDamage(creep, amount, tower, isDot = false) {
   let dmg = amount;
   if (!isDot && tower) {
     const stats = towerLiveStats(tower);
-    const bonus = raceBonus[tower.raceId] || {};
-    const chaos = Boolean(bonus.chaos) || stats.special === 'laser';
-    if (!chaos) dmg *= bonus[creep.aClass] || 1;
-    const effectiveArmor = Math.max(0, creep.armor - creep.armorShred);
-    if (!chaos) dmg *= 1 - armorReduction(effectiveArmor);
+    const profile = ATTACK_PROFILE[tower.raceId] || { vs:{} };
+    const chaos = Boolean(profile.chaos) || stats.special === 'laser';
+    if (!chaos) {
+      dmg *= profile.vs[creep.aClass] ?? 1;
+      if (creep.air && profile.air) dmg *= profile.air;
+      const effectiveArmor = Math.max(0, creep.armor - creep.armorShred);
+      dmg *= 1 - armorReduction(effectiveArmor);
+    }
   }
   creep.hp -= dmg;
   if (!isDot && dmg >= 60) effects.push({ kind:'num', x:creep.x, y:creep.y - .4, text:String(Math.round(dmg)), until:simTime + .7 });
@@ -1225,7 +1259,7 @@ function waveDefFor(waveNumber) {
   const base = WAVES[(waveNumber - 1) % WAVES.length];
   const loop = Math.floor((waveNumber - 1) / WAVES.length);
   if (!loop) return base;
-  return { ...base, hp:Math.round(base.hp * Math.pow(1.5, loop)), bounty:base.bounty + loop * 2 };
+  return { ...base, hp:Math.round(base.hp * Math.pow(2, loop)), bounty:base.bounty + loop * 3 };
 }
 function launchNextWave() {
   if (matchMode === 'classic') return;
@@ -1639,6 +1673,22 @@ function buildOverlay() {
 }
 
 /* ---------------- HUD / panel ---------------- */
+let quickSendKey = '';
+function renderQuickSend() {
+  const bar = $('quick-send');
+  if (!bar || !player) return;
+  const usable = SENDS.filter((send) => player.shrine >= send.shrine);
+  const key = usable.map((send) => `${send.id}${player.gold >= send.cost ? 1 : 0}`).join(',');
+  if (key === quickSendKey) return;
+  quickSendKey = key;
+  bar.innerHTML = usable.map((send, i) => `
+    <button class="qs-chip ${player.gold < send.cost ? 'qs-poor' : ''}" data-qsend="${send.id}" title="${send.name} — ${send.cost}g, +${send.income} income [key ${i + 1}]">
+      <span>${send.air ? '🐉' : send.symbol}</span><b>${send.cost}</b></button>`).join('');
+  bar.querySelectorAll('[data-qsend]').forEach((chip) => chip.addEventListener('click', (event) => {
+    event.stopPropagation();
+    document.querySelector(`[data-send="${chip.dataset.qsend}"]`)?.click();
+  }));
+}
 function renderHud() {
   $('gold-label').textContent = Math.floor(player.gold);
   $('income-label').textContent = `+${BASE_INCOME + player.income}`;
@@ -1647,10 +1697,11 @@ function renderHud() {
   const buyLumber = $('buy-lumber');
   if (buyLumber) { buyLumber.disabled = player.gold < LUMBER_PRICE; buyLumber.textContent = `Buy 1 lumber — ${LUMBER_PRICE}g (you have ${player.lumber}🪵)`; }
   const licenseButton = $('license-button');
-  if (licenseButton) licenseButton.disabled = player.lumber < 1;
+  if (licenseButton) licenseButton.disabled = player.lumber < 2;
   const shrineUpgrade = $('shrine-upgrade');
   if (shrineUpgrade) shrineUpgrade.disabled = player.lumber < 1;
   refreshSendLocks();
+  renderQuickSend();
   $('lives-label').textContent = player.lives;
   $('enemy-lives-label').textContent = enemy.lives;
   $('player-ship-label').textContent = `YOUR SHIP • ${player.lives}`;
@@ -1661,7 +1712,7 @@ function renderHud() {
   } else {
     $('wave-label').textContent = wave <= WAVES.length ? `WAVE ${String(Math.max(1, wave)).padStart(2, '0')}/20` : `WAVE ${wave} ∞`;
     const upcoming = waveDefFor(wave + 1);
-    if (!matchOver) $('wave-banner').textContent = wave === 0 ? `FIRST WAVE INBOUND — ${WAVES[0].name.toUpperCase()}` : `WAVE ${String(wave).padStart(2, '0')}${wave > WAVES.length ? ' • ENDLESS' : ''} • ${waveDefFor(wave).name.toUpperCase()} • NEXT: ${upcoming.name.toUpperCase()}`;
+    if (!matchOver) $('wave-banner').textContent = wave === 0 ? `FIRST WAVE INBOUND — ${WAVES[0].name.toUpperCase()} (${WAVES[0].aClass.toUpperCase()})` : `WAVE ${String(wave).padStart(2, '0')}${wave > WAVES.length ? ' • ENDLESS' : ''} • ${waveDefFor(wave).name.toUpperCase()} (${waveDefFor(wave).aClass.toUpperCase()}${waveDefFor(wave).air ? ' AIR' : ''}) • NEXT: ${upcoming.name.toUpperCase()} (${upcoming.aClass.toUpperCase()}${upcoming.air ? ' AIR' : ''})`;
     const clock = Math.max(0, Math.ceil(waveClock));
     $('timer-label').textContent = `00:${String(clock).padStart(2, '0')}`;
   }
@@ -1677,7 +1728,7 @@ function renderTowerList() {
     const def = towerDef(raceId, tier);
     const isLaser = def.name === 'Laser Cannon';
     return `<button class="tower-row ${tier === selectedTowerTier ? 'selected' : ''} ${isLaser ? 'laser-row' : ''}" data-tower="${tier}">
-      <span><strong>${def.name}</strong><small>${def.desc}</small><small class="tower-stats">${def.dmg} dmg • ${def.range.toFixed(1)} rng • ${def.cd.toFixed(2)}s${def.groundOnly ? ' • no air' : ''}</small></span><b>${def.cost}g${isLaser ? ' +1🪵' : ''}</b></button>`;
+      <span><strong>${def.name}</strong><small>${def.desc}</small><small class="tower-stats">${def.dmg} dmg • ${def.range.toFixed(1)} rng • ${def.cd.toFixed(2)}s${def.groundOnly ? ' • no air' : ''}</small><small class="tower-stats profile-line">${attackProfileText(raceId)}</small></span><b>${def.cost}g${isLaser ? ' +1🪵' : ''}</b></button>`;
   }).join('');
   document.querySelectorAll('[data-tower]').forEach((button) => button.addEventListener('click', () => {
     selectedTowerTier = Number(button.dataset.tower);
@@ -1698,7 +1749,7 @@ function renderBuildExtras() {
     }).join('')}</div>`;
   } else {
     const options = races.filter((race) => race.id !== player.races[0] && raceUnlocked(race.id)).map((race) => `<option value="${race.id}">${race.name}</option>`).join('');
-    html += `<div class="license-row"><select id="license-select" aria-label="Second element">${options}</select><button id="license-button" class="ghost-button" ${player.lumber < 1 ? 'disabled' : ''}>License 2nd element • 1🪵</button></div>`;
+    html += `<div class="license-row"><select id="license-select" aria-label="Second element">${options}</select><button id="license-button" class="ghost-button" ${player.lumber < 2 ? 'disabled' : ''}>License 2nd element • 2🪵</button></div>`;
   }
   html += `<button id="buy-lumber" class="ghost-button lumber-button" ${player.gold < LUMBER_PRICE ? 'disabled' : ''}>Buy 1 lumber — ${LUMBER_PRICE}g (you have ${player.lumber}🪵)</button>`;
   box.innerHTML = html;
@@ -1714,9 +1765,9 @@ function renderBuildExtras() {
     renderHud(); renderTowerList(); renderSendPanel();
   });
   $('license-button')?.addEventListener('click', () => {
-    if (player.lumber < 1) return log('A second element license costs 1 lumber (the original map’s rule).');
+    if (player.lumber < 2) return log('A second element license costs 2 lumber.');
     const id = $('license-select').value;
-    player.lumber -= 1; player.lumberSpent += 1; if (player.lumberSpent >= 3) award('lumberjack');
+    player.lumber -= 2; player.lumberSpent += 2; if (player.lumberSpent >= 3) award('lumberjack');
     player.races.push(id);
     buildRaceIdx = 1; selectedTowerTier = 0;
     log(`${races.find((race) => race.id === id).name} licensed! Switch elements with the chips above the tower line.`);
@@ -1747,11 +1798,12 @@ function renderTowerDetails() {
       <button id="td-close" class="ghost-button" aria-label="Close tower details">✕</button></div>
     <p class="td-desc">${many ? 'Double-tap selected every like tower.' : `${stats.desc} ${specialBlurbs[stats.special] || ''}`}</p>
     <div class="td-stats"><span>DMG <b>${stats.dmg}</b></span><span>RANGE <b>${stats.range.toFixed(1)}</b></span><span>RATE <b>${stats.cd.toFixed(2)}s</b></span></div>
+    <p class="td-desc profile-line">${attackProfileText(tower.raceId)}</p>
     ${isYours ? `<div class="td-actions">
       <button id="td-level" class="action-button" ${!upgradable.length || player.gold < (many ? 1 : levelCostAll) ? 'disabled' : ''}>${!upgradable.length ? 'Max level' : many ? `Upgrade all • ${levelCostAll}g` : `Upgrade level ${levelCostAll}g`}</button>
       ${tierable.length ? (() => { const laserNext = towerTierUp(tower)?.next.name === 'Laser Cannon'; const blocked = player.gold < (many ? 1 : tierCostAll) || (laserNext && player.lumber < 1); return `<button id="td-tier" class="action-button td-tier" ${blocked ? 'disabled' : ''}>→ ${towerTierUp(tower)?.next.name || 'next tier'}${many ? ` all • ${tierCostAll}g` : ` ${tierCostAll}g`}${laserNext ? ' +1🪵' : ''}</button>`; })() : ''}
-      <button id="td-sell" class="ghost-button">Sell${many ? ' all' : ''} ${sellAll}g${graceNote}</button>
       <button id="td-priority" class="ghost-button">Target: ${tower.priority}</button>
+      <button id="td-sell" class="ghost-button td-sell-danger">Sell${many ? ' all' : ''} ${sellAll}g${graceNote}</button>
     </div>` : ''}`;
   $('td-close').addEventListener('click', () => { selectedTowerKey = null; selectedGroupKeys = []; renderTowerDetails(); });
   if (!isYours) return;
@@ -1813,7 +1865,7 @@ function renderSendPanel() {
     <button class="send-card" data-send="${send.id}"><span class="send-icon">${send.air ? '🐉' : send.symbol}</span>
       <div><strong>${send.name}${send.air ? ' <em class="air-tag">AIR</em>' : ''}</strong>
       <small data-send-note="${send.id}">+${send.income} income</small>
-      <small class="send-stats">${send.hp} HP • ${send.spd.toFixed(1)} spd • ${send.armor} armor</small></div><b>${send.cost}g</b></button>`).join('');
+      <small class="send-stats">${send.hp} HP • ${send.spd.toFixed(1)} spd • ${send.armor} armor (${send.aClass})</small></div><b>${send.cost}g</b></button>`).join('');
   document.querySelectorAll('[data-send]').forEach((button) => button.addEventListener('click', () => {
     const send = SENDS.find((item) => item.id === button.dataset.send);
     if (!battleRunning) return log('Start a match before sending.');
@@ -1858,6 +1910,21 @@ function cellFromEvent(event) {
   const c = Math.floor((event.clientX - rect.left) / rect.width * COLS);
   const r = Math.floor((event.clientY - rect.top) / rect.height * ROWS);
   return inBounds(r, c) ? { r, c } : null;
+}
+function sellTowerAt(cell) {
+  const key = idx(cell.r, cell.c);
+  const tower = towers.get(key);
+  if (!tower || tower.owner !== 'player') return false;
+  const name = towerLiveStats(tower).name;
+  const refund = towerSellValue(tower);
+  const full = refund === tower.invested;
+  player.gold += refund;
+  removeTower(key);
+  if (navigator.vibrate) navigator.vibrate(25);
+  log(`${name} sold for ${refund}g${full ? ' (full refund)' : ' (75%)'}. ${cachedRouteText}.`);
+  showToast(`<b>Sold ${name}</b><span>+${refund}g${full ? ' — full refund' : ''}</span>`);
+  renderHud(); renderTowerDetails();
+  return true;
 }
 function handleBoardTap(event) {
   if (!battleRunning && !matchOver) return;
@@ -1946,10 +2013,27 @@ function pointerDistance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 function setupMapZoom() {
   const viewport = $('map-viewport');
   if (!viewport) return;
+  viewport.addEventListener('contextmenu', (event) => {
+    // right-click sells your tower under the cursor
+    event.preventDefault();
+    if (!battleRunning) return;
+    const cell = cellFromEvent(event);
+    if (cell) sellTowerAt(cell);
+  });
   viewport.addEventListener('pointerdown', (event) => {
     activeMapPointers.set(event.pointerId, { x:event.clientX, y:event.clientY });
     try { viewport.setPointerCapture(event.pointerId); } catch (error) { /* capture is best-effort */ }
     tapCandidate = { x:event.clientX, y:event.clientY, id:event.pointerId };
+    // touch: press-and-hold a tower to sell it
+    window.clearTimeout(viewport._holdTimer);
+    if (event.pointerType !== 'mouse' && battleRunning && activeMapPointers.size === 1) {
+      const cell = cellFromEvent(event);
+      if (cell && towers.get(idx(cell.r, cell.c))?.owner === 'player') {
+        viewport._holdTimer = window.setTimeout(() => {
+          if (tapCandidate && tapCandidate.id === event.pointerId) { sellTowerAt(cell); tapCandidate = null; }
+        }, 650);
+      }
+    }
     if (activeMapPointers.size === 2) {
       const points = [...activeMapPointers.values()];
       pinchStartDistance = pointerDistance(points[0], points[1]);
@@ -1963,7 +2047,7 @@ function setupMapZoom() {
   viewport.addEventListener('pointermove', (event) => {
     if (!activeMapPointers.has(event.pointerId)) return;
     activeMapPointers.set(event.pointerId, { x:event.clientX, y:event.clientY });
-    if (tapCandidate && tapCandidate.id === event.pointerId && Math.hypot(event.clientX - tapCandidate.x, event.clientY - tapCandidate.y) > 7) tapCandidate = null;
+    if (tapCandidate && tapCandidate.id === event.pointerId && Math.hypot(event.clientX - tapCandidate.x, event.clientY - tapCandidate.y) > 7) { tapCandidate = null; window.clearTimeout(viewport._holdTimer); }
     if (activeMapPointers.size === 2 && pinchStartDistance) {
       const points = [...activeMapPointers.values()];
       const rect = viewport.getBoundingClientRect();
@@ -1978,6 +2062,7 @@ function setupMapZoom() {
     }
   });
   const endPointer = (event) => {
+    window.clearTimeout(viewport._holdTimer);
     if (tapCandidate && tapCandidate.id === event.pointerId) handleBoardTap(event);
     tapCandidate = null;
     activeMapPointers.delete(event.pointerId);
@@ -2606,6 +2691,31 @@ $('restart-button').addEventListener('click', startBattle);
 $('build-mode-button').addEventListener('click', () => log('Tap any open tile on your half (south of the river) to place the selected tower.'));
 ['routes', 'ranges', 'ref'].forEach((key) => {
   $(`dbg-${key}`).addEventListener('change', (event) => { debug[key] = event.target.checked; });
+});
+document.addEventListener('keydown', (event) => {
+  if (event.metaKey || event.ctrlKey || event.altKey) return;
+  if (event.target && /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)) return;
+  if (!battleRunning) return;
+  const key = event.key.toLowerCase();
+  const sendKeys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-'];
+  const sendIdx = sendKeys.indexOf(event.key);
+  if (sendIdx >= 0 && SENDS[sendIdx]) {
+    document.querySelector(`[data-send="${SENDS[sendIdx].id}"]`)?.click();
+    event.preventDefault();
+    return;
+  }
+  const towerKeys = ['q', 'w', 'e', 'r', 't', 'y', 'u'];
+  const towerIdx = towerKeys.indexOf(key);
+  if (towerIdx >= 0) {
+    const list = towerListFor(currentBuildRaceId());
+    selectedTowerTier = Math.min(towerIdx, list.length - 1);
+    selectedTowerKey = null; selectedGroupKeys = [];
+    renderTowerList(); renderTowerDetails();
+    event.preventDefault();
+    return;
+  }
+  if (key === 'escape') { selectedTowerKey = null; selectedGroupKeys = []; renderTowerDetails(); }
+  if (key === 'p') toggleBattlePause();
 });
 $('mp-create').addEventListener('click', () => mpOpenRoom(false));
 $('mp-join').addEventListener('click', () => mpOpenRoom(true));
