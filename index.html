@@ -1131,6 +1131,7 @@ function showWaveGrade(waveIdx, leaked) {
 const WAGER_COOLDOWN = 90, WAGER_WINDOW = 10;
 function wagerBonus() { return Math.max(10, Math.round(player.income * .4)); }
 function applyWagerBenefit() {
+  if (!battleRunning || matchOver) return;
   const bonus = wagerBonus();
   player.gold += bonus;
   if (!mp.active && enemy) enemy.gold += bonus;
@@ -1163,21 +1164,24 @@ function proposeWager() {
   }
   sheetKey = ''; renderCommandSheet();
 }
+let wagerPromptTimer = null;
 function showWagerPrompt() {
   document.getElementById('wager-prompt')?.remove();
+  if (wagerPromptTimer) { window.clearInterval(wagerPromptTimer); wagerPromptTimer = null; }
+  if (!battleRunning || matchOver) return;
   const box = document.createElement('div');
   box.id = 'wager-prompt'; box.className = 'wager-prompt';
   let left = WAGER_WINDOW;
   box.innerHTML = `<b>⏩ ${mp.oppName || 'Opponent'} proposes rushing the next wave!</b><small>Accept and you BOTH bank +${wagerBonus()}g — the wave comes now.</small><div><button id="wager-yes">✅ Accept</button><button id="wager-no">❌ Refuse</button><i id="wager-count">${left}</i></div>`;
   document.body.appendChild(box);
-  const timer = window.setInterval(() => {
+  const timer = wagerPromptTimer = window.setInterval(() => {
     left -= 1;
     const c = document.getElementById('wager-count');
     if (c) c.textContent = left;
     if (left <= 0) finish(false);
   }, 1000);
   const finish = (accept) => {
-    window.clearInterval(timer); box.remove();
+    window.clearInterval(timer); wagerPromptTimer = null; box.remove();
     mpSend({ t:'wager-verdict', accept });
     if (accept) applyWagerBenefit();
   };
@@ -2468,7 +2472,12 @@ function renderBuildExtras() {
   });
 }
 function towerAction(kind) {
-  const group = selectionTowers().filter((t) => t.owner === 'player');
+  let group = selectionTowers().filter((t) => t.owner === 'player');
+  if (kind !== 'sell') {
+    const ready = group.filter((t) => !underConstruction(t));
+    if (!ready.length) { if (group.length) log('That tower is still being built — cancel it (double-tap / ESC) or wait.'); return; }
+    group = ready;   // never upgrade a tower mid-construction; selling still refunds
+  }
   if (!group.length) return;
   if (kind === 'level') {
     let done = 0;
@@ -3366,6 +3375,8 @@ const defaultCollabTasks = [
   { text:'Playtest a 3v3 lane split and record where leaks happen.', done:false }
 ];
 let collabTasks = [];
+function cleanName(value) { return escapeHTML(String(value == null ? '' : value).slice(0, 16)) || 'Rival'; }
+function clampLives(value) { const n = Number(value); return Number.isFinite(n) ? Math.max(0, Math.min(9999, Math.round(n))) : 0; }
 function escapeHTML(value) { return String(value).replace(/[&<>'"]/g, (character) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[character])); }
 function loadCollabTasks() {
   try {
@@ -3489,7 +3500,8 @@ function mpStartHelloLoop(name) {
 async function mpOpenRoom(join) {
   const name = mpPlayerName();
   if (!name) return mpStatus('Pick a commander name first.');
-  const code = join ? ($('mp-code').value || '').trim().toUpperCase() : Array.from({ length:4 }, () => 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 31)]).join('');
+  const code = join ? (($('mp-code').value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8)) : Array.from({ length:4 }, () => 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 31)]).join('');
+  if (join && code.length < 3) return mpStatus('Enter the 4-character room code.');
   if (!code || code.length < 3) return mpStatus('Enter the room code your opponent shared.');
   if (mp.transport) mpLeave();
   mp.code = code; mp.role = join ? 'guest' : 'host'; mp.ready = false; mp.oppReady = false; mp.started = false; mp.oppName = ''; mp.oppLives = null;
@@ -3518,15 +3530,15 @@ function mpOnMessage(msg) {
   if (!msg || !msg.t) return;
   if (msg.t === 'hello' && mp.role === 'host') {
     if (mp.started) return;   // repeated knocks are fine; answer again until the match starts
-    mp.oppName = msg.name; mp.oppRace = msg.race;
+    mp.oppName = cleanName(msg.name); mp.oppRace = msg.race;
     mpSend({ t:'config', name:mpPlayerName(), race:selectedRace.id, mode:document.getElementById('mode-select')?.value === 'classic' ? 'classic' : 'skirmish', lives:startingLives() });
-    mpStatus(`<b>${msg.name}</b> joined! Starting…`);
+    mpStatus(`<b>${escapeHTML(mp.oppName)}</b> joined! Starting…`);
     mp.ready = true; mpSend({ t:'ready' });
     mpMaybeStart();
   } else if (msg.t === 'config' && mp.role === 'guest') {
     window.clearInterval(mp.helloTimer);
-    mp.oppName = msg.name; mp.oppRace = msg.race; mp.config = { mode:msg.mode, lives:msg.lives };
-    mpStatus(`Connected to <b>${msg.name}</b>! Starting…`);
+    mp.oppName = cleanName(msg.name); mp.oppRace = msg.race; mp.config = { mode:msg.mode, lives:clampLives(msg.lives) };
+    mpStatus(`Connected to <b>${escapeHTML(mp.oppName)}</b>! Starting…`);
     mp.ready = true; mpSend({ t:'ready' });
     mpMaybeStart();
   } else if (msg.t === 'ready') {
@@ -3539,17 +3551,19 @@ function mpOnMessage(msg) {
       log(`${mp.oppName || 'Opponent'} sent ${send.name} × 2 at your lanes!${send.air ? ' They fly over your maze!' : ''}`);
     }
   } else if (msg.t === 'lives') {
-    mp.oppLives = msg.value;
-    if (enemy) enemy.lives = msg.value;
-    if (msg.value <= 0) endMatch('victory');
+    if (!mp.active || !battleRunning || matchOver) return;
+    const v = clampLives(msg.value);
+    mp.oppLives = v;
+    if (enemy) enemy.lives = v;
+    if (v <= 0) endMatch('victory');
   } else if (msg.t === 'wager') {
     if (battleRunning) showWagerPrompt();
   } else if (msg.t === 'wager-verdict') {
     if (wager.pending) resolveWager(!!msg.accept);
   } else if (msg.t === 'snap') {
-    mp.snap = msg;
+    mp.snap = { towers:Array.isArray(msg.towers) ? msg.towers : [], creeps:Array.isArray(msg.creeps) ? msg.creeps : [] };
   } else if (msg.t === 'over') {
-    if (!matchOver) endMatch(msg.result === 'defeat' ? 'victory' : 'defeat');
+    if (mp.active && battleRunning && !matchOver) endMatch(msg.result === 'defeat' ? 'victory' : 'defeat');
   } else if (msg.t === 'bye') {
     if (mp.active && battleRunning && !matchOver) { log(`${mp.oppName || 'Opponent'} left the match.`); endMatch('victory'); }
     else mpStatus(`${mp.oppName || 'Opponent'} left the room.`);
@@ -3592,7 +3606,8 @@ function mpTick(dt) {
 function drawOpponentMirror(ctx) {
   if (!mp.active) return;
   const roleKeys = Object.keys(roleStyle);
-  (mp.snap.towers || []).forEach(([r, c, raceIdx, tier]) => {
+  if (!mp.snap) return;
+  (mp.snap.towers || []).forEach((entry) => { if (!Array.isArray(entry)) return; const [r, c, raceIdx, tier] = entry;
     const race = races[raceIdx] || races[0];
     const x = (31 - c) * CELL, y = (48 - r) * CELL;
     ctx.save();
@@ -3604,7 +3619,7 @@ function drawOpponentMirror(ctx) {
     ctx.fillText(race.symbol, 0, 1);
     ctx.restore();
   });
-  (mp.snap.creeps || []).forEach(([x, y, roleIdx, hpFrac, air, sent]) => {
+  (mp.snap.creeps || []).forEach((entry) => { if (!Array.isArray(entry)) return; const [x, y, roleIdx, hpFrac, air, sent] = entry;
     const role = roleKeys[roleIdx] || 'standard';
     const style = roleStyle[role];
     const color = sent ? '#ffd86b' : roleColors[role] || '#ff9faf';
