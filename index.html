@@ -9,7 +9,7 @@
 <link rel="manifest" href="manifest.json" />
 <link rel="apple-touch-icon" href="icon-180.png" />
 <link rel="icon" type="image/png" href="icon-512.png" />
-<title>Wintermaul Wars Remake</title>
+<title>Rimewall</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
 
@@ -359,6 +359,9 @@ h2 span { color:#7583a6; }
 .race-confirm:disabled { opacity:.5; }
 @media (max-width:560px) { .race-detail { flex-direction:column; } .detail-portrait { flex-basis:auto; min-height:120px; } .race-confirm { align-self:stretch; text-align:center; } }
 
+/* the zoom math assumes top-left scaling — center-origin was why the bottom edge got lost */
+.map-frame, #map-frame { transform-origin:0 0; }
+
 </style>
 </head>
 <body>
@@ -371,7 +374,7 @@ h2 span { color:#7583a6; }
         <div class="brand-row">
           <div>
             <p class="eyebrow">ROC ERA • PLAYABLE MOCK</p>
-            <h1>Wintermaul <span>Wars</span></h1>
+            <h1>Rime<span>wall</span></h1>
             <p class="lede">Choose your element. Build the maze. Break theirs.</p>
           </div>
           <div class="version-pill">v3.0-inspired</div>
@@ -417,7 +420,7 @@ h2 span { color:#7583a6; }
       <section id="collab-screen" class="screen collab-screen hidden">
         <header class="drawpad-header">
           <div>
-            <p class="eyebrow">CONTRIBUTOR DASHBOARD • WMW REMAKE</p>
+            <p class="eyebrow">CONTRIBUTOR DASHBOARD • RIMEWALL</p>
             <h2>Build the battlefield together.</h2>
             <p class="drawpad-lede">A handoff board for map ideas, gameplay tasks, and ChatGPT-assisted code changes.</p>
           </div>
@@ -427,7 +430,7 @@ h2 span { color:#7583a6; }
         <div class="collab-grid">
           <article class="collab-card collab-status-card">
             <span class="selection-kicker">CURRENT BUILD</span>
-            <strong>Wintermaul Wars</strong>
+            <strong>Rimewall</strong>
             <p>32×49 traced map • 8 elements • center split waves • rival AI force</p>
             <div class="collab-actions"><button id="collab-map-button" class="action-button">Open map editor <span>↗</span></button><button id="collab-test-button" class="ghost-button">Test battlefield</button></div>
           </article>
@@ -448,7 +451,7 @@ h2 span { color:#7583a6; }
           </section>
           <section class="collab-card">
             <span class="selection-kicker">CONTRIBUTOR CHECKLIST</span>
-            <div class="collab-checklist"><label><input type="checkbox" checked disabled /> Read the WMW map/design notes</label><label><input type="checkbox" checked disabled /> Use the map editor before changing coordinates</label><label><input type="checkbox" disabled /> Test a wave and inspect leaks</label><label><input type="checkbox" disabled /> Open a GitHub pull request</label></div>
+            <div class="collab-checklist"><label><input type="checkbox" checked disabled /> Read the Rimewall map/design notes</label><label><input type="checkbox" checked disabled /> Use the map editor before changing coordinates</label><label><input type="checkbox" disabled /> Test a wave and inspect leaks</label><label><input type="checkbox" disabled /> Open a GitHub pull request</label></div>
             <button id="collab-export-button" class="ghost-button">Export task board</button>
             <button id="dev-unlock-toggle" class="ghost-button">DEV: unlock all races</button>
           </section>
@@ -488,7 +491,7 @@ h2 span { color:#7583a6; }
             </div>
             <div class="drawpad-reference-bar"><label><input id="drawpad-reference-toggle" type="checkbox" checked /> Show reference image</label><label><span>Overlay</span><input id="drawpad-reference-opacity" type="range" min="0" max="100" value="58" /><output id="drawpad-reference-opacity-label">58%</output></label></div>
             <div class="drawpad-canvas-wrap">
-              <canvas id="map-drawpad" width="768" height="1176" aria-label="Wintermaul Wars map drawing canvas"></canvas>
+              <canvas id="map-drawpad" width="768" height="1176" aria-label="Rimewall map drawing canvas"></canvas>
             </div>
             <div class="drawpad-status"><span id="drawpad-tool-label">CLIFF</span><span id="drawpad-count-label">0 marks</span><span>saved locally in this browser</span></div>
           </div>
@@ -505,7 +508,7 @@ h2 span { color:#7583a6; }
 
       <section id="battle-screen" class="screen battle-screen hidden">
         <header class="hud">
-          <div class="hud-brand"><span class="crest">✦</span><span>WMW</span></div>
+          <div class="hud-brand"><span class="crest">✦</span><span>RIMEWALL</span></div>
           <div class="match-state"><span class="live-dot"></span><strong id="wave-label">WAVE 01</strong><span id="timer-label">00:30</span></div>
           <button id="push-wave-button" class="test-button" title="Testing shortcut: immediately start the next wave">Push wave</button>
           <button id="pause-button" class="test-button" aria-pressed="false">Pause</button>
@@ -531,10 +534,10 @@ h2 span { color:#7583a6; }
               <div class="title-actions"><button id="back-button" class="ghost-button">← Change race</button></div>
             </div>
 
-            <div class="map-viewport" id="map-viewport" aria-label="Zoomable WMW map">
+            <div class="map-viewport" id="map-viewport" aria-label="Zoomable Rimewall map">
               <div class="map-frame" id="map-frame">
                 <canvas id="board-canvas" aria-hidden="true"></canvas>
-                <canvas id="fx-canvas" aria-label="Wintermaul Wars battlefield"></canvas>
+                <canvas id="fx-canvas" aria-label="Rimewall battlefield"></canvas>
                 <div id="board-overlay" class="board-overlay" aria-hidden="true"></div>
                 <div id="wave-banner" class="wave-banner">FIRST WAVE INBOUND</div>
               </div>
@@ -1003,6 +1006,7 @@ let lastTapKey = null, lastTapAt = 0;
 let lastPlaced = null;   // drives the 3-second undo pill
 let selectMode = null, marquee = null;   // ▭ box / ➰ lasso tower selection utilities
 let actionChips = [];   // floating sell/info chips beside the selected tower
+let ghost = null, ghostChips = [];   // staged placement preview (tap → preview → confirm)
 const towers = new Map();          // idx(r,c) → tower instance
 let towersVersion = 0;
 const creeps = [];
@@ -1756,8 +1760,11 @@ function drawDebug(ctx) {
   if (debug.ranges) {
     towers.forEach((tower) => {
       const stats = towerLiveStats(tower);
-      ctx.save(); ctx.strokeStyle = stats.color; ctx.globalAlpha = .3; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.arc(tower.c * CELL + CELL / 2, tower.r * CELL + CELL / 2, stats.range * CELL, 0, Math.PI * 2); ctx.stroke();
+      const mine = tower.owner === 'player';
+      ctx.save();
+      ctx.beginPath(); ctx.arc(tower.c * CELL + CELL / 2, tower.r * CELL + CELL / 2, stats.range * CELL, 0, Math.PI * 2);
+      ctx.globalAlpha = mine ? .08 : .04; ctx.fillStyle = stats.color; ctx.fill();
+      ctx.globalAlpha = mine ? .6 : .22; ctx.strokeStyle = stats.color; ctx.lineWidth = 2; ctx.stroke();
       ctx.restore();
     });
   }
@@ -1794,6 +1801,40 @@ function renderFrame() {
       const mw = Math.abs(marquee.x1 - marquee.x0) * CELL, mh = Math.abs(marquee.y1 - marquee.y0) * CELL;
       fxCtx.fillRect(mx, my, mw, mh); fxCtx.strokeRect(mx, my, mw, mh);
     }
+    fxCtx.restore();
+  }
+  // staged ghost: translucent tower + dashed range preview + ✓/✖ chips
+  ghostChips = [];
+  if (ghost && battleRunning) {
+    const raceId = currentBuildRaceId();
+    const def = towerDef(raceId, selectedTowerTier);
+    const race = races.find((item) => item.id === raceId) || selectedRace;
+    const gx = ghost.c * CELL, gy = ghost.r * CELL;
+    fxCtx.save();
+    fxCtx.globalAlpha = .4; fxCtx.fillStyle = race.color;
+    fxCtx.fillRect(gx + 2, gy + 2, CELL - 4, CELL - 4);
+    fxCtx.globalAlpha = .55; fxCtx.setLineDash([6, 5]); fxCtx.strokeStyle = race.color; fxCtx.lineWidth = 2;
+    fxCtx.beginPath(); fxCtx.arc(gx + CELL / 2, gy + CELL / 2, def.range * CELL, 0, Math.PI * 2); fxCtx.stroke();
+    fxCtx.setLineDash([]);
+    const fxG = $('fx-canvas');
+    const scaleG = (fxG.getBoundingClientRect().width || fxG.width) / fxG.width;
+    const chipPxG = Math.min(30, Math.max(10, 16 / scaleG));
+    const gapG = Math.max(.85, (chipPxG + 9) / CELL);
+    const cyG = ghost.r - Math.max(.55, (chipPxG + 4) / CELL);
+    const radG = (chipPxG + 7) / CELL;
+    const build = { kind:'build', x:ghost.c + .5 - gapG, y:cyG, rad:radG };
+    const dismiss = { kind:'dismiss', x:ghost.c + .5 + gapG, y:cyG, rad:radG };
+    ghostChips = [build, dismiss];
+    [[build, '#8fe6b8', '✓'], [dismiss, '#ff9faf', '✖']].forEach(([chip, color, glyph]) => {
+      fxCtx.globalAlpha = 1;
+      fxCtx.beginPath(); fxCtx.arc(chip.x * CELL, chip.y * CELL, chipPxG, 0, Math.PI * 2);
+      fxCtx.fillStyle = '#0d1424f0'; fxCtx.fill();
+      fxCtx.lineWidth = Math.max(1.6, chipPxG * .14); fxCtx.strokeStyle = color; fxCtx.stroke();
+      fxCtx.fillStyle = color; fxCtx.font = `700 ${Math.round(chipPxG)}px "DM Mono", monospace`; fxCtx.textAlign = 'center'; fxCtx.textBaseline = 'middle';
+      fxCtx.fillText(glyph, chip.x * CELL, chip.y * CELL + .5);
+    });
+    fxCtx.fillStyle = '#8fe6b8'; fxCtx.font = `700 ${Math.max(8, Math.round(chipPxG * .8))}px "DM Mono", monospace`; fxCtx.textAlign = 'center';
+    fxCtx.fillText(`${def.name} −${def.cost}g`, ghost.c * CELL + CELL / 2, build.y * CELL - chipPxG - 4);
     fxCtx.restore();
   }
   // floating action chips beside a single selected tower: sell/cancel + inspect
@@ -2163,6 +2204,19 @@ function handleBoardTap(event) {
   const cell = cellFromEvent(event);
   if (!cell) return;
   {
+    // ghost confirm/dismiss chips take top priority
+    const rectG = $('fx-canvas').getBoundingClientRect();
+    const gx = (event.clientX - rectG.left) / rectG.width * COLS;
+    const gy = (event.clientY - rectG.top) / rectG.height * ROWS;
+    const ghostHit = ghost && ghostChips.find((chip) => Math.hypot(chip.x - gx, chip.y - gy) <= chip.rad);
+    if (ghostHit) {
+      const cellG = { r:ghost.r, c:ghost.c };
+      ghost = null; ghostChips = [];
+      if (ghostHit.kind === 'build') buildAt(cellG);
+      return;
+    }
+  }
+  {
     // action chips take priority: sell/cancel fast, or open the inspector
     const rectC = $('fx-canvas').getBoundingClientRect();
     const px = (event.clientX - rectC.left) / rectC.width * COLS;
@@ -2211,6 +2265,8 @@ function handleBoardTap(event) {
   selectedTowerKey = null; selectedGroupKeys = []; renderTowerDetails();
   if (matchOver) return;
   const t = terrainAt(cell.r, cell.c);
+  if (ghost && (t !== T.FLOOR || !isPlayerBuildRow(cell.r))) { ghost = null; ghostChips = []; }
+  if (maybeDoubleTapZoom(event, cell, t)) return;
   if (t === T.CLIFF && cell.r >= 34 && cell.r <= 37 && cell.c >= 11 && cell.c <= 20) {
     // tapping YOUR shrine opens the send commands, like selecting the original's Shrine building
     if (touchUI()) openCommandSheet('sends');
@@ -2222,6 +2278,21 @@ function handleBoardTap(event) {
   if (!isPlayerBuildRow(cell.r)) return log('That is the rival half. Build on your half — south of the river.');
   if (protectedCells.has(key)) return log('Route flags and gates are protected. Maze around them.');
   if (creeps.some((creep) => creep.hp > 0 && Math.floor(creep.x) === cell.c && Math.floor(creep.y) === cell.r)) return log('A creep is standing there — wait for it to pass.');
+  // ghost flow: first tap stages a preview; tapping the same cell again (or the ✓ chip) builds
+  if (!ghost || ghost.r !== cell.r || ghost.c !== cell.c) {
+    ghost = { r:cell.r, c:cell.c };
+    const def = towerDef(currentBuildRaceId(), selectedTowerTier);
+    log(`${def.name} staged — tap again or hit ✓ to build, ✖ to cancel.`);
+    return;
+  }
+  ghost = null;
+  buildAt(cell);
+}
+function buildAt(cell) {
+  const key = idx(cell.r, cell.c);
+  if (towers.has(key)) return log('That spot is taken.');
+  if (terrainAt(cell.r, cell.c) !== T.FLOOR || !isPlayerBuildRow(cell.r) || protectedCells.has(key)) return log('That spot cannot hold a tower.');
+  if (creeps.some((creep) => creep.hp > 0 && Math.floor(creep.x) === cell.c && Math.floor(creep.y) === cell.r)) return log('A creep is standing there — wait for it to pass.');
   const raceId = currentBuildRaceId();
   const def = towerDef(raceId, selectedTowerTier);
   if (player.gold < def.cost) return log(`Not enough gold — ${def.name} costs ${def.cost}g.`);
@@ -2229,8 +2300,8 @@ function handleBoardTap(event) {
   player.gold -= def.cost;
   if (def.name === 'Laser Cannon') { player.lumber -= 1; player.lumberSpent += 1; if (player.lumberSpent >= 3) award('lumberjack'); renderTowerList(); }
   addTower(makeTower(cell.r, cell.c, raceId, selectedTowerTier, 'player'));
-  lastPlaced = { key:idx(cell.r, cell.c), r:cell.r, c:cell.c, at:simTime, name:def.name, cost:def.cost };
-  selectedTowerKey = idx(cell.r, cell.c); selectedGroupKeys = [selectedTowerKey];   // chips appear beside the new tower
+  lastPlaced = { key, r:cell.r, c:cell.c, at:simTime, name:def.name, cost:def.cost };
+  selectedTowerKey = key; selectedGroupKeys = [selectedTowerKey];   // chips appear beside the new tower
   creeps.forEach((creep) => { if (creep.half === PLAYER_HALF) creep.path = null; });
   log(`${def.name} placed. ${cachedRouteText}.`);
   renderHud();
@@ -2240,6 +2311,24 @@ function handleBoardTap(event) {
 let mapZoomScale = 1, mapOffsetX = 0, mapOffsetY = 0, frameBase = { left:0, top:0, width:BOARD_W, height:BOARD_H };
 const activeMapPointers = new Map();
 let pinchStartDistance = 0, pinchStartScale = 1, pinchStartOffset = { x:0, y:0 }, panStart = null, tapCandidate = null;
+let flingV = null, lastPanSample = null, lastGroundTap = null;
+function maybeDoubleTapZoom(event, cell, terrain) {
+  // double-tap water/cliff/rival ground toggles zoom, Google-Maps style
+  const shrine = terrain === T.CLIFF && cell.r >= 34 && cell.r <= 37 && cell.c >= 11 && cell.c <= 20;
+  const zoomable = !shrine && (terrain !== T.FLOOR || !isPlayerBuildRow(cell.r));
+  if (!zoomable) { lastGroundTap = null; return false; }
+  const now = performance.now();
+  const prior = lastGroundTap;
+  lastGroundTap = { r:cell.r, c:cell.c, at:now };
+  if (prior && now - prior.at < 380 && Math.hypot(prior.r - cell.r, prior.c - cell.c) < 1.2) {
+    const rect = $('map-viewport').getBoundingClientRect();
+    const anchor = { x:event.clientX - rect.left, y:event.clientY - rect.top };
+    if (mapZoomScale < 1.6) setMapZoom(2.2, anchor); else resetMapZoom();
+    lastGroundTap = null;
+    return true;
+  }
+  return false;
+}
 
 let lastFitW = -1, lastFitH = -1;
 function fitBoardToViewport() {
@@ -2358,6 +2447,12 @@ function setupMapZoom() {
     } else if (activeMapPointers.size === 1 && panStart && mapZoomScale > 1) {
       mapOffsetX = panStart.offsetX + event.clientX - panStart.x;
       mapOffsetY = panStart.offsetY + event.clientY - panStart.y;
+      const now = performance.now();
+      if (lastPanSample) {
+        const dtp = Math.max(1, now - lastPanSample.t);
+        lastPanSample = { x:event.clientX, y:event.clientY, t:now, vx:(event.clientX - lastPanSample.x) / dtp, vy:(event.clientY - lastPanSample.y) / dtp };
+      } else lastPanSample = { x:event.clientX, y:event.clientY, t:now, vx:0, vy:0 };
+      flingV = null;
       applyMapTransform();
       event.preventDefault();
     }
@@ -2396,6 +2491,10 @@ function setupMapZoom() {
     window.clearTimeout(viewport._holdTimer);
     if (tapCandidate && tapCandidate.id === event.pointerId) handleBoardTap(event);
     tapCandidate = null;
+    if (panStart && lastPanSample && performance.now() - lastPanSample.t < 90 && Math.hypot(lastPanSample.vx, lastPanSample.vy) > .25) {
+      flingV = { x:lastPanSample.vx, y:lastPanSample.vy };   // momentum carry after a fast pan
+    }
+    lastPanSample = null;
     activeMapPointers.delete(event.pointerId);
     if (activeMapPointers.size < 2) pinchStartDistance = 0;
     if (activeMapPointers.size === 1 && mapZoomScale > 1) {
@@ -2405,10 +2504,16 @@ function setupMapZoom() {
   };
   viewport.addEventListener('pointerup', endPointer);
   viewport.addEventListener('pointercancel', endPointer);
+  // two-finger gestures over the map belong to the board, never to Safari's page zoom
+  const blockNativePinch = (event) => { if (event.touches && event.touches.length > 1) event.preventDefault(); };
+  viewport.addEventListener('touchstart', blockNativePinch, { passive:false });
+  viewport.addEventListener('touchmove', blockNativePinch, { passive:false });
+  viewport.addEventListener('gesturestart', (event) => event.preventDefault());
+  viewport.addEventListener('gesturechange', (event) => event.preventDefault());
   viewport.addEventListener('wheel', (event) => {
     if (!event.ctrlKey && !event.metaKey) return;
     const rect = viewport.getBoundingClientRect();
-    setMapZoom(mapZoomScale + (event.deltaY < 0 ? .12 : -.12), { x:event.clientX - rect.left, y:event.clientY - rect.top });
+    setMapZoom(mapZoomScale * (event.deltaY < 0 ? 1.1 : 1 / 1.1), { x:event.clientX - rect.left, y:event.clientY - rect.top });
     event.preventDefault();
   }, { passive:false });
   $('zoom-in-button').addEventListener('click', () => setMapZoom(mapZoomScale + .25));
@@ -2432,6 +2537,14 @@ function frame(now) {
   if (!$('battle-screen').classList.contains('hidden')) {
     const viewport = $('map-viewport');
     if (viewport && (frameBase.width < 10 || Math.abs(viewport.clientWidth - lastFitW) > 1 || Math.abs(viewport.clientHeight - lastFitH) > 1)) fitBoardToViewport();
+    if (flingV && !activeMapPointers.size && mapZoomScale > 1) {
+      const beforeX = mapOffsetX, beforeY = mapOffsetY;
+      mapOffsetX += flingV.x * dt * 1000;
+      mapOffsetY += flingV.y * dt * 1000;
+      flingV.x *= Math.pow(.0018, dt); flingV.y *= Math.pow(.0018, dt);
+      applyMapTransform();
+      if ((Math.abs(flingV.x) < .02 && Math.abs(flingV.y) < .02) || (beforeX === mapOffsetX && beforeY === mapOffsetY)) flingV = null;
+    } else if (flingV && activeMapPointers.size) flingV = null;
     renderFrame();
   }
   requestAnimationFrame(frame);
@@ -2449,6 +2562,7 @@ function startBattle() {
   $('battle-screen').classList.remove('hidden');
   renderBattleIdentity(); renderTowerList(); renderSendPanel(); renderTowerDetails();
   buildOverlay(); setupCanvasesOnce(); redrawBoard();
+  ghost = null; ghostChips = []; flingV = null;
   fitBoardToViewport(); resetMapZoom();
   const rivalLabel = $('rival-name-label');
   if (rivalLabel && !mp.active) rivalLabel.textContent = 'RIVAL';
@@ -2799,7 +2913,7 @@ function openCollabDashboard() {
   $('collab-screen').classList.remove('hidden');
   loadCollabTasks(); renderCollabDashboard();
 }
-const brotherHandoffPrompt = 'You are helping build the Wintermaul Wars Remake. Work from the repository files and the shared project context. Preserve the 32×49 traced map, mirrored routes, center creep gate, cliff blockers, touch zoom, low-HP opening waves, tower descriptions, HP bars, projectiles, sending for income, and the Push wave test control. Before editing, inspect the relevant files and explain the smallest safe change. After editing, run node --check app.js and git diff --check, then test the local browser. Keep the project dependency-free and do not add extracted Warcraft III assets. Make changes on a feature branch and summarize the files changed, behavior added, and any remaining balance issues.';
+const brotherHandoffPrompt = 'You are helping build Rimewall (working title was WMW remake). Work from the repository files and the shared project context. Preserve the 32×49 traced map, mirrored routes, center creep gate, cliff blockers, touch zoom, low-HP opening waves, tower descriptions, HP bars, projectiles, sending for income, and the Push wave test control. Before editing, inspect the relevant files and explain the smallest safe change. After editing, run node --check app.js and git diff --check, then test the local browser. Keep the project dependency-free and do not add extracted Warcraft III assets. Make changes on a feature branch and summarize the files changed, behavior added, and any remaining balance issues.';
 
 /* ---------------- Multiplayer (test build: half-authority sync) ----------------
    Each player simulates ONLY their own half. Across the wire go: sends, life
@@ -3240,7 +3354,7 @@ $('dev-unlock-toggle')?.addEventListener('click', () => {
   renderRaceCards();
 });
 $('collab-export-button').addEventListener('click', () => {
-  const payload = JSON.stringify({ project:'Wintermaul Wars Remake', exportedAt:new Date().toISOString(), tasks:collabTasks }, null, 2);
+  const payload = JSON.stringify({ project:'Rimewall', exportedAt:new Date().toISOString(), tasks:collabTasks }, null, 2);
   const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([payload], { type:'application/json' })); link.download = 'wmw-collaboration-tasks.json'; link.click(); URL.revokeObjectURL(link.href);
 });
 $('drawpad-battle-button')?.addEventListener('click', () => openDrawpad('battle-screen'));
