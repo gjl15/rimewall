@@ -52,6 +52,16 @@ h1 span { color:var(--ice); }
 @keyframes card-shake { 25% { transform:translateX(-4px); } 50% { transform:translateX(4px); } 75% { transform:translateX(-2px); } }
 @media (prefers-reduced-motion: reduce) { .race-card.shake { animation:none; } }
 .profile-strip { margin-top:14px; }
+.mp-panel { margin-top:14px; padding:16px; border:1px solid #2b3859; border-radius:14px; background:linear-gradient(160deg,#14203a,#0e1527); }
+.mp-head strong { display:block; margin-top:6px; font-size:16px; }
+.mp-controls { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.mp-controls input { min-width:0; padding:11px 12px; border:1px solid #2e3b5c; border-radius:9px; outline:0; color:#e9edff; background:#0c1324; font:12px Manrope,system-ui,sans-serif; }
+#mp-name { flex:2 1 160px; }
+#mp-code { flex:1 1 70px; max-width:90px; text-transform:uppercase; font-family:'DM Mono',monospace; letter-spacing:.15em; }
+.mp-controls input:focus { border-color:#77d6ff; }
+.mp-status { min-height:16px; margin-top:10px !important; color:#8ee89f; font:500 11px 'DM Mono',monospace; }
+.mp-status b { color:#ffd86b; letter-spacing:.15em; }
+@media (max-width:560px) { .mp-controls { flex-direction:column; } #mp-code { max-width:none; } }
 .profile-summary { width:100%; padding:11px 14px; border:1px solid #2b3859; border-radius:10px; background:#121a2eaa; color:#c5cde0; text-align:left; font:500 11px 'DM Mono',monospace; letter-spacing:.06em; }
 .achievements-list { display:grid; gap:6px; margin-top:8px; padding:12px; border:1px solid #2b3859; border-radius:12px; background:#0e1527; }
 .achievement { display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid #22304f; border-radius:8px; opacity:.55; }
@@ -240,6 +250,17 @@ h2 span { color:#7583a6; }
         <div id="race-grid" class="race-grid" aria-label="Race selection"></div>
 
         <div id="profile-strip" class="profile-strip"></div>
+
+        <div class="mp-panel">
+          <div class="mp-head"><span class="selection-kicker">MULTIPLAYER • LIVE 1V1</span><strong>Challenge a real commander.</strong></div>
+          <div class="mp-controls">
+            <input id="mp-name" type="text" maxlength="16" placeholder="Your commander name" autocomplete="nickname" />
+            <button id="mp-create" class="ghost-button">Create room</button>
+            <input id="mp-code" type="text" maxlength="4" placeholder="CODE" autocapitalize="characters" />
+            <button id="mp-join" class="ghost-button">Join</button>
+          </div>
+          <p id="mp-status" class="mp-status" aria-live="polite"></p>
+        </div>
 
         <div class="selection-bar">
           <div id="selection-copy">
@@ -863,7 +884,7 @@ function spawnCreep(waveDef, half, side, sent = false) {
   creeps.push(creep);
 }
 function queueWaveSpawns(waveDef) {
-  ['north', 'south'].forEach((half) => {
+  (mp.active ? ['south'] : ['north', 'south']).forEach((half) => {
     for (let i = 0; i < waveDef.count; i += 1) {
       const side = i % 2 === 0 ? 'west' : 'east';
       pendingSpawns.push({ at:simTime + i * (waveDef.role === 'swarm' ? .32 : .55), waveDef, half, side });
@@ -1232,6 +1253,7 @@ function endMatch(result) {
   const banner = $('wave-banner');
   if (result === 'victory') { banner.textContent = '★ VICTORY — THE ENEMY SHIP HAS FALLEN'; log('Victory! The rival force is out of lifeforce. Restart to run it back.'); }
   else { banner.textContent = '☠ DEFEAT — YOUR SHIP HAS FALLEN'; log('Your ship has fallen. Restart the match to test another maze.'); }
+  if (mp.active) mpSend({ t:'over', result });
   const earnedBefore = Object.keys(profile.achievements).length;
   profile.matches += 1;
   if (result === 'victory') { profile.wins += 1; award('first_win'); }
@@ -1255,8 +1277,8 @@ function showMatchSummary(result, earnedBefore) {
     ${newBadges.length ? `<div class="summary-badges">${newBadges.map((a) => `<span>${a.icon} ${a.name}</span>`).join('')}</div>` : ''}
     <div class="summary-actions"><button id="summary-again" class="action-button">Play again</button><button id="summary-back" class="ghost-button">Change race</button></div>
   </div>`;
-  $('summary-again').addEventListener('click', () => { box.classList.add('hidden'); startBattle(); });
-  $('summary-back').addEventListener('click', () => { box.classList.add('hidden'); battleRunning = false; matchOver = false; $('battle-screen').classList.add('hidden'); $('race-screen').classList.remove('hidden'); renderRaceCards(); });
+  $('summary-again').addEventListener('click', () => { box.classList.add('hidden'); if (mp.active) mpLeave(); startBattle(); });
+  $('summary-back').addEventListener('click', () => { box.classList.add('hidden'); if (mp.active) mpLeave(); battleRunning = false; matchOver = false; $('battle-screen').classList.add('hidden'); $('race-screen').classList.remove('hidden'); renderRaceCards(); });
 }
 
 function simulate(dt) {
@@ -1285,7 +1307,8 @@ function simulate(dt) {
   for (let i = projectiles.length - 1; i >= 0; i -= 1) if (!updateProjectile(projectiles[i], dt)) projectiles.splice(i, 1);
   for (let i = effects.length - 1; i >= 0; i -= 1) if (effects[i].until <= simTime) effects.splice(i, 1);
   if (effects.length > 140) effects.splice(0, effects.length - 140);
-  updateEnemyAI(dt);
+  if (!mp.active) updateEnemyAI(dt);
+  mpTick(dt);
 }
 
 /* ---------------- Rendering ---------------- */
@@ -1564,6 +1587,7 @@ function renderFrame() {
     fxCtx.beginPath(); fxCtx.arc(cell.c * CELL + CELL / 2, cell.r * CELL + CELL / 2, 16 - k * 5, 0, Math.PI * 2); fxCtx.stroke();
     fxCtx.restore();
   });
+  drawOpponentMirror(fxCtx);
   towers.forEach((tower) => drawTower(fxCtx, tower));
   creeps.forEach((creep) => drawCreep(fxCtx, creep));
   projectiles.forEach((projectile) => drawProjectile(fxCtx, projectile));
@@ -1609,7 +1633,7 @@ function buildOverlay() {
   html += overlayItem('ov-shrine', 35.5, 15.5, '✦<small>SOUTH SHRINE</small>');
   [['RED', 13, 4.5], ['BLUE', 4.5, 15.5], ['TEAL', 13, 27.5]].forEach(([name, r, c]) => { html += overlayItem('ov-spot', r, c, `${name}<small>${name === 'BLUE' ? 'MID' : 'EDGE'} • RIVAL</small>`); });
   [['PURPLE', 35, 4.5], ['YELLOW', 43.5, 15.5], ['ORANGE', 35, 27.5]].forEach(([name, r, c]) => { html += overlayItem('ov-spot ov-spot-you', r, c, `${name}<small>${name === 'YELLOW' ? 'MID' : 'EDGE'}</small>`); });
-  html += overlayItem('ov-force ov-force-north', 3.4, 2, 'NORTH FORCE • RIVAL');
+  html += overlayItem('ov-force ov-force-north', 3.4, 2, mp.active && mp.oppName ? `NORTH FORCE • ${mp.oppName.toUpperCase()}` : 'NORTH FORCE • RIVAL');
   html += overlayItem('ov-force', 44.6, 2, 'SOUTH FORCE • YOU');
   $('board-overlay').innerHTML = html;
 }
@@ -1796,9 +1820,12 @@ function renderSendPanel() {
     if (player.shrine < send.shrine) return log(`${send.name} needs Shrine level ${send.shrine}.`);
     if (player.gold < send.cost) return log(`Not enough gold — ${send.name} costs ${send.cost}g.`);
     player.gold -= send.cost; player.income += send.income;
-    // one purchase sends a unit down BOTH rival lanes
-    spawnCreep(sendCreepDef(send), ENEMY_HALF, 'west', true);
-    spawnCreep(sendCreepDef(send), ENEMY_HALF, 'east', true);
+    // one purchase sends a unit down BOTH rival lanes (over the wire in PvP)
+    if (mp.active) mpSend({ t:'send', id:send.id });
+    else {
+      spawnCreep(sendCreepDef(send), ENEMY_HALF, 'west', true);
+      spawnCreep(sendCreepDef(send), ENEMY_HALF, 'east', true);
+    }
     if (player.income >= 300) award('income_300');
     if (send.air) { profile.dragonsSent += 1; if (profile.dragonsSent >= 10) award('dragon_rider'); saveProfile(); }
     log(`${send.name} × 2 sent (west + east)${send.air ? ' — flying over the maze' : ''}. Send income is now +${player.income}.`);
@@ -2305,6 +2332,169 @@ function openCollabDashboard() {
 }
 const brotherHandoffPrompt = 'You are helping build the Wintermaul Wars Remake. Work from the repository files and the shared project context. Preserve the 32×49 traced map, mirrored routes, center creep gate, cliff blockers, touch zoom, low-HP opening waves, tower descriptions, HP bars, projectiles, sending for income, and the Push wave test control. Before editing, inspect the relevant files and explain the smallest safe change. After editing, run node --check app.js and git diff --check, then test the local browser. Keep the project dependency-free and do not add extracted Warcraft III assets. Make changes on a feature branch and summarize the files changed, behavior added, and any remaining balance issues.';
 
+/* ---------------- Multiplayer (test build: half-authority sync) ----------------
+   Each player simulates ONLY their own half. Across the wire go: sends, life
+   totals, and ~3Hz cosmetic snapshots of your half so the opponent sees a live
+   mirror. Zero desync risk by construction (lockstep is the later ranked path —
+   see docs/research/monetization-platforms.md §E).
+   Transports: BroadcastChannel (two windows on one device — works with no
+   backend) or Supabase Realtime (cross-device) when MP_CONFIG is set. */
+const MP_CONFIG = (() => {
+  try { return JSON.parse(localStorage.getItem('wmw-mp-config') || 'null') || { url:'', anonKey:'' }; }
+  catch (error) { return { url:'', anonKey:'' }; }
+})();
+const mp = { active:false, transport:null, role:null, code:'', oppName:'', oppRace:null, oppLives:null, snap:{ towers:[], creeps:[] }, snapClock:0, livesSent:-1, ready:false, oppReady:false, started:false };
+
+function mpMakeLocalTransport(code, onMessage) {
+  const channel = new BroadcastChannel(`wmw-room-${code}`);
+  channel.onmessage = (event) => onMessage(event.data);
+  return { kind:'local', send:(msg) => channel.postMessage(msg), close:() => channel.close() };
+}
+function mpMakeSupabaseTransport(code, onMessage, onOpen) {
+  const boot = () => {
+    const client = window.supabase.createClient(MP_CONFIG.url, MP_CONFIG.anonKey);
+    const channel = client.channel(`wmw-${code}`, { config:{ broadcast:{ self:false } } });
+    channel.on('broadcast', { event:'msg' }, (payload) => onMessage(payload.payload));
+    channel.subscribe((status) => { if (status === 'SUBSCRIBED' && onOpen) onOpen(); });
+    return { kind:'supabase', send:(msg) => channel.send({ type:'broadcast', event:'msg', payload:msg }), close:() => client.removeChannel(channel) };
+  };
+  if (window.supabase) return boot();
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
+    script.onload = () => resolve(boot());
+    script.onerror = () => reject(new Error('supabase-js failed to load'));
+    document.head.appendChild(script);
+  });
+}
+function mpStatus(text) { const el = $('mp-status'); if (el) el.innerHTML = text; }
+function mpPlayerName() {
+  const input = $('mp-name');
+  const name = (input?.value || profile.name || '').trim().slice(0, 16);
+  if (name) { profile.name = name; saveProfile(); }
+  return name;
+}
+async function mpOpenRoom(join) {
+  const name = mpPlayerName();
+  if (!name) return mpStatus('Pick a commander name first.');
+  const code = join ? ($('mp-code').value || '').trim().toUpperCase() : Array.from({ length:4 }, () => 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 31)]).join('');
+  if (!code || code.length < 3) return mpStatus('Enter the room code your opponent shared.');
+  mp.code = code; mp.role = join ? 'guest' : 'host'; mp.ready = false; mp.oppReady = false; mp.started = false; mp.oppName = ''; mp.oppLives = null;
+  const remote = Boolean(MP_CONFIG.url && MP_CONFIG.anonKey);
+  try {
+    mp.transport = remote
+      ? await mpMakeSupabaseTransport(code, mpOnMessage, () => { if (join) mpSend({ t:'hello', name, race:selectedRace.id }); })
+      : mpMakeLocalTransport(code, mpOnMessage);
+  } catch (error) {
+    return mpStatus('Could not reach the multiplayer service. Try again.');
+  }
+  if (!remote && join) mpSend({ t:'hello', name, race:selectedRace.id });
+  mpStatus(join
+    ? `Joining room <b>${code}</b>…`
+    : `Room <b>${code}</b> created${remote ? '' : ' (same-device mode: open a second window on this computer)'} — waiting for your opponent. Share the code!`);
+}
+function mpSend(msg) { if (mp.transport) mp.transport.send(msg); }
+function mpOnMessage(msg) {
+  if (!msg || !msg.t) return;
+  if (msg.t === 'hello' && mp.role === 'host') {
+    mp.oppName = msg.name; mp.oppRace = msg.race;
+    mpSend({ t:'config', name:mpPlayerName(), race:selectedRace.id, mode:document.getElementById('mode-select')?.value === 'classic' ? 'classic' : 'skirmish', lives:startingLives() });
+    mpStatus(`<b>${msg.name}</b> joined! Starting…`);
+    mp.ready = true; mpSend({ t:'ready' });
+    mpMaybeStart();
+  } else if (msg.t === 'config' && mp.role === 'guest') {
+    mp.oppName = msg.name; mp.oppRace = msg.race; mp.config = { mode:msg.mode, lives:msg.lives };
+    mpStatus(`Connected to <b>${msg.name}</b>! Starting…`);
+    mp.ready = true; mpSend({ t:'ready' });
+    mpMaybeStart();
+  } else if (msg.t === 'ready') {
+    mp.oppReady = true; mpMaybeStart();
+  } else if (msg.t === 'send') {
+    const send = SENDS.find((item) => item.id === msg.id);
+    if (send && battleRunning) {
+      spawnCreep(sendCreepDef(send), PLAYER_HALF, 'west', true);
+      spawnCreep(sendCreepDef(send), PLAYER_HALF, 'east', true);
+      log(`${mp.oppName || 'Opponent'} sent ${send.name} × 2 at your lanes!${send.air ? ' They fly over your maze!' : ''}`);
+    }
+  } else if (msg.t === 'lives') {
+    mp.oppLives = msg.value;
+    if (enemy) enemy.lives = msg.value;
+    if (msg.value <= 0) endMatch('victory');
+  } else if (msg.t === 'snap') {
+    mp.snap = msg;
+  } else if (msg.t === 'over') {
+    if (!matchOver) endMatch(msg.result === 'defeat' ? 'victory' : 'defeat');
+  } else if (msg.t === 'bye') {
+    if (mp.active && battleRunning && !matchOver) { log(`${mp.oppName || 'Opponent'} left the match.`); endMatch('victory'); }
+    else mpStatus(`${mp.oppName || 'Opponent'} left the room.`);
+  }
+}
+function mpMaybeStart() {
+  if (mp.started || !mp.ready || !mp.oppReady) return;
+  mp.started = true; mp.active = true;
+  if (mp.role === 'guest' && mp.config) {
+    const modeSelect = document.getElementById('mode-select');
+    const livesSelect = document.getElementById('lives-select');
+    if (modeSelect) modeSelect.value = mp.config.mode;
+    if (livesSelect && [...livesSelect.options].some((o) => o.value === String(mp.config.lives))) livesSelect.value = String(mp.config.lives);
+  }
+  startBattle();
+  const rival = races.find((race) => race.id === mp.oppRace);
+  log(`LIVE MATCH vs ${mp.oppName}${rival ? ` (${rival.name})` : ''} — defend your half, send at theirs. Good luck, commander.`);
+}
+function mpLeave() {
+  if (mp.transport) { mpSend({ t:'bye' }); mp.transport.close(); }
+  mp.transport = null; mp.active = false; mp.started = false; mp.code = '';
+  mpStatus('');
+}
+function mpTick(dt) {
+  if (!mp.active || !battleRunning) return;
+  if (player.lives !== mp.livesSent) { mp.livesSent = player.lives; mpSend({ t:'lives', value:player.lives }); }
+  mp.snapClock -= dt;
+  if (mp.snapClock <= 0) {
+    mp.snapClock = .3;
+    mpSend({ t:'snap',
+      towers:[...towers.values()].filter((t) => t.owner === 'player').map((t) => [t.r, t.c, races.findIndex((race) => race.id === t.raceId), t.tier]),
+      creeps:creeps.filter((c) => c.hp > 0).map((c) => [+c.x.toFixed(1), +c.y.toFixed(1), Object.keys(roleStyle).indexOf(c.role), +(c.hp / c.maxHp).toFixed(2), c.air ? 1 : 0, c.sent ? 1 : 0])
+    });
+  }
+}
+/* Mirror the opponent's half into our north side (their south row r → our 48−r, col c → 31−c). */
+function drawOpponentMirror(ctx) {
+  if (!mp.active) return;
+  const roleKeys = Object.keys(roleStyle);
+  (mp.snap.towers || []).forEach(([r, c, raceIdx, tier]) => {
+    const race = races[raceIdx] || races[0];
+    const x = (31 - c) * CELL, y = (48 - r) * CELL;
+    ctx.save();
+    ctx.translate(x + CELL / 2, y + CELL / 2);
+    ctx.fillStyle = '#0b1425'; ctx.strokeStyle = race.color; ctx.lineWidth = 1.6;
+    const half = CELL / 2 - 2.5;
+    ctx.beginPath(); ctx.roundRect(-half, -half, half * 2, half * 2, 5); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = race.color; ctx.font = `${tier >= 3 ? 14 : 12}px "DM Mono", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(race.symbol, 0, 1);
+    ctx.restore();
+  });
+  (mp.snap.creeps || []).forEach(([x, y, roleIdx, hpFrac, air, sent]) => {
+    const role = roleKeys[roleIdx] || 'standard';
+    const style = roleStyle[role];
+    const color = sent ? '#ffd86b' : roleColors[role] || '#ff9faf';
+    const mx = (32 - x) * CELL, my = (49 - y) * CELL;
+    ctx.save();
+    ctx.translate(mx, my);
+    if (air) { ctx.fillStyle = '#00000030'; ctx.beginPath(); ctx.ellipse(2, 6, style.size * .9, style.size * .38, 0, 0, Math.PI * 2); ctx.fill(); ctx.translate(0, -4); }
+    ctx.fillStyle = '#251a2b'; ctx.strokeStyle = color; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(0, 0, style.size, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = color; ctx.font = `${Math.round(style.size * 1.15)}px "DM Mono", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(style.symbol, 0, .5);
+    const width = Math.max(16, style.size * 2.4);
+    ctx.fillStyle = '#1b0d18'; ctx.fillRect(-width / 2 - 1, -style.size - 8, width + 2, 4.5);
+    ctx.fillStyle = hpFrac > .5 ? '#8ee89f' : hpFrac > .25 ? '#ffd86b' : '#ff8a9a';
+    ctx.fillRect(-width / 2, -style.size - 7.2, width * hpFrac, 3);
+    ctx.restore();
+  });
+}
+
 /* ---------------- Wire up ---------------- */
 document.querySelectorAll('[data-tab]').forEach((tab) => tab.addEventListener('click', () => {
   document.querySelectorAll('[data-tab]').forEach((item) => item.classList.toggle('active', item === tab));
@@ -2341,6 +2531,7 @@ $('collab-export-button').addEventListener('click', () => {
 $('drawpad-battle-button').addEventListener('click', () => openDrawpad('battle-screen'));
 $('drawpad-back-button').addEventListener('click', closeDrawpad);
 $('back-button').addEventListener('click', () => {
+  if (mp.active) mpLeave();
   battleRunning = false; matchOver = false;
   $('battle-screen').classList.add('hidden');
   $('race-screen').classList.remove('hidden');
@@ -2352,6 +2543,10 @@ $('build-mode-button').addEventListener('click', () => log('Tap any open tile on
 ['routes', 'ranges', 'ref'].forEach((key) => {
   $(`dbg-${key}`).addEventListener('change', (event) => { debug[key] = event.target.checked; });
 });
+$('mp-create').addEventListener('click', () => mpOpenRoom(false));
+$('mp-join').addEventListener('click', () => mpOpenRoom(true));
+$('mp-name').value = profile.name || '';
+window.addEventListener('beforeunload', () => { if (mp.transport) mpSend({ t:'bye' }); });
 setupMapZoom();
 renderRaceCards();
 resetMatchState();
