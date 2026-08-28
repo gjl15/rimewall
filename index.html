@@ -46,6 +46,36 @@ h1 span { color:var(--ice); }
 .race-card small { display:block; margin-top:4px; color:#8995b4; font-size:11px; }
 .race-card .active-mark { position:absolute; top:15px; right:15px; color:var(--race); font:14px 'DM Mono',monospace; opacity:0; }
 .race-card.selected .active-mark { opacity:1; }
+.race-card.locked { opacity:.55; filter:saturate(.4); }
+.race-card.locked:hover { transform:none; border-color:var(--line); box-shadow:none; }
+.race-card.shake { animation:card-shake .4s ease; }
+@keyframes card-shake { 25% { transform:translateX(-4px); } 50% { transform:translateX(4px); } 75% { transform:translateX(-2px); } }
+@media (prefers-reduced-motion: reduce) { .race-card.shake { animation:none; } }
+.profile-strip { margin-top:14px; }
+.profile-summary { width:100%; padding:11px 14px; border:1px solid #2b3859; border-radius:10px; background:#121a2eaa; color:#c5cde0; text-align:left; font:500 11px 'DM Mono',monospace; letter-spacing:.06em; }
+.achievements-list { display:grid; gap:6px; margin-top:8px; padding:12px; border:1px solid #2b3859; border-radius:12px; background:#0e1527; }
+.achievement { display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid #22304f; border-radius:8px; opacity:.55; }
+.achievement.earned { opacity:1; border-color:#3a5a3f; background:#12271f44; }
+.achievement .a-icon { font-size:16px; }
+.achievement strong { display:block; font-size:12px; }
+.achievement small { display:block; color:#8590ae; font-size:10px; }
+.achievement b { margin-left:auto; color:#8ee89f; }
+.toast-layer { position:fixed; top:max(12px, env(safe-area-inset-top)); left:50%; transform:translateX(-50%); z-index:200; display:grid; gap:8px; width:min(92vw, 360px); pointer-events:none; }
+.toast { padding:12px 14px; border:1px solid #ffd86b88; border-radius:12px; background:#182761f2; color:#fff0b8; box-shadow:0 12px 30px #0008; backdrop-filter:blur(6px); animation:toast-in .3s ease; }
+.toast b { display:block; font-size:13px; }
+.toast span { display:block; margin-top:3px; color:#cfd9f2; font-size:11px; }
+.toast.gone { opacity:0; transform:translateY(-8px); transition:.4s; }
+@keyframes toast-in { from { opacity:0; transform:translateY(-10px); } }
+.match-summary { position:fixed; inset:0; z-index:150; display:grid; place-items:center; background:#060914cc; backdrop-filter:blur(4px); }
+.summary-card { width:min(92vw, 420px); padding:22px; border:1px solid #3a4a74; border-radius:16px; background:linear-gradient(160deg,#17213a,#0e1527); box-shadow:0 24px 60px #000a; }
+.summary-card h3 { margin:0 0 14px; font-size:22px; letter-spacing:-.02em; }
+.summary-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.summary-grid span { display:flex; justify-content:space-between; padding:9px 11px; border:1px solid #273554; border-radius:8px; background:#10182b; color:#8e9ab8; font-size:11px; }
+.summary-grid b { color:#e9edff; font:600 12px 'DM Mono',monospace; }
+.summary-badges { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+.summary-badges span { padding:6px 9px; border:1px solid #ffd86b66; border-radius:99px; background:#ffd86b14; color:#ffe9a5; font-size:10px; }
+.summary-actions { display:flex; gap:8px; margin-top:16px; }
+.summary-actions .action-button { flex:1; margin-top:0; }
 .selection-bar { justify-content:space-between; gap:25px; margin-top:18px; padding:18px 20px; border:1px solid #2b3859; border-radius:14px; background:#121a2eaa; }
 .selection-bar strong { display:block; margin-top:5px; font-size:20px; }
 .selection-bar #selected-desc { display:block; margin-top:3px; color:#929dbc; font-size:12px; }
@@ -193,6 +223,8 @@ h2 span { color:#7583a6; }
 </head>
 <body>
     <main class="app-shell">
+      <div id="toast-layer" class="toast-layer" aria-live="polite"></div>
+      <div id="match-summary" class="match-summary hidden"></div>
       <section id="race-screen" class="screen race-screen">
         <div class="brand-row">
           <div>
@@ -206,6 +238,8 @@ h2 span { color:#7583a6; }
         <div class="rule-line"><span>SELECT YOUR RACE</span><i></i><small>9 ELEMENTS</small></div>
 
         <div id="race-grid" class="race-grid" aria-label="Race selection"></div>
+
+        <div id="profile-strip" class="profile-strip"></div>
 
         <div class="selection-bar">
           <div id="selection-copy">
@@ -253,6 +287,7 @@ h2 span { color:#7583a6; }
             <span class="selection-kicker">CONTRIBUTOR CHECKLIST</span>
             <div class="collab-checklist"><label><input type="checkbox" checked disabled /> Read the WMW map/design notes</label><label><input type="checkbox" checked disabled /> Use the map editor before changing coordinates</label><label><input type="checkbox" disabled /> Test a wave and inspect leaks</label><label><input type="checkbox" disabled /> Open a GitHub pull request</label></div>
             <button id="collab-export-button" class="ghost-button">Export task board</button>
+            <button id="dev-unlock-toggle" class="ghost-button">DEV: unlock all races</button>
           </section>
         </div>
       </section>
@@ -694,6 +729,63 @@ const SENDS = [
   { id:'adultdragon', name:'Adult Dragon', symbol:'▲', cost:3200, income:360, hp:3000, spd:3.1, armor:20, aClass:'heavy', air:true, shrine:3 }
 ];
 const SHRINE_MAX = 3, LUMBER_PRICE = 500;
+
+/* ---------------- Player profile, achievements, and race unlocks ----------------
+   Persistent (per-browser) meta-progression: four elements start unlocked and
+   the other five are earned through play. Achievements toast when earned. */
+const PROFILE_KEY = 'wmw-profile-v1';
+const DEFAULT_RACES = ['ice', 'fire', 'tech', 'stone'];
+const ACHIEVEMENTS = [
+  { id:'first_win', icon:'🏆', name:'First Blood', desc:'Win a match', unlocks:'earth' },
+  { id:'wave_15', icon:'🌊', name:'Storm Chaser', desc:'Reach wave 15', unlocks:'electricity' },
+  { id:'kills_500', icon:'⚔️', name:'Exterminator', desc:'500 lifetime kills', unlocks:'poison' },
+  { id:'income_300', icon:'💰', name:'Tycoon', desc:'+300 send income in one match', unlocks:'crystal' },
+  { id:'boss_slain', icon:'👑', name:'Duke Slayer', desc:'Defeat Duke-Wintermaul', unlocks:'gravity' },
+  { id:'perfect_10', icon:'🛡️', name:'Untouchable', desc:'No lifeforce lost through wave 10' },
+  { id:'dragon_rider', icon:'🐉', name:'Dragon Rider', desc:'Send 10 dragon pairs (lifetime)' },
+  { id:'lumberjack', icon:'🪵', name:'Lumberjack', desc:'Spend 3 lumber in one match' }
+];
+let profile;
+function loadProfile() {
+  try { profile = JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null') || {}; } catch (error) { profile = {}; }
+  profile.matches = profile.matches || 0;
+  profile.wins = profile.wins || 0;
+  profile.bestWave = profile.bestWave || 0;
+  profile.totalKills = profile.totalKills || 0;
+  profile.dragonsSent = profile.dragonsSent || 0;
+  profile.achievements = profile.achievements || {};
+  profile.devUnlockAll = Boolean(profile.devUnlockAll);
+}
+function saveProfile() { try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); } catch (error) { /* per-browser only */ } }
+function raceUnlocked(raceId) {
+  if (profile.devUnlockAll || DEFAULT_RACES.includes(raceId)) return true;
+  return ACHIEVEMENTS.some((a) => a.unlocks === raceId && profile.achievements[a.id]);
+}
+function unlockHint(raceId) {
+  const a = ACHIEVEMENTS.find((item) => item.unlocks === raceId);
+  return a ? `${a.icon} Locked — ${a.desc.toLowerCase()} to unlock` : 'Locked';
+}
+function award(id) {
+  if (profile.achievements[id]) return;
+  const a = ACHIEVEMENTS.find((item) => item.id === id);
+  if (!a) return;
+  profile.achievements[id] = Date.now();
+  saveProfile();
+  const unlockedRace = a.unlocks ? races.find((race) => race.id === a.unlocks) : null;
+  showToast(`<b>${a.icon} ${a.name}</b><span>${a.desc}${unlockedRace ? ` — ${unlockedRace.name} unlocked!` : ''}</span>`);
+  if (typeof renderRaceCards === 'function' && !document.getElementById('race-screen').classList.contains('hidden')) renderRaceCards();
+}
+function showToast(html) {
+  const layer = document.getElementById('toast-layer');
+  if (!layer) return;
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.innerHTML = html;
+  layer.appendChild(toast);
+  window.setTimeout(() => toast.classList.add('gone'), 3600);
+  window.setTimeout(() => toast.remove(), 4100);
+}
+loadProfile();
 function sendCreepDef(send) {
   return { name:send.name, role:send.air ? 'air' : 'standard', hp:send.hp, spd:send.spd, armor:send.armor, aClass:send.aClass, air:Boolean(send.air), bounty:Math.round(send.cost * .125), lives:1 };
 }
@@ -730,7 +822,7 @@ function resetMatchState() {
   creeps.length = 0; projectiles.length = 0; effects.length = 0; pendingSpawns.length = 0;
   matchMode = document.getElementById('mode-select')?.value === 'classic' ? 'classic' : 'skirmish';
   const lives = startingLives();
-  player = { gold:START_GOLD, income:0, lives, kills:0, lumber:0, shrine:1, races:[selectedRace.id] };
+  player = { gold:START_GOLD, income:0, lives, kills:0, lumber:0, shrine:1, races:[selectedRace.id], lumberSpent:0, startLives:lives };
   buildRaceIdx = 0;
   enemy = { gold:START_GOLD, income:0, lives, lumber:0, shrine:1, raceId:races[Math.floor(Math.random() * races.length)].id, spotIndex:0, buildClock:2, sendClock:matchMode === 'classic' ? 14 : 24 };
   wave = 0; waveClock = FIRST_WAVE_DELAY; incomeClock = INCOME_PERIOD; simTime = 0; battlePaused = false; matchOver = false;
@@ -900,6 +992,11 @@ function applyDamage(creep, amount, tower, isDot = false) {
     creep.hp = 0;
     const owner = creep.half === PLAYER_HALF ? player : enemy;
     if (!creep.sent) { owner.gold += creep.bounty * BOUNTY_MULT; if (creep.half === PLAYER_HALF) player.kills += 1; }
+    if (creep.half === PLAYER_HALF) {
+      profile.totalKills += 1;
+      if (profile.totalKills >= 500) award('kills_500');
+      if (creep.boss && !creep.sent) award('boss_slain');
+    }
     if (tower) tower.kills += 1;
     effects.push({ kind:'death', x:creep.x, y:creep.y, color:roleColors[creep.role] || '#ff9faf', until:simTime + .35 });
   }
@@ -1109,6 +1206,8 @@ function launchNextWave() {
   const levelPay = 10 + 2 * Math.min(wave, 30);
   player.gold += levelPay;
   enemy.gold += levelPay;
+  if (wave >= 15) award('wave_15');
+  if (wave === 11 && player.lives === player.startLives) award('perfect_10');
   const def = waveDefFor(wave);
   queueWaveSpawns(def);
   waveClock = WAVE_PERIOD;
@@ -1126,7 +1225,31 @@ function endMatch(result) {
   const banner = $('wave-banner');
   if (result === 'victory') { banner.textContent = '★ VICTORY — THE ENEMY SHIP HAS FALLEN'; log('Victory! The rival force is out of lifeforce. Restart to run it back.'); }
   else { banner.textContent = '☠ DEFEAT — YOUR SHIP HAS FALLEN'; log('Your ship has fallen. Restart the match to test another maze.'); }
+  const earnedBefore = Object.keys(profile.achievements).length;
+  profile.matches += 1;
+  if (result === 'victory') { profile.wins += 1; award('first_win'); }
+  profile.bestWave = Math.max(profile.bestWave, wave);
+  saveProfile();
+  showMatchSummary(result, earnedBefore);
   renderHud();
+}
+function showMatchSummary(result, earnedBefore) {
+  const box = $('match-summary');
+  if (!box) return;
+  const earnedNow = Object.entries(profile.achievements).sort((a, b) => b[1] - a[1]).slice(0, Math.max(0, Object.keys(profile.achievements).length - earnedBefore));
+  const newBadges = earnedNow.map(([id]) => ACHIEVEMENTS.find((a) => a.id === id)).filter(Boolean);
+  box.classList.remove('hidden');
+  box.innerHTML = `<div class="summary-card">
+    <h3>${result === 'victory' ? '★ VICTORY' : '☠ DEFEAT'}</h3>
+    <div class="summary-grid">
+      <span>Waves<b>${wave}</b></span><span>Kills<b>${player.kills}</b></span>
+      <span>Send income<b>+${player.income}</b></span><span>Lifeforce<b>${player.lives} : ${enemy.lives}</b></span>
+    </div>
+    ${newBadges.length ? `<div class="summary-badges">${newBadges.map((a) => `<span>${a.icon} ${a.name}</span>`).join('')}</div>` : ''}
+    <div class="summary-actions"><button id="summary-again" class="action-button">Play again</button><button id="summary-back" class="ghost-button">Change race</button></div>
+  </div>`;
+  $('summary-again').addEventListener('click', () => { box.classList.add('hidden'); startBattle(); });
+  $('summary-back').addEventListener('click', () => { box.classList.add('hidden'); battleRunning = false; matchOver = false; $('battle-screen').classList.add('hidden'); $('race-screen').classList.remove('hidden'); renderRaceCards(); });
 }
 
 function simulate(dt) {
@@ -1525,7 +1648,7 @@ function renderBuildExtras() {
       return `<button class="race-chip ${i === buildRaceIdx ? 'active' : ''}" data-chip="${i}" style="--race:${race.color}">${race.symbol} ${race.name}</button>`;
     }).join('')}</div>`;
   } else {
-    const options = races.filter((race) => race.id !== player.races[0]).map((race) => `<option value="${race.id}">${race.name}</option>`).join('');
+    const options = races.filter((race) => race.id !== player.races[0] && raceUnlocked(race.id)).map((race) => `<option value="${race.id}">${race.name}</option>`).join('');
     html += `<div class="license-row"><select id="license-select" aria-label="Second element">${options}</select><button id="license-button" class="ghost-button" ${player.lumber < 1 ? 'disabled' : ''}>License 2nd element • 1🪵</button></div>`;
   }
   html += `<button id="buy-lumber" class="ghost-button lumber-button" ${player.gold < LUMBER_PRICE ? 'disabled' : ''}>Buy 1 lumber — ${LUMBER_PRICE}g (you have ${player.lumber}🪵)</button>`;
@@ -1544,7 +1667,7 @@ function renderBuildExtras() {
   $('license-button')?.addEventListener('click', () => {
     if (player.lumber < 1) return log('A second element license costs 1 lumber (the original map’s rule).');
     const id = $('license-select').value;
-    player.lumber -= 1;
+    player.lumber -= 1; player.lumberSpent += 1; if (player.lumberSpent >= 3) award('lumberjack');
     player.races.push(id);
     buildRaceIdx = 1; selectedTowerTier = 0;
     log(`${races.find((race) => race.id === id).name} licensed! Switch elements with the chips above the tower line.`);
@@ -1608,7 +1731,7 @@ function renderSendPanel() {
       ${player.shrine < SHRINE_MAX ? `<button id="shrine-upgrade" class="ghost-button" ${player.lumber < 1 ? 'disabled' : ''}>Upgrade to L${player.shrine + 1} • 1🪵</button>` : ''}`;
     $('shrine-upgrade')?.addEventListener('click', () => {
       if (player.lumber < 1) return log('A shrine upgrade costs 1 lumber — buy lumber in the Build tab.');
-      player.lumber -= 1; player.shrine += 1;
+      player.lumber -= 1; player.shrine += 1; player.lumberSpent += 1; if (player.lumberSpent >= 3) award('lumberjack');
       log(`Shrine upgraded to level ${player.shrine}! Stronger attackers are now for sale.`);
       renderHud(); renderSendPanel(); renderTowerList();
     });
@@ -1627,6 +1750,8 @@ function renderSendPanel() {
     // one purchase sends a unit down BOTH rival lanes
     spawnCreep(sendCreepDef(send), ENEMY_HALF, 'west', true);
     spawnCreep(sendCreepDef(send), ENEMY_HALF, 'east', true);
+    if (player.income >= 300) award('income_300');
+    if (send.air) { profile.dragonsSent += 1; if (profile.dragonsSent >= 10) award('dragon_rider'); saveProfile(); }
     log(`${send.name} × 2 sent (west + east)${send.air ? ' — flying over the maze' : ''}. Send income is now +${player.income}.`);
     renderHud();
   }));
@@ -1676,7 +1801,7 @@ function handleBoardTap(event) {
   if (player.gold < def.cost) return log(`Not enough gold — ${def.name} costs ${def.cost}g.`);
   if (def.name === 'Laser Cannon' && player.lumber < 1) return log('The Laser Cannon costs 650g + 1 lumber, as in the original map.');
   player.gold -= def.cost;
-  if (def.name === 'Laser Cannon') { player.lumber -= 1; renderTowerList(); }
+  if (def.name === 'Laser Cannon') { player.lumber -= 1; player.lumberSpent += 1; if (player.lumberSpent >= 3) award('lumberjack'); renderTowerList(); }
   addTower(makeTower(cell.r, cell.c, raceId, selectedTowerTier, 'player'));
   creeps.forEach((creep) => { if (creep.half === PLAYER_HALF) creep.path = null; });
   log(`${def.name} placed. ${cachedRouteText}.`);
@@ -1803,6 +1928,7 @@ function frame(now) {
 
 /* ---------------- Match controls ---------------- */
 function startBattle() {
+  $('match-summary')?.classList.add('hidden');
   applySavedSketchToTerrain();
   resetMatchState();
   battleRunning = true;
@@ -2048,16 +2174,40 @@ function closeDrawpad() {
 
 /* ---------------- Race select / collab screens ---------------- */
 function renderRaceCards() {
-  $('race-grid').innerHTML = races.map((race) => `
-    <button class="race-card ${race.id === selectedRace.id ? 'selected' : ''}" style="--race:${race.color}" data-race="${race.id}">
-      <span class="active-mark">✓</span><span class="race-symbol">${race.symbol}</span><strong>${race.name}</strong><small>${race.trait}</small>
-    </button>`).join('');
+  if (!raceUnlocked(selectedRace.id)) selectedRace = races.find((race) => raceUnlocked(race.id)) || races[0];
+  $('race-grid').innerHTML = races.map((race) => {
+    const locked = !raceUnlocked(race.id);
+    return `
+    <button class="race-card ${race.id === selectedRace.id ? 'selected' : ''} ${locked ? 'locked' : ''}" style="--race:${race.color}" data-race="${race.id}">
+      <span class="active-mark">✓</span><span class="race-symbol">${locked ? '🔒' : race.symbol}</span><strong>${race.name}</strong><small>${locked ? unlockHint(race.id) : race.trait}</small>
+    </button>`;
+  }).join('');
   document.querySelectorAll('[data-race]').forEach((button) => button.addEventListener('click', () => {
-    selectedRace = races.find((race) => race.id === button.dataset.race);
+    const race = races.find((item) => item.id === button.dataset.race);
+    if (!raceUnlocked(race.id)) {
+      $('selected-desc').textContent = `${race.name}: ${unlockHint(race.id)}`;
+      button.classList.add('shake');
+      window.setTimeout(() => button.classList.remove('shake'), 450);
+      return;
+    }
+    selectedRace = race;
     $('selected-name').textContent = selectedRace.name;
     $('selected-desc').textContent = selectedRace.desc;
     renderRaceCards();
   }));
+  renderProfileStrip();
+}
+function renderProfileStrip() {
+  const strip = $('profile-strip');
+  if (!strip) return;
+  const earned = Object.keys(profile.achievements).length;
+  strip.innerHTML = `<button id="achievements-toggle" class="profile-summary">🏆 ${earned}/${ACHIEVEMENTS.length} achievements • ${profile.wins} wins • best wave ${profile.bestWave}</button>
+    <div id="achievements-list" class="achievements-list hidden">${ACHIEVEMENTS.map((a) => {
+      const got = Boolean(profile.achievements[a.id]);
+      const unlockRace = a.unlocks ? races.find((race) => race.id === a.unlocks) : null;
+      return `<div class="achievement ${got ? 'earned' : ''}"><span class="a-icon">${a.icon}</span><div><strong>${a.name}</strong><small>${a.desc}${unlockRace ? ` • unlocks ${unlockRace.name}` : ''}</small></div><b>${got ? '✓' : ''}</b></div>`;
+    }).join('')}</div>`;
+  $('achievements-toggle').addEventListener('click', () => $('achievements-list').classList.toggle('hidden'));
 }
 const defaultCollabTasks = [
   { text:'Tune opening Scout and Engineer HP so a small maze can cover the first flag.', done:false },
@@ -2113,6 +2263,12 @@ $('collab-task-input').addEventListener('keydown', (event) => { if (event.key ==
 $('collab-prompt-copy').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(brotherHandoffPrompt); $('collab-copy-status').textContent = 'Prompt copied. Paste it into the shared ChatGPT Project.'; }
   catch (error) { $('collab-copy-status').textContent = 'Copy unavailable — use COLLABORATION.md.'; }
+});
+$('dev-unlock-toggle')?.addEventListener('click', () => {
+  profile.devUnlockAll = !profile.devUnlockAll;
+  saveProfile();
+  $('dev-unlock-toggle').textContent = profile.devUnlockAll ? 'DEV: everything unlocked — click to relock' : 'DEV: unlock all races';
+  renderRaceCards();
 });
 $('collab-export-button').addEventListener('click', () => {
   const payload = JSON.stringify({ project:'Wintermaul Wars Remake', exportedAt:new Date().toISOString(), tasks:collabTasks }, null, 2);
