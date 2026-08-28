@@ -2343,12 +2343,48 @@ const MP_CONFIG = (() => {
   try { return JSON.parse(localStorage.getItem('wmw-mp-config') || 'null') || { url:'', anonKey:'' }; }
   catch (error) { return { url:'', anonKey:'' }; }
 })();
-const mp = { active:false, transport:null, role:null, code:'', oppName:'', oppRace:null, oppLives:null, snap:{ towers:[], creeps:[] }, snapClock:0, livesSent:-1, ready:false, oppReady:false, started:false };
+const mp = { active:false, transport:null, role:null, code:'', oppName:'', oppRace:null, oppLives:null, snap:{ towers:[], creeps:[] }, snapClock:0, livesSent:-1, ready:false, oppReady:false, started:false, sid:Math.random().toString(36).slice(2, 10), helloTimer:null };
 
 function mpMakeLocalTransport(code, onMessage) {
   const channel = new BroadcastChannel(`wmw-room-${code}`);
   channel.onmessage = (event) => onMessage(event.data);
   return { kind:'local', send:(msg) => channel.postMessage(msg), close:() => channel.close() };
+}
+/* Interim cross-device relay: a public MQTT-over-WebSocket test broker. Fine
+   for game events during testing (messages are visible to anyone who knows
+   the topic — no sensitive data crosses it); replaced by our own Supabase
+   backend once credentials are configured. */
+const MQTT_BROKER = 'wss://broker.emqx.io:8084/mqtt';
+function mpMakeMqttTransport(code, onMessage, onOpen, onFail) {
+  const boot = () => {
+    let opened = false;
+    const client = window.mqtt.connect(MQTT_BROKER, { clean:true, connectTimeout:7000, reconnectPeriod:2000 });
+    const topic = `wmw-remake/room/${code}`;
+    client.on('connect', () => {
+      client.subscribe(topic, (err) => {
+        if (err) { if (!opened) onFail?.(); return; }
+        if (!opened) { opened = true; onOpen?.(); }
+      });
+    });
+    client.on('message', (t, payload) => {
+      try {
+        const msg = JSON.parse(payload.toString());
+        if (msg.__from === mp.sid) return;   // the broker echoes our own messages
+        onMessage(msg);
+      } catch (error) { /* ignore malformed */ }
+    });
+    client.on('error', () => { if (!opened) { onFail?.(); try { client.end(true); } catch (e) {} } });
+    window.setTimeout(() => { if (!opened) { onFail?.(); try { client.end(true); } catch (e) {} } }, 8000);
+    return { kind:'online', send:(msg) => client.publish(topic, JSON.stringify({ ...msg, __from:mp.sid })), close:() => client.end(true) };
+  };
+  if (window.mqtt) return boot();
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/mqtt@5/dist/mqtt.min.js';
+    script.onload = () => resolve(boot());
+    script.onerror = () => reject(new Error('mqtt failed to load'));
+    document.head.appendChild(script);
+  });
 }
 function mpMakeSupabaseTransport(code, onMessage, onOpen) {
   const boot = () => {
@@ -2374,35 +2410,62 @@ function mpPlayerName() {
   if (name) { profile.name = name; saveProfile(); }
   return name;
 }
+function mpStartHelloLoop(name) {
+  // the guest knocks every 1.5s until the host answers (or we give up)
+  let tries = 0;
+  window.clearInterval(mp.helloTimer);
+  mp.helloTimer = window.setInterval(() => {
+    if (mp.started || !mp.transport) { window.clearInterval(mp.helloTimer); return; }
+    tries += 1;
+    if (tries > 14) {
+      window.clearInterval(mp.helloTimer);
+      mpStatus(`No host found for <b>${mp.code}</b>. Check the code, and make sure the host's room is still open on the same website address.`);
+      mpLeave();
+      return;
+    }
+    mpSend({ t:'hello', name, race:selectedRace.id });
+  }, 1500);
+  mpSend({ t:'hello', name, race:selectedRace.id });
+}
 async function mpOpenRoom(join) {
   const name = mpPlayerName();
   if (!name) return mpStatus('Pick a commander name first.');
   const code = join ? ($('mp-code').value || '').trim().toUpperCase() : Array.from({ length:4 }, () => 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 31)]).join('');
   if (!code || code.length < 3) return mpStatus('Enter the room code your opponent shared.');
+  if (mp.transport) mpLeave();
   mp.code = code; mp.role = join ? 'guest' : 'host'; mp.ready = false; mp.oppReady = false; mp.started = false; mp.oppName = ''; mp.oppLives = null;
-  const remote = Boolean(MP_CONFIG.url && MP_CONFIG.anonKey);
+  mpStatus(join ? `Connecting to room <b>${code}</b>…` : `Opening room <b>${code}</b>…`);
+  const useSupabase = Boolean(MP_CONFIG.url && MP_CONFIG.anonKey);
+  const onOpen = () => {
+    if (join) { mpStatus(`Looking for the host of <b>${code}</b>…`); mpStartHelloLoop(name); }
+    else mpStatus(`Room <b>${code}</b> is open — your opponent can join from any device. Share the code!`);
+  };
+  const fallbackLocal = () => {
+    if (mp.started) return;
+    if (mp.transport) { try { mp.transport.close(); } catch (e) {} }
+    mp.transport = mpMakeLocalTransport(code, mpOnMessage);
+    if (join) mpStartHelloLoop(name);
+    mpStatus(`${join ? `Looking for the host of <b>${code}</b>` : `Room <b>${code}</b> open`} — <em>online relay unreachable, same-device mode only</em> (both windows on this computer).`);
+  };
   try {
-    mp.transport = remote
-      ? await mpMakeSupabaseTransport(code, mpOnMessage, () => { if (join) mpSend({ t:'hello', name, race:selectedRace.id }); })
-      : mpMakeLocalTransport(code, mpOnMessage);
+    if (useSupabase) mp.transport = await mpMakeSupabaseTransport(code, mpOnMessage, onOpen);
+    else mp.transport = await mpMakeMqttTransport(code, mpOnMessage, onOpen, fallbackLocal);
   } catch (error) {
-    return mpStatus('Could not reach the multiplayer service. Try again.');
+    fallbackLocal();
   }
-  if (!remote && join) mpSend({ t:'hello', name, race:selectedRace.id });
-  mpStatus(join
-    ? `Joining room <b>${code}</b>…`
-    : `Room <b>${code}</b> created${remote ? '' : ' (same-device mode: open a second window on this computer)'} — waiting for your opponent. Share the code!`);
 }
 function mpSend(msg) { if (mp.transport) mp.transport.send(msg); }
 function mpOnMessage(msg) {
   if (!msg || !msg.t) return;
   if (msg.t === 'hello' && mp.role === 'host') {
+    if (mp.started) return;   // repeated knocks are fine; answer again until the match starts
     mp.oppName = msg.name; mp.oppRace = msg.race;
     mpSend({ t:'config', name:mpPlayerName(), race:selectedRace.id, mode:document.getElementById('mode-select')?.value === 'classic' ? 'classic' : 'skirmish', lives:startingLives() });
     mpStatus(`<b>${msg.name}</b> joined! Starting…`);
     mp.ready = true; mpSend({ t:'ready' });
     mpMaybeStart();
   } else if (msg.t === 'config' && mp.role === 'guest') {
+    window.clearInterval(mp.helloTimer);
     mp.oppName = msg.name; mp.oppRace = msg.race; mp.config = { mode:msg.mode, lives:msg.lives };
     mpStatus(`Connected to <b>${msg.name}</b>! Starting…`);
     mp.ready = true; mpSend({ t:'ready' });
@@ -2443,7 +2506,8 @@ function mpMaybeStart() {
   log(`LIVE MATCH vs ${mp.oppName}${rival ? ` (${rival.name})` : ''} — defend your half, send at theirs. Good luck, commander.`);
 }
 function mpLeave() {
-  if (mp.transport) { mpSend({ t:'bye' }); mp.transport.close(); }
+  window.clearInterval(mp.helloTimer);
+  if (mp.transport) { mpSend({ t:'bye' }); try { mp.transport.close(); } catch (e) {} }
   mp.transport = null; mp.active = false; mp.started = false; mp.code = '';
   mpStatus('');
 }
