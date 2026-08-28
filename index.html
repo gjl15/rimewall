@@ -178,14 +178,14 @@ h2 span { color:#7583a6; }
 .laser-row { border-color:#ff5f8f66 !important; }
 .profile-line { color:#8ba7c9 !important; }
 .td-sell-danger { color:#ff9faf !important; border-color:#5a2f3a !important; }
-.quick-send { position:absolute; left:50%; top:calc(100% - 104px); transform:translateX(-50%); z-index:31; display:flex; gap:5px; max-width:94%; overflow-x:auto; padding:5px; border:1px solid #17325a99; border-radius:12px; background:#0d1424ee; box-shadow:0 6px 18px #0007; scrollbar-width:none; }
+.quick-send { display:flex; justify-content:center; gap:5px; margin-top:10px; overflow-x:auto; padding:6px; border:1px solid #233150; border-radius:12px; background:#0d1424; scrollbar-width:thin; }
 .quick-send:empty { display:none; }
 .qs-chip { display:flex; flex-direction:column; align-items:center; gap:1px; min-width:42px; min-height:42px; padding:5px 6px; border:1px solid #2e3b5c; border-radius:9px; background:#131b30; color:#e9edff; }
 .qs-chip span { font-size:15px; line-height:1.1; }
 .qs-chip b { color:#f5d36d; font:600 8px 'DM Mono',monospace; }
 .qs-chip:active { transform:scale(.94); }
 .qs-chip.qs-poor { opacity:.4; }
-@media (max-width:560px) { .quick-send { bottom:46px; } .hotkey-hint { display:none; } }
+@media (max-width:560px) { .quick-send { justify-content:flex-start; } .hotkey-hint { display:none; } }
 .send-locked { opacity:.45; }
 .tower-row { display:flex; justify-content:space-between; gap:10px; padding:10px; border:1px solid #273554; border-radius:8px; background:#10182b; }.tower-row strong { display:block; font-size:11px; }.tower-row small { display:block; margin-top:3px; color:#8590ae; font-size:9px; }.tower-row b { align-self:center; color:#f5d36d; font:11px 'DM Mono',monospace; }.tower-row.selected { border-color:var(--race); box-shadow:inset 0 0 0 1px var(--race); }
 .action-button { width:100%; margin-top:12px; padding:12px 13px; font-size:11px; }.action-button:disabled { opacity:.45; cursor:not-allowed; }.send-action { background:#ff8a9a; }.send-card { width:100%; justify-content:space-between; text-align:left; gap:8px; margin-bottom:8px; padding:10px; border:1px solid #2a3654; border-radius:8px; background:#10182b; color:inherit; }.send-card:hover { border-color:#ff8a9a; }
@@ -232,7 +232,7 @@ h2 span { color:#7583a6; }
   .battle-title-row h2, .battle-title-row .eyebrow { display:none; }
   .battle-title-row .title-actions { margin-left:auto; }
   .battle-title-row .ghost-button { white-space:nowrap; padding:9px 10px; font-size:10px; }
-  .map-viewport { height:calc(100dvh - 200px); min-height:430px; }.wave-banner { font-size:8px; }.ov { font-size:7px; }.ov small { font-size:6px; }.map-zoom-controls { right:8px; bottom:8px; }.zoom-hint { left:8px; bottom:11px; font-size:7px; }.debug-bar { gap:9px; font-size:8px; }.dbg-stats { flex-basis:100%; margin-left:0; }
+  .map-viewport { height:calc(100dvh - 260px); min-height:420px; }.wave-banner { font-size:8px; }.ov { font-size:7px; }.ov small { font-size:6px; }.map-zoom-controls { right:8px; bottom:8px; }.zoom-hint { left:8px; bottom:11px; font-size:7px; }.debug-bar { gap:9px; font-size:8px; }.dbg-stats { flex-basis:100%; margin-left:0; }
   /* tower line becomes a horizontal chip strip so the map stays on screen */
   .tower-list { display:grid; grid-auto-flow:column; grid-auto-columns:168px; max-height:none; overflow-x:auto; overflow-y:hidden; padding-bottom:6px; scrollbar-width:thin; }
   .tower-row { flex-direction:column; align-items:flex-start; gap:4px; }
@@ -411,10 +411,11 @@ h2 span { color:#7583a6; }
                 <div id="board-overlay" class="board-overlay" aria-hidden="true"></div>
                 <div id="wave-banner" class="wave-banner">FIRST WAVE INBOUND</div>
               </div>
-              <div id="quick-send" class="quick-send" aria-label="Quick send bar"></div>
               <div class="map-zoom-controls" aria-label="Map zoom controls"><button id="zoom-out-button" aria-label="Zoom out">−</button><span id="zoom-label">100%</span><button id="zoom-in-button" aria-label="Zoom in">+</button><button id="zoom-reset-button" aria-label="Reset map zoom">reset</button></div>
               <div class="zoom-hint">PINCH TO ZOOM • DRAG WHEN ZOOMED<span class="hotkey-hint"> • 1–9 SEND • Q–U TOWERS • RIGHT-CLICK / HOLD = SELL</span></div>
             </div>
+
+            <div id="quick-send" class="quick-send" aria-label="Quick send bar"></div>
 
             <div class="debug-bar" aria-label="Debug toggles">
               <label><input id="dbg-routes" type="checkbox" /> Routes</label>
@@ -1993,13 +1994,6 @@ function fitBoardToViewport() {
   frame.style.height = `${frameBase.height}px`;
   frame.style.left = `${frameBase.left}px`;
   frame.style.top = `${frameBase.top}px`;
-  // the quick-send bar rides the board's bottom edge, wherever the board sits
-  const bar = $('quick-send');
-  if (bar) {
-    bar.style.left = `${frameBase.left + frameBase.width / 2}px`;
-    bar.style.bottom = '';
-    bar.style.top = `${Math.max(0, frameBase.top + frameBase.height - 104)}px`;
-  }
   applyMapTransform();
   return true;
 }
