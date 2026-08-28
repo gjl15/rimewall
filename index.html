@@ -2863,12 +2863,15 @@ function fitBoardToViewport() {
   const frame = $('map-frame');
   if (!viewport || !frame) return false;
   {
-    // border contract: the viewport bottom edge always clears the window AND the command bar
+    // border contract: the viewport bottom edge always clears the window AND the command bar.
+    // visualViewport, not innerHeight — iOS's collapsing URL bar makes innerHeight lie tall,
+    // which pushed the board bottom under the bar with no way to scroll to it.
+    const winH = window.visualViewport ? window.visualViewport.height : window.innerHeight;
     const top = viewport.getBoundingClientRect().top;
     const bar = $('command-bar');
     const barH = bar && !bar.classList.contains('hidden') ? bar.offsetHeight : 0;
-    const room = Math.round(window.innerHeight - top - barH - 10);
-    if (room >= 260) viewport.style.height = `${room}px`;
+    const room = Math.round(winH - top - barH - 10);
+    if (room >= 220) viewport.style.height = `${room}px`;
     else viewport.style.height = '';
   }
   const vw = viewport.clientWidth, vh = viewport.clientHeight;
@@ -3069,6 +3072,8 @@ function setupMapZoom() {
   $('zoom-out-button').addEventListener('click', () => smoothZoomTo(camZoomNow() - .25));
   $('zoom-reset-button').addEventListener('click', () => { camAnim = { z:1, x:0, y:0 }; });
   window.addEventListener('resize', fitBoardToViewport);
+  window.visualViewport?.addEventListener('resize', fitBoardToViewport);
+  window.visualViewport?.addEventListener('scroll', fitBoardToViewport);
 }
 
 /* ---------------- Main loop ---------------- */
@@ -3085,7 +3090,13 @@ function frame(now) {
   }
   if (!$('battle-screen').classList.contains('hidden')) {
     const viewport = $('map-viewport');
-    if (viewport && (frameBase.width < 10 || Math.abs(viewport.clientWidth - lastFitW) > 1 || Math.abs(viewport.clientHeight - lastFitH) > 1)) fitBoardToViewport();
+    if (viewport) {
+      const vvH = window.visualViewport ? Math.round(window.visualViewport.height) : window.innerHeight;
+      if (frameBase.width < 10 || Math.abs(viewport.clientWidth - lastFitW) > 1 || Math.abs(viewport.clientHeight - lastFitH) > 1 || Math.abs(vvH - (fitBoardToViewport._lastVVH || 0)) > 1) {
+        fitBoardToViewport._lastVVH = vvH;
+        fitBoardToViewport();
+      }
+    }
     if (camAnim) {
       const k = Math.pow(2, -12 * dt);   // frame-rate-independent spring, half-life ~58ms
       mapZoomScale = camAnim.z + (mapZoomScale - camAnim.z) * k;
@@ -4172,6 +4183,15 @@ $('wisp-undo')?.addEventListener('click', (event) => {
   renderUndoSlot();
 });
 document.querySelectorAll('[data-bar-tab]').forEach((b) => b.addEventListener('click', () => { barTab = b.dataset.barTab; barKey = ''; renderCommandBar(); }));
+function pinBarToVisualViewport() {
+  const bar = $('command-bar');
+  if (!bar || !window.visualViewport) return;
+  const vv = window.visualViewport;
+  const lift = Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
+  bar.style.transform = lift ? `translateY(-${lift}px)` : '';
+}
+window.visualViewport?.addEventListener('resize', pinBarToVisualViewport);
+window.visualViewport?.addEventListener('scroll', pinBarToVisualViewport);
 setupWisp();
 $('ui-mode-select')?.addEventListener('change', (event) => {
   profile.uiMode = event.target.value;
