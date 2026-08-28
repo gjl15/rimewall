@@ -218,6 +218,13 @@ h2 span { color:#7583a6; }
 .air-tag { margin-left:4px; padding:1px 4px; border:1px solid #9fd8ff88; border-radius:4px; color:#9fd8ff; background:#9fd8ff14; font:700 7px 'DM Mono',monospace; letter-spacing:.08em; font-style:normal; vertical-align:1px; }
 .resource.lumber b { font-size:12px; }
 .resource.lumber em { color:#c6a269; }
+.resource.lives b { color:#8ee89f; font:700 9px 'DM Mono',monospace; letter-spacing:.06em; }
+.resource.lives em { color:#8ee89f; font-weight:700; }
+.resource.enemy b { color:#ff8a9a; font:700 9px 'DM Mono',monospace; letter-spacing:.06em; }
+.resource.enemy em { color:#ff8a9a; font-weight:700; }
+.vs-mark { color:#657293; font-size:11px; }
+.undo-pill { position:fixed; left:50%; bottom:max(150px, calc(env(safe-area-inset-bottom) + 136px)); transform:translateX(-50%); z-index:185; padding:11px 16px; border:1px solid #ffd86b; border-radius:99px; background:#182761f5; color:#ffe9a5; font:600 12px 'DM Mono',monospace; box-shadow:0 8px 24px #000a, 0 0 14px #ffd86b55; animation:toast-in .2s ease; }
+.undo-pill:active { transform:translateX(-50%) scale(.95); }
 .race-chips { display:flex; gap:6px; margin-bottom:8px; }
 .race-chip { flex:1; min-height:38px; padding:8px; border:1px solid #2e3b5c; border-radius:8px; color:#a5afd0; background:#10172a; font-size:11px; }
 .race-chip.active { border-color:var(--race); color:#ecf0ff; box-shadow:inset 0 0 0 1px var(--race); }
@@ -277,6 +284,7 @@ h2 span { color:#7583a6; }
       <div id="toast-layer" class="toast-layer" aria-live="polite"></div>
       <div id="match-summary" class="match-summary hidden"></div>
       <button id="wisp" class="wisp hidden" aria-label="Command wisp — tap for towers and sends, drag to move"><span>✦</span></button>
+      <button id="undo-pill" class="undo-pill hidden">↩ Undo</button>
       <div id="command-sheet" class="command-sheet hidden"></div>
       <section id="race-screen" class="screen race-screen">
         <div class="brand-row">
@@ -415,8 +423,9 @@ h2 span { color:#7583a6; }
             <span class="resource gold"><b>◆</b><em id="gold-label">30</em></span>
             <span class="resource lumber" title="Lumber — buys shrine upgrades, a second element, or a Laser Cannon"><b>🪵</b><em id="lumber-label">0</em></span>
             <span class="resource income"><b>↗</b><em id="income-label">+33</em></span>
-            <span class="resource lives"><b>♥</b><em id="lives-label">25</em></span>
-            <span class="resource enemy" title="Rival force lives"><b>☠</b><em id="enemy-lives-label">25</em></span>
+            <span class="resource lives" title="Your lifeforce"><b>♥ YOU</b><em id="lives-label">100</em></span>
+            <span class="vs-mark">⚔</span>
+            <span class="resource enemy" title="Rival lifeforce"><b id="rival-name-label">RIVAL</b><em id="enemy-lives-label">100</em></span>
           </div>
         </header>
 
@@ -898,6 +907,7 @@ let matchMode = 'skirmish';        // 'skirmish' = rounds vs the rival AI; 'clas
 let selectedTowerKey = null;       // primary selected tower
 let selectedGroupKeys = [];        // all selected towers (double-tap selects every like tower)
 let lastTapKey = null, lastTapAt = 0;
+let lastPlaced = null;   // drives the 3-second undo pill
 const towers = new Map();          // idx(r,c) → tower instance
 let towersVersion = 0;
 const creeps = [];
@@ -1725,6 +1735,13 @@ function renderQuickSend() {
     document.querySelector(`[data-send="${chip.dataset.qsend}"]`)?.click();
   }));
 }
+function renderUndoPill() {
+  const pill = $('undo-pill');
+  if (!pill) return;
+  const live = lastPlaced && towers.has(lastPlaced.key) && simTime - lastPlaced.at < SELL_GRACE;
+  pill.classList.toggle('hidden', !live);
+  if (live) pill.textContent = `↩ Undo ${lastPlaced.name} (+${lastPlaced.cost}g)`;
+}
 function renderHud() {
   $('gold-label').textContent = Math.floor(player.gold);
   $('income-label').textContent = `+${BASE_INCOME + player.income}`;
@@ -1739,6 +1756,7 @@ function renderHud() {
   refreshSendLocks();
   renderQuickSend();
   renderCommandSheet();
+  renderUndoPill();
   $('lives-label').textContent = player.lives;
   $('enemy-lives-label').textContent = enemy.lives;
   $('player-ship-label').textContent = `YOUR SHIP • ${player.lives}`;
@@ -2005,6 +2023,7 @@ function handleBoardTap(event) {
   player.gold -= def.cost;
   if (def.name === 'Laser Cannon') { player.lumber -= 1; player.lumberSpent += 1; if (player.lumberSpent >= 3) award('lumberjack'); renderTowerList(); }
   addTower(makeTower(cell.r, cell.c, raceId, selectedTowerTier, 'player'));
+  lastPlaced = { key:idx(cell.r, cell.c), r:cell.r, c:cell.c, at:simTime, name:def.name, cost:def.cost };
   creeps.forEach((creep) => { if (creep.half === PLAYER_HALF) creep.path = null; });
   log(`${def.name} placed. ${cachedRouteText}.`);
   renderHud();
@@ -2051,7 +2070,7 @@ function setMapZoom(nextScale, anchor = null, fromScale = mapZoomScale, fromOffs
   const point = anchor || { x:rect.width / 2, y:rect.height / 2 };
   const contentX = (point.x - frameBase.left - fromOffset.x) / fromScale;
   const contentY = (point.y - frameBase.top - fromOffset.y) / fromScale;
-  mapZoomScale = Math.min(4, Math.max(1, nextScale));
+  mapZoomScale = Math.min(4, Math.max(.7, nextScale));
   mapOffsetX = point.x - frameBase.left - contentX * mapZoomScale;
   mapOffsetY = point.y - frameBase.top - contentY * mapZoomScale;
   applyMapTransform();
@@ -2099,8 +2118,20 @@ function setupMapZoom() {
     if (activeMapPointers.size === 2 && pinchStartDistance) {
       const points = [...activeMapPointers.values()];
       const rect = viewport.getBoundingClientRect();
-      const mid = { x:(points[0].x + points[1].x) / 2 - rect.left, y:(points[0].y + points[1].y) / 2 - rect.top };
-      setMapZoom(pinchStartScale * pointerDistance(points[0], points[1]) / pinchStartDistance, mid, pinchStartScale, pinchStartOffset);
+      const dist = pointerDistance(points[0], points[1]);
+      const midY = (points[0].y + points[1].y) / 2;
+      const prev = viewport._twoPrev || { dist, midY };
+      const distDelta = Math.abs(dist - prev.dist);
+      const midDelta = midY - prev.midY;
+      viewport._twoPrev = { dist, midY };
+      if (Math.abs(midDelta) > distDelta * 1.5 && Math.abs(midDelta) > 2) {
+        // two fingers moving together: scroll the page, even while zoomed
+        const shell = document.querySelector('.app-shell');
+        if (shell) shell.scrollTop -= midDelta;
+      } else {
+        const mid = { x:(points[0].x + points[1].x) / 2 - rect.left, y:midY - rect.top };
+        setMapZoom(pinchStartScale * dist / pinchStartDistance, mid, pinchStartScale, pinchStartOffset);
+      }
       event.preventDefault();
     } else if (activeMapPointers.size === 1 && panStart && mapZoomScale > 1) {
       mapOffsetX = panStart.offsetX + event.clientX - panStart.x;
@@ -2114,7 +2145,7 @@ function setupMapZoom() {
     if (tapCandidate && tapCandidate.id === event.pointerId) handleBoardTap(event);
     tapCandidate = null;
     activeMapPointers.delete(event.pointerId);
-    if (activeMapPointers.size < 2) pinchStartDistance = 0;
+    if (activeMapPointers.size < 2) { pinchStartDistance = 0; viewport._twoPrev = null; }
     if (activeMapPointers.size === 1 && mapZoomScale > 1) {
       const remaining = [...activeMapPointers.values()][0];
       panStart = { x:remaining.x, y:remaining.y, offsetX:mapOffsetX, offsetY:mapOffsetY };
@@ -2167,6 +2198,8 @@ function startBattle() {
   renderBattleIdentity(); renderTowerList(); renderSendPanel(); renderTowerDetails();
   buildOverlay(); setupCanvasesOnce(); redrawBoard();
   fitBoardToViewport(); resetMapZoom();
+  const rivalLabel = $('rival-name-label');
+  if (rivalLabel && !mp.active) rivalLabel.textContent = 'RIVAL';
   renderHud();
   applyUiMode();
   log(matchMode === 'classic'
@@ -2640,6 +2673,8 @@ function mpMaybeStart() {
     if (livesSelect && [...livesSelect.options].some((o) => o.value === String(mp.config.lives))) livesSelect.value = String(mp.config.lives);
   }
   startBattle();
+  const rivalLabel = $('rival-name-label');
+  if (rivalLabel) rivalLabel.textContent = (mp.oppName || 'RIVAL').toUpperCase().slice(0, 10);
   const rival = races.find((race) => race.id === mp.oppRace);
   log(`LIVE MATCH vs ${mp.oppName}${rival ? ` (${rival.name})` : ''} — defend your half, send at theirs. Good luck, commander.`);
 }
@@ -2868,6 +2903,11 @@ document.addEventListener('keydown', (event) => {
   }
   if (key === 'escape') { selectedTowerKey = null; selectedGroupKeys = []; renderTowerDetails(); }
   if (key === 'p') toggleBattlePause();
+});
+$('undo-pill')?.addEventListener('click', () => {
+  if (lastPlaced && towers.has(lastPlaced.key)) sellTowerAt({ r:lastPlaced.r, c:lastPlaced.c });
+  lastPlaced = null;
+  renderUndoPill();
 });
 setupWisp();
 $('ui-mode-select')?.addEventListener('change', (event) => {
