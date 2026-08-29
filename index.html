@@ -468,13 +468,50 @@ h2 span { color:#7583a6; }
 .bar-card.bar-wide { flex:1 1 40%; flex-direction:row; gap:8px; min-height:52px; }
 .bar-card.bar-wide small { max-width:none; font-size:11px; }
 
+/* Settings gear + modal (single settings home on every device) */
+.setup-actions-row { display:flex; gap:10px; align-items:stretch; }
+.setup-actions-row .primary-button { flex:1; }
+.gear-button { flex:0 0 auto; width:52px; border:1px solid #334264; border-radius:12px; background:#0d1730; color:#bcd2ff; font-size:20px; cursor:pointer; }
+.gear-button:hover { border-color:#77d6ff; color:#eafcff; }
+.gear-hud { font-size:15px; }
+.settings-modal { position:fixed; inset:0; z-index:240; display:flex; align-items:center; justify-content:center; padding:20px; background:#060914cc; backdrop-filter:blur(3px); }
+.settings-modal.hidden { display:none; }
+.settings-card { width:min(94vw, 420px); max-height:88vh; overflow-y:auto; padding:20px; border:1px solid #2c4a7a; border-radius:16px; background:#0d1424; box-shadow:0 20px 60px #000b; }
+.settings-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+.settings-head h3 { margin:0; font-size:18px; }
+.settings-head button { width:34px; height:34px; border:1px solid #2c4a7a; border-radius:9px; background:#111a30; color:#bcd2ff; font-size:14px; cursor:pointer; }
+.set-row { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:6px; font:600 13px 'DM Mono',monospace; color:#eafcff; }
+.set-row select { flex:1; max-width:60%; padding:9px 10px; border:1px solid #2e3b5c; border-radius:9px; background:#111a30; color:#eafcff; font:500 12px 'DM Mono',monospace; }
+.set-hint { margin:0 0 14px; font-size:11px; color:#7f97c9; }
+.set-toggle { display:flex; align-items:center; gap:10px; padding:11px 12px; margin-bottom:8px; border:1px solid #22345c; border-radius:10px; background:#0b1424; font:600 13px 'DM Mono',monospace; color:#eafcff; cursor:pointer; }
+.set-toggle input { width:18px; height:18px; accent-color:#77d6ff; }
+.settings-sep { height:1px; background:#22345c; margin:14px 0; }
+.set-dev { width:100%; }
+body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .undo-slot.spotlight { animation:none !important; }
+
 </style>
 </head>
 <body>
     <main class="app-shell">
       <div id="toast-layer" class="toast-layer" aria-live="polite"></div>
       <div id="match-summary" class="match-summary hidden"></div>
-      <button id="wisp" class="wisp hidden" aria-label="Command wisp — tap for towers and sends, drag to move"><span>✦</span><b id="wisp-undo" class="wisp-undo hidden" title="Cancel construction — full refund">↩</b></button>
+      
+    <div id="settings-modal" class="settings-modal hidden" role="dialog" aria-label="Settings">
+      <div class="settings-card">
+        <div class="settings-head"><h3>⚙ Settings</h3><button id="settings-close" aria-label="Close">✕</button></div>
+        <label class="set-row">
+          <span>Layout</span>
+          <select id="set-uimode"><option value="auto">Auto (detect device)</option><option value="touch">Touch / mobile</option><option value="desktop">Desktop / mouse</option></select>
+        </label>
+        <p class="set-hint">Touch shows the bottom command bar; desktop shows the side panel and the action ring.</p>
+        <label class="set-toggle"><input type="checkbox" id="set-routes"> <span>Show creep routes</span></label>
+        <label class="set-toggle"><input type="checkbox" id="set-ranges"> <span>Show tower ranges</span></label>
+        <label class="set-toggle"><input type="checkbox" id="set-reduce"> <span>Reduce motion (calmer effects)</span></label>
+        <div class="settings-sep"></div>
+        <button id="set-dev" class="ghost-button set-dev">DEV: unlock all elements</button>
+      </div>
+    </div>
+            <button id="wisp" class="wisp hidden" aria-label="Command wisp — tap for towers and sends, drag to move"><span>✦</span><b id="wisp-undo" class="wisp-undo hidden" title="Cancel construction — full refund">↩</b></button>
       <div id="command-sheet" class="command-sheet hidden"></div>
       <section id="race-screen" class="screen race-screen">
         <div class="brand-row">
@@ -493,7 +530,10 @@ h2 span { color:#7583a6; }
             <span class="race-card-caret">▾</span>
           </button>
           <div class="selection-actions"><label class="lives-pick" for="mode-select">MODE <select id="mode-select"><option value="skirmish" selected>Waves vs rival</option><option value="classic">Classic Wars • sends only</option></select></label><label class="lives-pick" for="lives-select">LIFEFORCE <select id="lives-select"><option value="25">25 • classic</option><option value="50">50 • veteran</option><option value="100" selected>100 • easy</option></select></label></div>
-          <button id="start-button" class="primary-button">Enter the battlefield <span>→</span></button>
+          <div class="setup-actions-row">
+            <button id="start-button" class="primary-button">Enter the battlefield <span>→</span></button>
+            <button id="settings-open" class="gear-button" title="Settings" aria-label="Settings">⚙</button>
+          </div>
         </div>
 
         <div id="race-grid-wrap" class="race-grid-wrap">
@@ -620,6 +660,7 @@ h2 span { color:#7583a6; }
           <button id="push-wave-button" class="test-button" title="Testing shortcut: immediately start the next wave">Push wave</button>
           <button id="pause-button" class="test-button" aria-pressed="false">Pause</button>
           <button id="restart-button" class="test-button">Restart</button>
+          <button id="settings-open-hud" class="test-button gear-hud" title="Settings" aria-label="Settings">⚙</button>
           <button id="undo-slot" class="test-button undo-slot" disabled>↩ UNDO</button>
           <div class="resources">
             <span class="resource gold"><b>◆</b><em id="gold-label">30</em></span>
@@ -3901,6 +3942,8 @@ function applyUiMode() {
   if (bar) { bar.classList.toggle('hidden', !arena); if (arena) { barStructKey = ''; renderCommandBar(); } }
   const modeSel = $('ui-mode-select');
   if (modeSel) modeSel.value = uiMode();
+  const setMode = $('set-uimode');
+  if (setMode) setMode.value = uiMode();
 }
 let sheetTab = 'sends', sheetKey = '';
 let barTab = 'build', barKey = '', barStructKey = '', autoSend = { on:false, last:null };
@@ -4316,6 +4359,8 @@ function syncMapToggles() {
   $('mt-ranges')?.classList.toggle('on', debug.ranges);
   const r = $('dbg-routes'); if (r) r.checked = debug.routes;
   const g = $('dbg-ranges'); if (g) g.checked = debug.ranges;
+  const sr = $('set-routes'); if (sr) sr.checked = !!debug.routes;
+  const sg = $('set-ranges'); if (sg) sg.checked = !!debug.ranges;
 }
 $('mt-routes')?.addEventListener('click', () => { debug.routes = !debug.routes; syncMapToggles(); });
 $('mt-ranges')?.addEventListener('click', () => { debug.ranges = !debug.ranges; syncMapToggles(); });
@@ -4337,6 +4382,30 @@ function pinBarToVisualViewport() {
 window.visualViewport?.addEventListener('resize', pinBarToVisualViewport);
 window.visualViewport?.addEventListener('scroll', pinBarToVisualViewport);
 setupWisp();
+function openSettings() {
+  const m = $('settings-modal'); if (!m) return;
+  $('set-uimode').value = uiMode();
+  $('set-routes').checked = !!debug.routes;
+  $('set-ranges').checked = !!debug.ranges;
+  $('set-reduce').checked = !!profile.reduceMotion;
+  $('set-dev').textContent = profile.devUnlockAll ? 'DEV: relock elements' : 'DEV: unlock all elements';
+  m.classList.remove('hidden');
+}
+function closeSettings() { $('settings-modal')?.classList.add('hidden'); }
+$('settings-open')?.addEventListener('click', openSettings);
+$('settings-open-hud')?.addEventListener('click', openSettings);
+$('settings-close')?.addEventListener('click', closeSettings);
+$('settings-modal')?.addEventListener('click', (e) => { if (e.target.id === 'settings-modal') closeSettings(); });
+$('set-uimode')?.addEventListener('change', (e) => { profile.uiMode = e.target.value; saveProfile(); applyUiMode(); });
+$('set-routes')?.addEventListener('change', (e) => { debug.routes = e.target.checked; syncMapToggles(); barStructKey = ''; renderCommandBar(); });
+$('set-ranges')?.addEventListener('change', (e) => { debug.ranges = e.target.checked; syncMapToggles(); barStructKey = ''; renderCommandBar(); });
+$('set-reduce')?.addEventListener('change', (e) => { profile.reduceMotion = e.target.checked; saveProfile(); document.body.classList.toggle('reduce-motion', e.target.checked); });
+$('set-dev')?.addEventListener('click', () => {
+  profile.devUnlockAll = !profile.devUnlockAll; saveProfile();
+  $('set-dev').textContent = profile.devUnlockAll ? 'DEV: relock elements' : 'DEV: unlock all elements';
+  renderRaceCards();
+});
+if (profile.reduceMotion) document.body.classList.add('reduce-motion');
 $('ui-mode-select')?.addEventListener('change', (event) => {
   profile.uiMode = event.target.value;
   saveProfile();
