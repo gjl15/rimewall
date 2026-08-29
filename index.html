@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <meta name="theme-color" content="#0b1020" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -877,7 +877,7 @@ const TRAIT = {
   elecStasis:.15, elecStasisDur:.3,
   thunderFloor:.75, thunderCap:.25,
   crystalShieldMult:2,
-  gravSlowChance:.35, gravSlowPct:35, gravPushChance:.18, gravPushCD:4,
+  gravSlowChance:.28, gravSlowPct:35, gravPushChance:.12, gravPushCD:6, gravTowerPushCD:5,
   shieldRegenDelay:4
 };
 function isChaos(tower, stats) { return !!(ATTACK_PROFILE[tower.raceId] && ATTACK_PROFILE[tower.raceId].chaos) || tower.raceId === 'crystal' || stats.special === 'laser'; }
@@ -1430,9 +1430,9 @@ function nearestBlockingTower(creep) {
   return candidates[0] || null;
 }
 
-function pushDot(creep, dps, dur) {
+function pushDot(creep, dps, dur, tag) {
   if (!creep.dots) creep.dots = [];
-  creep.dots.push({ dps, until:simTime + dur });
+  creep.dots.push({ dps, until:simTime + dur, tag });
   if (creep.dots.length > TRAIT.dotCap) creep.dots.shift();
 }
 function updateCreep(creep, dt) {
@@ -1586,7 +1586,7 @@ function applyHitEffects(creep, tower, stats) {
   }
   // POISON — 3% stacking DoT + a gentle slow (weaker than frost)
   if (special === 'poison') {
-    pushDot(creep, stats.dmg * TRAIT.poisonPct, TRAIT.poisonDur);
+    pushDot(creep, stats.dmg * TRAIT.poisonPct, TRAIT.poisonDur, 'poison');
     creep.slowUntil = Math.max(creep.slowUntil, simTime + 1.2); creep.slowPct = Math.max(creep.slowPct || 0, TRAIT.poisonSlow);
   }
   // laser (crystal capstone) keeps a slow + light burn
@@ -1665,7 +1665,7 @@ function resolveProjectileHit(projectile) {
 function pushBackCreep(creep) {
   // brutal: shove ~1.5 cells back along the route and re-target the previous checkpoint,
   // so a passed flag must be crossed again. Per-creep cooldown stops a permanent lock.
-  if (creep.boss || simTime < creep.pushUntil) return;
+  if (creep.boss || simTime < creep.pushUntil) return false;
   creep.pushUntil = simTime + TRAIT.gravPushCD;
   const goals = creepGoals(creep);
   const prev = goals[Math.max(0, creep.cpIndex - 1)];
@@ -1676,6 +1676,7 @@ function pushBackCreep(creep) {
   if (creep.cpIndex > 0) creep.cpIndex -= 1;   // re-cross the previous flag/checkpoint
   creep.path = null;
   effects.push({ kind:'num', x:creep.x, y:creep.y - .5, text:'«', until:simTime + .6, color:'#c58fd8' });
+  return true;
 }
 function firePulse(tower, stats) {
   const cx = tower.c + .5, cy = tower.r + .5;
@@ -1693,7 +1694,8 @@ function firePulse(tower, stats) {
     } else if (isGravity) {
       applyDamage(creep, stats.dmg, tower);                                 // Warp damage (respects matrix)
       if (creep.hp > 0 && Math.random() < TRAIT.gravSlowChance) { creep.slowUntil = Math.max(creep.slowUntil, simTime + 1.4); creep.slowPct = Math.max(creep.slowPct || 0, TRAIT.gravSlowPct); }
-      if (creep.hp > 0 && Math.random() < TRAIT.gravPushChance) pushBackCreep(creep);
+      // pushback gated by a per-tower cooldown AND a per-creep cooldown so it can't chain-lock
+      if (creep.hp > 0 && simTime >= (tower.pushClock || 0) && Math.random() < TRAIT.gravPushChance) { if (pushBackCreep(creep)) tower.pushClock = simTime + TRAIT.gravTowerPushCD; }
     } else applyDamage(creep, stats.dmg || 550, tower, true);
   });
   return true;
@@ -1701,11 +1703,14 @@ function firePulse(tower, stats) {
 
 /* ---------------- Towers firing ---------------- */
 function creepProgress(creep) { return creep.cpIndex * 1000 + (creep.path ? creep.pathStep : 0); }
+function poisonStacks(creep) { let n = 0; if (creep.dots) for (const d of creep.dots) if (d.tag === 'poison' && d.until > simTime) n += 1; return n; }
 function pickTarget(tower, stats) {
   const inRange = creeps.filter((creep) => creep.hp > 0 && halfOfRow(tower.r) === creep.half
     && !(stats.groundOnly && creep.air)
     && Math.hypot(creep.x - (tower.c + .5), creep.y - (tower.r + .5)) <= stats.range);
   if (!inRange.length) return null;
+  if (tower.raceId === 'poison' && tower.priority !== 'last' && tower.priority !== 'strong' && tower.priority !== 'weak' && tower.priority !== 'near')
+    return inRange.sort((a, b) => poisonStacks(a) - poisonStacks(b) || creepProgress(b) - creepProgress(a))[0];
   if (tower.priority === 'last') return inRange.sort((a, b) => creepProgress(a) - creepProgress(b))[0];
   if (tower.priority === 'strong') return inRange.sort((a, b) => b.hp - a.hp)[0];
   if (tower.priority === 'weak') return inRange.sort((a, b) => a.hp - b.hp)[0];
@@ -2339,9 +2344,9 @@ function drawEffect(ctx, effect) {
   const remain = Math.max(0, effect.until - simTime);
   ctx.save();
   if (effect.kind === 'impact') {
-    const k = 1 - remain / .3;
+    const k = Math.max(0, Math.min(1, 1 - remain / .35));
     ctx.strokeStyle = effect.color; ctx.globalAlpha = 1 - k; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(effect.x * CELL, effect.y * CELL, (effect.big ? 20 : 10) * k + 3, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(effect.x * CELL, effect.y * CELL, Math.max(0, (effect.big ? 20 : 10) * k + 3), 0, Math.PI * 2); ctx.stroke();
   } else if (effect.kind === 'death') {
     const k = 1 - remain / .35;
     ctx.globalAlpha = 1 - k;
@@ -2363,17 +2368,17 @@ function drawEffect(ctx, effect) {
     ctx.fillStyle = '#e8f4ff'; ctx.globalAlpha *= .7;
     ctx.beginPath(); ctx.arc(effect.x * CELL, effect.y * CELL, 4, 0, Math.PI * 2); ctx.fill();
   } else if (effect.kind === 'pulse') {
-    const k = 1 - remain / .45;
+    const k = Math.max(0, Math.min(1, 1 - remain / .45));
     ctx.strokeStyle = effect.color; ctx.globalAlpha = (1 - k) * .9; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(effect.x * CELL, effect.y * CELL, effect.radius * CELL * k + 6, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(effect.x * CELL, effect.y * CELL, Math.max(0, effect.radius * CELL * k + 6), 0, Math.PI * 2); ctx.stroke();
     ctx.globalAlpha = (1 - k) * .25; ctx.fillStyle = effect.color;
-    ctx.beginPath(); ctx.arc(effect.x * CELL, effect.y * CELL, effect.radius * CELL * k + 6, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(effect.x * CELL, effect.y * CELL, Math.max(0, effect.radius * CELL * k + 6), 0, Math.PI * 2); ctx.fill();
   } else if (effect.kind === 'towerhit') {
     ctx.fillStyle = '#ff8a9a'; ctx.globalAlpha = remain / .25;
     ctx.beginPath(); ctx.arc(effect.x * CELL, effect.y * CELL, 8, 0, Math.PI * 2); ctx.fill();
   } else if (effect.kind === 'leak') {
     ctx.strokeStyle = '#ff8a9a'; ctx.globalAlpha = remain / .6; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(effect.x * CELL, effect.y * CELL, (0.6 - remain) * 40 + 6, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(effect.x * CELL, effect.y * CELL, Math.max(0, (0.6 - remain) * 40 + 6), 0, Math.PI * 2); ctx.stroke();
   }
   ctx.restore();
 }
@@ -3320,6 +3325,7 @@ function pushWaveForTesting() {
 }
 function toggleBattlePause() {
   if (!battleRunning) return;
+  if (mp.active) { log('No pausing in multiplayer — the match runs live for both players.'); return; }
   battlePaused = !battlePaused;
   renderHud();
   log(battlePaused ? 'Match paused. Inspect the maze and plan.' : 'Match resumed. Routes and projectiles are live.');
@@ -3937,7 +3943,7 @@ function applyUiMode() {
   const vp = $('map-viewport');
   if (vp) vp.style.touchAction = (arena || mapZoomScale > 1) ? 'none' : 'manipulation';
   const wisp = $('wisp');
-  if (wisp) wisp.classList.toggle('hidden', !battleRunning);
+  if (wisp) wisp.classList.toggle('hidden', !battleRunning || arena);
   const bar = $('command-bar');
   if (bar) { bar.classList.toggle('hidden', !arena); if (arena) { barStructKey = ''; renderCommandBar(); } }
   const modeSel = $('ui-mode-select');
@@ -4098,9 +4104,8 @@ function openCommandSheet(tab) {
   $('command-sheet').classList.remove('hidden');
   sheetKey = '';
   renderCommandSheet();
-  dockWisp();
 }
-function closeCommandSheet() { $('command-sheet').classList.add('hidden'); undockWisp(); }
+function closeCommandSheet() { $('command-sheet').classList.add('hidden'); }
 function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? profile.sheetOpacity : 95; }
 function learnContent() {
   const classWaves = {};
