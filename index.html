@@ -919,7 +919,7 @@ function towerTierUp(tower) {
   const list = towerListFor(tower.raceId);
   if (tower.tier >= list.length - 1) return null;
   const next = towerDef(tower.raceId, tower.tier + 1);
-  return { next, cost:Math.max(5, next.cost - towerDef(tower.raceId, tower.tier).cost) };
+  return { next, cost:next.cost };   // full price — you pay for the space; the old tower's value is forfeit
 }
 function underConstruction(tower) { return typeof simTime === 'number' && simTime < (tower.buildUntil ?? 0); }
 function towerSellValue(tower) { return underConstruction(tower) ? tower.invested : Math.round(tower.invested * .75); }
@@ -2759,7 +2759,7 @@ function towerAction(kind) {
         if (player.lumber < 1) { log('Upgrading into a Laser Cannon costs its 1 lumber too.'); continue; }
         player.lumber -= 1; player.lumberSpent += 1; if (player.lumberSpent >= 3) award('lumberjack');
       }
-      player.gold -= up.cost; t.invested += up.cost;
+      player.gold -= up.cost; t.invested = up.cost;   // old investment forfeit — the space premium
       t.tier += 1; t.level = 0;
       t.blockHp = t.blockMaxHp = 4 + t.tier;
       done += 1;
