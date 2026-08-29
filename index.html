@@ -795,7 +795,7 @@ const TOWERS = {
     { name:'Worldheart', cost:350, dmg:625, cd:1.0, range:5.9, special:'meteor', desc:'The living world drops mountains on creeps.' }
   ],
   tech:[
-    { name:'Bolt Turret', cost:6, dmg:5, cd:1.7, range:12.5, special:null, desc:'Cheap arrows at very long range.' },
+    { name:'Bolt Turret', cost:6, dmg:6, cd:1.7, range:12.5, special:null, armorPierce:4, desc:'Cheap long-range arrows that ignore 4 armor — a keeper for chipping armored runners.' },
     { name:'Longshot Nest', cost:25, dmg:28, cd:1.75, range:13.0, special:null, desc:'Sniper shots reach across the lane.' },
     { name:'Rocket Rack', cost:68, dmg:100, cd:2.2, range:15, special:'rocket', groundOnly:true, desc:'Long-range rockets with splash. Ground only.' },
     { name:'Ion Array', cost:145, dmg:300, cd:3.0, range:15, special:'ion', desc:'Ion beam; +500 bonus damage to healthy targets.' },
@@ -827,11 +827,11 @@ const TOWERS = {
     { name:'Petrifier', cost:350, dmg:60, cd:6.0, range:4.2, special:'paralyze', desc:'Drops a creep to 11 HP, then crits it. Bosses resist.' }
   ],
   electricity:[
-    { name:'Static Post', cost:10, dmg:4, cd:.6, range:4.7, special:null, desc:'Very fast shocks for early coverage.' },
+    { name:'Static Post', cost:10, dmg:6, cd:.6, range:4.7, special:'chain', desc:'Fast shocks that arc to a couple of nearby creeps — worth keeping all game.' },
     { name:'Stormcrown', cost:40, dmg:30, cd:.8, range:3.9, special:null, desc:'Lightning strikes from a storm core.' },
     { name:'Arc Weaver', cost:100, dmg:60, cd:2.0, range:4.0, special:'chain', desc:'Casts chain lightning through the wave.' },
     { name:'Thunderspike', cost:200, dmg:0, cd:2.0, range:4.5, special:'thunder', desc:'Pulse chips every nearby creep toward 75% max HP, strips shields, may stun.' },
-    { name:'Coil Dynamo', cost:285, dmg:225, cd:.4, range:5.5, special:null, desc:'Relentless dual-mode sparks; elite anti-air.' },
+    { name:'Coil Dynamo', cost:285, dmg:225, cd:.4, range:5.5, special:null, airBonus:1.6, desc:'Relentless sparks; +60% vs air — the dedicated anti-air tower.' },
     { name:'Capacitor Bank', cost:350, dmg:175, cd:.5, range:5.1, special:null, desc:'The must-have electric tower.' }
   ],
   gravity:[
@@ -896,7 +896,7 @@ const specialBlurbs = {
   crit:'25% chance to strike for double (all Stone towers).', chain:'Chain lightning jumps to 3 extra creeps.', thunder:'Pulse: chips toward 75% max HP, strips shields, may stun.',
   blackhole:'Gravity pulse: area damage, may slow or shove creeps back.', halve:'Halves the target’s current HP (bosses resist).', mind:'−30% of current HP (bosses resist).',
   paralyze:'Sets the target to 11 HP (bosses resist).', armorshred:'Strips 5 armor from the target.', ion:'+500 bonus damage while the target is above 500 HP.',
-  laser:'Crits, slows, and poisons on every hit.'
+  laser:'Crits, slows, and poisons on every hit.', airbonus:'+60% damage to air units.', pierce4:'Ignores 4 points of armor.'
 };
 
 function towerDef(raceId, tier) {
@@ -1550,7 +1550,8 @@ function applyDamage(creep, amount, tower, isDot = false, opts) {
     const profile = ATTACK_PROFILE[tower.raceId] || { vs:{} };
     if (!isChaos(tower, stats)) {
       dmg *= profile.vs[creep.aClass] ?? 1;
-      const effectiveArmor = Math.max(0, creep.armor - creep.armorShred);
+      if (creep.air && stats.airBonus) dmg *= stats.airBonus;
+      const effectiveArmor = Math.max(0, creep.armor - creep.armorShred - (stats.armorPierce || 0));
       dmg *= 1 - armorReduction(effectiveArmor);
     }
   }
@@ -3943,7 +3944,7 @@ function applyUiMode() {
   const vp = $('map-viewport');
   if (vp) vp.style.touchAction = (arena || mapZoomScale > 1) ? 'none' : 'manipulation';
   const wisp = $('wisp');
-  if (wisp) wisp.classList.toggle('hidden', !battleRunning || arena);
+  if (wisp) wisp.classList.toggle('hidden', !battleRunning);
   const bar = $('command-bar');
   if (bar) { bar.classList.toggle('hidden', !arena); if (arena) { barStructKey = ''; renderCommandBar(); } }
   const modeSel = $('ui-mode-select');
@@ -4252,7 +4253,12 @@ function setupWisp() {
     if (!drag) return;
     if (wisp.classList.contains('wisp-docked')) { closeCommandSheet(); drag = null; return; }
     if (drag.moved) { profile.wispPos = { x:wisp.offsetLeft, y:wisp.offsetTop }; saveProfile(); }
-    else if (document.body.classList.contains('arena')) { const sheet = $('command-sheet'); sheet.classList.contains('hidden') ? openCommandSheet('learn') : closeCommandSheet(); }
+    else if (document.body.classList.contains('arena')) {
+      const bar = $('command-bar');
+      const show = bar.classList.contains('hidden');
+      bar.classList.toggle('hidden', !show);
+      if (show) { barStructKey = ''; renderCommandBar(); pinBarToVisualViewport(); fitBoardToViewport(); }
+    }
     else { const sheet = $('command-sheet'); sheet.classList.contains('hidden') ? openCommandSheet() : closeCommandSheet(); }
     drag = null;
   };
@@ -4381,8 +4387,8 @@ function pinBarToVisualViewport() {
   const bar = $('command-bar');
   if (!bar || !window.visualViewport) return;
   const vv = window.visualViewport;
-  const lift = Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
-  bar.style.transform = lift ? `translateY(-${lift}px)` : '';
+  const lift = Math.max(0, Math.min(160, window.innerHeight - (vv.height + vv.offsetTop)));
+  bar.style.transform = lift > 2 ? `translateY(-${lift}px)` : '';
 }
 window.visualViewport?.addEventListener('resize', pinBarToVisualViewport);
 window.visualViewport?.addEventListener('scroll', pinBarToVisualViewport);
