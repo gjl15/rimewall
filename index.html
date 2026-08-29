@@ -734,7 +734,7 @@ const TOWERS = {
     { name:'Frostflick', cost:10, dmg:6, cd:1.1, range:5.5, special:'slow', desc:'Frost bolts that slow the first target.' },
     { name:'Hailslinger', cost:40, dmg:26, cd:1.0, range:5.5, special:'slow', desc:'Heavy snowballs chill whole lanes.' },
     { name:'Whiteout Spire', cost:100, dmg:85, cd:1.2, range:5.5, special:'slow', desc:'Freezing bursts on clustered creeps.' },
-    { name:'Meltjet', cost:200, dmg:50, cd:5.0, range:5.9, special:'pause', desc:'Locks a creep in place for a few seconds. Bosses resist.' },
+    { name:'Meltjet', cost:200, dmg:90, cd:4.0, range:5.9, special:'pause', desc:'Locks a creep in place for a few seconds. Bosses resist.' },
     { name:'Shatterfrost', cost:270, dmg:100, cd:2.25, range:5.5, special:'frostnova', desc:'Huge frost explosion that slows everything caught in it.' },
     { name:'Absolute Zero', cost:350, dmg:700, cd:1.0, range:6.1, special:null, desc:'A single devastating frozen bolt.' }
   ],
@@ -743,37 +743,37 @@ const TOWERS = {
     { name:'Emberwhirl', cost:45, dmg:35, cd:.9, range:5.5, special:'splash', desc:'Rapid flames splash across nearby creeps.' },
     { name:'Skyfall Brazier', cost:95, dmg:88, cd:1.2, range:7.0, special:'meteor', desc:'Calls down meteors with a large blast.' },
     { name:'Slagworks', cost:200, dmg:238, cd:1.15, range:5.5, special:'splash', desc:'Furnace blasts melt tight groups.' },
-    { name:'Ashmaker', cost:280, dmg:170, cd:.15, range:5.5, special:'machinegun', desc:'A machine-gun stream of fire. No splash.' },
+    { name:'Ashmaker', cost:280, dmg:105, cd:.15, range:5.5, special:'machinegun', desc:'A machine-gun stream of fire. No splash.' },
     { name:'Pyroclast Rod', cost:350, dmg:125, cd:.35, range:5.5, special:'smallsplash', desc:'Very fast staff fire with light splash.' }
   ],
   earth:[
     { name:'Verdant Spring', cost:10, dmg:5, cd:1.0, range:5.5, special:'smallsplash', desc:'Earth shocks with light splash.' },
     { name:'Rootwarden', cost:40, dmg:35, cd:1.0, range:5.5, special:'splash', desc:'Boulder bursts bomb the front line.' },
     { name:"Worldheart Coffer", cost:100, dmg:88, cd:1.5, range:5.5, special:'splash', desc:'Bombards a wide stretch of lane.' },
-    { name:"Earth's Soul", cost:200, dmg:410, cd:1.2, range:5.5, special:'splash', desc:'Massive earthen impacts.' },
+    { name:"Earth's Soul", cost:200, dmg:330, cd:1.2, range:5.5, special:'splash', desc:'Massive earthen impacts.' },
     { name:'Worldheart', cost:350, dmg:625, cd:1.0, range:5.9, special:'meteor', desc:'The living world drops mountains on creeps.' }
   ],
   tech:[
-    { name:'Bolt Turret', cost:7, dmg:5, cd:1.8, range:11.7, special:null, desc:'Cheap arrows at very long range.' },
-    { name:'Longshot Nest', cost:30, dmg:31, cd:1.75, range:12.5, special:null, desc:'Sniper shots reach across the lane.' },
-    { name:'Rocket Rack', cost:80, dmg:115, cd:2.2, range:14, special:'rocket', groundOnly:true, desc:'Long-range rockets with splash. Ground only.' },
-    { name:'Ion Array', cost:170, dmg:338, cd:3.0, range:14, special:'ion', desc:'Ion beam; +500 bonus damage to healthy targets.' },
-    { name:'Seeker Launcher', cost:250, dmg:850, cd:4.5, range:16, special:'rocket', desc:'Cruise missiles with an enormous blast.' },
-    { name:'Doomsday Silo', cost:310, dmg:950, cd:7.0, range:16, special:'rocket', desc:'Slow reload. City-block splash radius.' }
+    { name:'Bolt Turret', cost:6, dmg:5, cd:1.7, range:12.5, special:null, desc:'Cheap arrows at very long range.' },
+    { name:'Longshot Nest', cost:25, dmg:28, cd:1.75, range:13.0, special:null, desc:'Sniper shots reach across the lane.' },
+    { name:'Rocket Rack', cost:68, dmg:100, cd:2.2, range:15, special:'rocket', groundOnly:true, desc:'Long-range rockets with splash. Ground only.' },
+    { name:'Ion Array', cost:145, dmg:300, cd:3.0, range:15, special:'ion', desc:'Ion beam; +500 bonus damage to healthy targets.' },
+    { name:'Seeker Launcher', cost:215, dmg:760, cd:4.5, range:17, special:'rocket', desc:'Cruise missiles with an enormous blast.' },
+    { name:'Doomsday Silo', cost:265, dmg:860, cd:7.0, range:17, special:'rocket', desc:'Slow reload. City-block splash radius.' }
   ],
   crystal:[
     { name:'Shardcaster', cost:10, dmg:11, cd:.9, range:5.9, special:null, desc:'Chaos crystal bolts hurt every armor type.' },
     { name:'Prism Cannon', cost:50, dmg:40, cd:1.0, range:5.5, special:'smallsplash', desc:'Sprays sharp crystal shards.' },
-    { name:'Facet Fury', cost:200, dmg:110, cd:.25, range:5.5, special:'crit', desc:'Blinding-fast bursts that can crit double.' },
+    { name:'Facet Fury', cost:200, dmg:80, cd:.25, range:5.5, special:null, desc:'Blinding-fast bursts that can crit double.' },
     { name:'Refraction Snare', cost:250, dmg:283, cd:.9, range:6.25, special:'slow', desc:'Heavy shards that chill and splash.' },
     { name:'Geode Breaker', cost:400, dmg:750, cd:1.2, range:7.0, special:'splash', desc:'Huge crystalline explosions.' },
-    { name:'Lattice Annihilator', cost:650, dmg:700, cd:.35, range:5.5, special:null, desc:'The best non-laser tower in the game.' }
+    { name:'Lattice Annihilator', cost:650, dmg:360, cd:.35, range:5.5, special:null, desc:'The best non-laser tower in the game.' }
   ],
   poison:[
     { name:'Venom Barb', cost:15, dmg:6, cd:1.25, range:7.8, special:'poison', desc:'Poison spikes slow and sicken.' },
     { name:'Blightspire', cost:60, dmg:28, cd:1.0, range:7.8, special:'poison', desc:'Steady venom over a long reach.' },
     { name:'Mirelobber', cost:120, dmg:80, cd:1.2, range:8.6, special:'poison', groundOnly:true, desc:'Flings sticky sludge far downrange. Ground only.' },
-    { name:'Toxin Creeper', cost:190, dmg:1, cd:1.3, range:5.9, special:'halve', desc:'Cuts a creep’s current HP in half. Bosses resist.' },
+    { name:'Toxin Creeper', cost:190, dmg:45, cd:1.3, range:6.5, special:'halve', desc:'Halves a creep’s current HP and poisons it. Bosses resist.' },
     { name:'Carrion Totem', cost:230, dmg:305, cd:1.15, range:7.0, special:'poison', desc:'Grave rot in heavy doses.' },
     { name:'Miasma Vent', cost:390, dmg:545, cd:.9, range:7.8, special:'poison', desc:'Chokes lanes with lethal gas.' }
   ],
@@ -783,23 +783,23 @@ const TOWERS = {
     { name:'Monolith', cost:100, dmg:140, cd:1.2, range:3.1, special:'crit', desc:'Crushing stone waves up close.' },
     { name:'Runestone Seer', cost:200, dmg:350, cd:1.1, range:3.9, special:'armorshred', desc:'Faerie fire strips armor for every tower.' },
     { name:'Quakebreaker', cost:285, dmg:500, cd:.95, range:5.5, special:'crit', desc:'The only stone tower with real range.' },
-    { name:'Petrifier', cost:350, dmg:0, cd:7.5, range:3.9, special:'paralyze', desc:'Drops a creep to 11 HP. Bosses resist.' }
+    { name:'Petrifier', cost:350, dmg:60, cd:6.0, range:4.2, special:'paralyze', desc:'Drops a creep to 11 HP, then crits it. Bosses resist.' }
   ],
   electricity:[
     { name:'Static Post', cost:10, dmg:4, cd:.6, range:4.7, special:null, desc:'Very fast shocks for early coverage.' },
     { name:'Stormcrown', cost:40, dmg:30, cd:.8, range:3.9, special:null, desc:'Lightning strikes from a storm core.' },
     { name:'Arc Weaver', cost:100, dmg:60, cd:2.0, range:4.0, special:'chain', desc:'Casts chain lightning through the wave.' },
-    { name:'Thunderspike', cost:200, dmg:0, cd:2.0, range:2.7, special:'thunder', desc:'Shocks 25% of current HP off every nearby creep. Bosses resist.' },
-    { name:'Coil Dynamo', cost:285, dmg:310, cd:.4, range:5.5, special:null, desc:'Relentless dual-mode sparks; elite anti-air.' },
+    { name:'Thunderspike', cost:200, dmg:0, cd:2.0, range:4.5, special:'thunder', desc:'Pulse chips every nearby creep toward 75% max HP, strips shields, may stun.' },
+    { name:'Coil Dynamo', cost:285, dmg:225, cd:.4, range:5.5, special:null, desc:'Relentless dual-mode sparks; elite anti-air.' },
     { name:'Capacitor Bank', cost:350, dmg:175, cd:.5, range:5.1, special:null, desc:'The must-have electric tower.' }
   ],
   gravity:[
     { name:'Gravity Well', cost:10, dmg:9, cd:.95, range:5.5, special:null, desc:'Dense slugs of collapsed matter.' },
-    { name:"Gravity's Pull", cost:50, dmg:44, cd:1.0, range:3.1, special:'slow', desc:'Drags creeps back with splashing pulls.' },
-    { name:'Psi Emitter', cost:150, dmg:1, cd:1.0, range:5.5, special:'mind', desc:'Tears 30% of current HP from the mind. Bosses resist.' },
-    { name:'Collapsar', cost:280, dmg:110, cd:.2, range:5.5, special:'smallsplash', desc:'Pulses splash damage extremely fast.' },
-    { name:'Singularity Mortar', cost:280, dmg:425, cd:1.9, range:6.25, special:'crit', desc:'Bombs that can collapse for double.' },
-    { name:'Event Horizon', cost:350, dmg:0, cd:2.5, range:3.1, special:'blackhole', desc:'Rips 550 HP from everything nearby.' }
+    { name:"Gravity's Pull", cost:50, dmg:40, cd:1.0, range:3.9, special:null, desc:'Drags creeps back with splashing pulls.' },
+    { name:'Psi Emitter', cost:150, dmg:120, cd:1.0, range:5.5, special:null, desc:'Warp pulse — steady area damage that may slow or shove.' },
+    { name:'Collapsar', cost:280, dmg:70, cd:.35, range:5.0, special:null, desc:'Pulses splash damage extremely fast.' },
+    { name:'Singularity Mortar', cost:280, dmg:300, cd:1.4, range:6.25, special:null, desc:'Bombs that can collapse for double.' },
+    { name:'Event Horizon', cost:350, dmg:520, cd:1.6, range:4.5, special:'blackhole', desc:'Collapsing pulse: heavy area damage with a strong slow/shove chance.' }
   ]
 };
 const LASER_TOWER = { name:'Laser Cannon', cost:650, dmg:300, cd:.2, range:20, special:'laser', desc:'The forbidden capstone: crits, slows, and poisons at extreme speed.' };
@@ -815,16 +815,31 @@ function armorReduction(armor) { const k = armor * .06; return k / (1 + k); }
    and fortified; siege cracks fortified; storm is elite anti-air). Crystal
    and the Laser Cannon are chaos: full damage to everything, armor ignored. */
 const ATTACK_PROFILE = {
-  ice:{ label:'Magic', vs:{ light:1.25, heavy:1.25, fortified:.5 } },
-  fire:{ label:'Blast', vs:{ medium:1.25, heavy:1.25, fortified:.7 } },
-  earth:{ label:'Siege', vs:{ light:.75, fortified:1.6 } },
-  tech:{ label:'Pierce', vs:{ light:1.5, medium:1.15, heavy:.65, fortified:.35 } },
+  ice:{ label:'Frost', vs:{ light:1.15, heavy:1.25, fortified:.55 } },
+  fire:{ label:'Blast', vs:{ unarmored:1.25, medium:1.25, fortified:.65 } },
+  earth:{ label:'Siege', vs:{ light:.6, heavy:1.15, fortified:1.55 } },
+  tech:{ label:'Pierce', vs:{ unarmored:1.3, light:1.5, medium:1.1, heavy:.6, fortified:.4 } },
   crystal:{ label:'Chaos', chaos:true, vs:{} },
-  poison:{ label:'Venom', vs:{ unarmored:1.15, light:1.25, heavy:.75, fortified:.5 } },
-  stone:{ label:'Crush', vs:{ unarmored:.9, light:.75, heavy:1.15, fortified:1.6 } },
-  electricity:{ label:'Storm', vs:{ light:1.5, fortified:.6 }, air:1.3 },
-  gravity:{ label:'Warp', vs:{ medium:1.15, fortified:.85 } }
+  poison:{ label:'Venom', vs:{ unarmored:1.3, light:1.25, heavy:.75, fortified:.5 } },
+  stone:{ label:'Crush', vs:{ unarmored:.9, light:.65, heavy:1.2, fortified:1.5 } },
+  electricity:{ label:'Storm', vs:{ unarmored:1.1, light:1.4, medium:1.2, heavy:.85, fortified:.5 } },
+  gravity:{ label:'Warp', vs:{ light:.9, medium:1.15, heavy:1.2 } }
 };
+/* Per-builder identity tunables (the rework). */
+const TRAIT = {
+  hpScaleNeutral:1.5, hpScaleSend:1.35, armorBonus:2,
+  frostBase:50, frostMax:70, frostStep:1,
+  poisonPct:.03, poisonSlow:20, poisonDur:3, dotCap:16,
+  fireIgnitePct:.15, fireEruptMult:.5, fireEruptRadius:1.9,
+  earthSplashRadius:1.5, earthSplashMult:.65, earthStunDirect:.18, earthStunSplash:.1,
+  stoneCritChance:.25, stoneCritMult:2,
+  elecStasis:.15, elecStasisDur:.3,
+  thunderFloor:.75, thunderCap:.25,
+  crystalShieldMult:2,
+  gravSlowChance:.35, gravSlowPct:35, gravPushChance:.18, gravPushCD:4,
+  shieldRegenDelay:4
+};
+function isChaos(tower, stats) { return !!(ATTACK_PROFILE[tower.raceId] && ATTACK_PROFILE[tower.raceId].chaos) || tower.raceId === 'crystal' || stats.special === 'laser'; }
 function attackProfileText(raceId) {
   const p = ATTACK_PROFILE[raceId];
   if (!p) return '';
@@ -837,8 +852,8 @@ const specialBlurbs = {
   slow:'Hits slow the target 40% for 1.5s.', smallsplash:'Small splash for 40% nearby.', splash:'Splashes 50% in a wide ring.',
   meteor:'Falling blast; splashes 60% in a huge ring.', rocket:'Artillery blast; splashes 60% in a huge ring.',
   machinegun:'Fires continuously.', pause:'Stops the target cold for 3.5s (bosses resist).', frostnova:'Big frost splash that slows everything hit.',
-  crit:'15% chance to strike for double.', chain:'Chain lightning jumps to 3 extra creeps.', thunder:'Area pulse: −25% current HP (bosses resist).',
-  blackhole:'Area pulse: −550 HP to all nearby.', halve:'Halves the target’s current HP (bosses resist).', mind:'−30% of current HP (bosses resist).',
+  crit:'25% chance to strike for double (all Stone towers).', chain:'Chain lightning jumps to 3 extra creeps.', thunder:'Pulse: chips toward 75% max HP, strips shields, may stun.',
+  blackhole:'Gravity pulse: area damage, may slow or shove creeps back.', halve:'Halves the target’s current HP (bosses resist).', mind:'−30% of current HP (bosses resist).',
   paralyze:'Sets the target to 11 HP (bosses resist).', armorshred:'Strips 5 armor from the target.', ion:'+500 bonus damage while the target is above 500 HP.',
   laser:'Crits, slows, and poisons on every hit.'
 };
@@ -1001,26 +1016,34 @@ const WAVES = [
   { name:'Marauder', role:'standard', count:8, hp:160, spd:1.9, armor:3, aClass:'medium', bounty:1 },
   { name:'Drake Whelp', role:'air', count:6, hp:110, spd:2.2, armor:0, aClass:'light', bounty:2, air:true },
   { name:'Prowler', role:'runner', count:8, hp:265, spd:2.2, armor:3, aClass:'light', bounty:2 },
+  { name:'Sapper Swarm', role:'swarm', count:16, hp:70, spd:2.1, armor:1, aClass:'unarmored', bounty:1 },
   { name:'Tideskimmer', role:'runner', count:8, hp:325, spd:2.2, armor:4, aClass:'medium', bounty:2 },
   { name:'Rimeborn Brute', role:'standard', count:8, hp:375, spd:2.3, armor:5, aClass:'medium', bounty:2 },
   { name:'Fang Outrider', role:'runner', count:8, hp:400, spd:2.5, armor:7, aClass:'medium', bounty:2 },
+  { name:'Mossback Regenerator', role:'regenerator', count:7, hp:430, spd:2.1, armor:6, aClass:'medium', bounty:3 },
   { name:'Skimmer Craft', role:'armored', count:8, hp:450, spd:2.45, armor:7, aClass:'fortified', bounty:2 },
   { name:'Scrap Walker', role:'armored', count:8, hp:625, spd:2.3, armor:8, aClass:'fortified', bounty:2 },
   { name:'Glacier Basilisk', role:'runner', count:8, hp:782, spd:2.9, armor:10, aClass:'medium', bounty:2 },
   { name:'Imp Familiar', role:'standard', count:8, hp:900, spd:2.5, armor:10, aClass:'light', bounty:2 },
+  { name:'Aegis Runner', role:'shieldbearer', count:8, hp:720, spd:2.5, armor:6, aClass:'light', bounty:3 },
   { name:'Elder Drake', role:'air', count:6, hp:825, spd:2.9, armor:12, aClass:'light', bounty:3, air:true },
   { name:'Shardhide Golem', role:'armored', count:8, hp:1375, spd:2.7, armor:12, aClass:'heavy', bounty:3 },
   { name:'Undying Shade', role:'standard', count:8, hp:1300, spd:2.9, armor:14, aClass:'unarmored', bounty:3 },
   { name:'Siege Hauler', role:'armored', count:8, hp:1525, spd:2.8, armor:10, aClass:'fortified', bounty:3 },
+  { name:'Grove Warden', role:'warden', count:6, hp:1400, spd:2.4, armor:12, aClass:'heavy', bounty:4 },
   { name:'Risen Husk', role:'standard', count:8, hp:2125, spd:2.8, armor:10, aClass:'medium', bounty:3 },
   { name:'Idol Bearer', role:'armored', count:8, hp:2500, spd:3.0, armor:15, aClass:'heavy', bounty:4 },
+  { name:'Bulwark Juggernaut', role:'juggernaut', count:5, hp:2200, spd:2.6, armor:14, aClass:'heavy', bounty:6 },
   { name:'The Frost Tyrant', role:'boss', count:1, hp:45000, spd:2.6, armor:20, aClass:'heavy', bounty:150, lives:10, boss:true }
 ];
 const roleStyle = {
   standard:{ symbol:'•', size:7 }, runner:{ symbol:'➤', size:6.5 }, air:{ symbol:'▲', size:6.5 },
-  armored:{ symbol:'⬢', size:8 }, boss:{ symbol:'★', size:11 }
+  armored:{ symbol:'⬢', size:8 }, boss:{ symbol:'★', size:11 },
+  regenerator:{ symbol:'✚', size:7.5 }, shieldbearer:{ symbol:'⛨', size:7.5 },
+  juggernaut:{ symbol:'◆', size:10 }, warden:{ symbol:'⚕', size:7.5 }, swarm:{ symbol:'∴', size:5.5 }
 };
-const roleColors = { standard:'#ff9faf', runner:'#ffd27d', air:'#9fd8ff', armored:'#9fb6cf', boss:'#ff6b81' };
+const roleColors = { standard:'#ff9faf', runner:'#ffd27d', air:'#9fd8ff', armored:'#9fb6cf', boss:'#ff6b81',
+  regenerator:'#8fe6b8', shieldbearer:'#77d6ff', juggernaut:'#d9a441', warden:'#c9b6ff', swarm:'#ff9f6e' };
 
 /* Shrine send ladder (Wintermaul Wars): buy an attacker and one runs EACH
    lane of the rival half, permanently raising your income. HP, speed (WC3
@@ -1035,9 +1058,12 @@ const SENDS = [
   { id:'wolfrider', name:'Fang Outrider', symbol:'◈', cost:126, income:26, hp:400, spd:2.5, armor:7, aClass:'medium', shrine:1 },
   { id:'babydragon', name:'Drake Whelp', symbol:'▲', cost:40, income:8, hp:110, spd:2.2, armor:0, aClass:'light', air:true, shrine:1 },
   { id:'reptile', name:'Glacier Basilisk', symbol:'❄', cost:500, income:56, hp:782, spd:2.9, armor:10, aClass:'medium', shrine:2 },
+  { id:'regenerator', name:'Mossback', symbol:'✚', cost:620, income:70, hp:430, spd:2.1, armor:6, aClass:'medium', role:'regenerator', shrine:2 },
+  { id:'shieldbearer', name:'Aegis Runner', symbol:'⛨', cost:900, income:100, hp:720, spd:2.5, armor:6, aClass:'light', role:'shieldbearer', shrine:2 },
   { id:'spirit', name:'Undying Shade', symbol:'❖', cost:1590, income:180, hp:1300, spd:2.9, armor:14, aClass:'unarmored', shrine:2 },
   { id:'matureddragon', name:'Elder Drake', symbol:'▲', cost:800, income:90, hp:825, spd:2.9, armor:12, aClass:'light', air:true, shrine:2 },
   { id:'totem', name:'Idol Bearer', symbol:'⬢', cost:3995, income:450, hp:2500, spd:3.0, armor:15, aClass:'heavy', shrine:3 },
+  { id:'juggernaut', name:'Bulwark', symbol:'◆', cost:4600, income:520, hp:2200, spd:2.6, armor:14, aClass:'heavy', role:'juggernaut', shrine:3 },
   { id:'unholy', name:'Dread Knight', symbol:'♞', cost:5330, income:600, hp:2875, spd:3.1, armor:15, aClass:'heavy', shrine:3 },
   { id:'adultdragon', name:'Ancient Drake', symbol:'▲', cost:3200, income:360, hp:3000, spd:3.1, armor:20, aClass:'heavy', air:true, shrine:3 }
 ];
@@ -1288,14 +1314,25 @@ function refreshRouteDebug() {
 /* ---------------- Creeps ---------------- */
 function spawnCreep(waveDef, half, side, sent = false) {
   const spawn = SPAWNS[half][side];
+  const role = waveDef.role || 'standard';
+  const hpScale = waveDef.boss ? 1 : (sent ? TRAIT.hpScaleSend : TRAIT.hpScaleNeutral);
+  const jugg = role === 'juggernaut';
+  const baseHp = Math.round((waveDef.hp || 1) * hpScale * (jugg ? 2.4 : 1));
+  const spd = waveDef.spd * (jugg ? .6 : 1);
+  const armor = (waveDef.armor || 0) + (waveDef.boss ? 0 : TRAIT.armorBonus) + (jugg ? 4 : 0);
+  const aClass = jugg ? 'fortified' : (waveDef.aClass || 'medium');
+  const shieldMax = role === 'shieldbearer' ? Math.round(baseHp * .38) : 0;
+  const regen = role === 'regenerator' ? .02 : (role === 'warden' ? .01 : 0);
   const creep = {
-    id:creepSerial += 1, half, side, sent, role:waveDef.role || 'standard',
-    name:waveDef.name, hp:waveDef.hp, maxHp:waveDef.hp, spd:waveDef.spd, armor:waveDef.armor || 0,
-    aClass:waveDef.aClass || 'medium', air:Boolean(waveDef.air), boss:Boolean(waveDef.boss),
-    bounty:waveDef.bounty || 0, livesCost:waveDef.lives || 1,
+    id:creepSerial += 1, half, side, sent, role,
+    name:waveDef.name, hp:baseHp, maxHp:baseHp, spd, armor,
+    aClass, air:Boolean(waveDef.air), boss:Boolean(waveDef.boss),
+    bounty:Math.round((waveDef.bounty || 0) * (jugg ? 2.2 : 1) * (sent ? 1 : hpScale * .8 + .2)), livesCost:waveDef.lives || 1,
     x:spawn.c + .5, y:spawn.r + .5, cpIndex:0, path:null, pathStep:0, pathVersion:-1,
     state:'walk', blockTargetKey:null, attackClock:0,
-    slowUntil:0, stunUntil:0, poisonUntil:0, poisonDps:0, armorShred:0
+    slowUntil:0, slowPct:0, frostUntil:0, frostStacks:0, stunUntil:0, stasisUntil:0,
+    dots:[], armorShred:0, shield:shieldMax, shieldMax, shieldHitAt:0, regen,
+    fireCharge:0, pushUntil:0, healAura:role === 'warden'
   };
   if (!sent && half === PLAYER_HALF && spawningWaveIdx != null) {
     creep.waveIdx = spawningWaveIdx;
@@ -1352,11 +1389,28 @@ function nearestBlockingTower(creep) {
   return candidates[0] || null;
 }
 
+function pushDot(creep, dps, dur) {
+  if (!creep.dots) creep.dots = [];
+  creep.dots.push({ dps, until:simTime + dur });
+  if (creep.dots.length > TRAIT.dotCap) creep.dots.shift();
+}
 function updateCreep(creep, dt) {
   const now = simTime;
-  if (creep.poisonUntil > now && creep.poisonDps) applyDamage(creep, creep.poisonDps * dt, null, true);
+  // stacking damage-over-time (poison stacks + fire ignite) — bypasses armor, still hits shield
+  if (creep.dots && creep.dots.length) {
+    let dps = 0;
+    for (let i = creep.dots.length - 1; i >= 0; i -= 1) { if (creep.dots[i].until <= now) creep.dots.splice(i, 1); else dps += creep.dots[i].dps; }
+    if (dps) applyDamage(creep, dps * dt, null, true);
+  }
   if (creep.hp <= 0) return;
-  if (creep.stunUntil > now) return;
+  // shield refills after shieldRegenDelay seconds untouched (any damage, DoT included, resets it)
+  if (creep.shieldMax && creep.shield < creep.shieldMax && now - creep.shieldHitAt >= TRAIT.shieldRegenDelay) creep.shield = creep.shieldMax;
+  // HP regen — frozen by Frost slow and stuns, but NOT by Electricity stasis
+  const regenLocked = creep.frostUntil > now || creep.stunUntil > now;
+  if (creep.regen && !regenLocked && creep.hp < creep.maxHp) creep.hp = Math.min(creep.maxHp, creep.hp + creep.maxHp * creep.regen * dt);
+  // warden heals nearby friendly creeps a trickle
+  if (creep.healAura && !regenLocked) creeps.forEach((o) => { if (o !== creep && o.hp > 0 && o.half === creep.half && o.hp < o.maxHp && Math.hypot(o.x - creep.x, o.y - creep.y) <= 3) o.hp = Math.min(o.maxHp, o.hp + o.maxHp * .008 * dt); });
+  if (creep.stunUntil > now || creep.stasisUntil > now) return;
 
   if (creep.state === 'attack') {
     const tower = towers.get(creep.blockTargetKey);
@@ -1411,7 +1465,9 @@ function updateCreep(creep, dt) {
   }
 }
 function moveAlong(creep, node, dt) {
-  const speed = creep.spd * (creep.slowUntil > simTime ? .55 : 1);
+  const frostPct = creep.frostUntil > simTime ? Math.min(TRAIT.frostMax, TRAIT.frostBase + creep.frostStacks * TRAIT.frostStep) : 0;
+  const otherPct = creep.slowUntil > simTime ? (creep.slowPct || 0) : 0;
+  const speed = creep.spd * (1 - Math.min(80, Math.max(frostPct, otherPct)) / 100);
   const tx = node.c + .5, ty = node.r + .5;
   const dx = tx - creep.x, dy = ty - creep.y;
   const dist = Math.hypot(dx, dy) || 1;
@@ -1435,16 +1491,24 @@ function flagReached(half, side, flagIndex) {
 }
 
 /* ---------------- Damage & effects (WC3 armor formula + source-map specials) ---------------- */
-function applyDamage(creep, amount, tower, isDot = false) {
+function applyDamage(creep, amount, tower, isDot = false, opts) {
   if (creep.hp <= 0) return;
-  let dmg = amount;
+  let raw = amount;
+  // shields absorb first at raw value — armor and the matrix do NOT apply to the shield layer
+  if (creep.shield > 0 && !(opts && opts.bypassShield)) {
+    creep.shieldHitAt = simTime;
+    const sMult = tower && tower.raceId === 'crystal' ? TRAIT.crystalShieldMult : 1;
+    const sdmg = raw * sMult;
+    if (sdmg < creep.shield) { creep.shield -= sdmg; creep.hitAt = simTime; return; }
+    raw -= creep.shield / sMult; creep.shield = 0;
+    if (raw <= 0) { creep.hitAt = simTime; return; }
+  }
+  let dmg = raw;
   if (!isDot && tower) {
     const stats = towerLiveStats(tower);
     const profile = ATTACK_PROFILE[tower.raceId] || { vs:{} };
-    const chaos = Boolean(profile.chaos) || stats.special === 'laser';
-    if (!chaos) {
+    if (!isChaos(tower, stats)) {
       dmg *= profile.vs[creep.aClass] ?? 1;
-      if (creep.air && profile.air) dmg *= profile.air;
       const effectiveArmor = Math.max(0, creep.armor - creep.armorShred);
       dmg *= 1 - armorReduction(effectiveArmor);
     }
@@ -1474,13 +1538,30 @@ function applyDamage(creep, amount, tower, isDot = false) {
   }
 }
 function applyHitEffects(creep, tower, stats) {
-  const special = stats.special;
-  if (special === 'slow' || special === 'frostnova' || special === 'laser') { creep.slowUntil = Math.max(creep.slowUntil, simTime + 1.5); }
-  if (special === 'poison' || special === 'laser') {
-    creep.slowUntil = Math.max(creep.slowUntil, simTime + 1.2);
-    creep.poisonUntil = simTime + 3;
-    creep.poisonDps = Math.max(creep.poisonDps, stats.dmg * .35);
+  const special = stats.special, race = tower ? tower.raceId : null;
+  // FROST — ramping slow that also freezes HP regen
+  if (race === 'ice' && (special === 'slow' || special === 'frostnova')) {
+    creep.frostUntil = simTime + 1.6; creep.frostStacks = Math.min(30, (creep.frostStacks || 0) + 1);
   }
+  // POISON — 3% stacking DoT + a gentle slow (weaker than frost)
+  if (special === 'poison') {
+    pushDot(creep, stats.dmg * TRAIT.poisonPct, TRAIT.poisonDur);
+    creep.slowUntil = Math.max(creep.slowUntil, simTime + 1.2); creep.slowPct = Math.max(creep.slowPct || 0, TRAIT.poisonSlow);
+  }
+  // laser (crystal capstone) keeps a slow + light burn
+  if (special === 'laser') { creep.slowUntil = Math.max(creep.slowUntil, simTime + 1.2); creep.slowPct = Math.max(creep.slowPct || 0, 40); pushDot(creep, stats.dmg * .1, 2); }
+  // FIRE — 1st hit direct (done), 2nd ignites, 3rd erupts in an AoE
+  if (race === 'fire') {
+    creep.fireCharge = (creep.fireCharge || 0) + 1;
+    if (creep.fireCharge >= 2) pushDot(creep, stats.dmg * TRAIT.fireIgnitePct, 3);
+    if (creep.fireCharge >= 3) {
+      creep.fireCharge = 0;
+      effects.push({ kind:'impact', x:creep.x, y:creep.y, color:'#ff875f', big:true, until:simTime + .35 });
+      creeps.forEach((o) => { if (o !== creep && o.hp > 0 && o.half === creep.half && Math.hypot(o.x - creep.x, o.y - creep.y) <= TRAIT.fireEruptRadius) { applyDamage(o, stats.dmg * TRAIT.fireEruptMult, tower); pushDot(o, stats.dmg * TRAIT.fireIgnitePct, 3); } });
+    }
+  }
+  // ELECTRICITY — brief stasis (movement stops, regen continues)
+  if (race === 'electricity' && Math.random() < TRAIT.elecStasis) creep.stasisUntil = Math.max(creep.stasisUntil, simTime + TRAIT.elecStasisDur);
   if (special === 'pause' && !creep.boss) creep.stunUntil = simTime + 3.5;
   if (special === 'armorshred') creep.armorShred = Math.min(creep.armor, creep.armorShred + 5);
 }
@@ -1497,23 +1578,31 @@ function resolveProjectileHit(projectile) {
   const impactY = target && target.hp > 0 ? target.y : projectile.ty;
   const splash = splashSpec(stats.special);
   effects.push({ kind:'impact', x:impactX, y:impactY, color:stats.color, big:Boolean(splash && splash.radius > 1.5), until:simTime + .3 });
+  const isEarth = tower && tower.raceId === 'earth';
+  const isStone = tower && tower.raceId === 'stone';
   if (target && target.hp > 0) {
     let dmg = stats.dmg;
     let crit = false;
-    if ((stats.special === 'crit' || stats.special === 'laser') && Math.random() < .15) { dmg *= 2; crit = true; }
+    // STONE — every tower can crit
+    if (isStone && Math.random() < TRAIT.stoneCritChance) { dmg *= TRAIT.stoneCritMult; crit = true; }
     if (stats.special === 'ion' && target.hp > 500) dmg += 500;
     if (stats.special === 'halve' && !target.boss) target.hp = Math.max(1, target.hp * .5);
     if (stats.special === 'mind' && !target.boss) target.hp = Math.max(1, target.hp * .7);
     if (stats.special === 'paralyze' && !target.boss) { target.hp = Math.min(target.hp, 11); effects.push({ kind:'num', x:target.x, y:target.y - .6, text:'11!', until:simTime + .9, color:'#a9b3c6' }); }
     applyDamage(target, dmg, tower);
-    if (crit) effects.push({ kind:'num', x:target.x, y:target.y - .6, text:`${Math.round(dmg)}!`, until:simTime + .8, color:'#c48cff' });
+    if (crit) effects.push({ kind:'num', x:target.x, y:target.y - .6, text:`${Math.round(dmg)}!`, until:simTime + .8, color:'#e0b8ff' });
     applyHitEffects(target, tower, stats);
+    // EARTH — chance to stun the direct target (stun freezes HP regen)
+    if (isEarth && !target.boss && Math.random() < TRAIT.earthStunDirect) { target.stunUntil = Math.max(target.stunUntil, simTime + .5); effects.push({ kind:'num', x:target.x, y:target.y - .6, text:'✦', until:simTime + .6, color:'#ffd86b' }); }
   }
   if (splash) {
+    const rad = splash.radius * (isEarth ? TRAIT.earthSplashRadius : 1);
+    const mult = isEarth ? Math.max(splash.mult, TRAIT.earthSplashMult) : splash.mult;
     creeps.forEach((other) => {
-      if (other !== target && other.hp > 0 && other.half === projectile.half && Math.hypot(other.x - impactX, other.y - impactY) <= splash.radius) {
-        applyDamage(other, stats.dmg * splash.mult, tower);
-        if (stats.special === 'frostnova') other.slowUntil = Math.max(other.slowUntil, simTime + 1.5);
+      if (other !== target && other.hp > 0 && other.half === projectile.half && Math.hypot(other.x - impactX, other.y - impactY) <= rad) {
+        applyDamage(other, stats.dmg * mult, tower);
+        if (stats.special === 'frostnova' && tower.raceId === 'ice') { other.frostUntil = simTime + 1.6; other.frostStacks = Math.min(30, (other.frostStacks || 0) + 1); }
+        if (isEarth && !other.boss && Math.random() < TRAIT.earthStunSplash) other.stunUntil = Math.max(other.stunUntil, simTime + .1);
       }
     });
   }
@@ -1532,17 +1621,39 @@ function resolveProjectileHit(projectile) {
   }
 }
 /* Thunder Rod / Black Hole fire as area pulses centered on the tower. */
+function pushBackCreep(creep) {
+  // brutal: shove ~1.5 cells back along the route and re-target the previous checkpoint,
+  // so a passed flag must be crossed again. Per-creep cooldown stops a permanent lock.
+  if (creep.boss || simTime < creep.pushUntil) return;
+  creep.pushUntil = simTime + TRAIT.gravPushCD;
+  const goals = creepGoals(creep);
+  const prev = goals[Math.max(0, creep.cpIndex - 1)];
+  if (prev) {
+    const dx = (prev.c + .5) - creep.x, dy = (prev.r + .5) - creep.y, d = Math.hypot(dx, dy) || 1;
+    creep.x += dx / d * Math.min(d, 1.5); creep.y += dy / d * Math.min(d, 1.5);
+  }
+  if (creep.cpIndex > 0) creep.cpIndex -= 1;   // re-cross the previous flag/checkpoint
+  creep.path = null;
+  effects.push({ kind:'num', x:creep.x, y:creep.y - .5, text:'«', until:simTime + .6, color:'#c58fd8' });
+}
 function firePulse(tower, stats) {
   const cx = tower.c + .5, cy = tower.r + .5;
-  const radius = 6.25;
+  const isGravity = tower.raceId === 'gravity';
+  const radius = (isGravity || stats.special === 'thunder') ? Math.max(3, stats.range) : 6.25;
   const eligible = creeps.filter((creep) => creep.hp > 0 && halfOfRow(tower.r) === creep.half && Math.hypot(creep.x - cx, creep.y - cy) <= radius);
   if (!eligible.length) return false;
   effects.push({ kind:'pulse', x:cx, y:cy, radius, color:stats.color, until:simTime + .45 });
   eligible.forEach((creep) => {
-    // thunder shreds % HP (never lethal); blackhole deals flat damage — applyDamage owns the
-    // kill payout/kills bookkeeping, so we must NOT re-award here (that tripled bounty + kills)
-    if (stats.special === 'thunder') { if (!creep.boss) creep.hp = Math.max(1, creep.hp - creep.hp * .25); }
-    else applyDamage(creep, 550, tower, true);
+    if (stats.special === 'thunder') {
+      creep.shield = 0; creep.shieldHitAt = simTime;                       // strip shields
+      if (Math.random() < TRAIT.elecStasis) creep.stasisUntil = Math.max(creep.stasisUntil, simTime + TRAIT.elecStasisDur);
+      const floor = creep.maxHp * TRAIT.thunderFloor;                       // chip down to 75% max, ≤25% max per pulse
+      if (creep.hp > floor) creep.hp -= Math.min(creep.hp - floor, creep.maxHp * TRAIT.thunderCap);
+    } else if (isGravity) {
+      applyDamage(creep, stats.dmg, tower);                                 // Warp damage (respects matrix)
+      if (creep.hp > 0 && Math.random() < TRAIT.gravSlowChance) { creep.slowUntil = Math.max(creep.slowUntil, simTime + 1.4); creep.slowPct = Math.max(creep.slowPct || 0, TRAIT.gravSlowPct); }
+      if (creep.hp > 0 && Math.random() < TRAIT.gravPushChance) pushBackCreep(creep);
+    } else applyDamage(creep, stats.dmg || 550, tower, true);
   });
   return true;
 }
@@ -1573,7 +1684,7 @@ function updateTower(tower, dt) {
   tower.cooldown -= dt;
   if (tower.cooldown > 0) return;
   const stats = towerLiveStats(tower);
-  if (stats.special === 'thunder' || stats.special === 'blackhole') {
+  if (stats.special === 'thunder' || tower.raceId === 'gravity') {
     if (firePulse(tower, stats)) tower.cooldown = stats.cd;
     else tower.cooldown = .12;
     return;
@@ -2108,10 +2219,18 @@ function drawCreep(ctx, creep) {
     ctx.beginPath(); ctx.arc(0, wob * .4, size * .5, 0, Math.PI * 2); ctx.stroke();
     ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0, wob * .4 - size * .2, 1.3, 0, Math.PI * 2); ctx.fill();
   }
-  if (creep.poisonUntil > simTime) { ctx.fillStyle = '#a7e36e'; ctx.beginPath(); ctx.arc(size, -size, 2.4, 0, Math.PI * 2); ctx.fill(); }
-  if (creep.stunUntil > simTime) { ctx.fillStyle = '#ffd86b'; ctx.font = '8px "DM Mono", monospace'; ctx.fillText('✦', 0, -size - 6); }
-  // hp bar
+  // status pips: DoT (green), frost (cyan ring), regen (mint +), stasis/stun (gold ✦)
+  if (creep.dots && creep.dots.length) { ctx.fillStyle = '#a7e36e'; ctx.beginPath(); ctx.arc(size, -size, 2.4, 0, Math.PI * 2); ctx.fill(); }
+  if (creep.frostUntil > simTime) { ctx.strokeStyle = '#bfeaff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0, 0, size + 2.5, 0, Math.PI * 2); ctx.stroke(); }
+  if (creep.regen && creep.hp < creep.maxHp && !(creep.frostUntil > simTime) && !(creep.stunUntil > simTime)) { ctx.fillStyle = '#8fe6b8'; ctx.font = '700 8px "DM Mono", monospace'; ctx.textAlign = 'center'; ctx.fillText('✚', -size - 3, -size + 1); }
+  if (creep.stunUntil > simTime || creep.stasisUntil > simTime) { ctx.fillStyle = '#ffd86b'; ctx.font = '8px "DM Mono", monospace'; ctx.textAlign = 'center'; ctx.fillText('✦', 0, -size - 6); }
   const width = Math.max(16, size * 2.4);
+  // shield bar (cyan) sits just above the HP bar when present
+  if (creep.shieldMax) {
+    const sf = Math.max(0, creep.shield / creep.shieldMax);
+    ctx.fillStyle = '#0b1f38'; ctx.fillRect(-width / 2 - 1, -size - 12, width + 2, 3.4);
+    ctx.fillStyle = '#77d6ff'; ctx.fillRect(-width / 2, -size - 11.3, width * sf, 2.2);
+  }
   const frac = Math.max(0, creep.hp / creep.maxHp);
   ctx.fillStyle = '#1b0d18'; ctx.fillRect(-width / 2 - 1, -size - 8, width + 2, 4.5);
   ctx.fillStyle = frac > .5 ? '#8ee89f' : frac > .25 ? '#ffd86b' : '#ff8a9a';
