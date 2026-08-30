@@ -4156,7 +4156,7 @@ function mpMakeMqttTransport(code, onMessage, onOpen, onFail) {
     });
     client.on('error', () => { if (!opened) { onFail?.(); try { client.end(true); } catch (e) {} } });
     window.setTimeout(() => { if (!opened) { onFail?.(); try { client.end(true); } catch (e) {} } }, 8000);
-    return { kind:'online', send:(msg) => client.publish(topic, JSON.stringify({ ...msg, __from:mp.sid })), close:() => client.end(true) };
+    return { kind:'online', send:(msg) => client.publish(topic, JSON.stringify({ ...msg, __from:mp.sid }), { qos: msg.t === 'snap' ? 0 : 1 }), close:() => client.end(true) };
   };
   if (window.mqtt) return boot();
   return new Promise((resolve, reject) => {
@@ -4191,22 +4191,30 @@ function mpPlayerName() {
   if (name) { profile.name = name; saveProfile(); }
   return name;
 }
-function mpStartHelloLoop(name) {
-  // the guest knocks every 1.5s until the host answers (or we give up)
+function mpModeNow() { return document.getElementById('mode-select')?.value === 'classic' ? 'classic' : 'skirmish'; }
+function mpStartHelloLoop() {
+  // handshake heartbeat: BOTH sides re-affirm readiness until the match starts, so a single
+  // dropped config/ready over the lossy public relay can't strand one player.
   let tries = 0;
   window.clearInterval(mp.helloTimer);
-  mp.helloTimer = window.setInterval(() => {
+  const beat = () => {
     if (mp.started || !mp.transport) { window.clearInterval(mp.helloTimer); return; }
     tries += 1;
-    if (tries > 14) {
+    if (tries > 24) {
       window.clearInterval(mp.helloTimer);
-      mpStatus(`No host found for <b>${mp.code}</b>. Check the code, and make sure the host's room is still open on the same website address.`);
-      mpLeave();
+      if (mp.role === 'guest' && !mp.config) { mpStatus(`No host found for <b>${mp.code}</b>. Check the code — the host's room must be open on the same site.`); mpLeave(); }
       return;
     }
-    mpSend({ t:'hello', name, race:selectedRace.id });
-  }, 1500);
-  mpSend({ t:'hello', name, race:selectedRace.id });
+    if (mp.role === 'guest') {
+      if (!mp.config) mpSend({ t:'hello', name:mpPlayerName(), race:selectedRace.id });
+      else { mpSend({ t:'ready' }); }                                   // keep confirming ready until the host starts
+    } else if (mp.oppName) {                                            // host has seen a guest: keep re-offering config+ready
+      mpSend({ t:'config', name:mpPlayerName(), race:selectedRace.id, mode:mpModeNow(), lives:startingLives() });
+      mpSend({ t:'ready' });
+    }
+  };
+  mp.helloTimer = window.setInterval(beat, 1100);
+  beat();
 }
 async function mpOpenRoom(join) {
   const name = mpPlayerName();
@@ -4219,14 +4227,14 @@ async function mpOpenRoom(join) {
   mpStatus(join ? `Connecting to room <b>${code}</b>…` : `Opening room <b>${code}</b>…`);
   const useSupabase = Boolean(MP_CONFIG.url && MP_CONFIG.anonKey);
   const onOpen = () => {
-    if (join) { mpStatus(`Looking for the host of <b>${code}</b>…`); mpStartHelloLoop(name); }
+    if (join) { mpStatus(`Looking for the host of <b>${code}</b>…`); mpStartHelloLoop(); }
     else mpStatus(`Room <b>${code}</b> is open — your opponent can join from any device. Share the code!`);
   };
   const fallbackLocal = () => {
     if (mp.started) return;
     if (mp.transport) { try { mp.transport.close(); } catch (e) {} }
     mp.transport = mpMakeLocalTransport(code, mpOnMessage);
-    if (join) mpStartHelloLoop(name);
+    if (join) mpStartHelloLoop();
     mpStatus(`${join ? `Looking for the host of <b>${code}</b>` : `Room <b>${code}</b> open`} — <em>online relay unreachable, same-device mode only</em> (both windows on this computer).`);
   };
   try {
@@ -4242,9 +4250,10 @@ function mpOnMessage(msg) {
   if (msg.t === 'hello' && mp.role === 'host') {
     if (mp.started) return;   // repeated knocks are fine; answer again until the match starts
     mp.oppName = cleanName(msg.name); mp.oppRace = msg.race;
-    mpSend({ t:'config', name:mpPlayerName(), race:selectedRace.id, mode:document.getElementById('mode-select')?.value === 'classic' ? 'classic' : 'skirmish', lives:startingLives() });
+    mpSend({ t:'config', name:mpPlayerName(), race:selectedRace.id, mode:mpModeNow(), lives:startingLives() });
     mpStatus(`<b>${escapeHTML(mp.oppName)}</b> joined! Starting…`);
     mp.ready = true; mpSend({ t:'ready' });
+    if (!mp.helloTimer || true) mpStartHelloLoop();   // keep re-offering config+ready until both start
     mpMaybeStart();
   } else if (msg.t === 'config' && mp.role === 'guest') {
     window.clearInterval(mp.helloTimer);
