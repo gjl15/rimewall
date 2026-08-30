@@ -530,6 +530,22 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 .wisp-panel .wp-race.view { opacity:.5; }
 .wisp-panel .wp-card.view { opacity:.5; }
 
+/* flat wisp menu: top action row + send-info list */
+.wisp-panel .wp-tabs { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:9px; border-bottom:1px solid #22345c; padding-bottom:8px; }
+.wisp-panel .wp-tab { display:flex; flex-direction:column; align-items:center; gap:1px; min-width:34px; padding:6px 7px; border:1px solid #2c4a7a; border-radius:8px; background:#111a30; color:#bcd2ff; font-size:14px; }
+.wisp-panel .wp-tab i { font:700 7px 'DM Mono',monospace; font-style:normal; }
+.wisp-panel .wp-tab.on { border-color:#77d6ff; color:#eafcff; background:#77d6ff22; }
+.wisp-panel .wp-tab.poor { opacity:.45; }
+.wisp-panel .wp-tab.wp-x { margin-left:auto; }
+.wisp-panel .wp-sendlist { display:flex; flex-direction:column; gap:5px; max-height:30vh; overflow-y:auto; }
+.wisp-panel .wp-send { display:flex; align-items:center; gap:9px; padding:6px 8px; border:1px solid #22345c; border-radius:9px; background:#0b1a34; }
+.wisp-panel .wp-send.locked { opacity:.5; }
+.wisp-panel .ss-ico { font-size:16px; }
+.wisp-panel .ss-main { flex:1; min-width:0; } .wisp-panel .ss-main b { font:700 11px 'DM Mono',monospace; color:#eafcff; display:block; } .wisp-panel .ss-main small { font:500 8px 'DM Mono',monospace; color:#9fb0d4; }
+.wisp-panel .ss-cost { text-align:right; } .wisp-panel .ss-cost b { font:700 10px 'DM Mono',monospace; color:#ffd86b; display:block; } .wisp-panel .ss-cost i { font:600 8px 'DM Mono',monospace; font-style:normal; color:#8fe6b8; }
+.wisp-panel .ss-send { padding:6px 10px; border:1px solid #ff875f66; border-radius:8px; background:#2a1810; color:#ffcbb0; font:700 9px 'DM Mono',monospace; }
+.wisp-panel .ss-send:disabled { opacity:.4; }
+
 </style>
 </head>
 <body>
@@ -4541,65 +4557,49 @@ function renderCommandSheet() {
   });
 }
 function closeWispMenus() { $('wisp-radial')?.classList.add('hidden'); $('wisp-panel')?.classList.add('hidden'); }
-function openWispRadial() {
-  const wisp = $('wisp'), rad = $('wisp-radial');
-  if (!wisp || !rad) return;
-  $('wisp-panel').classList.add('hidden');
-  const cx = wisp.offsetLeft + 26, cy = wisp.offsetTop + 26;
-  const spokes = [
-    { icon:'⛫', label:'BUILD', rc:'#77d6ff', act:() => renderWispPanel('build') },
-    { icon:'🛠', label:'INSPECT', rc:'#ffd86b', act:() => renderWispPanel('inspect') },
-    { icon:'🪵', label:'LUMBER', rc:'#c6a269', act:() => { buyLumber(); }, keep:true },
-    { icon:'⛩', label:'SHRINE', rc:'#a7e36e', act:() => { upgradeShrine(); }, keep:true },
-    { icon:'🧭', label:'ROUTES', rc:'#8fe6b8', on:() => debug.routes, act:() => { debug.routes = !debug.routes; syncMapToggles(); } },
-    { icon:'◎', label:'RANGES', rc:'#77d6ff', on:() => debug.ranges, act:() => { debug.ranges = !debug.ranges; syncMapToggles(); } }
-  ];
-  const R = 66, N = spokes.length, base = -Math.PI / 2;
-  // fan the spokes toward the open side (away from screen edges)
-  const leftHalf = cx < window.innerWidth / 2;
-  rad.innerHTML = spokes.map((s, i) => {
-    const a = base + (i - (N - 1) / 2) * (Math.PI / (N + 1)) * (leftHalf ? -1 : 1) - (leftHalf ? Math.PI : 0);
-    const x = cx + Math.cos(a) * R, y = cy + Math.sin(a) * R;
-    return `<button style="--rc:${s.rc}; left:${x}px; top:${y}px" class="${s.on && s.on() ? 'on' : ''}" data-spoke="${i}">${s.icon}<i>${s.label}</i></button>`;
-  }).join('');
-  rad.classList.remove('hidden');
-  rad.querySelectorAll('[data-spoke]').forEach((b) => b.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const s = spokes[Number(b.dataset.spoke)];
-    s.act();
-    if (s.keep || s.on) { openWispRadial(); }   // re-render to reflect toggles; stay open
-    else rad.classList.add('hidden');
-  }));
-}
+let wispTab = 'build';
 function renderWispPanel(mode) {
   const wisp = $('wisp'), panel = $('wisp-panel');
   if (!wisp || !panel || !player) return;
-  $('wisp-radial').classList.add('hidden');
+  $('wisp-radial')?.classList.add('hidden');
+  wispTab = mode || wispTab || 'build';
   const raceId = currentBuildRaceId();
+  // top action row — the "flat bar above the wisp"
+  const tabBtn = (id, icon, label) => `<button class="wp-tab ${wispTab === id ? 'on' : ''}" data-wp-mode="${id}">${icon}<i>${label}</i></button>`;
+  const head = `<div class="wp-tabs">
+    ${tabBtn('build','⛫','Build')}${tabBtn('sends','⚔','Sends')}${tabBtn('inspect','🛠','Inspect')}
+    <button class="wp-tab ${player.gold < LUMBER_PRICE ? 'poor' : ''}" data-wp-do="lumber">🪵<i>${LUMBER_PRICE}g</i></button>
+    ${player.shrine < SHRINE_MAX ? `<button class="wp-tab ${player.lumber < 1 ? 'poor' : ''}" data-wp-do="shrine">⛩<i>L${player.shrine}</i></button>` : ''}
+    <button class="wp-tab ${debug.routes ? 'on' : ''}" data-wp-do="routes">🧭</button>
+    <button class="wp-tab ${debug.ranges ? 'on' : ''}" data-wp-do="ranges">◎</button>
+    <button class="wp-tab wp-x" data-wp-do="close">✕</button>
+  </div>`;
   let body = '';
-  if (mode === 'build') {
+  if (wispTab === 'build') {
     if (!panelRaceId) panelRaceId = currentBuildRaceId();
-    const owned = (player.races || []).includes(panelRaceId);
-    const viewId = panelRaceId;
+    const owned = (player.races || []).includes(panelRaceId), viewId = panelRaceId;
     const sd = towerDef(viewId, selectedTowerTier);
-    const raceRow = races.map((r) => {
-      const own = (player.races || []).includes(r.id);
-      return `<button class="wp-race ${r.id === viewId ? 'on' : ''} ${own ? '' : 'view'}" data-wp-race="${r.id}" style="--race:${r.color}" title="${r.name}${own ? '' : ' (preview — own it to build)'}">${r.symbol}</button>`;
-    }).join('');
-    body = `<div class="wp-head"><span>⛫ Build${owned ? ' — tap a tower, then the board' : ' — preview'}</span><button id="wp-close">✕</button></div>
-      <div class="wp-races">${raceRow}</div>
+    const raceRow = races.map((r) => `<button class="wp-race ${r.id === viewId ? 'on' : ''} ${(player.races||[]).includes(r.id) ? '' : 'view'}" data-wp-race="${r.id}" style="--race:${r.color}" title="${r.name}">${r.symbol}</button>`).join('');
+    body = `<div class="wp-races">${raceRow}</div>
       <div class="wp-grid">${towerListFor(viewId).map((def, tier) => `
         <button class="wp-card ${owned && tier === selectedTowerTier ? 'on' : ''} ${!owned ? 'view' : (player.gold < def.cost ? 'poor' : '')}" data-wp-tower="${tier}">
           <span>${towerDef(viewId, tier).symbol}</span><small>${def.name.split(' ')[0]}</small><b>${def.cost}g</b></button>`).join('')}</div>
-      <div class="wp-detail"><b>${sd.name} · ${sd.cost}g</b><br>${sd.dmg} dmg · ${(sd.dmg/sd.cd).toFixed(0)} dps · ${sd.range.toFixed(1)} rng · ${attackProfileText(viewId)}<br>${specialBlurbs[sd.special] || sd.desc || ''}${owned ? '' : '<br><i>Preview only — buy this as a 2nd element (lumber) to build it.</i>'}</div>`;
+      <div class="wp-detail"><b>${sd.name} · ${sd.cost}g</b><br>${sd.dmg} dmg · ${(sd.dmg/sd.cd).toFixed(0)} dps · ${sd.range.toFixed(1)} rng · ${attackProfileText(viewId)}<br>${specialBlurbs[sd.special] || sd.desc || ''}${owned ? '' : '<br><i>Preview — own this as a 2nd element (lumber) to build it.</i>'}</div>`;
+  } else if (wispTab === 'sends') {
+    body = `<div class="wp-sendlist">${SENDS.map((s) => {
+      const locked = player.shrine < s.shrine;
+      return `<div class="wp-send ${locked ? 'locked' : ''}"><span class="ss-ico">${s.air ? '🐉' : s.symbol}</span>
+        <div class="ss-main"><b>${s.name}</b><small>${s.hp} hp · ${s.armor||0} armor · spd ${s.spd}${s.air ? ' · AIR' : ''}${s.role && s.role!=='standard' ? ' · '+s.role : ''}</small></div>
+        <div class="ss-cost"><b>${s.cost}g</b><i>+${s.income}</i></div>
+        <button class="ss-send" data-ss-send="${s.id}" ${locked || player.gold < s.cost ? 'disabled' : ''}>${locked ? 'L'+s.shrine : 'Send'}</button></div>`;
+    }).join('')}</div><div class="wp-detail">Send stats before you commit. One-tap spamming lives on the bottom rail.</div>`;
   } else {
     const sel = selectionTowers().filter((t) => t.owner === 'player');
     const t0 = sel[0], stats = t0 ? towerLiveStats(t0) : null;
-    if (!t0) body = `<div class="wp-head"><span>🛠 Inspect</span><button id="wp-close">✕</button></div><div class="wp-detail">Tap one of your towers to inspect it.</div>`;
+    if (!t0) body = `<div class="wp-detail">Tap one of your towers on the board to inspect it here.</div>`;
     else {
       const up = towerTierUp(t0);
-      body = `<div class="wp-head"><span>🛠 ${sel.length>1?sel.length+'× ':''}${stats.name}${t0.level?(' +'+t0.level):''}</span><button id="wp-close">✕</button></div>
-        <div class="wp-detail"><b>${stats.dmg} dmg · ${(stats.dmg/stats.cd).toFixed(0)} dps · ${stats.range.toFixed(1)} rng</b><br>${attackProfileText(t0.raceId)}<br>${specialBlurbs[stats.special] || stats.desc || ''}${up?`<br><i>→ ${up.next.name}: ${up.next.dmg} dmg · ${up.next.range} rng (full ${up.cost}g)</i>`:'<br><i>max tier</i>'}</div>
+      body = `<div class="wp-detail"><b>${sel.length>1?sel.length+'× ':''}${stats.name}${t0.level?(' +'+t0.level):''}</b><br>${stats.dmg} dmg · ${(stats.dmg/stats.cd).toFixed(0)} dps · ${stats.range.toFixed(1)} rng<br>${attackProfileText(t0.raceId)}<br>${specialBlurbs[stats.special] || stats.desc || ''}${up?`<br><i>→ ${up.next.name}: ${up.next.dmg} dmg · ${up.next.range} rng (full ${up.cost}g)</i>`:'<br><i>max tier</i>'}</div>
         <div class="wp-actions">
           <button class="wp-act" data-wp-act="level">⬆ Level (${sel.filter((t)=>t.level<MAX_LEVEL).reduce((s,t)=>s+towerLevelCost(t),0)||'MAX'}g)</button>
           <button class="wp-act" data-wp-act="tier">⏫ Tier (${sel.filter((t)=>towerTierUp(t)).reduce((s,t)=>s+(towerTierUp(t)?.cost||0),0)}g)</button>
@@ -4608,21 +4608,34 @@ function renderWispPanel(mode) {
         </div>`;
     }
   }
-  panel.innerHTML = body;
-  // anchor the panel above the wisp, clamped on-screen
-  const pw = Math.min(300, window.innerWidth * .86);
+  panel.innerHTML = head + body;
+  const pw = Math.min(320, window.innerWidth * .9);
   let px = Math.min(window.innerWidth - pw - 8, Math.max(8, wisp.offsetLeft + 26 - pw / 2));
-  let py = Math.max(8, wisp.offsetTop - 8 - Math.min(window.innerHeight * .44, 260));
+  let py = Math.max(8, wisp.offsetTop - 8 - Math.min(window.innerHeight * .5, 300));
   panel.style.left = px + 'px'; panel.style.top = py + 'px'; panel.style.width = pw + 'px';
   panel.classList.remove('hidden');
-  $('wp-close')?.addEventListener('click', closeWispMenus);
+  // wiring
+  panel.querySelectorAll('[data-wp-mode]').forEach((b) => b.addEventListener('click', () => renderWispPanel(b.dataset.wpMode)));
+  panel.querySelectorAll('[data-wp-do]').forEach((b) => b.addEventListener('click', () => {
+    const d = b.dataset.wpDo;
+    if (d === 'close') return closeWispMenus();
+    if (d === 'lumber') buyLumber();
+    else if (d === 'shrine') upgradeShrine();
+    else if (d === 'routes') { debug.routes = !debug.routes; syncMapToggles(); }
+    else if (d === 'ranges') { debug.ranges = !debug.ranges; syncMapToggles(); }
+    renderWispPanel(wispTab);
+  }));
   panel.querySelectorAll('[data-wp-race]').forEach((b) => b.addEventListener('click', () => { panelRaceId = b.dataset.wpRace; renderWispPanel('build'); }));
   panel.querySelectorAll('[data-wp-tower]').forEach((b) => b.addEventListener('click', () => {
-    const owned = (player.races || []).includes(panelRaceId);
-    if (!owned) { log(`${races.find(r=>r.id===panelRaceId)?.name} is a preview — buy it as a 2nd element (lumber) to build it.`); return; }
+    if (!(player.races || []).includes(panelRaceId)) { log(`${races.find(r=>r.id===panelRaceId)?.name} is a preview — buy it as a 2nd element to build it.`); return; }
     const idx = (player.races || []).indexOf(panelRaceId); if (idx >= 0) buildRaceIdx = idx;
     selectedTowerTier = Number(b.dataset.wpTower); renderTowerList(); renderWispPanel('build');
     log(`${towerDef(currentBuildRaceId(), selectedTowerTier).name} armed — tap the board to place.`);
+  }));
+  panel.querySelectorAll('[data-ss-send]').forEach((b) => b.addEventListener('click', () => {
+    autoSend.last = b.dataset.ssSend;
+    document.querySelector(`[data-send="${b.dataset.ssSend}"]`)?.click();
+    renderWispPanel('sends');
   }));
   panel.querySelectorAll('[data-wp-act]').forEach((b) => b.addEventListener('click', () => { towerAction(b.dataset.wpAct); renderWispPanel('inspect'); }));
 }
@@ -4652,8 +4665,8 @@ function setupWisp() {
     if (wisp.classList.contains('wisp-docked')) { closeCommandSheet(); drag = null; return; }
     if (drag.moved) { profile.wispPos = { x:wisp.offsetLeft, y:wisp.offsetTop }; saveProfile(); }
     else if (document.body.classList.contains('arena')) {
-      const rad = $('wisp-radial');
-      if (rad.classList.contains('hidden')) openWispRadial(); else closeWispMenus();
+      const panel = $('wisp-panel');
+      if (panel.classList.contains('hidden')) renderWispPanel(wispTab || 'build'); else closeWispMenus();
     }
     else { const sheet = $('command-sheet'); sheet.classList.contains('hidden') ? openCommandSheet() : closeCommandSheet(); }
     drag = null;
