@@ -619,12 +619,9 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 /* HUD leak fix: let wave/threat shrink+truncate so YOU/RIVAL never push off the right */
 
 /* income toggle + rival income */
-.income-toggle { width:26px; height:26px; border:1px solid #2c4a7a; border-radius:7px; background:#111a30; color:#8fe6b8; font-size:13px; }
-.income-toggle.on { border-color:#8fe6b8; background:#0f2b1f; }
-.resource.income, .resource.rival-income { display:none; }
-body.show-incomes .resource.income { display:inline-flex; }
-body.show-incomes .resource.rival-income { display:inline-flex; }
-.resource.rival-income { color:#ff9faf; }
+.resource.income { color:#8fe6b8; }               /* your income: always shown */
+.resource.rival-income { color:#ff9faf; display:none; }   /* rival income: only in a live match */
+body.mp-live .resource.rival-income { display:inline-flex; }
 .resource.hidden { display:none; }
 
 /* arena top bar fits on a phone: crest + wave(+truncating threat) | gold · YOU · RIVAL */
@@ -636,8 +633,6 @@ body.show-incomes .resource.rival-income { display:inline-flex; }
 .arena .wave-threat .wt-tag, .arena .wave-threat .wt-arm { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:30vw; }
 .arena .resources { flex:0 0 auto; margin-left:auto; gap:6px; }
 .arena .resource.lumber { display:none; }                 /* lumber lives on the build bar */
-.arena.no-incomes .resource.income, .arena.no-incomes .resource.rival-income { display:none !important; }
-.arena .income-toggle { flex:0 0 auto; }
 /* pin the wisp to a fixed on-screen corner in arena (was floating half off-screen) */
 .arena .wisp { position:fixed; right:12px; bottom:calc(158px + env(safe-area-inset-bottom)); }
 
@@ -839,7 +834,7 @@ body.show-incomes .resource.rival-income { display:inline-flex; }
           <div class="resources">
             <span class="resource gold"><b>◆</b><em id="gold-label">30</em></span>
             <span class="resource lumber" title="Lumber — buys shrine upgrades, a second element, or a Laser Cannon"><b>🪵</b><em id="lumber-label">0</em></span>
-            <button id="income-toggle" class="income-toggle" title="Show incomes">↗</button><span class="resource income"><b>↗</b><em id="income-label">+33</em></span><span class="resource rival-income hidden"><b>↗R</b><em id="rival-income-label">+0</em></span>
+            <span class="resource income" title="Your send income per tick"><b>↗</b><em id="income-label">+33</em></span><span class="resource rival-income" title="Ally / rival income"><b>↗R</b><em id="rival-income-label">+0</em></span>
             <span class="resource lives" title="Your lifeforce"><b>♥ YOU</b><em id="lives-label">100</em></span>
             <span class="vs-mark">⚔</span>
             <span class="resource enemy" title="Rival lifeforce"><b id="rival-name-label">RIVAL</b><em id="enemy-lives-label">100</em></span>
@@ -1138,10 +1133,13 @@ terrain.set(baseTerrain);
    arrow) — then flag 1 (river corner), flag 2 (outer turn), flag 3 (return
    toward the middle), the final gate, and the ship. Flags are nodes 1–3. */
 const ROUTES = {
-  north:{ west:[{r:23,c:2},{r:19,c:4},{r:7,c:4},{r:7,c:12},{r:2,c:15},{r:0,c:15}], east:[{r:23,c:29},{r:19,c:27},{r:7,c:27},{r:7,c:19},{r:2,c:16},{r:0,c:16}] },
-  south:{ west:[{r:25,c:2},{r:29,c:4},{r:41,c:4},{r:41,c:12},{r:46,c:15},{r:48,c:15}], east:[{r:25,c:29},{r:29,c:27},{r:41,c:27},{r:41,c:19},{r:46,c:16},{r:48,c:16}] }
+  north:{ west:[{r:23,c:2},{r:7,c:4},{r:5,c:15},{r:2,c:15},{r:0,c:15}], east:[{r:23,c:29},{r:7,c:27},{r:5,c:15},{r:2,c:16},{r:0,c:16}] },
+  south:{ west:[{r:25,c:2},{r:41,c:4},{r:43,c:15},{r:46,c:15},{r:48,c:15}], east:[{r:25,c:29},{r:41,c:27},{r:43,c:15},{r:46,c:16},{r:48,c:16}] }
 };
-const FLAG_START = 1, FLAG_END = 4;   // ROUTES[..][..].slice(FLAG_START, FLAG_END) are the flags
+// Node 0 = river edge (creeps still sweep the full river), nodes 1-2 are the only FLAGS —
+// lane-bottom + a SHARED middle-base cell (both lanes cross the same center square, so it
+// renders as a single middle flag). Node 3 = gate, node 4 = ship. Same lane→bottom→middle path.
+const FLAG_START = 1, FLAG_END = 3;   // ROUTES[..][..].slice(FLAG_START, FLAG_END) are the flags
 const SPAWNS = { north:{ west:{r:23,c:15}, east:{r:23,c:16} }, south:{ west:{r:25,c:15}, east:{r:25,c:16} } };
 // Flags occupy exactly one square: only the flag's own cell is unbuildable.
 // Pathing stays forgiving because touching any adjacent cell satisfies a flag.
@@ -4586,7 +4584,7 @@ function applyUiMode() {
   if (vp) vp.style.touchAction = (arena || mapZoomScale > 1) ? 'none' : 'manipulation';
   const wisp = $('wisp');
   if (wisp) { wisp.classList.toggle('hidden', !battleRunning); if (arena && wisp.style.left) { const mx = window.innerWidth - 54, my = window.innerHeight - 54; const lx = parseInt(wisp.style.left), ty = parseInt(wisp.style.top); if (!(lx >= 0 && lx <= mx && ty >= 40 && ty <= my)) { wisp.style.left = ''; wisp.style.top = ''; wisp.style.right = ''; wisp.style.bottom = ''; } } }
-  document.body.classList.toggle('no-incomes', arena && !document.body.classList.contains('show-incomes'));
+  document.body.classList.toggle('mp-live', mp.active);   // rival income only shows in a live match
   const bar = $('command-bar');
   if (bar) { bar.classList.toggle('hidden', !arena); if (arena) renderCommandBar(); }
   const modeSel = $('ui-mode-select');
@@ -5119,12 +5117,6 @@ function openSettings() {
   m.classList.remove('hidden');
 }
 function closeSettings() { $('settings-modal')?.classList.add('hidden'); }
-$('income-toggle')?.addEventListener('click', () => {
-  const on = document.body.classList.toggle('show-incomes');
-  document.body.classList.toggle('no-incomes', !on);
-  $('income-toggle').classList.toggle('on', on);
-});
-if (!touchUI()) document.body.classList.add('show-incomes');   // desktop: incomes on; mobile: behind the ↗ toggle
 $('settings-open')?.addEventListener('click', openSettings);
 $('settings-open-hud')?.addEventListener('click', openSettings);
 $('settings-close')?.addEventListener('click', closeSettings);
