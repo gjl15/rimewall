@@ -617,12 +617,7 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 .arena .battle-main { min-width:0; }
 
 /* HUD leak fix: let wave/threat shrink+truncate so YOU/RIVAL never push off the right */
-.arena .match-state { flex:1 1 auto; min-width:0; overflow:hidden; }
-.arena .match-state #wave-label { flex:0 0 auto; }
-.arena .wave-threat { overflow:hidden; max-width:46vw; flex-wrap:nowrap; }
-.arena .wave-threat .wt-tag, .arena .wave-threat .wt-arm { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.arena .resources { flex:0 0 auto; margin-left:6px; gap:6px; }
-.arena .hud { overflow:visible; }
+
 /* income toggle + rival income */
 .income-toggle { width:26px; height:26px; border:1px solid #2c4a7a; border-radius:7px; background:#111a30; color:#8fe6b8; font-size:13px; }
 .income-toggle.on { border-color:#8fe6b8; background:#0f2b1f; }
@@ -631,6 +626,20 @@ body.show-incomes .resource.income { display:inline-flex; }
 body.show-incomes .resource.rival-income { display:inline-flex; }
 .resource.rival-income { color:#ff9faf; }
 .resource.hidden { display:none; }
+
+/* arena top bar fits on a phone: crest + wave(+truncating threat) | gold · YOU · RIVAL */
+.arena .hud { overflow:hidden; gap:6px; }
+.arena .match-state { display:flex; align-items:center; gap:5px; flex:1 1 auto; min-width:0; }
+.arena .match-state #wave-label { flex:0 0 auto; }
+.arena .match-state #timer-label { flex:0 0 auto; }
+.arena .wave-threat { flex:1 1 auto; min-width:0; overflow:hidden; flex-wrap:nowrap; }
+.arena .wave-threat .wt-tag, .arena .wave-threat .wt-arm { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:30vw; }
+.arena .resources { flex:0 0 auto; margin-left:auto; gap:6px; }
+.arena .resource.lumber { display:none; }                 /* lumber lives on the build bar */
+.arena.no-incomes .resource.income, .arena.no-incomes .resource.rival-income { display:none !important; }
+.arena .income-toggle { flex:0 0 auto; }
+/* pin the wisp to a fixed on-screen corner in arena (was floating half off-screen) */
+.arena .wisp { position:fixed !important; left:auto !important; top:auto !important; right:12px !important; bottom:calc(154px + env(safe-area-inset-bottom)) !important; }
 
 </style>
 </head>
@@ -4408,7 +4417,8 @@ function applyUiMode() {
   const vp = $('map-viewport');
   if (vp) vp.style.touchAction = (arena || mapZoomScale > 1) ? 'none' : 'manipulation';
   const wisp = $('wisp');
-  if (wisp) wisp.classList.toggle('hidden', !battleRunning);
+  if (wisp) { wisp.classList.toggle('hidden', !battleRunning); if (arena) { wisp.style.left = ''; wisp.style.top = ''; wisp.style.right = ''; wisp.style.bottom = ''; } }
+  document.body.classList.toggle('no-incomes', arena && !document.body.classList.contains('show-incomes'));
   const bar = $('command-bar');
   if (bar) { bar.classList.toggle('hidden', !arena); if (arena) renderCommandBar(); }
   const modeSel = $('ui-mode-select');
@@ -4936,9 +4946,10 @@ function openSettings() {
 function closeSettings() { $('settings-modal')?.classList.add('hidden'); }
 $('income-toggle')?.addEventListener('click', () => {
   const on = document.body.classList.toggle('show-incomes');
+  document.body.classList.toggle('no-incomes', !on);
   $('income-toggle').classList.toggle('on', on);
 });
-document.body.classList.add('show-incomes');   // incomes visible by default on desktop
+if (!touchUI()) document.body.classList.add('show-incomes');   // desktop: incomes on; mobile: behind the ↗ toggle
 $('settings-open')?.addEventListener('click', openSettings);
 $('settings-open-hud')?.addEventListener('click', openSettings);
 $('settings-close')?.addEventListener('click', closeSettings);
