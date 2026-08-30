@@ -2279,13 +2279,27 @@ function showMatchSummary(result, earnedBefore, prog = {}) {
     ${newBadges.length ? `<div class="summary-badges">${newBadges.map((a) => `<span>${a.icon} ${a.name}</span>`).join('')}</div>` : ''}
     ${matchGrades.length ? `<div class="summary-grades">${matchGrades.map((g) => `<span class="grade-${g}">${g}</span>`).join('')}</div>` : ''}
     <button id="summary-again" class="action-button summary-rematch">↻ Rematch</button>
-    <div class="summary-actions"><button id="summary-share" class="ghost-button">📸 Share</button><button id="summary-back" class="ghost-button">Change element</button></div>
+    <div class="summary-actions"><button id="summary-copy" class="ghost-button">🔗 Copy result</button><button id="summary-share" class="ghost-button">📸 Share</button><button id="summary-back" class="ghost-button">Change element</button></div>
   </div>`;
   $('summary-share').addEventListener('click', () => shareMatchCard(result));
+  $('summary-copy').addEventListener('click', async () => {
+    const text = shareResultText(result, prog.daily);
+    try { await navigator.clipboard.writeText(text); $('summary-copy').textContent = '✓ Copied!'; }
+    catch (e) { $('summary-copy').textContent = 'Copy failed'; }
+    track('share', { result, kind: 'text' });
+  });
   $('summary-again').addEventListener('click', () => { box.classList.add('hidden'); if (mp.active) mpLeave(); else pendingSeed = lastMatchSeed; startBattle(); });   // solo rematch replays the SAME seed — "I'll get it this time" is literally true
   $('summary-back').addEventListener('click', () => { box.classList.add('hidden'); if (mp.active) mpLeave(); battleRunning = false; matchOver = false; $('battle-screen').classList.add('hidden'); $('race-screen').classList.remove('hidden'); renderRaceCards(); });
 }
 
+function shareResultText(result, daily) {
+  // Wordle-style, spoiler-free: grades show HOW each wave went, not the ending
+  const emoji = { S:'🟩', A:'🟦', B:'🟨', C:'🟧' };
+  const grid = matchGrades.map((g) => emoji[g] || '⬛').join('');
+  const head = daily ? `🗓 Rimewall Daily · ${selectedRace.symbol} ${selectedRace.name}` : `${selectedRace.symbol} Rimewall · ${selectedRace.name}`;
+  const line = result === 'victory' ? '★ CLEARED all 20' : `Wave ${wave}/${WAVES.length}`;
+  return `${head}\n${line}\n${grid}\n▶ ${location.origin}${location.pathname}`;
+}
 async function shareMatchCard(result) {
   track('share', { result });
   const card = document.createElement('canvas');
