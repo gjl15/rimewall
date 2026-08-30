@@ -191,11 +191,11 @@ h2 span { color:#7583a6; }
 .debug-bar input { accent-color:#77d6ff; }
 .dbg-stats { margin-left:auto; color:#657293; letter-spacing:.03em; text-transform:none; }
 .map-toggles { position:absolute; left:12px; top:12px; z-index:30; display:flex; flex-direction:column; gap:6px; }
-.map-toggles button { width:40px; height:40px; padding:0; border:1px solid #17325a99; border-radius:10px; background:#9ce3d8ee; color:#17325a; font-size:17px; box-shadow:0 4px 12px #17325a33; }
+.map-toggles button { width:44px; height:44px; padding:0; border:1px solid #17325a99; border-radius:10px; background:#9ce3d8ee; color:#17325a; font-size:17px; box-shadow:0 4px 12px #17325a33; }
 .map-toggles button.on { background:#ffd86b; border-color:#8a6a12; box-shadow:0 0 0 2px #ffd86b66, 0 4px 12px #17325a33; }
-.wisp-undo { position:absolute; top:-9px; left:-9px; display:flex; align-items:center; justify-content:center; width:24px; height:24px; border:1.5px solid #ffd86b; border-radius:50%; background:#3a2a08; color:#ffd86b; font-size:13px; font-style:normal; box-shadow:0 0 10px #ffd86b99; animation:undo-pulse 1.1s ease-in-out infinite; }
+.wisp-undo { position:absolute; top:-14px; left:-14px; display:flex; align-items:center; justify-content:center; width:34px; height:34px; border:1.5px solid #ffd86b; border-radius:50%; background:#3a2a08; color:#ffd86b; font-size:13px; font-style:normal; box-shadow:0 0 10px #ffd86b99; animation:undo-pulse 1.1s ease-in-out infinite; }
 .wisp-undo.hidden { display:none; }
-.map-zoom-controls { position:absolute; right:12px; bottom:12px; z-index:30; display:flex; align-items:center; gap:4px; padding:5px; border:1px solid #17325a99; border-radius:10px; background:#9ce3d8ee; box-shadow:0 4px 12px #17325a33; }.map-zoom-controls button { min-width:38px; height:38px; padding:0 6px; border:0; border-radius:7px; color:#17325a; background:transparent; font:700 15px 'DM Mono',monospace; }.map-zoom-controls button:hover { background:#d8f6ef; }.map-zoom-controls span { min-width:37px; color:#17325a; font:700 8px 'DM Mono',monospace; text-align:center; }.map-zoom-controls button:last-child { min-width:38px; font-size:8px; text-transform:uppercase; }.zoom-hint { position:absolute; left:12px; bottom:15px; z-index:30; color:#17325a; font:700 8px 'DM Mono',monospace; letter-spacing:.08em; text-shadow:0 1px #d8f6ef; pointer-events:none; }
+.map-zoom-controls { position:absolute; right:12px; bottom:12px; z-index:30; display:flex; align-items:center; gap:8px; padding:5px; border:1px solid #17325a99; border-radius:10px; background:#9ce3d8ee; box-shadow:0 4px 12px #17325a33; }.map-zoom-controls button { min-width:44px; height:44px; padding:0 6px; border:0; border-radius:7px; color:#17325a; background:transparent; font:700 15px 'DM Mono',monospace; }.map-zoom-controls button:hover { background:#d8f6ef; }.map-zoom-controls span { min-width:37px; color:#17325a; font:700 8px 'DM Mono',monospace; text-align:center; }.map-zoom-controls button:last-child { min-width:44px; font-size:8px; text-transform:uppercase; }.zoom-hint { position:absolute; left:12px; bottom:15px; z-index:30; color:#17325a; font:700 8px 'DM Mono',monospace; letter-spacing:.08em; text-shadow:0 1px #d8f6ef; pointer-events:none; }
 .log-strip { display:flex; align-items:center; gap:10px; min-height:48px; margin-top:12px; padding:0 14px; border:1px solid #233150; border-radius:10px; color:#9ba7c4; font:11px 'DM Mono',monospace; background:#0d1424; }
 .command-panel { align-self:start; padding:18px; border:1px solid #2c3959; border-radius:15px; background:linear-gradient(160deg,#17213a,#0e1527); }
 .race-identity { gap:12px; padding-bottom:18px; border-bottom:1px solid #2a3858; }.big-rune { display:grid; place-items:center; width:48px; height:48px; border:1px solid var(--race,#77d6ff); border-radius:13px; color:var(--race,#77d6ff); background:#77d6ff12; font-size:25px; }.race-identity strong,.race-identity span:last-child { display:block; }.race-identity strong { margin-top:5px; font-size:18px; }.race-identity span:last-child { margin-top:3px; color:#8e9ab8; font-size:11px; }
@@ -510,7 +510,7 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 .wisp-panel { position:fixed; z-index:182; width:min(300px,86vw); max-height:44vh; overflow-y:auto; padding:12px; border:1px solid #34497a; border-radius:14px; background:#0d1424f7; box-shadow:0 12px 40px #000b; }
 .wisp-panel.hidden { display:none; }
 .wisp-panel .wp-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:9px; font:700 12px 'DM Mono',monospace; color:#eafcff; }
-.wisp-panel .wp-head button { width:26px; height:26px; border:1px solid #2c4a7a; border-radius:7px; background:#111a30; color:#bcd2ff; }
+.wisp-panel .wp-head button { width:36px; height:36px; border:1px solid #2c4a7a; border-radius:7px; background:#111a30; color:#bcd2ff; }
 .wisp-panel .wp-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; }
 .wisp-panel .wp-card { display:flex; flex-direction:column; align-items:center; gap:2px; padding:8px 4px; border:1.5px solid #2c4a7a; border-radius:10px; background:#111a30; color:#eafcff; }
 .wisp-panel .wp-card.on { border-color:#ffd86b; box-shadow:0 0 0 1.5px #ffd86b55; }
@@ -519,20 +519,20 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 .wisp-panel .wp-detail { margin-top:9px; padding:9px; border:1px solid #34497a; border-radius:10px; background:#0b1a34; font:500 10px/1.4 'DM Mono',monospace; color:#bcd2ff; }
 .wisp-panel .wp-detail b { color:#eafcff; font-size:11px; } .wisp-panel .wp-detail i { font-style:normal; color:#8fe6b8; }
 .wisp-panel .wp-actions { display:grid; grid-template-columns:repeat(2,1fr); gap:7px; margin-top:9px; }
-.wisp-panel .wp-act { padding:9px; border:1px solid #2c4a7a; border-radius:9px; background:#111a30; color:#eafcff; font:700 10px 'DM Mono',monospace; }
+.wisp-panel .wp-act { min-height:44px; padding:9px; border:1px solid #2c4a7a; border-radius:9px; background:#111a30; color:#eafcff; font:700 10px 'DM Mono',monospace; }
 /* slim send rail = the command-bar in arena when not staging a ghost */
 .command-bar.rail .bar-top { display:none; }
 .command-bar.rail .bar-content { min-height:56px; }
 
 .wisp-panel .wp-races { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px; }
-.wisp-panel .wp-race { width:30px; height:30px; border:1px solid #2c4a7a; border-radius:8px; background:#111a30; color:var(--race,#77d6ff); font-size:15px; }
+.wisp-panel .wp-race { width:40px; height:40px; border:1px solid #2c4a7a; border-radius:8px; background:#111a30; color:var(--race,#77d6ff); font-size:15px; }
 .wisp-panel .wp-race.on { border-color:var(--race); box-shadow:0 0 0 1.5px var(--race); }
 .wisp-panel .wp-race.view { opacity:.5; }
 .wisp-panel .wp-card.view { opacity:.5; }
 
 /* flat wisp menu: top action row + send-info list */
 .wisp-panel .wp-tabs { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:9px; border-bottom:1px solid #22345c; padding-bottom:8px; }
-.wisp-panel .wp-tab { display:flex; flex-direction:column; align-items:center; gap:1px; min-width:34px; padding:6px 7px; border:1px solid #2c4a7a; border-radius:8px; background:#111a30; color:#bcd2ff; font-size:14px; }
+.wisp-panel .wp-tab { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; min-width:40px; min-height:44px; padding:6px 7px; border:1px solid #2c4a7a; border-radius:8px; background:#111a30; color:#bcd2ff; font-size:14px; }
 .wisp-panel .wp-tab i { font:700 7px 'DM Mono',monospace; font-style:normal; }
 .wisp-panel .wp-tab.on { border-color:#77d6ff; color:#eafcff; background:#77d6ff22; }
 .wisp-panel .wp-tab.poor { opacity:.45; }
@@ -549,7 +549,7 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 /* two collapsible quick bars (build + send) */
 .command-bar { padding:0 0 env(safe-area-inset-bottom); }
 .cb-sub { border-top:1px solid #22345c; }
-.cb-handle { display:flex; align-items:center; justify-content:space-between; width:100%; padding:5px 14px; border:0; background:#0b1424; color:#bcd2ff; font:700 10px 'DM Mono',monospace; letter-spacing:.1em; }
+.cb-handle { display:flex; align-items:center; justify-content:space-between; width:100%; min-height:44px; padding:8px 14px; border:0; background:#0b1424; color:#bcd2ff; font:700 10px 'DM Mono',monospace; letter-spacing:.1em; }
 .cb-handle .cb-chev { transition:transform .15s; color:#77d6ff; }
 .cb-sub.collapsed .cb-chev { transform:rotate(-90deg); }
 
@@ -572,7 +572,7 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 
 /* wisp tools/util grid */
 .wisp-panel .wp-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:9px; font:700 12px 'DM Mono',monospace; color:#eafcff; }
-.wisp-panel .wp-head button { width:26px; height:26px; border:1px solid #2c4a7a; border-radius:7px; background:#111a30; color:#bcd2ff; }
+.wisp-panel .wp-head button { width:36px; height:36px; border:1px solid #2c4a7a; border-radius:7px; background:#111a30; color:#bcd2ff; }
 .wisp-panel .wp-util { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; }
 .wisp-panel .wp-u { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-height:48px; padding:7px 4px; border:1px solid #2c4a7a; border-radius:10px; background:#111a30; color:#eafcff; font-size:17px; }
 .wisp-panel .wp-u i { font:700 8px 'DM Mono',monospace; font-style:normal; letter-spacing:.04em; color:#bcd2ff; }
@@ -587,8 +587,8 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 .arena #push-wave-button, .arena #pause-button, .arena #restart-button, .arena #undo-slot { display:none !important; }
 
 
-.arena .map-zoom-controls { transform:scale(.82); transform-origin:bottom right; }
-.arena .map-toggles { transform:scale(.9); transform-origin:top left; }
+/* arena keeps full-size zoom controls (44px) — no shrink */
+/* arena keeps full-size map toggles (44px) — no shrink */
 /* detail popup shown on single tap, anchored above a card */
 .card-info { z-index:205; }
 
@@ -606,7 +606,7 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 
 /* pager arrows for the quick bars — fast tap paging */
 .cb-row { display:flex; align-items:stretch; }
-.cb-pager { flex:0 0 auto; width:26px; border:0; background:#0b1424; color:#77d6ff; font-size:18px; font-weight:700; }
+.cb-pager { flex:0 0 auto; width:42px; border:0; background:#0b1424; color:#77d6ff; font-size:18px; font-weight:700; }
 .cb-pager:active { background:#122040; }
 .cb-sub.collapsed .cb-row { display:none; }
 
@@ -3867,7 +3867,7 @@ function frameBody(now) {
     let acc = dt;
     while (acc > 0) { const step = Math.min(1 / 30, acc); simulate(step); acc -= step; }
     hudClock -= dt;
-    if (hudClock <= 0) { hudClock = .2; renderHud(); if (selectedTowerKey !== null) renderTowerDetails(); renderCommandSheet(); renderCommandBar(); }
+    if (hudClock <= 0) { hudClock = .2; renderHud(); if (selectedTowerKey !== null) renderTowerDetails(); renderCommandBar(); }   // renderHud already calls renderCommandSheet
   }
   if (!$('battle-screen').classList.contains('hidden')) {
     const viewport = $('map-viewport');
@@ -4610,6 +4610,16 @@ function renderCommandBar() {
   const raceId = currentBuildRaceId();
   const buildBody = $('cb-build-body'), sendBody = $('cb-send-body');
   if (!buildBody || !sendBody) return;
+  // Only rebuild the trays when their SHAPE changes; otherwise just refresh affordability.
+  // Rebuilding innerHTML every 200ms tick ate in-flight taps/drags and reset the card scroll.
+  // (selectedTowerTier is deliberately NOT in the signature — the tap handler toggles .on live,
+  //  so selecting a card never triggers a rebuild that would snap the carousel back to the start.)
+  const lastT = lastPlaced ? towers.get(lastPlaced.key) : null;
+  const sig = [raceId, ghost ? `g${ghost.r},${ghost.c}` : '', barBuildCollapsed ? 'bc' : '', barSendCollapsed ? 'sc' : '',
+    player.shrine, autoSend.on ? 'a' : '', matchMode, wager.tokens,
+    (lastT && underConstruction(lastT)) ? 'u' : '', towerListFor(raceId).length].join('|');
+  if (sig === barStructKey) { barRefreshAffordable(); return; }
+  barStructKey = sig;
   $('cb-build').classList.toggle('collapsed', barBuildCollapsed && !ghost);
   $('cb-send').classList.toggle('collapsed', barSendCollapsed);
   // ---- BUILD bar (or the ghost confirm while staging) ----
@@ -4621,8 +4631,6 @@ function renderCommandBar() {
     $('bar-ghost-build').addEventListener('click', () => { const c = { ...ghost }; ghost = null; buildAt(c); closeWispMenus(); renderCommandBar(); });
     $('bar-ghost-cancel').addEventListener('click', () => { ghost = null; renderCommandBar(); });
   } else if (!barBuildCollapsed) {
-    const sd = towerDef(raceId, selectedTowerTier);
-    const lastT = lastPlaced ? towers.get(lastPlaced.key) : null;
     const undoChip = (lastT && underConstruction(lastT)) ? `<button id="bar-undo" class="bar-card toggle-on"><span>↩</span><small>UNDO</small><b>+${lastT.invested}g</b></button>` : '';
     const econ = `<button id="cb-lumber" class="bar-card ${player.gold < LUMBER_PRICE ? 'poor' : ''}"><span>🪵</span><small>Lumber</small><b>${LUMBER_PRICE}g</b></button>${player.shrine < SHRINE_MAX ? `<button id="cb-shrine" class="bar-card ${player.lumber < 1 ? 'poor' : ''}"><span>⛩</span><small>Shrine L${player.shrine}</small><b>1🪵</b></button>` : `<span class="bar-card locked"><span>⛩</span><small>Shrine</small><b>MAX</b></span>`}`;
     buildBody.innerHTML = undoChip + econ + towerListFor(raceId).map((def, tier) => `
