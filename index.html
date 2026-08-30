@@ -665,6 +665,16 @@ body.mp-live .resource.rival-income { display:inline-flex; }
 #push-wave-button, .debug-bar { display:none; }
 body.dev #push-wave-button { display:inline-flex; }
 body.dev .debug-bar { display:flex; }
+.coach-card { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(176px + env(safe-area-inset-bottom)); z-index:190; width:min(94vw,440px); padding:14px 16px 10px; border:1.5px solid #77d6ff; border-radius:16px; background:linear-gradient(160deg,#0e2036f7,#0b1424f7); box-shadow:0 12px 40px #000b, 0 0 22px #77d6ff44; color:#eafcff; animation:coach-in .3s ease; }
+.coach-card.hidden { display:none; }
+@keyframes coach-in { from{opacity:0;transform:translate(-50%,10px)} to{opacity:1;transform:translate(-50%,0)} }
+.coach-body { font-size:14px; line-height:1.5; }
+.coach-body b { color:#77d6ff; }
+.coach-foot { display:flex; align-items:center; justify-content:space-between; margin-top:10px; }
+.coach-dots { display:flex; gap:5px; }
+.coach-dots i { width:6px; height:6px; border-radius:50%; background:#2c4a7a; }
+.coach-dots i.on { background:#ffd86b; box-shadow:0 0 6px #ffd86b99; }
+#coach-skip { min-height:36px; padding:7px 14px; border:1px solid #2c4a7a; border-radius:9px; background:#111a30; color:#bcd2ff; font:700 11px 'DM Mono',monospace; }
 
 </style>
 </head>
@@ -691,6 +701,7 @@ body.dev .debug-bar { display:flex; }
         <label class="set-toggle"><input type="checkbox" id="set-sound" checked> <span>Sound effects</span></label>
         <label class="set-toggle"><input type="checkbox" id="set-reduce"> <span>Reduce motion (calmer effects)</span></label>
         <div class="settings-sep"></div>
+        <button id="set-tutorial" class="ghost-button set-dev">🎓 Replay tutorial</button>
         <button id="set-resetmap" class="ghost-button set-dev">🗺 Restore default map</button>
         <button id="set-dev" class="ghost-button set-dev">DEV: unlock all elements</button>
       </div>
@@ -1511,6 +1522,7 @@ function questEvent(id, amount = 1, absolute = false) {
   if (typeof renderDailyQuests === 'function') renderDailyQuests();
 }
 function showWaveGrade(waveIdx, leaked) {
+  Coach.notify('waveClear');
   const grade = leaked === 0 ? 'S' : leaked <= 2 ? 'A' : leaked <= 5 ? 'B' : 'C';
   matchGrades.push(grade); if (matchGrades.length > 40) matchGrades.shift(); SFX.play('grade');
   if (grade === 'S') questEvent('s_hunter');
@@ -3484,7 +3496,7 @@ function renderSendPanel() {
     if (!battleRunning) return log('Start a match before sending.');
     if (player.shrine < send.shrine) return log(`${send.name} needs Shrine level ${send.shrine}.`);
     if (player.gold < send.cost) return log(`Not enough gold — ${send.name} costs ${send.cost}g.`);
-    player.gold -= send.cost; player.income += send.income; SFX.play('send');
+    player.gold -= send.cost; player.income += send.income; SFX.play('send'); Coach.notify('send');
     // one purchase sends a unit down BOTH rival lanes (over the wire in PvP)
     if (mp.active) mpSend({ t:'send', id:send.id });
     else {
@@ -3655,6 +3667,7 @@ function buildAt(cell) {
   const placed = makeTower(cell.r, cell.c, raceId, selectedTowerTier, 'player');
   placed.seq = ++buildSeq;
   addTower(placed);
+  Coach.notify('build');
   lastPlaced = { key, r:cell.r, c:cell.c, at:simTime, name:def.name, cost:def.cost };
   if (!touchUI()) { selectedTowerKey = key; selectedGroupKeys = [selectedTowerKey]; chipAutoHideAt = performance.now() + 2600; }
   creeps.forEach((creep) => { if (creep.half === PLAYER_HALF) creep.path = null; });
@@ -3976,6 +3989,37 @@ function frameBody(now) {
 }
 
 /* ---------------- Match controls ---------------- */
+/* ---- First-run onboarding: a lightweight, skippable coach that teaches
+   build -> maze -> send -> survive during the first solo match. Gated by
+   profile.onboarded so it plays exactly once. ---- */
+const Coach = {
+  active: false, idx: 0,
+  steps: [
+    { on:'build',     html:"👋 <b>Welcome, commander.</b> Your ship sits at the bottom — don't let creeps reach it.<br><b>Tap a cell on your half (below the river) to build your first tower.</b>" },
+    { on:'build3',    html:"Towers <b>block the path</b>, forcing creeps to weave. <b>Build 2–3 more</b> to bend the path into a maze — a longer path = more time to shoot." },
+    { on:'send',      html:"Now grow your economy. Open the <b>⚔ SEND bar</b> and send a creep at your rival — every send <b>permanently raises your income</b>." },
+    { on:'waveClear', html:"🌊 <b>Wave 1 is inbound.</b> Defend your ship — watch them wind through your maze." },
+    { on:'end',       html:"You've got it. ⚔ Enemies have <b>armor types</b>; your element hits some harder than others. Tap any tower or enemy to inspect. <b>Good luck, commander!</b>" },
+  ],
+  start() { if (profile.onboarded || mp.active || matchMode === 'classic') return; this.active = true; this.idx = 0; this.render(); },
+  notify(ev) {
+    if (!this.active) return;
+    const s = this.steps[this.idx]; if (!s) return;
+    const adv = (s.on === 'build' && ev === 'build') || (s.on === 'build3' && ev === 'build' && towers.size >= 3)
+      || (s.on === 'send' && ev === 'send') || (s.on === 'waveClear' && ev === 'waveClear');
+    if (adv) { this.idx += 1; if (this.idx >= this.steps.length) return this.finish(); this.render(); }
+  },
+  render() {
+    let el = document.getElementById('coach-card');
+    if (!el) { el = document.createElement('div'); el.id = 'coach-card'; el.className = 'coach-card'; document.body.appendChild(el); }
+    const s = this.steps[this.idx]; if (!s) return this.finish();
+    const last = s.on === 'end';
+    el.innerHTML = `<div class="coach-body">${s.html}</div><div class="coach-foot"><span class="coach-dots">${this.steps.map((_, i) => `<i class="${i === this.idx ? 'on' : ''}"></i>`).join('')}</span><button id="coach-skip">${last ? 'Got it ✓' : 'Skip'}</button></div>`;
+    el.classList.remove('hidden');
+    document.getElementById('coach-skip').onclick = () => this.finish();
+  },
+  finish() { this.active = false; profile.onboarded = true; saveProfile(); document.getElementById('coach-card')?.classList.add('hidden'); },
+};
 function startBattle() {
   $('match-summary')?.classList.add('hidden');
   try { localStorage.removeItem(SKETCH_KEY); } catch (e) {}   // clear any stuck applied-sketch from older builds
@@ -3997,6 +4041,7 @@ function startBattle() {
   if (rivalLabel && !mp.active) rivalLabel.textContent = 'RIVAL';
   renderHud();
   applyUiMode();
+  Coach.start();
   log(matchMode === 'classic'
     ? `Classic Wars vs the ${races.find((race) => race.id === enemy.raceId).name} rival: no neutral waves — build a maze, send attackers from the Shrine, and race their lifeforce to zero.`
     : `Match started vs the ${races.find((race) => race.id === enemy.raceId).name} rival. First wave in ${Math.ceil(waveClock)}s — place starter towers near the gate.`);
@@ -5237,6 +5282,7 @@ $('set-ranges')?.addEventListener('change', (e) => { debug.ranges = e.target.che
 $('set-reduce')?.addEventListener('change', (e) => { profile.reduceMotion = e.target.checked; saveProfile(); document.body.classList.toggle('reduce-motion', e.target.checked); });
 $('set-sound')?.addEventListener('change', (e) => { profile.sfxOff = !e.target.checked; saveProfile(); if (!profile.sfxOff) { SFX.unlock(); SFX.play('tap'); } });
 $('set-buildmode')?.addEventListener('change', (e) => { profile.buildMode = e.target.value; saveProfile(); ghost = null; barStructKey = ''; renderCommandBar(); log(e.target.value === 'confirm' ? 'Precision build: tap a cell, then ✓ to confirm.' : 'Quick build: tap a cell to place instantly.'); });
+$('set-tutorial')?.addEventListener('click', () => { profile.onboarded = false; saveProfile(); closeSettings(); if (battleRunning && !mp.active) Coach.start(); else showToast('<b>🎓 Tutorial reset</b><span>It will play on your next match.</span>'); });
 $('set-resetmap')?.addEventListener('click', () => {
   try { localStorage.removeItem(SKETCH_KEY); } catch (e) {}
   drawpadMarks = [];
