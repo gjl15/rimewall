@@ -610,6 +610,12 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 .cb-pager:active { background:#122040; }
 .cb-sub.collapsed .cb-row { display:none; }
 
+/* THREE LOCKED ZONES in arena: HUD top, map middle, command bars bottom */
+.arena .hud { position:fixed !important; top:0; left:0; right:0; z-index:170; border-radius:0; }
+.arena .battle-content { padding-top:56px; }   /* clear the fixed HUD so the map starts below it */
+.arena .command-bar { position:fixed; left:0; right:0; bottom:0; z-index:160; }
+.arena .battle-main { min-width:0; }
+
 </style>
 </head>
 <body>
