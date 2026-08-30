@@ -1,27 +1,20 @@
 {
-  "name": "Rimewall",
+  "id": "/rimewall/",
+  "name": "Rimewall — Frozen-River Tower Wars",
   "short_name": "Rimewall",
+  "description": "Build a maze, break theirs. A fast frozen-river tower-defense duel — play free in your browser.",
   "start_url": ".",
+  "scope": ".",
   "display": "standalone",
+  "orientation": "portrait",
+  "lang": "en",
+  "categories": ["games", "strategy"],
   "background_color": "#0b1020",
   "theme_color": "#0b1020",
   "icons": [
-    {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "icon-180.png",
-      "sizes": "180x180",
-      "type": "image/png"
-    }
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon-180.png", "sizes": "180x180", "type": "image/png" }
   ]
 }
