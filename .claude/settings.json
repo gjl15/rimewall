@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "git fetch origin --quiet 2>/dev/null; b=$(git rev-list --count HEAD..origin/main 2>/dev/null || echo 0); if [ \"${b:-0}\" -gt 0 ]; then printf '{\"systemMessage\":\"rimewall: this checkout is %s commit(s) behind origin/main. Run: git pull  (index.html is one 500KB+ file — a whole-file write from a stale copy deletes the other session'\"'\"'s work silently. See CLAUDE.md.)\"}' \"$b\"; fi",
+            "timeout": 20,
+            "statusMessage": "Checking rimewall is up to date..."
+          }
+        ]
+      }
+    ]
+  }
+}
