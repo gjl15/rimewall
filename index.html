@@ -564,6 +564,10 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 .wisp-panel .wp-learn .learn-row { display:flex; justify-content:space-between; gap:10px; padding:3px 0; border-bottom:1px dashed #17233d; }
 .wisp-panel .wp-inspect-ico { font-size:15px; margin-right:5px; }
 
+.wave-threat { display:inline-flex; flex-wrap:wrap; gap:5px; align-items:center; margin:0 4px; }
+.wave-threat .wt-arm { font:600 9px 'DM Mono',monospace; letter-spacing:.05em; text-transform:uppercase; color:#9fb0d4; border:1px solid #2c4a7a; border-radius:99px; padding:2px 7px; }
+.wave-threat .wt-tag { font:700 9px 'DM Mono',monospace; letter-spacing:.03em; color:#0b1020; background:#ffd86b; border-radius:99px; padding:2px 7px; }
+
 </style>
 </head>
 <body>
@@ -733,7 +737,7 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
       <section id="battle-screen" class="screen battle-screen hidden">
         <header class="hud">
           <div class="hud-brand"><svg class="crest-mark crest-sm" viewBox="0 0 48 48" width="22" height="22" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="crestG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bfeaff"/><stop offset="1" stop-color="#4aa3e0"/></linearGradient></defs><path d="M24 2 L42 11 V26 C42 37 34 44 24 46 C14 44 6 37 6 26 V11 Z" fill="#0d1f3a" stroke="url(#crestG)" stroke-width="2"/><g stroke="url(#crestG)" stroke-width="2.4" stroke-linecap="round"><path d="M24 12 V34 M14.5 18 L33.5 28 M33.5 18 L14.5 28"/></g><g stroke="#eafcff" stroke-width="1.3" stroke-linecap="round" opacity=".9"><path d="M24 15 l-2.4 2.6 M24 15 l2.4 2.6 M24 31 l-2.4 -2.6 M24 31 l2.4 -2.6"/></g></svg><span>RIMEWALL</span></div>
-          <div class="match-state"><span class="live-dot"></span><strong id="wave-label">WAVE 01</strong><span id="timer-label">00:30</span></div>
+          <div class="match-state"><span class="live-dot"></span><strong id="wave-label">WAVE 01</strong><span id="wave-threat" class="wave-threat"></span><span id="timer-label">00:30</span></div>
           <button id="push-wave-button" class="test-button" title="Testing shortcut: immediately start the next wave">Push wave</button>
           <button id="pause-button" class="test-button" aria-pressed="false">Pause</button>
           <button id="restart-button" class="test-button">Restart</button>
@@ -2991,6 +2995,14 @@ function renderHud() {
         const b = $('wave-banner');
         b.innerHTML = `<b>${waveStatLine(cur, curN)}${wave > WAVES.length ? ' · ENDLESS' : ''}</b><small>next: ${upcoming.name} · ${upcoming.aClass}${upcoming.air ? ' · air' : ''}</small>`;
         b.classList.remove('banner-fade'); void b.offsetWidth; b.classList.add('banner-fade');
+      }
+      // persistent threat chip in the HUD — always shows THIS wave's armor + special
+      const th = $('wave-threat');
+      if (th) {
+        const tags = waveTags(cur);
+        const icon = { 'AIR — flies over the maze':'🐦', 'JUGGERNAUT — very tanky, slow':'◆', 'REGEN — heals unless frozen':'✚', 'SHIELDED — burst it down':'⛨', 'WARDEN — heals its allies':'⚕', 'SWARM — many small':'∴' };
+        const chips = tags.map((t) => `${icon[t] || '⚠'} ${t.split(' —')[0]}`);
+        th.innerHTML = `<span class="wt-arm">${cur.aClass}${cur.boss ? ' · BOSS' : ''}</span>` + chips.map((c) => `<span class="wt-tag">${c}</span>`).join('');
       }
     }
     const clock = Math.max(0, Math.ceil(waveClock));
