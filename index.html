@@ -594,7 +594,7 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 
 /* single-bar top HUD in arena — more map space */
 .arena .hud { display:flex !important; flex-wrap:nowrap; grid-template-columns:none; align-items:center; gap:8px; padding:6px 10px; overflow:hidden; }
-.arena .hud-brand span { display:none; }
+
 .arena #settings-open-hud { display:none !important; }
 .arena .match-state { gap:6px; font-size:11px; flex:0 0 auto; }
 .arena .wave-threat { margin:0 2px; }
@@ -639,7 +639,16 @@ body.show-incomes .resource.rival-income { display:inline-flex; }
 .arena.no-incomes .resource.income, .arena.no-incomes .resource.rival-income { display:none !important; }
 .arena .income-toggle { flex:0 0 auto; }
 /* pin the wisp to a fixed on-screen corner in arena (was floating half off-screen) */
-.arena .wisp { position:fixed !important; left:auto !important; top:auto !important; right:12px !important; bottom:calc(154px + env(safe-area-inset-bottom)) !important; }
+.arena .wisp { position:fixed; right:12px; bottom:calc(158px + env(safe-area-inset-bottom)); }
+
+.summary-hook { margin:2px 0 10px; font:600 13px 'DM Mono',monospace; color:#ffd86b; text-align:center; }
+.summary-streak { margin:8px 0 0; font:600 11px 'DM Mono',monospace; color:#ff9f6e; text-align:center; }
+.summary-rematch { width:100%; margin-top:12px; font-size:15px; }
+
+/* clean arena top bar: crest + RIMEWALL on the left, gold + YOU/RIVAL on the right */
+.arena .hud-brand span { display:inline; font:800 13px 'DM Mono',monospace; letter-spacing:.06em; }
+.arena .match-state { display:none; }              /* wave/timer/threat shown on the river banner + threat chip stays there */
+.arena .resources { margin-left:auto; flex:0 0 auto; gap:7px; }
 
 </style>
 </head>
@@ -656,6 +665,11 @@ body.show-incomes .resource.rival-income { display:inline-flex; }
           <select id="set-uimode"><option value="auto">Auto (detect device)</option><option value="touch">Touch / mobile</option><option value="desktop">Desktop / mouse</option></select>
         </label>
         <p class="set-hint">Touch shows the bottom command bar; desktop shows the side panel and the action ring.</p>
+        <label class="set-row">
+          <span>Build mode</span>
+          <select id="set-buildmode"><option value="quick">Quick — tap to place</option><option value="confirm">Precision — confirm with ✓</option></select>
+        </label>
+        <p class="set-hint">Quick builds the instant you tap a cell (cancel during construction for a full refund). Precision stages a ghost you confirm — fewer misplacements.</p>
         <label class="set-toggle"><input type="checkbox" id="set-routes"> <span>Show creep routes</span></label>
         <label class="set-toggle"><input type="checkbox" id="set-ranges"> <span>Show tower ranges</span></label>
         <label class="set-toggle"><input type="checkbox" id="set-sound" checked> <span>Sound effects</span></label>
@@ -1337,7 +1351,7 @@ window.addEventListener('pointerdown', () => SFX.unlock(), { once:false });
 function loadProfile() {
   try { profile = JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null') || {}; } catch (error) { profile = {}; }
   profile.matches = profile.matches || 0;
-  profile.wins = profile.wins || 0;
+  profile.wins = profile.wins || 0; profile.streak = profile.streak || 0; profile.bestStreak = profile.bestStreak || 0;
   profile.bestWave = profile.bestWave || 0;
   profile.totalKills = profile.totalKills || 0;
   profile.dragonsSent = profile.dragonsSent || 0;
@@ -2096,10 +2110,11 @@ function endMatch(result) {
   const earnedBefore = Object.keys(profile.achievements).length;
   profile.matches += 1;
   if (result === 'victory') {
-    profile.wins += 1; award('first_win');
+    profile.wins += 1; profile.streak += 1; profile.bestStreak = Math.max(profile.bestStreak, profile.streak); award('first_win');
     questEvent('win_any');
     if (selectedRace.id === raceOfDay().id) questEvent('race_day');
   }
+  if (result !== 'victory') profile.streak = 0;
   profile.bestWave = Math.max(profile.bestWave, wave);
   saveProfile();
   showMatchSummary(result, earnedBefore);
@@ -2112,15 +2127,22 @@ function showMatchSummary(result, earnedBefore) {
   const earnedNow = Object.entries(profile.achievements).sort((a, b) => b[1] - a[1]).slice(0, Math.max(0, Object.keys(profile.achievements).length - earnedBefore));
   const newBadges = earnedNow.map(([id]) => ACHIEVEMENTS.find((a) => a.id === id)).filter(Boolean);
   box.classList.remove('hidden');
+  const total = WAVES.length;
+  const hook = result === 'victory'
+    ? (profile.streak > 1 ? `🔥 ${profile.streak}-win streak!` : 'Flawless commander.')
+    : (wave >= total ? 'The Frost Tyrant fell — so close!' : (wave >= total - 3 ? `So close — wave ${wave}/${total}. One more run?` : (wave >= total * .6 ? `Wave ${wave}/${total}. You had the maze — go again.` : `Wave ${wave}/${total}. Rebuild and push further.`)));
   box.innerHTML = `<div class="summary-card">
     <h3>${result === 'victory' ? '★ VICTORY' : '☠ DEFEAT'}</h3>
+    <p class="summary-hook">${hook}</p>
     <div class="summary-grid">
-      <span>Waves<b>${wave}</b></span><span>Kills<b>${player.kills}</b></span>
+      <span>Waves<b>${wave}/${total}</b></span><span>Kills<b>${player.kills}</b></span>
       <span>Send income<b>+${player.income}</b></span><span>Lifeforce<b>${player.lives} : ${enemy.lives}</b></span>
     </div>
+    ${(profile.streak > 1 || profile.bestStreak > 1) ? `<p class="summary-streak">🔥 streak ${profile.streak} · best ${profile.bestStreak} · ${profile.wins} wins</p>` : ''}
     ${newBadges.length ? `<div class="summary-badges">${newBadges.map((a) => `<span>${a.icon} ${a.name}</span>`).join('')}</div>` : ''}
     ${matchGrades.length ? `<div class="summary-grades">${matchGrades.map((g) => `<span class="grade-${g}">${g}</span>`).join('')}</div>` : ''}
-    <div class="summary-actions"><button id="summary-share" class="ghost-button">📸 Share</button><button id="summary-again" class="action-button">Play again</button><button id="summary-back" class="ghost-button">Change race</button></div>
+    <button id="summary-again" class="action-button summary-rematch">↻ Rematch</button>
+    <div class="summary-actions"><button id="summary-share" class="ghost-button">📸 Share</button><button id="summary-back" class="ghost-button">Change element</button></div>
   </div>`;
   $('summary-share').addEventListener('click', () => shareMatchCard(result));
   $('summary-again').addEventListener('click', () => { box.classList.add('hidden'); if (mp.active) mpLeave(); startBattle(); });
@@ -3454,7 +3476,14 @@ function handleBoardTap(event) {
   if (!isPlayerBuildRow(cell.r)) return log('That is the rival half. Build on your half — south of the river.');
   if (protectedCells.has(key)) return log('Route flags and gates are protected. Maze around them.');
   if (creeps.some((creep) => creep.hp > 0 && Math.floor(creep.x) === cell.c && Math.floor(creep.y) === cell.r)) return log('A creep is standing there — wait for it to pass.');
-  // ghost flow: tap stages; tapping another cell MOVES the ghost; same cell (or ✓) builds; ✖ dismisses
+  // Quick build: a tap on a clear cell builds immediately (undo/cancel grace makes mistakes cheap)
+  if (buildMode() === 'quick' && !ghost) {
+    buildAt(cell);
+    closeWispMenus();
+    barStructKey = ''; renderCommandBar();
+    return;
+  }
+  // Precision (advanced): tap stages a ghost; tapping another cell MOVES it; ✓ builds, ✖ dismisses
   if (ghost && (ghost.r !== cell.r || ghost.c !== cell.c)) { ghost = { r:cell.r, c:cell.c }; barStructKey = ''; renderCommandBar(); return; }
   if (!ghost) {
     ghost = { r:cell.r, c:cell.c };
@@ -4451,6 +4480,7 @@ function drawOpponentMirror(ctx) {
    Tapping YOUR shrine on the board opens the send commands — as the original
    map did with its Shrine command card. */
 function uiMode() { return profile.uiMode || 'auto'; }
+function buildMode() { return profile.buildMode || 'quick'; }   // 'quick' = tap/drag builds instantly; 'confirm' = stage a ghost, confirm with ✓
 function touchUI() {
   const mode = uiMode();
   if (mode === 'touch') return true;
@@ -4467,7 +4497,7 @@ function applyUiMode() {
   const vp = $('map-viewport');
   if (vp) vp.style.touchAction = (arena || mapZoomScale > 1) ? 'none' : 'manipulation';
   const wisp = $('wisp');
-  if (wisp) { wisp.classList.toggle('hidden', !battleRunning); if (arena) { wisp.style.left = ''; wisp.style.top = ''; wisp.style.right = ''; wisp.style.bottom = ''; } }
+  if (wisp) { wisp.classList.toggle('hidden', !battleRunning); if (arena && wisp.style.left) { const mx = window.innerWidth - 54, my = window.innerHeight - 54; const lx = parseInt(wisp.style.left), ty = parseInt(wisp.style.top); if (!(lx >= 0 && lx <= mx && ty >= 40 && ty <= my)) { wisp.style.left = ''; wisp.style.top = ''; wisp.style.right = ''; wisp.style.bottom = ''; } } }
   document.body.classList.toggle('no-incomes', arena && !document.body.classList.contains('show-incomes'));
   const bar = $('command-bar');
   if (bar) { bar.classList.toggle('hidden', !arena); if (arena) renderCommandBar(); }
@@ -4571,10 +4601,15 @@ function wireTowerCard(card) {
     showCardInfo(towerDef(currentBuildRaceId(), tier), currentBuildRaceId(), card);
     if (dy < -30 && Math.abs(dy) > Math.abs(dx)) {
       const cell = cellFromEvent(event);
-      if (cell && terrainAt(cell.r, cell.c) === T.FLOOR && isPlayerBuildRow(cell.r) && !towers.has(idx(cell.r, cell.c))) {
-        ghost = { r:cell.r, c:cell.c }; selectedTowerKey = null; selectedGroupKeys = [];
-        hideCardInfo(); barStructKey = ''; renderCommandBar();
-        log(`${towerDef(currentBuildRaceId(), tier).name} staged — ✓ builds, ✖ cancels.`);
+      if (cell && terrainAt(cell.r, cell.c) === T.FLOOR && isPlayerBuildRow(cell.r) && !towers.has(idx(cell.r, cell.c)) && !protectedCells.has(idx(cell.r, cell.c))) {
+        if (buildMode() === 'confirm') {
+          ghost = { r:cell.r, c:cell.c }; selectedTowerKey = null; selectedGroupKeys = [];
+          hideCardInfo(); barStructKey = ''; renderCommandBar();
+          log(`${towerDef(currentBuildRaceId(), tier).name} staged — ✓ builds, ✖ cancels.`);
+        } else {
+          ghost = null; hideCardInfo(); buildAt(cell);   // drag-to-deploy: build immediately
+          barStructKey = ''; renderCommandBar();
+        }
       }
     }
   });
@@ -4991,6 +5026,7 @@ function openSettings() {
   $('set-ranges').checked = !!debug.ranges;
   $('set-reduce').checked = !!profile.reduceMotion;
   const snd = $('set-sound'); if (snd) snd.checked = !profile.sfxOff;
+  const bm = $('set-buildmode'); if (bm) bm.value = buildMode();
   $('set-dev').textContent = profile.devUnlockAll ? 'DEV: relock elements' : 'DEV: unlock all elements';
   m.classList.remove('hidden');
 }
@@ -5010,6 +5046,7 @@ $('set-routes')?.addEventListener('change', (e) => { debug.routes = e.target.che
 $('set-ranges')?.addEventListener('change', (e) => { debug.ranges = e.target.checked; syncMapToggles(); barStructKey = ''; renderCommandBar(); });
 $('set-reduce')?.addEventListener('change', (e) => { profile.reduceMotion = e.target.checked; saveProfile(); document.body.classList.toggle('reduce-motion', e.target.checked); });
 $('set-sound')?.addEventListener('change', (e) => { profile.sfxOff = !e.target.checked; saveProfile(); if (!profile.sfxOff) { SFX.unlock(); SFX.play('tap'); } });
+$('set-buildmode')?.addEventListener('change', (e) => { profile.buildMode = e.target.value; saveProfile(); ghost = null; barStructKey = ''; renderCommandBar(); log(e.target.value === 'confirm' ? 'Precision build: tap a cell, then ✓ to confirm.' : 'Quick build: tap a cell to place instantly.'); });
 $('set-resetmap')?.addEventListener('click', () => {
   try { localStorage.removeItem(SKETCH_KEY); } catch (e) {}
   drawpadMarks = [];
