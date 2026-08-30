@@ -499,6 +499,37 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 .bar-detail span { font:500 9px/1.3 'DM Mono',monospace; color:#bcd2ff; }
 .bar-detail i { font-style:normal; font:600 9px 'DM Mono',monospace; color:#8fe6b8; }
 
+/* ---- UI #10: wisp radial + floating panel + slim send rail ---- */
+.wisp-radial { position:fixed; z-index:181; width:0; height:0; pointer-events:none; }
+.wisp-radial.hidden { display:none; }
+.wisp-radial button { position:absolute; width:50px; height:50px; margin:-25px 0 0 -25px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; border-radius:50%; border:2px solid var(--rc,#77d6ff); background:#0d1424f4; color:var(--rc,#77d6ff); font-size:17px; pointer-events:auto; box-shadow:0 4px 14px #000a; animation:radial-pop .18s ease both; }
+.wisp-radial button i { font:700 7px 'DM Mono',monospace; font-style:normal; letter-spacing:.03em; color:#cfe0ff; }
+.wisp-radial button.on { background:#173a2b; border-color:#8fe6b8; color:#8fe6b8; }
+.wisp-radial button:active { transform:scale(.9); }
+@keyframes radial-pop { from { opacity:0; transform:scale(.4); } to { opacity:1; transform:scale(1); } }
+.wisp-panel { position:fixed; z-index:182; width:min(300px,86vw); max-height:44vh; overflow-y:auto; padding:12px; border:1px solid #34497a; border-radius:14px; background:#0d1424f7; box-shadow:0 12px 40px #000b; }
+.wisp-panel.hidden { display:none; }
+.wisp-panel .wp-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:9px; font:700 12px 'DM Mono',monospace; color:#eafcff; }
+.wisp-panel .wp-head button { width:26px; height:26px; border:1px solid #2c4a7a; border-radius:7px; background:#111a30; color:#bcd2ff; }
+.wisp-panel .wp-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; }
+.wisp-panel .wp-card { display:flex; flex-direction:column; align-items:center; gap:2px; padding:8px 4px; border:1.5px solid #2c4a7a; border-radius:10px; background:#111a30; color:#eafcff; }
+.wisp-panel .wp-card.on { border-color:#ffd86b; box-shadow:0 0 0 1.5px #ffd86b55; }
+.wisp-panel .wp-card.poor { opacity:.45; }
+.wisp-panel .wp-card span { font-size:18px; } .wisp-panel .wp-card small { font:700 8px 'DM Mono',monospace; } .wisp-panel .wp-card b { font:700 9px 'DM Mono',monospace; color:#ffd86b; }
+.wisp-panel .wp-detail { margin-top:9px; padding:9px; border:1px solid #34497a; border-radius:10px; background:#0b1a34; font:500 10px/1.4 'DM Mono',monospace; color:#bcd2ff; }
+.wisp-panel .wp-detail b { color:#eafcff; font-size:11px; } .wisp-panel .wp-detail i { font-style:normal; color:#8fe6b8; }
+.wisp-panel .wp-actions { display:grid; grid-template-columns:repeat(2,1fr); gap:7px; margin-top:9px; }
+.wisp-panel .wp-act { padding:9px; border:1px solid #2c4a7a; border-radius:9px; background:#111a30; color:#eafcff; font:700 10px 'DM Mono',monospace; }
+/* slim send rail = the command-bar in arena when not staging a ghost */
+.command-bar.rail .bar-top { display:none; }
+.command-bar.rail .bar-content { min-height:56px; }
+
+.wisp-panel .wp-races { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px; }
+.wisp-panel .wp-race { width:30px; height:30px; border:1px solid #2c4a7a; border-radius:8px; background:#111a30; color:var(--race,#77d6ff); font-size:15px; }
+.wisp-panel .wp-race.on { border-color:var(--race); box-shadow:0 0 0 1.5px var(--race); }
+.wisp-panel .wp-race.view { opacity:.5; }
+.wisp-panel .wp-card.view { opacity:.5; }
+
 </style>
 </head>
 <body>
@@ -521,6 +552,8 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
         <button id="set-dev" class="ghost-button set-dev">DEV: unlock all elements</button>
       </div>
     </div>
+            <div id="wisp-radial" class="wisp-radial hidden" aria-label="Wisp actions"></div>
+            <div id="wisp-panel" class="wisp-panel hidden" aria-label="Wisp panel"></div>
             <button id="wisp" class="wisp hidden" aria-label="Command wisp — tap for towers and sends, drag to move"><span>✦</span><b id="wisp-undo" class="wisp-undo hidden" title="Cancel construction — full refund">↩</b></button>
       <div id="command-sheet" class="command-sheet hidden"></div>
       <section id="race-screen" class="screen race-screen">
@@ -815,9 +848,9 @@ const TOWERS = {
   crystal:[
     { name:'Shardcaster', cost:10, dmg:11, cd:.9, range:5.9, special:null, desc:'Chaos crystal bolts hurt every armor type.' },
     { name:'Prism Cannon', cost:50, dmg:40, cd:1.0, range:5.5, special:'smallsplash', desc:'Sprays sharp crystal shards.' },
-    { name:'Facet Fury', cost:200, dmg:80, cd:.25, range:5.5, special:null, desc:'Blinding-fast bursts that can crit double.' },
+    { name:'Facet Fury', cost:200, dmg:64, cd:.25, range:5.5, special:null, desc:'Blinding-fast bursts that can crit double.' },
     { name:'Refraction Snare', cost:250, dmg:283, cd:.9, range:6.25, special:'slow', desc:'Heavy shards that chill and splash.' },
-    { name:'Geode Breaker', cost:400, dmg:750, cd:1.2, range:7.0, special:'splash', desc:'Huge crystalline explosions.' },
+    { name:'Geode Breaker', cost:400, dmg:560, cd:1.2, range:7.0, special:'splash', desc:'Huge crystalline explosions.' },
     { name:'Lattice Annihilator', cost:650, dmg:360, cd:.35, range:5.5, special:null, desc:'The best non-laser tower in the game.' }
   ],
   poison:[
@@ -849,8 +882,8 @@ const TOWERS = {
     { name:"Gravity's Pull", cost:50, dmg:40, cd:1.0, range:3.9, special:null, desc:'Drags creeps back with splashing pulls.' },
     { name:'Psi Emitter', cost:150, dmg:120, cd:1.0, range:5.5, special:null, desc:'Warp pulse — steady area damage that may slow or shove.' },
     { name:'Collapsar', cost:280, dmg:70, cd:.35, range:5.0, special:null, desc:'Pulses splash damage extremely fast.' },
-    { name:'Singularity Mortar', cost:280, dmg:300, cd:1.4, range:6.25, special:null, desc:'Bombs that can collapse for double.' },
-    { name:'Event Horizon', cost:350, dmg:520, cd:1.6, range:4.5, special:'blackhole', desc:'Collapsing pulse: heavy area damage with a strong slow/shove chance.' }
+    { name:'Singularity Mortar', cost:280, dmg:220, cd:1.4, range:6.25, special:null, desc:'Bombs that can collapse for double.' },
+    { name:'Event Horizon', cost:350, dmg:400, cd:1.6, range:4.5, special:'blackhole', desc:'Collapsing pulse: heavy area damage with a strong slow/shove chance.' }
   ]
 };
 const LASER_TOWER = { name:'Laser Cannon', cost:650, dmg:300, cd:.2, range:20, special:'laser', desc:'The forbidden capstone: crits, slows, and poisons at extreme speed.' };
@@ -1201,6 +1234,7 @@ function startingLives() { return Number(document.getElementById('lives-select')
 let selectedRace = races[0];
 let selectedTowerTier = 0;
 let buildRaceIdx = 0;              // index into player.races — which licensed element the build panel shows
+let panelRaceId = null;           // which race the wisp build panel is currently viewing (may be a preview)
 let matchMode = 'skirmish';        // 'skirmish' = rounds vs the rival AI; 'classic' = sends only, no neutral waves
 let selectedTowerKey = null;       // primary selected tower
 let selectedGroupKeys = [];        // all selected towers (double-tap selects every like tower)
@@ -1411,10 +1445,12 @@ function waveBoardRetire(creep, leaked) {
   }
 }
 function queueWaveSpawns(waveDef) {
+  const count = Math.round((waveDef.count || 6) * (waveDef.boss ? 1 : 1.3));   // ~30% more bodies
+  const gap = (waveDef.role === 'swarm' ? .26 : .45) * (waveDef.boss ? 4 : 1); // arrive in overlapping packs, not a trickle
   (mp.active ? ['south'] : ['north', 'south']).forEach((half) => {
-    for (let i = 0; i < waveDef.count; i += 1) {
+    for (let i = 0; i < count; i += 1) {
       const side = i % 2 === 0 ? 'west' : 'east';
-      pendingSpawns.push({ at:simTime + i * (waveDef.role === 'swarm' ? .32 : .55), waveDef, half, side, waveIdx:wave });
+      pendingSpawns.push({ at:simTime + Math.floor(i / 2) * gap, waveDef, half, side, waveIdx:wave });  // two lanes fill together
     }
   });
 }
@@ -3189,7 +3225,7 @@ function handleBoardTap(event) {
     selectedTowerKey = key;
     chipAutoHideAt = 0;
     renderTowerDetails();
-    if (touchUI()) { barTab = 'info'; barStructKey = ''; renderCommandBar(); }
+    if (touchUI()) { if (document.body.classList.contains('arena')) renderWispPanel('inspect'); else { barTab = 'info'; barStructKey = ''; renderCommandBar(); } }
     return;
   }
   lastTapKey = null;
@@ -3220,6 +3256,7 @@ function handleBoardTap(event) {
   }
   ghost = null;
   buildAt(cell);
+  closeWispMenus();
   barStructKey = ''; renderCommandBar();
 }
 function buildAt(cell) {
@@ -4208,7 +4245,7 @@ function applyUiMode() {
   const wisp = $('wisp');
   if (wisp) wisp.classList.toggle('hidden', !battleRunning);
   const bar = $('command-bar');
-  if (bar) { bar.classList.toggle('hidden', !arena); if (arena) { barStructKey = ''; renderCommandBar(); } }
+  if (bar) { bar.classList.toggle('hidden', !arena); bar.classList.toggle('rail', arena); if (arena) { if (barTab !== 'send') barTab = 'send'; barStructKey = ''; renderCommandBar(); } }
   const modeSel = $('ui-mode-select');
   if (modeSel) modeSel.value = uiMode();
   const setMode = $('set-uimode');
@@ -4238,6 +4275,7 @@ function renderCommandBar() {
     selTowers.map((t) => t.key + ':' + t.level + ':' + t.tier).join(','),
     ghost ? `g${ghost.r},${ghost.c}` : '', (lastPlaced && towers.get(lastPlaced.key) && underConstruction(towers.get(lastPlaced.key))) ? 'u' : '',
     debug.routes ? 1 : 0, debug.ranges ? 1 : 0, matchMode].join('|');
+  if (document.body.classList.contains('arena') && barTab !== 'send') barTab = 'send';   // arena bar is the send rail
   if (structKey === barStructKey) return;
   barStructKey = structKey; barKey = key;
   document.querySelectorAll('[data-bar-tab]').forEach((b) => b.classList.toggle('on', b.dataset.barTab === barTab));
@@ -4502,6 +4540,92 @@ function renderCommandSheet() {
     sheetKey = ''; renderCommandSheet();
   });
 }
+function closeWispMenus() { $('wisp-radial')?.classList.add('hidden'); $('wisp-panel')?.classList.add('hidden'); }
+function openWispRadial() {
+  const wisp = $('wisp'), rad = $('wisp-radial');
+  if (!wisp || !rad) return;
+  $('wisp-panel').classList.add('hidden');
+  const cx = wisp.offsetLeft + 26, cy = wisp.offsetTop + 26;
+  const spokes = [
+    { icon:'⛫', label:'BUILD', rc:'#77d6ff', act:() => renderWispPanel('build') },
+    { icon:'🛠', label:'INSPECT', rc:'#ffd86b', act:() => renderWispPanel('inspect') },
+    { icon:'🪵', label:'LUMBER', rc:'#c6a269', act:() => { buyLumber(); }, keep:true },
+    { icon:'⛩', label:'SHRINE', rc:'#a7e36e', act:() => { upgradeShrine(); }, keep:true },
+    { icon:'🧭', label:'ROUTES', rc:'#8fe6b8', on:() => debug.routes, act:() => { debug.routes = !debug.routes; syncMapToggles(); } },
+    { icon:'◎', label:'RANGES', rc:'#77d6ff', on:() => debug.ranges, act:() => { debug.ranges = !debug.ranges; syncMapToggles(); } }
+  ];
+  const R = 66, N = spokes.length, base = -Math.PI / 2;
+  // fan the spokes toward the open side (away from screen edges)
+  const leftHalf = cx < window.innerWidth / 2;
+  rad.innerHTML = spokes.map((s, i) => {
+    const a = base + (i - (N - 1) / 2) * (Math.PI / (N + 1)) * (leftHalf ? -1 : 1) - (leftHalf ? Math.PI : 0);
+    const x = cx + Math.cos(a) * R, y = cy + Math.sin(a) * R;
+    return `<button style="--rc:${s.rc}; left:${x}px; top:${y}px" class="${s.on && s.on() ? 'on' : ''}" data-spoke="${i}">${s.icon}<i>${s.label}</i></button>`;
+  }).join('');
+  rad.classList.remove('hidden');
+  rad.querySelectorAll('[data-spoke]').forEach((b) => b.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const s = spokes[Number(b.dataset.spoke)];
+    s.act();
+    if (s.keep || s.on) { openWispRadial(); }   // re-render to reflect toggles; stay open
+    else rad.classList.add('hidden');
+  }));
+}
+function renderWispPanel(mode) {
+  const wisp = $('wisp'), panel = $('wisp-panel');
+  if (!wisp || !panel || !player) return;
+  $('wisp-radial').classList.add('hidden');
+  const raceId = currentBuildRaceId();
+  let body = '';
+  if (mode === 'build') {
+    if (!panelRaceId) panelRaceId = currentBuildRaceId();
+    const owned = (player.races || []).includes(panelRaceId);
+    const viewId = panelRaceId;
+    const sd = towerDef(viewId, selectedTowerTier);
+    const raceRow = races.map((r) => {
+      const own = (player.races || []).includes(r.id);
+      return `<button class="wp-race ${r.id === viewId ? 'on' : ''} ${own ? '' : 'view'}" data-wp-race="${r.id}" style="--race:${r.color}" title="${r.name}${own ? '' : ' (preview — own it to build)'}">${r.symbol}</button>`;
+    }).join('');
+    body = `<div class="wp-head"><span>⛫ Build${owned ? ' — tap a tower, then the board' : ' — preview'}</span><button id="wp-close">✕</button></div>
+      <div class="wp-races">${raceRow}</div>
+      <div class="wp-grid">${towerListFor(viewId).map((def, tier) => `
+        <button class="wp-card ${owned && tier === selectedTowerTier ? 'on' : ''} ${!owned ? 'view' : (player.gold < def.cost ? 'poor' : '')}" data-wp-tower="${tier}">
+          <span>${towerDef(viewId, tier).symbol}</span><small>${def.name.split(' ')[0]}</small><b>${def.cost}g</b></button>`).join('')}</div>
+      <div class="wp-detail"><b>${sd.name} · ${sd.cost}g</b><br>${sd.dmg} dmg · ${(sd.dmg/sd.cd).toFixed(0)} dps · ${sd.range.toFixed(1)} rng · ${attackProfileText(viewId)}<br>${specialBlurbs[sd.special] || sd.desc || ''}${owned ? '' : '<br><i>Preview only — buy this as a 2nd element (lumber) to build it.</i>'}</div>`;
+  } else {
+    const sel = selectionTowers().filter((t) => t.owner === 'player');
+    const t0 = sel[0], stats = t0 ? towerLiveStats(t0) : null;
+    if (!t0) body = `<div class="wp-head"><span>🛠 Inspect</span><button id="wp-close">✕</button></div><div class="wp-detail">Tap one of your towers to inspect it.</div>`;
+    else {
+      const up = towerTierUp(t0);
+      body = `<div class="wp-head"><span>🛠 ${sel.length>1?sel.length+'× ':''}${stats.name}${t0.level?(' +'+t0.level):''}</span><button id="wp-close">✕</button></div>
+        <div class="wp-detail"><b>${stats.dmg} dmg · ${(stats.dmg/stats.cd).toFixed(0)} dps · ${stats.range.toFixed(1)} rng</b><br>${attackProfileText(t0.raceId)}<br>${specialBlurbs[stats.special] || stats.desc || ''}${up?`<br><i>→ ${up.next.name}: ${up.next.dmg} dmg · ${up.next.range} rng (full ${up.cost}g)</i>`:'<br><i>max tier</i>'}</div>
+        <div class="wp-actions">
+          <button class="wp-act" data-wp-act="level">⬆ Level (${sel.filter((t)=>t.level<MAX_LEVEL).reduce((s,t)=>s+towerLevelCost(t),0)||'MAX'}g)</button>
+          <button class="wp-act" data-wp-act="tier">⏫ Tier (${sel.filter((t)=>towerTierUp(t)).reduce((s,t)=>s+(towerTierUp(t)?.cost||0),0)}g)</button>
+          <button class="wp-act" data-wp-act="priority">🎯 ${t0.priority}</button>
+          <button class="wp-act" data-wp-act="sell">💰 Sell (+${sel.reduce((s,t)=>s+towerSellValue(t),0)}g)</button>
+        </div>`;
+    }
+  }
+  panel.innerHTML = body;
+  // anchor the panel above the wisp, clamped on-screen
+  const pw = Math.min(300, window.innerWidth * .86);
+  let px = Math.min(window.innerWidth - pw - 8, Math.max(8, wisp.offsetLeft + 26 - pw / 2));
+  let py = Math.max(8, wisp.offsetTop - 8 - Math.min(window.innerHeight * .44, 260));
+  panel.style.left = px + 'px'; panel.style.top = py + 'px'; panel.style.width = pw + 'px';
+  panel.classList.remove('hidden');
+  $('wp-close')?.addEventListener('click', closeWispMenus);
+  panel.querySelectorAll('[data-wp-race]').forEach((b) => b.addEventListener('click', () => { panelRaceId = b.dataset.wpRace; renderWispPanel('build'); }));
+  panel.querySelectorAll('[data-wp-tower]').forEach((b) => b.addEventListener('click', () => {
+    const owned = (player.races || []).includes(panelRaceId);
+    if (!owned) { log(`${races.find(r=>r.id===panelRaceId)?.name} is a preview — buy it as a 2nd element (lumber) to build it.`); return; }
+    const idx = (player.races || []).indexOf(panelRaceId); if (idx >= 0) buildRaceIdx = idx;
+    selectedTowerTier = Number(b.dataset.wpTower); renderTowerList(); renderWispPanel('build');
+    log(`${towerDef(currentBuildRaceId(), selectedTowerTier).name} armed — tap the board to place.`);
+  }));
+  panel.querySelectorAll('[data-wp-act]').forEach((b) => b.addEventListener('click', () => { towerAction(b.dataset.wpAct); renderWispPanel('inspect'); }));
+}
 function setupWisp() {
   const wisp = $('wisp');
   if (!wisp) return;
@@ -4528,10 +4652,8 @@ function setupWisp() {
     if (wisp.classList.contains('wisp-docked')) { closeCommandSheet(); drag = null; return; }
     if (drag.moved) { profile.wispPos = { x:wisp.offsetLeft, y:wisp.offsetTop }; saveProfile(); }
     else if (document.body.classList.contains('arena')) {
-      const bar = $('command-bar');
-      bar.classList.remove('hidden');                 // wisp always SHOWS the controls
-      barTab = 'info'; barStructKey = '';             // and jumps to the info/inspect view
-      renderCommandBar(); pinBarToVisualViewport(); fitBoardToViewport();
+      const rad = $('wisp-radial');
+      if (rad.classList.contains('hidden')) openWispRadial(); else closeWispMenus();
     }
     else { const sheet = $('command-sheet'); sheet.classList.contains('hidden') ? openCommandSheet() : closeCommandSheet(); }
     drag = null;
