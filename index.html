@@ -546,6 +546,24 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 .wisp-panel .ss-send { padding:6px 10px; border:1px solid #ff875f66; border-radius:8px; background:#2a1810; color:#ffcbb0; font:700 9px 'DM Mono',monospace; }
 .wisp-panel .ss-send:disabled { opacity:.4; }
 
+/* two collapsible quick bars (build + send) */
+.command-bar { padding:0 0 env(safe-area-inset-bottom); }
+.cb-sub { border-top:1px solid #22345c; }
+.cb-handle { display:flex; align-items:center; justify-content:space-between; width:100%; padding:5px 14px; border:0; background:#0b1424; color:#bcd2ff; font:700 10px 'DM Mono',monospace; letter-spacing:.1em; }
+.cb-handle .cb-chev { transition:transform .15s; color:#77d6ff; }
+.cb-sub.collapsed .cb-chev { transform:rotate(-90deg); }
+.cb-sub.collapsed .cb-body { display:none; }
+.cb-body { display:flex; gap:7px; overflow-x:auto; overflow-y:hidden; touch-action:pan-x; scrollbar-width:none; padding:7px 10px; min-height:60px; align-items:stretch; }
+.cb-body::-webkit-scrollbar { display:none; }
+/* wisp tools + learn */
+.wisp-panel .wp-tools { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
+.wisp-panel .wp-tool { display:flex; align-items:center; gap:8px; padding:11px; border:1px solid #2c4a7a; border-radius:10px; background:#111a30; color:#eafcff; font:700 11px 'DM Mono',monospace; }
+.wisp-panel .wp-tool.on { border-color:#8fe6b8; color:#8fe6b8; background:#0f2b1f; }
+.wisp-panel .wp-learn { max-height:34vh; overflow-y:auto; font:500 10px/1.45 'DM Mono',monospace; color:#bcd2ff; }
+.wisp-panel .wp-learn .sheet-heading { color:#ffd86b; font-weight:700; margin:8px 0 4px; letter-spacing:.06em; }
+.wisp-panel .wp-learn .learn-row { display:flex; justify-content:space-between; gap:10px; padding:3px 0; border-bottom:1px dashed #17233d; }
+.wisp-panel .wp-inspect-ico { font-size:15px; margin-right:5px; }
+
 </style>
 </head>
 <body>
@@ -756,16 +774,9 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
             </div>
 
             <div id="quick-send" class="quick-send" aria-label="Quick send bar"></div>
-            <div id="command-bar" class="command-bar hidden" aria-label="Command bar">
-              <div class="bar-top">
-                <span class="bar-res"><b id="bar-gold">💰 0</b><b id="bar-lumber">🪵 ×0</b><b id="bar-income">↗ +0</b></span>
-                <span class="bar-tabs">
-                  <button id="bar-tab-build" class="bar-tab on" data-bar-tab="build">⛫<i>BUILD</i></button>
-                  <button id="bar-tab-send" class="bar-tab" data-bar-tab="send">⚔<i>SEND</i></button>
-                  <button id="bar-tab-info" class="bar-tab" data-bar-tab="info">🛠<i>INFO</i></button>
-                </span>
-              </div>
-              <div id="bar-content" class="bar-content"></div>
+            <div id="command-bar" class="command-bar hidden" aria-label="Command bars">
+              <div id="cb-build" class="cb-sub"><button class="cb-handle" data-cb="build"><span>⛫ BUILD</span><b class="cb-chev">▾</b></button><div id="cb-build-body" class="cb-body"></div></div>
+              <div id="cb-send" class="cb-sub"><button class="cb-handle" data-cb="send"><span>⚔ SEND</span><b class="cb-chev">▾</b></button><div id="cb-send-body" class="cb-body"></div></div>
             </div>
 
             <div class="debug-bar" aria-label="Debug toggles">
@@ -1171,9 +1182,14 @@ const SENDS = [
   { id:'totem', name:'Idol Bearer', symbol:'⬢', cost:3995, income:450, hp:2500, spd:3.0, armor:15, aClass:'heavy', shrine:3 },
   { id:'juggernaut', name:'Bulwark', symbol:'◆', cost:4600, income:520, hp:2200, spd:2.6, armor:14, aClass:'heavy', role:'juggernaut', shrine:3 },
   { id:'unholy', name:'Dread Knight', symbol:'♞', cost:5330, income:600, hp:2875, spd:3.1, armor:15, aClass:'heavy', shrine:3 },
-  { id:'adultdragon', name:'Ancient Drake', symbol:'▲', cost:3200, income:360, hp:3000, spd:3.1, armor:20, aClass:'heavy', air:true, shrine:3 }
+  { id:'adultdragon', name:'Ancient Drake', symbol:'▲', cost:3200, income:360, hp:3000, spd:3.1, armor:20, aClass:'heavy', air:true, shrine:3 },
+  { id:'wraith', name:'Wraith Lord', symbol:'❖', cost:7000, income:760, hp:4600, spd:3.0, armor:18, aClass:'unarmored', role:'regenerator', shrine:4 },
+  { id:'colossus', name:'Colossus', symbol:'◆', cost:8800, income:940, hp:6600, spd:2.6, armor:20, aClass:'heavy', role:'juggernaut', shrine:4 },
+  { id:'stormdrake', name:'Storm Drake', symbol:'🐲', cost:9500, income:1020, hp:5800, spd:3.2, armor:20, aClass:'heavy', air:true, shrine:4 },
+  { id:'aegisprime', name:'Aegis Prime', symbol:'⛨', cost:11000, income:1180, hp:7400, spd:2.7, armor:16, aClass:'light', role:'shieldbearer', shrine:5 },
+  { id:'titan', name:'World Titan', symbol:'☗', cost:15000, income:1600, hp:12000, spd:2.7, armor:24, aClass:'fortified', role:'juggernaut', shrine:5 }
 ];
-const SHRINE_MAX = 3, LUMBER_PRICE = 500;
+const SHRINE_MAX = 5, LUMBER_PRICE = 500;
 
 /* ---------------- Player profile, achievements, and race unlocks ----------------
    Persistent (per-browser) meta-progression: four elements start unlocked and
@@ -3229,7 +3245,13 @@ function handleBoardTap(event) {
   if (towers.has(key)) {
     const now = performance.now();
     const tower = towers.get(key);
-    if (ghost) ghost = null;   // selecting a tower dismisses any staged ghost (R6)
+    if (ghost) ghost = null;
+    if (tower.owner !== 'player') {   // rival tower — inspect what they're building, no select
+      inspectEntity = { kind:'enemy', ref:tower };
+      if (touchUI() && document.body.classList.contains('arena')) { wispTab = 'inspect'; renderWispPanel('inspect'); }
+      else log(`Rival is building ${towerLiveStats(tower).name} (${towerLiveStats(tower).dmg} dmg, ${towerLiveStats(tower).range.toFixed(1)} rng).`);
+      return;
+    }
     if (lastTapKey === key && now - lastTapAt < 420 && tower.owner === 'player') {
       // double-tap: select every like tower (same element and tier) for batch actions
       selectedGroupKeys = [...towers.values()].filter((t) => t.owner === 'player' && t.raceId === tower.raceId && t.tier === tower.tier).map((t) => t.key);
@@ -3240,9 +3262,24 @@ function handleBoardTap(event) {
     lastTapKey = key; lastTapAt = now;
     selectedTowerKey = key;
     chipAutoHideAt = 0;
+    inspectEntity = { kind:'tower' };
     renderTowerDetails();
-    if (touchUI()) { if (document.body.classList.contains('arena')) renderWispPanel('inspect'); else { barTab = 'info'; barStructKey = ''; renderCommandBar(); } }
+    if (touchUI() && document.body.classList.contains('arena')) { wispTab = 'inspect'; renderWispPanel('inspect'); }
     return;
+  }
+  // not on a tower — a creep tapped directly gets inspected (works on sends, bosses, rivals)
+  {
+    const rectC = $('fx-canvas').getBoundingClientRect();
+    const px = (event.clientX - rectC.left) / rectC.width * COLS;
+    const py = (event.clientY - rectC.top) / rectC.height * ROWS;
+    let best = null, bd = .55;
+    creeps.forEach((cr) => { if (cr.hp <= 0) return; const d = Math.hypot(cr.x - px, cr.y - py); if (d < bd) { bd = d; best = cr; } });
+    if (best) {
+      inspectEntity = { kind:'creep', ref:best };
+      if (touchUI() && document.body.classList.contains('arena')) { wispTab = 'inspect'; renderWispPanel('inspect'); }
+      else log(`${best.name}: ${Math.round(best.hp)}/${best.maxHp} HP · ${best.armor} armor · ${best.aClass}${best.air?' · air':''}`);
+      return;
+    }
   }
   lastTapKey = null;
   selectedTowerKey = null; selectedGroupKeys = []; renderTowerDetails();
@@ -4261,7 +4298,7 @@ function applyUiMode() {
   const wisp = $('wisp');
   if (wisp) wisp.classList.toggle('hidden', !battleRunning);
   const bar = $('command-bar');
-  if (bar) { bar.classList.toggle('hidden', !arena); bar.classList.toggle('rail', arena); if (arena) { if (barTab !== 'send') barTab = 'send'; barStructKey = ''; renderCommandBar(); } }
+  if (bar) { bar.classList.toggle('hidden', !arena); if (arena) renderCommandBar(); }
   const modeSel = $('ui-mode-select');
   if (modeSel) modeSel.value = uiMode();
   const setMode = $('set-uimode');
@@ -4269,114 +4306,57 @@ function applyUiMode() {
 }
 let sheetTab = 'sends', sheetKey = '';
 let barTab = 'build', barKey = '', barStructKey = '', autoSend = { on:false, last:null };
+let barBuildCollapsed = false, barSendCollapsed = false;
 function renderCommandBar() {
   const bar = $('command-bar');
   if (!bar || bar.classList.contains('hidden') || !player) return;
-  $('bar-gold').textContent = `💰 ${Math.floor(player.gold)}`;
-  $('bar-lumber').textContent = `🪵 ×${player.lumber}`;
-  $('bar-income').textContent = `↗ +${player.income}`;
   const raceId = currentBuildRaceId();
-  const selTowers = selectionTowers().filter((t) => t.owner === 'player');
-  const key = [barTab, raceId, selectedTowerTier, Math.floor(player.gold / 5), player.lumber, player.shrine,
-    autoSend.on ? 1 : 0, autoSend.last || '', selTowers.map((t) => t.key + ':' + t.level + ':' + t.tier).join(','),
-    wager.tokens, wager.pending ? 1 : 0, Math.max(0, Math.ceil(wager.cooldownUntil - simTime)), debug.routes ? 1 : 0, debug.ranges ? 1 : 0,
-    ghost ? `g${ghost.r},${ghost.c}` : '', (lastPlaced && towers.get(lastPlaced.key) && underConstruction(towers.get(lastPlaced.key))) ? 'u' : ''].join('|');
-  // cheap pass every tick: resources + per-card affordability, no DOM rebuild (kills the input delay)
-  $('bar-gold').textContent = `💰 ${Math.floor(player.gold)}`;
-  $('bar-lumber').textContent = `🪵 ×${player.lumber}`;
-  $('bar-income').textContent = `↗ +${player.income}`;
-  barRefreshAffordable();
-  // structural rebuild only when the tab/selection/roster actually changes
-  const structKey = [barTab, raceId, selectedTowerTier, player.shrine, autoSend.on ? 1 : 0,
-    selTowers.map((t) => t.key + ':' + t.level + ':' + t.tier).join(','),
-    ghost ? `g${ghost.r},${ghost.c}` : '', (lastPlaced && towers.get(lastPlaced.key) && underConstruction(towers.get(lastPlaced.key))) ? 'u' : '',
-    debug.routes ? 1 : 0, debug.ranges ? 1 : 0, matchMode].join('|');
-  if (document.body.classList.contains('arena') && barTab !== 'send') barTab = 'send';   // arena bar is the send rail
-  if (structKey === barStructKey) return;
-  barStructKey = structKey; barKey = key;
-  document.querySelectorAll('[data-bar-tab]').forEach((b) => b.classList.toggle('on', b.dataset.barTab === barTab));
-  const box = $('bar-content');
+  const buildBody = $('cb-build-body'), sendBody = $('cb-send-body');
+  if (!buildBody || !sendBody) return;
+  $('cb-build').classList.toggle('collapsed', barBuildCollapsed && !ghost);
+  $('cb-send').classList.toggle('collapsed', barSendCollapsed);
+  // ---- BUILD bar (or the ghost confirm while staging) ----
   if (ghost) {
-    // BTD6 pattern: confirm/cancel pinned at a FIXED spot in the bar — zero board occlusion
     const def = towerDef(raceId, selectedTowerTier);
-    box.innerHTML = `
-      <button id="bar-ghost-build" class="bar-card bar-wide toggle-on ${player.gold < def.cost ? 'poor' : ''}"><span>✓</span><small>BUILD ${def.name}</small><b>−${def.cost}g</b></button>
+    buildBody.innerHTML = `<button id="bar-ghost-build" class="bar-card bar-wide toggle-on ${player.gold < def.cost ? 'poor' : ''}"><span>✓</span><small>BUILD ${def.name}</small><b>−${def.cost}g</b></button>
       <button id="bar-ghost-cancel" class="bar-card bar-wide"><span>✖</span><small>CANCEL</small><b>free</b></button>`;
-    $('bar-ghost-build').addEventListener('click', () => { const cell = { ...ghost }; ghost = null; buildAt(cell); barStructKey = ''; renderCommandBar(); });
-    $('bar-ghost-cancel').addEventListener('click', () => { ghost = null; barStructKey = ''; renderCommandBar(); });
-    return;
-  }
-  const lastT = lastPlaced ? towers.get(lastPlaced.key) : null;
-  const undoLive = lastT && underConstruction(lastT);
-  const undoChip = undoLive ? `<button id="bar-undo" class="bar-card toggle-on"><span>↩</span><small>UNDO</small><b>+${lastT.invested}g</b></button>` : '';
-  if (barTab === 'build') {
+    $('cb-build').classList.remove('collapsed');
+    $('bar-ghost-build').addEventListener('click', () => { const c = { ...ghost }; ghost = null; buildAt(c); closeWispMenus(); renderCommandBar(); });
+    $('bar-ghost-cancel').addEventListener('click', () => { ghost = null; renderCommandBar(); });
+  } else if (!barBuildCollapsed) {
     const sd = towerDef(raceId, selectedTowerTier);
-    const buildDetail = `<div class="bar-detail"><b>${sd.name} · ${sd.cost}g</b><span>${sd.dmg} dmg · ${(sd.dmg/sd.cd).toFixed(0)} dps · ${sd.range.toFixed(1)} rng · ${attackProfileText(raceId)}</span><span>${specialBlurbs[sd.special] || sd.desc || ''}</span></div>`;
-    box.innerHTML = undoChip + buildDetail + towerListFor(raceId).map((def, tier) => `
+    const lastT = lastPlaced ? towers.get(lastPlaced.key) : null;
+    const undoChip = (lastT && underConstruction(lastT)) ? `<button id="bar-undo" class="bar-card toggle-on"><span>↩</span><small>UNDO</small><b>+${lastT.invested}g</b></button>` : '';
+    const detail = `<div class="bar-detail"><b>${sd.name} · ${sd.cost}g</b><span>${sd.dmg} dmg · ${(sd.dmg/sd.cd).toFixed(0)} dps · ${sd.range.toFixed(1)} rng · ${attackProfileText(raceId)}</span><span>${specialBlurbs[sd.special] || sd.desc || ''}</span></div>`;
+    const econ = `<button id="cb-lumber" class="bar-card ${player.gold < LUMBER_PRICE ? 'poor' : ''}"><span>🪵</span><small>Lumber</small><b>${LUMBER_PRICE}g</b></button>${player.shrine < SHRINE_MAX ? `<button id="cb-shrine" class="bar-card ${player.lumber < 1 ? 'poor' : ''}"><span>⛩</span><small>Shrine L${player.shrine}</small><b>1🪵</b></button>` : `<span class="bar-card locked"><span>⛩</span><small>Shrine</small><b>MAX</b></span>`}`;
+    buildBody.innerHTML = undoChip + econ + detail + towerListFor(raceId).map((def, tier) => `
       <button class="bar-card ${tier === selectedTowerTier ? 'on' : ''} ${player.gold < def.cost ? 'poor' : ''}" data-bar-tower="${tier}">
         <span>${towerDef(raceId, tier).symbol}</span><small>${def.name.split(' ')[0]}</small><b>${def.cost}g</b></button>`).join('');
-    box.querySelectorAll('[data-bar-tower]').forEach((card) => wireTowerCard(card));
-    $('bar-undo')?.addEventListener('click', () => {
-      const t = lastPlaced ? towers.get(lastPlaced.key) : null;
-      if (t && underConstruction(t)) sellTowerAt({ r:t.r, c:t.c });
-      lastPlaced = null; barStructKey = ''; renderCommandBar();
-    });
-  } else if (barTab === 'send') {
+    buildBody.querySelectorAll('[data-bar-tower]').forEach((c) => wireTowerCard(c));
+    $('cb-lumber')?.addEventListener('click', () => { buyLumber(); renderCommandBar(); });
+    $('cb-shrine')?.addEventListener('click', () => { upgradeShrine(); renderCommandBar(); });
+    $('bar-undo')?.addEventListener('click', () => { const t = lastPlaced ? towers.get(lastPlaced.key) : null; if (t && underConstruction(t)) sellTowerAt({ r:t.r, c:t.c }); lastPlaced = null; renderCommandBar(); });
+  } else buildBody.innerHTML = '';
+  // ---- SEND bar ----
+  if (!barSendCollapsed) {
     const wagerReady = wager.tokens > 0 && simTime >= wager.cooldownUntil && !wager.pending;
-    box.innerHTML = `
+    sendBody.innerHTML = `
       <button id="bar-auto" class="bar-card ${autoSend.on ? 'toggle-on' : ''}"><span>🔁</span><small>AUTO</small><b>${autoSend.on ? 'ON' : 'off'}</b></button>
       ${matchMode === 'classic' ? '' : `<button id="bar-wager" class="bar-card ${wagerReady ? '' : 'poor'}"><span>⏩</span><small>Rush</small><b>×${wager.tokens}</b></button>`}
       ${SENDS.map((send) => `
       <button class="bar-card ${player.shrine < send.shrine ? 'locked' : ''} ${player.gold < send.cost ? 'poor' : ''}" data-bar-send="${send.id}">
         <span>${send.air ? '🐉' : send.symbol}</span><small>${send.name.split(' ')[0]}</small><b>${send.cost}g +${send.income}</b></button>`).join('')}`;
-    $('bar-auto').addEventListener('click', () => {
-      autoSend.on = !autoSend.on;
-      log(autoSend.on ? `AUTO-send on — repeats your last send each wave${autoSend.last ? '' : ' (make one send to arm it)'}.` : 'AUTO-send off.');
-      barStructKey = ''; renderCommandBar();
-    });
+    $('bar-auto').addEventListener('click', () => { autoSend.on = !autoSend.on; log(autoSend.on ? `AUTO-send on — repeats your last send each wave${autoSend.last ? '' : ' (send one to arm it)'}.` : 'AUTO-send off.'); renderCommandBar(); });
     $('bar-wager')?.addEventListener('click', proposeWager);
-    box.querySelectorAll('[data-bar-send]').forEach((b) => b.addEventListener('click', () => {
-      autoSend.last = b.dataset.barSend;
-      document.querySelector(`[data-send="${b.dataset.barSend}"]`)?.click();
-      barStructKey = ''; renderCommandBar();
-    }));
-  } else {
-    const t0 = selTowers[0];
-    const stats = t0 ? towerLiveStats(t0) : null;
-    let detail = '';
-    if (t0 && stats) {
-      const up = towerTierUp(t0);
-      const upPrev = up ? `<i>→ ${up.next.name}: ${up.next.dmg} dmg · ${up.next.range} rng (full ${up.cost}g)</i>` : '<i>max tier</i>';
-      detail = `<div class="bar-detail"><b>${selTowers.length>1?selTowers.length+'× ':''}${stats.name}${t0.level?(' +'+t0.level):''}</b>
-        <span>${stats.dmg} dmg · ${(stats.dmg/stats.cd).toFixed(0)} dps · ${stats.range.toFixed(1)} rng · ${attackProfileText(t0.raceId)}</span>
-        <span>${specialBlurbs[stats.special] || stats.desc || ''}</span>${upPrev}</div>`;
-    } else {
-      detail = `<div class="bar-detail"><b>Tap a tower</b><span>to see its stats, upgrade it, or set its target.</span></div>`;
-    }
-    box.innerHTML = detail + `
-      ${t0 ? `<button class="bar-card" data-bar-act="level"><span>⬆</span><small>Level</small><b>${selTowers.filter((t)=>t.level<MAX_LEVEL).reduce((s,t)=>s+towerLevelCost(t),0) || 'MAX'}g</b></button>
-      <button class="bar-card" data-bar-act="tier"><span>⏫</span><small>Tier</small><b>${selTowers.filter((t)=>towerTierUp(t)).reduce((s,t)=>s+(towerTierUp(t)?.cost||0),0)}g</b></button>
-      <button class="bar-card" data-bar-act="sell"><span>💰</span><small>Sell</small><b>+${selTowers.reduce((s,t)=>s+towerSellValue(t),0)}g</b></button>
-      <button class="bar-card" data-bar-act="priority"><span>🎯</span><small>${t0.priority}</small><b>target</b></button>` : ''}
-      <button id="bar-lumber-buy" class="bar-card ${player.gold < LUMBER_PRICE ? 'poor' : ''}"><span>🪵</span><small>Lumber</small><b>${LUMBER_PRICE}g</b></button>
-      ${player.shrine < SHRINE_MAX ? `<button id="bar-shrine" class="bar-card ${player.lumber < 1 ? 'poor' : ''}"><span>⛩</span><small>Shrine L${player.shrine}</small><b>1🪵</b></button>` : ''}
-      <button id="bar-routes" class="bar-card ${debug.routes ? 'toggle-on' : ''}"><span>🧭</span><small>Routes</small><b>${debug.routes ? 'ON' : 'off'}</b></button>
-      <button id="bar-ranges" class="bar-card ${debug.ranges ? 'toggle-on' : ''}"><span>◎</span><small>Ranges</small><b>${debug.ranges ? 'ON' : 'off'}</b></button>
-      <button id="bar-exit" class="bar-card"><span>⏏</span><small>Exit</small><b>match</b></button>`;
-    box.querySelectorAll('[data-bar-act]').forEach((b) => b.addEventListener('click', () => { towerAction(b.dataset.barAct); barStructKey = ''; renderCommandBar(); }));
-    $('bar-lumber-buy').addEventListener('click', () => { buyLumber(); barStructKey = ''; renderCommandBar(); });
-    $('bar-shrine')?.addEventListener('click', () => { upgradeShrine(); barStructKey = ''; renderCommandBar(); });
-    $('bar-routes').addEventListener('click', () => { debug.routes = !debug.routes; syncMapToggles(); barStructKey = ''; renderCommandBar(); });
-    $('bar-ranges').addEventListener('click', () => { debug.ranges = !debug.ranges; syncMapToggles(); barStructKey = ''; renderCommandBar(); });
-    $('bar-exit').addEventListener('click', () => $('back-button')?.click());
-  }
+    sendBody.querySelectorAll('[data-bar-send]').forEach((b) => b.addEventListener('click', () => { autoSend.last = b.dataset.barSend; document.querySelector(`[data-send="${b.dataset.barSend}"]`)?.click(); renderCommandBar(); }));
+  } else sendBody.innerHTML = '';
 }
 function barRefreshAffordable() {
-  document.querySelectorAll('#bar-content [data-bar-tower]').forEach((el) => {
+  document.querySelectorAll('#cb-build-body [data-bar-tower]').forEach((el) => {
     const def = towerListFor(currentBuildRaceId())[Number(el.dataset.barTower)];
     if (def) el.classList.toggle('poor', player.gold < def.cost);
   });
-  document.querySelectorAll('#bar-content [data-bar-send]').forEach((el) => {
+  document.querySelectorAll('#cb-send-body [data-bar-send]').forEach((el) => {
     const s = SENDS.find((x) => x.id === el.dataset.barSend);
     if (s) { el.classList.toggle('poor', player.gold < s.cost); el.classList.toggle('locked', player.shrine < s.shrine); }
   });
@@ -4558,6 +4538,7 @@ function renderCommandSheet() {
 }
 function closeWispMenus() { $('wisp-radial')?.classList.add('hidden'); $('wisp-panel')?.classList.add('hidden'); }
 let wispTab = 'build';
+let inspectEntity = null;   // {kind:'tower'|'enemy'|'creep', ref}
 function renderWispPanel(mode) {
   const wisp = $('wisp'), panel = $('wisp-panel');
   if (!wisp || !panel || !player) return;
@@ -4567,11 +4548,7 @@ function renderWispPanel(mode) {
   // top action row — the "flat bar above the wisp"
   const tabBtn = (id, icon, label) => `<button class="wp-tab ${wispTab === id ? 'on' : ''}" data-wp-mode="${id}">${icon}<i>${label}</i></button>`;
   const head = `<div class="wp-tabs">
-    ${tabBtn('build','⛫','Build')}${tabBtn('sends','⚔','Sends')}${tabBtn('inspect','🛠','Inspect')}
-    <button class="wp-tab ${player.gold < LUMBER_PRICE ? 'poor' : ''}" data-wp-do="lumber">🪵<i>${LUMBER_PRICE}g</i></button>
-    ${player.shrine < SHRINE_MAX ? `<button class="wp-tab ${player.lumber < 1 ? 'poor' : ''}" data-wp-do="shrine">⛩<i>L${player.shrine}</i></button>` : ''}
-    <button class="wp-tab ${debug.routes ? 'on' : ''}" data-wp-do="routes">🧭</button>
-    <button class="wp-tab ${debug.ranges ? 'on' : ''}" data-wp-do="ranges">◎</button>
+    ${tabBtn('build','⛫','Build')}${tabBtn('sends','⚔','Send')}${tabBtn('learn','🎓','Learn')}${tabBtn('tools','🧰','Tools')}
     <button class="wp-tab wp-x" data-wp-do="close">✕</button>
   </div>`;
   let body = '';
@@ -4593,10 +4570,27 @@ function renderWispPanel(mode) {
         <div class="ss-cost"><b>${s.cost}g</b><i>+${s.income}</i></div>
         <button class="ss-send" data-ss-send="${s.id}" ${locked || player.gold < s.cost ? 'disabled' : ''}>${locked ? 'L'+s.shrine : 'Send'}</button></div>`;
     }).join('')}</div><div class="wp-detail">Send stats before you commit. One-tap spamming lives on the bottom rail.</div>`;
-  } else {
+  } else if (wispTab === 'learn') {
+    body = `<div class="wp-learn">${learnContent()}</div>`;
+  } else if (wispTab === 'tools') {
+    body = `<div class="wp-tools">
+      <button class="wp-tool ${selectMode === 'box' ? 'on' : ''}" data-wp-tool="box">▭ Box select</button>
+      <button class="wp-tool ${selectMode === 'lasso' ? 'on' : ''}" data-wp-tool="lasso">➰ Lasso select</button>
+      <button class="wp-tool ${debug.routes ? 'on' : ''}" data-wp-tool="routes">🧭 Creep routes</button>
+      <button class="wp-tool ${debug.ranges ? 'on' : ''}" data-wp-tool="ranges">◎ Tower ranges</button>
+    </div><div class="wp-detail">Box/Lasso: drag over your towers to select many at once, then upgrade or sell from Inspect.</div>`;
+  } else if (wispTab === 'inspect') {
+    const ie = inspectEntity;
+    if (ie && ie.kind === 'creep' && ie.ref && ie.ref.hp > 0) {
+      const c = ie.ref, tags = [c.air?'AIR':'', c.role&&c.role!=='standard'?c.role:'', c.regen?'regen':'', c.shieldMax?'shielded':''].filter(Boolean);
+      body = `<div class="wp-detail"><b><span class="wp-inspect-ico">${c.sent?'⚔':'👾'}</span>${c.name}${c.sent?' (rival send)':''}</b><br>${Math.round(c.hp)}/${c.maxHp} HP${c.shieldMax?` · ${Math.round(c.shield)}/${c.shieldMax} shield`:''}<br>${c.armor} armor · ${c.aClass} · spd ${c.spd.toFixed(1)}<br>${tags.length?tags.join(' · '):'standard'} · worth ${Math.round((c.sent?c.bounty:c.bounty*BOUNTY_MULT))}g</div>`;
+    } else if (ie && ie.kind === 'enemy' && ie.ref) {
+      const t = ie.ref, st = towerLiveStats(t), er = races.find(r=>r.id===t.raceId);
+      body = `<div class="wp-detail"><b><span class="wp-inspect-ico">${er?.symbol||'⛫'}</span>${st.name} <small>(rival is building)</small></b><br>${st.dmg} dmg · ${(st.dmg/st.cd).toFixed(0)} dps · ${st.range.toFixed(1)} rng<br>${er?.name} · ${attackProfileText(t.raceId)}<br>${specialBlurbs[st.special]||st.desc||''}</div>`;
+    } else {
     const sel = selectionTowers().filter((t) => t.owner === 'player');
     const t0 = sel[0], stats = t0 ? towerLiveStats(t0) : null;
-    if (!t0) body = `<div class="wp-detail">Tap one of your towers on the board to inspect it here.</div>`;
+    if (!t0) body = `<div class="wp-detail">Tap any tower, creep, or rival tower to inspect it.</div>`;
     else {
       const up = towerTierUp(t0);
       body = `<div class="wp-detail"><b>${sel.length>1?sel.length+'× ':''}${stats.name}${t0.level?(' +'+t0.level):''}</b><br>${stats.dmg} dmg · ${(stats.dmg/stats.cd).toFixed(0)} dps · ${stats.range.toFixed(1)} rng<br>${attackProfileText(t0.raceId)}<br>${specialBlurbs[stats.special] || stats.desc || ''}${up?`<br><i>→ ${up.next.name}: ${up.next.dmg} dmg · ${up.next.range} rng (full ${up.cost}g)</i>`:'<br><i>max tier</i>'}</div>
@@ -4606,6 +4600,7 @@ function renderWispPanel(mode) {
           <button class="wp-act" data-wp-act="priority">🎯 ${t0.priority}</button>
           <button class="wp-act" data-wp-act="sell">💰 Sell (+${sel.reduce((s,t)=>s+towerSellValue(t),0)}g)</button>
         </div>`;
+    }
     }
   }
   panel.innerHTML = head + body;
@@ -4624,6 +4619,13 @@ function renderWispPanel(mode) {
     else if (d === 'routes') { debug.routes = !debug.routes; syncMapToggles(); }
     else if (d === 'ranges') { debug.ranges = !debug.ranges; syncMapToggles(); }
     renderWispPanel(wispTab);
+  }));
+  panel.querySelectorAll('[data-wp-tool]').forEach((b) => b.addEventListener('click', () => {
+    const d = b.dataset.wpTool;
+    if (d === 'box' || d === 'lasso') { selectMode = selectMode === d ? null : d; if (selectMode) { closeWispMenus(); log(`${d==='box'?'Box':'Lasso'} armed — drag over your towers.`); return; } }
+    else if (d === 'routes') { debug.routes = !debug.routes; syncMapToggles(); }
+    else if (d === 'ranges') { debug.ranges = !debug.ranges; syncMapToggles(); }
+    renderWispPanel('tools');
   }));
   panel.querySelectorAll('[data-wp-race]').forEach((b) => b.addEventListener('click', () => { panelRaceId = b.dataset.wpRace; renderWispPanel('build'); }));
   panel.querySelectorAll('[data-wp-tower]').forEach((b) => b.addEventListener('click', () => {
