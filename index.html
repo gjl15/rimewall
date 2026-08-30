@@ -451,6 +451,10 @@ h2 span { color:#7583a6; }
 .bar-card { flex:0 0 auto; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-width:58px; min-height:52px; padding:6px 8px; border:1.5px solid #2c4a7a; border-radius:11px; background:#111a30; color:#eafcff; touch-action:pan-x; scroll-snap-align:start; }
 .bar-card small { font:700 9px 'DM Mono',monospace; opacity:.9; max-width:74px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .bar-card b { font:700 10px 'DM Mono',monospace; color:#ffd86b; }
+/* third line: hp · armour · speed · tag. Fixed width, not max-width — that is
+   what pins every send card to the same size; only the trailing tag ellipsises. */
+.bar-card .bar-stats { width:120px; font:500 8px/1.25 'DM Mono',monospace; font-style:normal; color:#8590ae; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bar-card.has-stats { min-height:64px; }
 .bar-card span { font-size:17px; line-height:1; }
 .bar-card.on { border-color:#ffd86b; box-shadow:0 0 0 1.5px #ffd86b55; }
 .bar-card.poor { opacity:.45; }
@@ -550,7 +554,20 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 .command-bar { padding:0 0 env(safe-area-inset-bottom); }
 .cb-sub { border-top:1px solid #22345c; }
 .cb-handle { display:flex; align-items:center; justify-content:space-between; width:100%; min-height:44px; padding:8px 14px; border:0; background:#0b1424; color:#bcd2ff; font:700 10px 'DM Mono',monospace; letter-spacing:.1em; }
-.cb-handle .cb-chev { transition:transform .15s; color:#77d6ff; }
+.cb-handle .cb-chev { transition:transform .22s cubic-bezier(.2,.8,.3,1); color:#77d6ff; }
+/* BUILD = shield (defend your half) · SEND = sword (attack theirs).
+   Inline SVG, not text glyphs — ⛫/⚔ fall back to tofu on iOS.
+   Keeps the 44px handle and its space-between layout from d357b7e. */
+.cb-handle .cb-lead { display:flex; align-items:center; gap:10px; min-width:0; }
+.cb-ico-wrap { flex:0 0 auto; display:grid; place-items:center; width:34px; height:34px; border-radius:10px; border:1px solid #2b3f66; background:#0a1120; transition:border-color .22s, background .22s, box-shadow .22s, transform .22s cubic-bezier(.2,.8,.3,1); }
+.cb-ico { display:block; width:22px; height:22px; transition:transform .22s cubic-bezier(.2,.8,.3,1), filter .22s; }
+.cb-sub.cb-defend .cb-label { color:#cfe9ff; }
+.cb-sub.cb-attack .cb-label { color:#ffd8bd; }
+.cb-sub.cb-defend:not(.collapsed) .cb-ico-wrap { border-color:#77d6ff; background:#0f2340; box-shadow:0 0 0 1px #77d6ff33, 0 0 16px #77d6ff2e; }
+.cb-sub.cb-attack:not(.collapsed) .cb-ico-wrap { border-color:#ff9f6e; background:#2a1408; box-shadow:0 0 0 1px #ff9f6e33, 0 0 16px #ff9f6e2e; }
+.cb-sub:not(.collapsed) .cb-ico { transform:scale(1.06); filter:drop-shadow(0 1px 3px #0008); }
+.cb-sub.collapsed .cb-ico { filter:saturate(.5) brightness(.8); }
+.cb-handle:active .cb-ico-wrap { transform:scale(.94); }
 .cb-sub.collapsed .cb-chev { transform:rotate(-90deg); }
 
 .cb-body { display:flex; gap:6px; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; touch-action:pan-x; scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch; padding:6px 4px; align-items:stretch; max-height:120px; transition:max-height .22s ease, padding .22s ease, opacity .2s; }
@@ -579,7 +596,10 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 .wisp-panel .wp-u.on { border-color:#8fe6b8; color:#8fe6b8; background:#0f2b1f; }
 .wisp-panel .wp-u.wp-uwide { font:700 12px 'DM Mono',monospace; }
 /* tap-and-hold card info tooltip */
-.card-info { position:fixed; z-index:200; display:flex; flex-direction:column; gap:2px; padding:9px 11px; border:1px solid #4aa3e0; border-radius:11px; background:#0d1424f7; box-shadow:0 10px 30px #000b; }
+/* purely informational, so it must never take a tap: it is fixed, z-index 205
+   and lingers 3.2s, which made it swallow the next tap wherever it landed.
+   (Separate bug from the 200ms innerHTML rebuild that d357b7e guarded.) */
+.card-info { position:fixed; z-index:200; pointer-events:none; display:flex; flex-direction:column; gap:2px; padding:9px 11px; border:1px solid #4aa3e0; border-radius:11px; background:#0d1424f7; box-shadow:0 10px 30px #000b; }
 .card-info.hidden { display:none; }
 .card-info b { font:700 11px 'DM Mono',monospace; color:#eafcff; }
 .card-info span { font:500 9px/1.35 'DM Mono',monospace; color:#bcd2ff; }
@@ -605,10 +625,14 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 .arena .vs-mark { display:inline-flex; flex:0 0 auto; color:#ff9f6e; font-size:12px; }
 
 /* pager arrows for the quick bars — fast tap paging */
-.cb-row { display:flex; align-items:stretch; }
+/* the ROW is the animated tray — it clips the pagers with it, so the whole
+   thing slides. It used to be display:none when collapsed, and display is not
+   animatable, so every transition on it was dead. */
+.cb-row { display:flex; align-items:stretch; overflow:hidden; max-height:132px; opacity:1; transform:translateY(0); transition:max-height .24s cubic-bezier(.2,.8,.3,1), opacity .18s ease, transform .24s cubic-bezier(.2,.8,.3,1); }
+.cb-sub.collapsed .cb-row { max-height:0; opacity:0; transform:translateY(-8px); }
+@media (prefers-reduced-motion:reduce) { .cb-row,.cb-ico-wrap,.cb-ico,.cb-chev { transition:none !important; } }
 .cb-pager { flex:0 0 auto; width:42px; border:0; background:#0b1424; color:#77d6ff; font-size:18px; font-weight:700; }
 .cb-pager:active { background:#122040; }
-.cb-sub.collapsed .cb-row { display:none; }
 
 /* THREE LOCKED ZONES in arena: HUD top, map middle, command bars bottom */
 .arena .hud { position:fixed !important; top:0; left:0; right:0; z-index:170; border-radius:0; }
@@ -626,6 +650,16 @@ body.mp-live .resource.rival-income { display:inline-flex; }
 
 /* arena top bar fits on a phone: crest + wave(+truncating threat) | gold · YOU · RIVAL */
 .arena .hud { overflow:hidden; gap:6px; }
+/* TOP BAR CONTRACT support (see enforceHudContract) */
+.arena .hud { flex-wrap:nowrap; }                                   /* R1 */
+.arena .resources { flex-wrap:nowrap; }                             /* R1 */
+/* the compact-HUD media rule sets .resources{width:100%} and no arena override
+   reset it, so the readouts claimed the whole row and starved the wave/timer
+   even on a 430px screen. Size to content; margin-left:auto still right-aligns. */
+.arena .resources { width:auto; justify-content:flex-end; }
+.arena .resource { flex:0 0 auto; white-space:nowrap; }             /* R1 */
+.arena .resource em { font-variant-numeric:tabular-nums; font-feature-settings:'tnum' 1; }  /* R4 */
+.arena .hud .hud-yield, .hud-yield { display:none !important; }      /* R3 (beats .arena .match-state !important) */
 .arena .match-state { display:flex; align-items:center; gap:5px; flex:1 1 auto; min-width:0; }
 .arena .match-state #wave-label { flex:0 0 auto; }
 .arena .match-state #timer-label { flex:0 0 auto; }
@@ -895,15 +929,15 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
               </div>
               <div id="arena-log" class="arena-log" aria-live="polite"></div>
               <div id="action-ring" class="action-ring hidden"></div>
-              <div class="map-toggles" aria-label="Map indicators"><button id="mt-routes" title="Show creep routes">🧭</button><button id="mt-ranges" title="Show tower ranges">◎</button></div>
+              <div class="map-toggles" aria-label="Map indicators"><button id="mt-routes" title="Show creep routes">🧭</button><button id="mt-ranges" title="Show tower ranges">◎</button><button id="mt-inspect" title="Inspect — tap a tower or creep to read its stats" aria-pressed="false">🔍</button></div>
               <div class="map-zoom-controls" aria-label="Map zoom controls"><button id="zoom-out-button" aria-label="Zoom out">−</button><span id="zoom-label">100%</span><button id="zoom-in-button" aria-label="Zoom in">+</button><button id="zoom-reset-button" aria-label="Reset map zoom">reset</button></div>
               <div class="zoom-hint">PINCH TO ZOOM • DRAG WHEN ZOOMED<span class="hotkey-hint"> • 1–9 SEND • Q–U TOWERS • ESC = UNDO • RIGHT-CLICK / HOLD = SELL</span></div>
             </div>
 
             <div id="quick-send" class="quick-send" aria-label="Quick send bar"></div>
             <div id="command-bar" class="command-bar hidden" aria-label="Command bars">
-              <div id="cb-build" class="cb-sub"><button class="cb-handle" data-cb="build"><span>⛫ BUILD</span><b class="cb-chev">▾</b></button><div class="cb-row"><button class="cb-pager cb-prev" data-pg="cb-build-body">‹</button><div id="cb-build-body" class="cb-body"></div><button class="cb-pager cb-next" data-pg="cb-build-body">›</button></div></div>
-              <div id="cb-send" class="cb-sub"><button class="cb-handle" data-cb="send"><span>⚔ SEND</span><b class="cb-chev">▾</b></button><div class="cb-row"><button class="cb-pager cb-prev" data-pg="cb-send-body">‹</button><div id="cb-send-body" class="cb-body"></div><button class="cb-pager cb-next" data-pg="cb-send-body">›</button></div></div>
+              <div id="cb-build" class="cb-sub cb-defend"><button class="cb-handle" data-cb="build" aria-expanded="true" aria-controls="cb-build-body"><span class="cb-lead"><span class="cb-ico-wrap"><svg class="cb-ico" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="cbShieldG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bfeaff"/><stop offset="1" stop-color="#3f9ad8"/></linearGradient></defs><path d="M12 2.2 20.2 5.5v6.6c0 4.9-3.5 8.4-8.2 9.7-4.7-1.3-8.2-4.8-8.2-9.7V5.5z" fill="#0d1f3a" stroke="url(#cbShieldG)" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 6.9v9.6M7.9 9.9 12 12.2l4.1-2.3" fill="none" stroke="url(#cbShieldG)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="cb-label">BUILD</span></span><b class="cb-chev">▾</b></button><div class="cb-row"><button class="cb-pager cb-prev" data-pg="cb-build-body">‹</button><div id="cb-build-body" class="cb-body"></div><button class="cb-pager cb-next" data-pg="cb-build-body">›</button></div></div>
+              <div id="cb-send" class="cb-sub cb-attack"><button class="cb-handle" data-cb="send" aria-expanded="true" aria-controls="cb-send-body"><span class="cb-lead"><span class="cb-ico-wrap"><svg class="cb-ico" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="cbSwordG" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#ffcf8f"/><stop offset="1" stop-color="#ff7a4d"/></linearGradient></defs><path d="M21.2 2.8v3.4l-9.4 9.4-3.4-3.4z" fill="#2a1408" stroke="url(#cbSwordG)" stroke-width="1.5" stroke-linejoin="round"/><path d="M6.1 14.2l3.7 3.7M8.2 16.3l-3.5 3.5" fill="none" stroke="url(#cbSwordG)" stroke-width="1.9" stroke-linecap="round"/><circle cx="3.9" cy="20.6" r="1.4" fill="url(#cbSwordG)"/></svg></span><span class="cb-label">SEND</span></span><b class="cb-chev">▾</b></button><div class="cb-row"><button class="cb-pager cb-prev" data-pg="cb-send-body">‹</button><div id="cb-send-body" class="cb-body"></div><button class="cb-pager cb-next" data-pg="cb-send-body">›</button></div></div>
             </div>
 
             <div class="debug-bar" aria-label="Debug toggles">
@@ -3320,9 +3354,60 @@ function renderUndoSlot() {
   }
 }
 let bannerShownWave = -1;
+/* ===================== TOP BAR CONTRACT (enforced) =====================
+   Requirements, not preferences. enforceHudContract() re-checks them on every
+   renderHud() and on resize; hudContractReport() fails loudly in console.
+
+   R1  ONE ROW.        Never wraps, never scrolls. (Height is left to the
+                       stylesheet — the bar is position:fixed and its content
+                       set is owned by the HUD rules, not by this check.)
+   R2  NO HALF-VALUES. A number shows in full or abbreviates (20983 -> 21.0k);
+                       it is never clipped mid-digit.
+   R3  YIELD ORDER.    When space runs out, items drop whole, lowest priority
+                       first: wordmark, brand, threat chip, rival income, your
+                       income, timer. Wave label, gold, YOU and RIVAL lifeforce
+                       NEVER yield — if those cannot fit, that is a bug and the
+                       report says so.
+   R4  NO JITTER.      Tabular digits: a changing value cannot shift a neighbour.
+   ===================================================================== */
+function hudNum(n) {
+  const v = Math.floor(Math.abs(n)), sign = n < 0 ? '-' : '';
+  if (v < 10000) return sign + v;
+  if (v < 999500) { const k = v / 1000; return `${sign}${k < 99.95 ? k.toFixed(1) : Math.round(k)}k`; }
+  return `${sign}${(v / 1e6).toFixed(1)}M`;
+}
+function hudSigned(n) { return (n < 0 ? '' : '+') + hudNum(n); }
+const HUD_YIELD_ORDER = ['.hud-brand span', '.hud-brand', '#wave-threat', '.resource.rival-income', '.resource.income', '#timer-label', '#wave-label', '.match-state'];
+function enforceHudContract() {
+  const hud = document.querySelector('.arena .hud');
+  if (!hud) return true;
+  HUD_YIELD_ORDER.forEach((sel) => hud.querySelector(sel)?.classList.remove('hud-yield'));
+  const overflows = () => hud.scrollWidth > hud.clientWidth + 1;
+  for (let i = 0; i < HUD_YIELD_ORDER.length && overflows(); i += 1) {
+    hud.querySelector(HUD_YIELD_ORDER[i])?.classList.add('hud-yield');
+  }
+  return !overflows();
+}
+function hudContractReport() {
+  const hud = document.querySelector('.arena .hud');
+  if (!hud) return null;
+  const fits = enforceHudContract(), bad = [];
+  if (!fits) bad.push('R3: gold/YOU/RIVAL cannot fit - nothing left to yield');
+  if (hud.scrollWidth > hud.clientWidth + 1) bad.push('R1/R2: row still overflows after yielding');
+  /* R1 is about ONE row, which horizontal overflow alone cannot detect: the
+     compact-HUD media query lays the bar out as a grid, so items can stack
+     instead of overflowing. Compare tops to catch that. */
+  const tops = [...hud.children].filter((e) => getComputedStyle(e).display !== 'none')
+    .map((e) => Math.round(e.getBoundingClientRect().top));
+  if (new Set(tops).size > 1 && Math.max(...tops) - Math.min(...tops) > 6) {
+    bad.push(`R1: items are on ${new Set(tops).size} rows (tops ${[...new Set(tops)].join(',')}) - arena .hud cascade is stacking them`);
+  }
+  if (bad.length) console.warn('[top bar contract]', bad.join(' | '));
+  return bad;
+}
 function renderHud() {
-  $('gold-label').textContent = Math.floor(player.gold);
-  $('income-label').textContent = `+${BASE_INCOME + player.income}`;
+  $('gold-label').textContent = hudNum(player.gold);
+  $('income-label').textContent = hudSigned(BASE_INCOME + player.income);
   $('lumber-label').textContent = player.lumber;
   // keep economy buttons in step with live gold/lumber
   const buyLumber = $('buy-lumber');
@@ -3337,7 +3422,8 @@ function renderHud() {
   renderUndoSlot();
   $('lives-label').textContent = player.lives;
   $('enemy-lives-label').textContent = enemy.lives;
-  const rivInc = $('rival-income-label'); if (rivInc) rivInc.textContent = mp.oppIncome != null ? `+${BASE_INCOME + mp.oppIncome}` : '+?';
+  const rivInc = $('rival-income-label'); if (rivInc) rivInc.textContent = mp.oppIncome != null ? hudSigned(BASE_INCOME + mp.oppIncome) : '+?';
+  enforceHudContract();   // R1-R3: re-fit the row against the values just written
   $('player-ship-label').textContent = `YOUR SHIP • ${player.lives}`;
   if (matchMode === 'classic') {
     $('wave-label').textContent = 'CLASSIC WARS';
@@ -3962,6 +4048,15 @@ function setupMapZoom() {
   viewport.addEventListener('touchmove', blockNativePinch, { passive:false });
   viewport.addEventListener('gesturestart', (event) => event.preventDefault());
   viewport.addEventListener('gesturechange', (event) => event.preventDefault());
+  /* Safari has ignored user-scalable=no since iOS 10, so the page could still be
+     pinch-zoomed by grabbing the top bar or the command bar — and once zoomed
+     into fixed-position chrome there is no way back. The board owns pinch; a
+     multi-touch gesture anywhere else is refused at the document. */
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach((type) =>
+    document.addEventListener(type, (event) => event.preventDefault(), { passive:false }));
+  document.addEventListener('touchmove', (event) => {
+    if (event.touches && event.touches.length > 1) event.preventDefault();
+  }, { passive:false });
   viewport.addEventListener('wheel', (event) => {
     if (!battleRunning && !event.ctrlKey && !event.metaKey) return;   // outside battle the page scrolls normally
     const rect = viewport.getBoundingClientRect();
@@ -3979,6 +4074,8 @@ function setupMapZoom() {
   window.addEventListener('resize', fitBoardToViewport);
   window.visualViewport?.addEventListener('resize', fitBoardToViewport);
   window.visualViewport?.addEventListener('scroll', fitBoardToViewport);
+  window.addEventListener('resize', enforceHudContract);              // R3: re-fit on rotate/resize
+  window.visualViewport?.addEventListener('resize', enforceHudContract);
 }
 
 /* ---------------- Main loop ---------------- */
@@ -4781,6 +4878,12 @@ function applyUiMode() {
 let sheetTab = 'sends', sheetKey = '';
 let barTab = 'build', barKey = '', barStructKey = '', autoSend = { on:false, last:null };
 let barBuildCollapsed = false, barSendCollapsed = false;
+/* one place that owns tray state, so the class and the a11y flag cannot drift */
+function setCbCollapsed(id, collapsed) {
+  const sub = document.getElementById(id); if (!sub) return;
+  sub.classList.toggle('collapsed', collapsed);
+  sub.querySelector('.cb-handle')?.setAttribute('aria-expanded', String(!collapsed));
+}
 function renderCommandBar() {
   const bar = $('command-bar');
   if (!bar || bar.classList.contains('hidden') || !player) return;
@@ -4797,14 +4900,14 @@ function renderCommandBar() {
     (lastT && underConstruction(lastT)) ? 'u' : '', towerListFor(raceId).length].join('|');
   if (sig === barStructKey) { barRefreshAffordable(); return; }
   barStructKey = sig;
-  $('cb-build').classList.toggle('collapsed', barBuildCollapsed && !ghost);
-  $('cb-send').classList.toggle('collapsed', barSendCollapsed);
+  setCbCollapsed('cb-build', barBuildCollapsed && !ghost);
+  setCbCollapsed('cb-send', barSendCollapsed);
   // ---- BUILD bar (or the ghost confirm while staging) ----
   if (ghost) {
     const def = towerDef(raceId, selectedTowerTier);
     buildBody.innerHTML = `<button id="bar-ghost-build" class="bar-card bar-wide toggle-on ${player.gold < def.cost ? 'poor' : ''}"><span>✓</span><small>BUILD ${def.name}</small><b>−${def.cost}g</b></button>
       <button id="bar-ghost-cancel" class="bar-card bar-wide"><span>✖</span><small>CANCEL</small><b>free</b></button>`;
-    $('cb-build').classList.remove('collapsed');
+    setCbCollapsed('cb-build', false);
     $('bar-ghost-build').addEventListener('click', () => { const c = { ...ghost }; ghost = null; buildAt(c); closeWispMenus(); renderCommandBar(); });
     $('bar-ghost-cancel').addEventListener('click', () => { ghost = null; renderCommandBar(); });
   } else if (!barBuildCollapsed) {
@@ -4825,8 +4928,8 @@ function renderCommandBar() {
       <button id="bar-auto" class="bar-card ${autoSend.on ? 'toggle-on' : ''}"><span>🔁</span><small>AUTO</small><b>${autoSend.on ? 'ON' : 'off'}</b></button>
       ${matchMode === 'classic' ? '' : `<button id="bar-wager" class="bar-card ${wagerReady ? '' : 'poor'}"><span>⏩</span><small>Rush</small><b>×${wager.tokens}</b></button>`}
       ${SENDS.filter((send) => player.shrine >= send.shrine).map((send) => `
-      <button class="bar-card ${player.gold < send.cost ? 'poor' : ''}" data-bar-send="${send.id}">
-        <span>${send.air ? '🐉' : send.symbol}</span><small>${send.name.split(' ')[0]}</small><b>${send.cost}g +${send.income}</b></button>`).join('')}`;
+      <button class="bar-card has-stats ${player.gold < send.cost ? 'poor' : ''}" data-bar-send="${send.id}">
+        <span>${send.air ? '🐉' : send.symbol}</span><small>${send.name.split(' ')[0]}</small><b>${send.cost}g +${send.income}</b><i class="bar-stats">${sendStatLine(send)}</i></button>`).join('')}`;
     $('bar-auto').addEventListener('click', () => { autoSend.on = !autoSend.on; log(autoSend.on ? `AUTO-send on — repeats your last send each wave${autoSend.last ? '' : ' (send one to arm it)'}.` : 'AUTO-send off.'); renderCommandBar(); });
     $('bar-wager')?.addEventListener('click', proposeWager);
     sendBody.querySelectorAll('[data-bar-send]').forEach((b) => wireSendCard(b));
@@ -4843,11 +4946,15 @@ function barRefreshAffordable() {
   });
   const wc = $('bar-wager'); if (wc) wc.classList.toggle('poor', !(wager.tokens > 0 && simTime >= wager.cooldownUntil && !wager.pending));
 }
-function sendInfoText(sd) { return `<b>${sd.name} · ${sd.cost}g (+${sd.income})</b><span>${sd.hp} hp · ${sd.armor||0} armor · spd ${sd.spd}${sd.air?' · AIR':''}${sd.role&&sd.role!=='standard'?' · '+sd.role:''}</span>`; }
+/* Stats live ON the send card now (third line), so sending is a single tap with
+   no intermediate state and nothing floating over the board. */
+function sendStatLine(sd) {
+  const tag = [sd.air ? 'air' : '', sd.role && sd.role !== 'standard' ? sd.role : ''].filter(Boolean).join(' ');
+  return `${sd.hp}hp · ${sd.armor || 0} arm · ${sd.spd} spd${tag ? ` · ${tag}` : ''}`;
+}
 function wireSendCard(card) {
-  const id = card.dataset.barSend, sd = SENDS.find((x) => x.id === id);
+  const id = card.dataset.barSend;
   card.addEventListener('click', () => {
-    showCardInfoHTML(sendInfoText(sd), card);   // detail above the card
     autoSend.last = id; document.querySelector(`[data-send="${id}"]`)?.click();
   });
 }
@@ -5272,6 +5379,8 @@ $('undo-slot')?.addEventListener('click', () => {
 });
 function syncMapToggles() {
   $('mt-routes')?.classList.toggle('on', debug.routes);
+  const insp = $('mt-inspect');
+  if (insp) { const on = inspectPanelOpen(); insp.classList.toggle('on', on); insp.setAttribute('aria-pressed', String(on)); }
   $('mt-ranges')?.classList.toggle('on', debug.ranges);
   const r = $('dbg-routes'); if (r) r.checked = debug.routes;
   const g = $('dbg-ranges'); if (g) g.checked = debug.ranges;
@@ -5280,6 +5389,16 @@ function syncMapToggles() {
 }
 $('mt-routes')?.addEventListener('click', () => { debug.routes = !debug.routes; syncMapToggles(); });
 $('mt-ranges')?.addEventListener('click', () => { debug.ranges = !debug.ranges; syncMapToggles(); });
+/* Inspect used to be reachable only by tapping an entity, which competes with
+   the scaffold double-tap. This is the direct way in. */
+$('mt-inspect')?.addEventListener('click', () => {
+  if (inspectPanelOpen()) closeWispMenus(); else renderWispPanel('inspect');
+  syncMapToggles();
+});
+function inspectPanelOpen() {
+  const p = $('wisp-panel');
+  return !!p && !p.classList.contains('hidden') && wispTab === 'inspect';
+}
 $('wisp-undo')?.addEventListener('click', (event) => {
   event.stopPropagation();
   const t = lastPlaced ? towers.get(lastPlaced.key) : null;
@@ -5304,8 +5423,8 @@ document.querySelectorAll('[data-pg]').forEach((b) => b.addEventListener('click'
 }));
 document.querySelectorAll('[data-cb]').forEach((b) => b.addEventListener('click', () => {
   if (b.dataset.cb === 'build') barBuildCollapsed = !barBuildCollapsed; else barSendCollapsed = !barSendCollapsed;
-  $('cb-build').classList.toggle('collapsed', barBuildCollapsed && !ghost);
-  $('cb-send').classList.toggle('collapsed', barSendCollapsed);
+  setCbCollapsed('cb-build', barBuildCollapsed && !ghost);
+  setCbCollapsed('cb-send', barSendCollapsed);
   setTimeout(fitBoardToViewport, 240);   // regrow the map after the slide
 }));
 function openSettings() {
