@@ -448,7 +448,7 @@ h2 span { color:#7583a6; }
 .bar-tab.on { color:#eafcff; border-color:#77d6ff; background:#77d6ff22; box-shadow:0 0 8px #77d6ff33; }
 .bar-content { display:flex; gap:7px; overflow-x:auto; overflow-y:hidden; touch-action:pan-x; scrollbar-width:none; -webkit-overflow-scrolling:touch; min-height:64px; align-items:stretch; scroll-snap-type:x proximity; }
 .bar-content::-webkit-scrollbar { display:none; }
-.bar-card { flex:1 1 62px; max-width:96px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-width:60px; min-height:54px; padding:6px 4px; border:1.5px solid #2c4a7a; border-radius:11px; background:#111a30; color:#eafcff; touch-action:none; }
+.bar-card { flex:0 0 auto; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-width:58px; min-height:52px; padding:6px 8px; border:1.5px solid #2c4a7a; border-radius:11px; background:#111a30; color:#eafcff; touch-action:none; }
 .bar-card small { font:700 9px 'DM Mono',monospace; opacity:.9; max-width:74px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .bar-card b { font:700 10px 'DM Mono',monospace; color:#ffd86b; }
 .bar-card span { font-size:17px; line-height:1; }
@@ -553,7 +553,8 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 .cb-handle .cb-chev { transition:transform .15s; color:#77d6ff; }
 .cb-sub.collapsed .cb-chev { transform:rotate(-90deg); }
 .cb-sub.collapsed .cb-body { display:none; }
-.cb-body { display:flex; flex-wrap:wrap; gap:6px; padding:7px 10px; align-items:stretch; }
+.cb-body { display:flex; gap:6px; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; touch-action:pan-x; padding:6px 10px; align-items:stretch; }
+.cb-body::-webkit-scrollbar { display:none; }
 
 /* wisp tools + learn */
 .wisp-panel .wp-tools { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
@@ -583,7 +584,12 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 .card-info span { font:500 9px/1.35 'DM Mono',monospace; color:#bcd2ff; }
 /* arena declutter: these controls now live in the wisp */
 .arena #push-wave-button, .arena #pause-button, .arena #restart-button, .arena #undo-slot { display:none !important; }
-.arena .map-zoom-controls, .arena .map-toggles { display:none !important; }
+
+
+.arena .map-zoom-controls { transform:scale(.82); transform-origin:bottom right; }
+.arena .map-toggles { transform:scale(.9); transform-origin:top left; }
+/* detail popup shown on single tap, anchored above a card */
+.card-info { z-index:205; }
 
 </style>
 </head>
@@ -4397,53 +4403,49 @@ function barRefreshAffordable() {
 function sendInfoText(sd) { return `<b>${sd.name} · ${sd.cost}g (+${sd.income})</b><span>${sd.hp} hp · ${sd.armor||0} armor · spd ${sd.spd}${sd.air?' · AIR':''}${sd.role&&sd.role!=='standard'?' · '+sd.role:''}</span>`; }
 function wireSendCard(card) {
   const id = card.dataset.barSend, sd = SENDS.find((x) => x.id === id);
-  let held = false, holdTimer = null, start = null;
-  card.addEventListener('pointerdown', (e) => { start = { x:e.clientX, y:e.clientY }; held = false; try { card.setPointerCapture(e.pointerId); } catch (x) {}
-    holdTimer = window.setTimeout(() => { held = true; const el = $('card-info') || (() => { const d = document.createElement('div'); d.id = 'card-info'; d.className = 'card-info'; document.body.appendChild(d); return d; })(); el.innerHTML = sendInfoText(sd); const r = card.getBoundingClientRect(), w = Math.min(240, window.innerWidth - 16); el.style.width = w + 'px'; el.style.left = Math.min(window.innerWidth - w - 8, Math.max(8, r.left + r.width/2 - w/2)) + 'px'; el.classList.remove('hidden'); el.style.top = '0px'; el.style.top = Math.max(8, r.top - el.offsetHeight - 8) + 'px'; }, 350); });
-  card.addEventListener('pointermove', (e) => { if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 8) window.clearTimeout(holdTimer); });
-  card.addEventListener('pointerup', () => { window.clearTimeout(holdTimer); hideCardInfo(); if (held) return; autoSend.last = id; document.querySelector(`[data-send="${id}"]`)?.click(); renderCommandBar(); });
-  card.addEventListener('pointercancel', () => { window.clearTimeout(holdTimer); hideCardInfo(); });
+  card.addEventListener('click', () => {
+    showCardInfoHTML(sendInfoText(sd), card);   // detail above the card
+    autoSend.last = id; document.querySelector(`[data-send="${id}"]`)?.click();
+  });
 }
-function showCardInfo(def, raceId, cardEl) {
+let cardInfoTimer = null;
+function showCardInfoHTML(html, cardEl) {
   let el = $('card-info'); if (!el) { el = document.createElement('div'); el.id = 'card-info'; el.className = 'card-info'; document.body.appendChild(el); }
-  el.innerHTML = `<b>${def.name} · ${def.cost}g</b><span>${def.dmg} dmg · ${(def.dmg/def.cd).toFixed(0)} dps · ${def.range.toFixed(1)} rng · ${attackProfileText(raceId)}</span><span>${specialBlurbs[def.special] || def.desc || ''}</span>`;
+  el.innerHTML = html;
   const r = cardEl.getBoundingClientRect(), w = Math.min(240, window.innerWidth - 16);
   el.style.width = w + 'px';
   el.style.left = Math.min(window.innerWidth - w - 8, Math.max(8, r.left + r.width/2 - w/2)) + 'px';
   el.classList.remove('hidden'); el.style.top = '0px';
-  const h = el.offsetHeight;
-  el.style.top = Math.max(8, r.top - h - 8) + 'px';
+  el.style.top = Math.max(8, r.top - el.offsetHeight - 8) + 'px';
+  window.clearTimeout(cardInfoTimer); cardInfoTimer = window.setTimeout(hideCardInfo, 3200);
+}
+function showCardInfo(def, raceId, cardEl) {
+  showCardInfoHTML(`<b>${def.name} · ${def.cost}g</b><span>${def.dmg} dmg · ${(def.dmg/def.cd).toFixed(0)} dps · ${def.range.toFixed(1)} rng · ${attackProfileText(raceId)}</span><span>${specialBlurbs[def.special] || def.desc || ''}</span>`, cardEl);
 }
 function hideCardInfo() { $('card-info')?.classList.add('hidden'); }
 function wireTowerCard(card) {
-  // tap = select tier; drag UP = place; press-and-hold = show info next to the card
+  // single tap = select + show its detail above the card; drag UP = place on the board
   const tier = Number(card.dataset.barTower);
-  let start = null, held = false, holdTimer = null;
-  card.addEventListener('pointerdown', (event) => {
-    start = { x:event.clientX, y:event.clientY }; held = false;
-    try { card.setPointerCapture(event.pointerId); } catch (e) {}
-    holdTimer = window.setTimeout(() => { held = true; showCardInfo(towerDef(currentBuildRaceId(), tier), currentBuildRaceId(), card); }, 350);
-  });
-  card.addEventListener('pointermove', (event) => {
-    if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 8) { window.clearTimeout(holdTimer); }
-  });
+  let start = null;
+  card.addEventListener('pointerdown', (event) => { start = { x:event.clientX, y:event.clientY }; try { card.setPointerCapture(event.pointerId); } catch (e) {} });
   card.addEventListener('pointerup', (event) => {
-    window.clearTimeout(holdTimer); hideCardInfo();
     if (!start) return;
     const dx = event.clientX - start.x, dy = event.clientY - start.y; start = null;
-    if (held) return;   // it was an info press, not a select/place
     selectedTowerTier = tier;
-    renderTowerList(); barStructKey = ''; renderCommandBar();
+    card.parentNode.querySelectorAll('.bar-card.on').forEach((c) => c.classList.remove('on'));
+    card.classList.add('on');
+    renderTowerList();
+    showCardInfo(towerDef(currentBuildRaceId(), tier), currentBuildRaceId(), card);
     if (dy < -30 && Math.abs(dy) > Math.abs(dx)) {
       const cell = cellFromEvent(event);
       if (cell && terrainAt(cell.r, cell.c) === T.FLOOR && isPlayerBuildRow(cell.r) && !towers.has(idx(cell.r, cell.c))) {
         ghost = { r:cell.r, c:cell.c }; selectedTowerKey = null; selectedGroupKeys = [];
-        barStructKey = ''; renderCommandBar();
+        hideCardInfo(); barStructKey = ''; renderCommandBar();
         log(`${towerDef(currentBuildRaceId(), tier).name} staged — ✓ builds, ✖ cancels.`);
       }
     }
   });
-  card.addEventListener('pointercancel', () => { window.clearTimeout(holdTimer); hideCardInfo(); start = null; });
+  card.addEventListener('pointercancel', () => { start = null; });
 }
 let wispParked = null;   // where the wisp was before docking onto the open sheet
 function dockWisp() {
@@ -4484,12 +4486,18 @@ function learnContent() {
     <div class="learn-list">${races.map((race) => `<div class="learn-row"><span style="color:${race.color}">${race.symbol} ${race.name}</span><small>${attackProfileText(race.id)}</small></div>`).join('')}</div>
     <p class="sheet-heading">ARMOR BY WAVE — plan your build and time your sends</p>
     <div class="learn-list">${Object.entries(classWaves).map(([cls, waves]) => `<div class="learn-row"><span>${cls}</span><small>waves ${waves.join(', ')}</small></div>`).join('')}</div>
+    <p class="sheet-heading">EVERY TOWER — dmg · dps · range · spell</p>
+    ${races.map((race) => `<div class="learn-block"><b style="color:${race.color}">${race.symbol} ${race.name}</b>${towerListFor(race.id).map((t) => `<div class="learn-row"><span>${t.name}</span><small>${t.cost}g · ${t.dmg} dmg · ${(t.dmg/t.cd).toFixed(0)} dps · ${t.range} rng${t.special?' · '+t.special:''}</small></div>`).join('')}</div>`).join('')}
+    <p class="sheet-heading">EVERY WAVE — hp · armor · class · trait</p>
+    <div class="learn-list">${WAVES.map((w, i) => `<div class="learn-row"><span>${i+1}. ${w.name}</span><small>${Math.round((w.hp||0)*TRAIT.hpScaleNeutral*(w.role==='juggernaut'?2.4:1))} hp · ${(w.armor||0)+(w.boss?0:TRAIT.armorBonus)} armor · ${w.aClass}${w.air?' · air':''}${w.role&&w.role!=='standard'?' · '+w.role:''}</small></div>`).join('')}</div>
+    <p class="sheet-heading">EVERY SEND — cost · income · hp · armor</p>
+    <div class="learn-list">${SENDS.map((sd) => `<div class="learn-row"><span>${sd.name} <em>(L${sd.shrine})</em></span><small>${sd.cost}g +${sd.income} · ${sd.hp} hp · ${sd.armor||0} armor · ${sd.aClass||'?'}${sd.air?' · air':''}${sd.role&&sd.role!=='standard'?' · '+sd.role:''}</small></div>`).join('')}</div>
     <p class="sheet-heading">RULES OF THUMB</p>
     <div class="learn-list">
-      <div class="learn-row"><span>Air waves (5, 14)</span><small>fly straight over your maze — Storm towers (+30% vs air) and long range answer them; V2 Rocket and Sludge Flinger cannot hit air</small></div>
-      <div class="learn-row"><span>Chaos</span><small>Crystal and the Laser Cannon ignore armor entirely</small></div>
-      <div class="learn-row"><span>Mono-element walls</span><small>fortified waves (10, 11, 17) punish Magic/Venom/Pierce — a second element (2🪵) or chaos towers break the wall</small></div>
-      <div class="learn-row"><span>Sends</span><small>each purchase runs BOTH rival lanes and permanently raises your income; killing sends pays their income value</small></div>
+      <div class="learn-row"><span>Chaos</span><small>Crystal and the Laser Cannon ignore armor entirely; Crystal also does +100% to shields</small></div>
+      <div class="learn-row"><span>Shields</span><small>absorb raw damage (armor ignored); refill after 4s untouched; Thunderspike strips them</small></div>
+      <div class="learn-row"><span>Regen / Juggernaut</span><small>Frost slow & stuns freeze HP regen; juggernauts are slow but very tanky (fortified)</small></div>
+      <div class="learn-row"><span>Sends</span><small>each purchase runs BOTH rival lanes and permanently raises your income; killing sends pays their value</small></div>
       <div class="learn-row"><span>Lumber (500g)</span><small>buys shrine levels (stronger sends), a second element, or the Laser Cannon</small></div>
     </div>`;
 }
@@ -4610,11 +4618,6 @@ function renderWispPanel(mode) {
     const z = Math.round(camZoomNow() * 100);
     body = `<div class="wp-head"><span>🧰 Tools &amp; controls</span><button data-wp-do="close">✕</button></div>
       <div class="wp-util">
-        <button class="wp-u" data-wp-do="zoomout">➖</button>
-        <button class="wp-u wp-uwide" data-wp-do="zoomreset">${z}%</button>
-        <button class="wp-u" data-wp-do="zoomin">➕</button>
-        <button class="wp-u ${debug.routes?'on':''}" data-wp-do="routes">🧭<i>Routes</i></button>
-        <button class="wp-u ${debug.ranges?'on':''}" data-wp-do="ranges">◎<i>Ranges</i></button>
         <button class="wp-u ${selectMode==='box'?'on':''}" data-wp-do="box">▭<i>Box</i></button>
         <button class="wp-u ${selectMode==='lasso'?'on':''}" data-wp-do="lasso">➰<i>Lasso</i></button>
         <button class="wp-u" data-wp-do="learn">🎓<i>Learn</i></button>
