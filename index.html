@@ -448,7 +448,7 @@ h2 span { color:#7583a6; }
 .bar-tab.on { color:#eafcff; border-color:#77d6ff; background:#77d6ff22; box-shadow:0 0 8px #77d6ff33; }
 .bar-content { display:flex; gap:7px; overflow-x:auto; overflow-y:hidden; touch-action:pan-x; scrollbar-width:none; -webkit-overflow-scrolling:touch; min-height:64px; align-items:stretch; scroll-snap-type:x proximity; }
 .bar-content::-webkit-scrollbar { display:none; }
-.bar-card { flex:0 0 auto; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-width:58px; min-height:52px; padding:6px 8px; border:1.5px solid #2c4a7a; border-radius:11px; background:#111a30; color:#eafcff; touch-action:none; }
+.bar-card { flex:0 0 auto; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-width:58px; min-height:52px; padding:6px 8px; border:1.5px solid #2c4a7a; border-radius:11px; background:#111a30; color:#eafcff; touch-action:pan-x; scroll-snap-align:start; }
 .bar-card small { font:700 9px 'DM Mono',monospace; opacity:.9; max-width:74px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .bar-card b { font:700 10px 'DM Mono',monospace; color:#ffd86b; }
 .bar-card span { font-size:17px; line-height:1; }
@@ -553,7 +553,7 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 .cb-handle .cb-chev { transition:transform .15s; color:#77d6ff; }
 .cb-sub.collapsed .cb-chev { transform:rotate(-90deg); }
 
-.cb-body { display:flex; gap:6px; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; touch-action:pan-x; padding:6px 10px; align-items:stretch; max-height:120px; transition:max-height .22s ease, padding .22s ease, opacity .2s; }
+.cb-body { display:flex; gap:6px; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; touch-action:pan-x; scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch; padding:6px 4px; align-items:stretch; max-height:120px; transition:max-height .22s ease, padding .22s ease, opacity .2s; }
 .cb-sub.collapsed .cb-body { max-height:0; padding-top:0; padding-bottom:0; opacity:0; }
 .cb-body::-webkit-scrollbar { display:none; }
 
@@ -603,6 +603,12 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 .arena .resources .resource b { font-size:9px; }
 .arena .resources .resource em { font-size:12px; }
 .arena .vs-mark { display:none; }
+
+/* pager arrows for the quick bars — fast tap paging */
+.cb-row { display:flex; align-items:stretch; }
+.cb-pager { flex:0 0 auto; width:26px; border:0; background:#0b1424; color:#77d6ff; font-size:18px; font-weight:700; }
+.cb-pager:active { background:#122040; }
+.cb-sub.collapsed .cb-row { display:none; }
 
 </style>
 </head>
@@ -816,8 +822,8 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 
             <div id="quick-send" class="quick-send" aria-label="Quick send bar"></div>
             <div id="command-bar" class="command-bar hidden" aria-label="Command bars">
-              <div id="cb-build" class="cb-sub"><button class="cb-handle" data-cb="build"><span>⛫ BUILD</span><b class="cb-chev">▾</b></button><div id="cb-build-body" class="cb-body"></div></div>
-              <div id="cb-send" class="cb-sub"><button class="cb-handle" data-cb="send"><span>⚔ SEND</span><b class="cb-chev">▾</b></button><div id="cb-send-body" class="cb-body"></div></div>
+              <div id="cb-build" class="cb-sub"><button class="cb-handle" data-cb="build"><span>⛫ BUILD</span><b class="cb-chev">▾</b></button><div class="cb-row"><button class="cb-pager cb-prev" data-pg="cb-build-body">‹</button><div id="cb-build-body" class="cb-body"></div><button class="cb-pager cb-next" data-pg="cb-build-body">›</button></div></div>
+              <div id="cb-send" class="cb-sub"><button class="cb-handle" data-cb="send"><span>⚔ SEND</span><b class="cb-chev">▾</b></button><div class="cb-row"><button class="cb-pager cb-prev" data-pg="cb-send-body">‹</button><div id="cb-send-body" class="cb-body"></div><button class="cb-pager cb-next" data-pg="cb-send-body">›</button></div></div>
             </div>
 
             <div class="debug-bar" aria-label="Debug toggles">
@@ -4653,10 +4659,11 @@ function renderWispPanel(mode) {
         <button class="wp-u ${selectMode==='box'?'on':''}" data-wp-do="box">▭<i>Box</i></button>
         <button class="wp-u ${selectMode==='lasso'?'on':''}" data-wp-do="lasso">➰<i>Lasso</i></button>
         <button class="wp-u" data-wp-do="learn">🎓<i>Learn</i></button>
-        <button class="wp-u" data-wp-do="settings">⚙<i>Settings</i></button>
+        <button class="wp-u ${debug.routes?'on':''}" data-wp-do="routes">🧭<i>Routes</i></button>
+        <button class="wp-u ${debug.ranges?'on':''}" data-wp-do="ranges">◎<i>Ranges</i></button>
         <button class="wp-u ${battlePaused?'on':''}" data-wp-do="pause">${battlePaused?'▶':'⏸'}<i>${battlePaused?'Resume':'Pause'}</i></button>
-        ${matchMode==='classic'?'':`<button class="wp-u" data-wp-do="pushwave">⏩<i>Push</i></button>`}
         <button class="wp-u" data-wp-do="restart">↻<i>Restart</i></button>
+        <button class="wp-u" data-wp-do="settings">⚙<i>Settings</i></button>
         <button class="wp-u" data-wp-do="exit">⏏<i>Exit</i></button>
       </div>`;
   }
@@ -4872,6 +4879,10 @@ function pinBarToVisualViewport() {
 window.visualViewport?.addEventListener('resize', pinBarToVisualViewport);
 window.visualViewport?.addEventListener('scroll', pinBarToVisualViewport);
 setupWisp();
+document.querySelectorAll('[data-pg]').forEach((b) => b.addEventListener('click', () => {
+  const body = $(b.dataset.pg); if (!body) return;
+  body.scrollBy({ left: (b.classList.contains('cb-next') ? 1 : -1) * body.clientWidth * .8, behavior:'smooth' });
+}));
 document.querySelectorAll('[data-cb]').forEach((b) => b.addEventListener('click', () => {
   if (b.dataset.cb === 'build') barBuildCollapsed = !barBuildCollapsed; else barSendCollapsed = !barSendCollapsed;
   $('cb-build').classList.toggle('collapsed', barBuildCollapsed && !ghost);
