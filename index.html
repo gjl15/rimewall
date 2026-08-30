@@ -652,6 +652,8 @@ body.mp-live .resource.rival-income { display:inline-flex; }
 .arena .match-state .wave-threat, .arena .match-state .live-dot { display:none; }
 .arena .resources { margin-left:auto; flex:0 0 auto; gap:6px; }
 .arena .resource.lives, .arena .resource.enemy { flex:0 0 auto; }   /* lifeforce always renders */
+.mp-linkbtn { margin-left:6px; padding:6px 10px; border:1px solid #8fe6b8; border-radius:8px; background:#0f2b1f; color:#8fe6b8; font:700 11px 'DM Mono',monospace; cursor:pointer; }
+.mp-link { margin-top:6px; font:600 10px 'DM Mono',monospace; color:#8fb4e6; word-break:break-all; user-select:all; }
 
 </style>
 </head>
@@ -866,7 +868,7 @@ body.mp-live .resource.rival-income { display:inline-flex; }
               <div id="action-ring" class="action-ring hidden"></div>
               <div class="map-toggles" aria-label="Map indicators"><button id="mt-routes" title="Show creep routes">🧭</button><button id="mt-ranges" title="Show tower ranges">◎</button></div>
               <div class="map-zoom-controls" aria-label="Map zoom controls"><button id="zoom-out-button" aria-label="Zoom out">−</button><span id="zoom-label">100%</span><button id="zoom-in-button" aria-label="Zoom in">+</button><button id="zoom-reset-button" aria-label="Reset map zoom">reset</button></div>
-              <div class="zoom-hint">PINCH TO ZOOM • DRAG WHEN ZOOMED<span class="hotkey-hint"> • 1–9 SEND • Q–U TOWERS • ESC / DBL-TAP SCAFFOLD = UNDO • RIGHT-CLICK / HOLD = SELL</span></div>
+              <div class="zoom-hint">PINCH TO ZOOM • DRAG WHEN ZOOMED<span class="hotkey-hint"> • 1–9 SEND • Q–U TOWERS • ESC = UNDO • RIGHT-CLICK / HOLD = SELL</span></div>
             </div>
 
             <div id="quick-send" class="quick-send" aria-label="Quick send bar"></div>
@@ -1410,7 +1412,7 @@ const WAVE_PERIOD = 30;
    (base + everything your sends added). Lives are chosen tournament-style
    (25 classic / 50 / 100 easy). Bounties run ×2 because a solo defender
    covers both streams that a team shares in the source map. */
-const START_GOLD = 30, FIRST_WAVE_DELAY = 20;
+const START_GOLD = 30, FIRST_WAVE_DELAY = 45;   // longer runway to build before wave 1; WAVE_PERIOD 30s after
 const INCOME_PERIOD = 25, BASE_INCOME = 24;   // was 33 — balance audit: income was the flat snowball outpacing HP growth
 const BOUNTY_MULT = 1;   // was 2 — kill-gold was the fattest early faucet (defense out-damaged threat ~5.7x)
 // late-wave HP multiplier: waves past hpLateFrom compound so the endgame can actually be lost
@@ -1428,6 +1430,7 @@ let lastPlaced = null;   // drives the 3-second undo pill
 let selectMode = null, marquee = null;   // ▭ box / ➰ lasso tower selection utilities
 let actionChips = [];   // floating sell/info chips beside the selected tower
 let ghost = null, ghostChips = [];   // staged placement preview (tap → preview → confirm)
+let dragGhost = null;   // live preview tower + range that follows the finger during a drag-to-deploy
 let wager = { tokens:3, cooldownUntil:0, pending:null };   // rush-the-wave wager: accept rewards BOTH sides
 let chipAutoHideAt = 0;   // placement auto-select retires its chips after a beat; manual selection persists
 let buildSeq = 0;   // monotonic placement order — same-tick placements still undo newest-first
@@ -3108,6 +3111,17 @@ function renderFrame() {
     fxCtx.setLineDash([]);
     fxCtx.restore();
   }
+  // live drag-to-deploy preview: green ghost + range where the tower will land, red if the cell is illegal
+  if (dragGhost && battleRunning && !ghost) {
+    const def = towerDef(currentBuildRaceId(), dragGhost.tier);
+    const gx = dragGhost.c * CELL, gy = dragGhost.r * CELL, ok = dragGhost.valid;
+    fxCtx.save();
+    fxCtx.globalAlpha = .45; fxCtx.fillStyle = ok ? '#8fe6b8' : '#ff8a9a';
+    fxCtx.fillRect(gx + 2, gy + 2, CELL - 4, CELL - 4);
+    fxCtx.globalAlpha = .6; fxCtx.setLineDash([6, 5]); fxCtx.strokeStyle = ok ? '#8fe6b8' : '#ff8a9a'; fxCtx.lineWidth = 2;
+    fxCtx.beginPath(); fxCtx.arc(gx + CELL / 2, gy + CELL / 2, def.range * CELL, 0, Math.PI * 2); fxCtx.stroke();
+    fxCtx.setLineDash([]); fxCtx.restore();
+  }
   // action chips retired — the screen-space ring (renderRing) owns tower actions now
   actionChips = [];
   if (chipAutoHideAt && performance.now() > chipAutoHideAt) {
@@ -3465,6 +3479,7 @@ function sellTowerAt(cell) {
   const refund = towerSellValue(tower);
   const full = underConstruction(tower);
   player.gold += refund;
+  effects.push({ kind:'num', x:cell.c + .5, y:cell.r + .25, text:`+${refund}g`, until:simTime + .9, color:'#ffd86b' });
   removeTower(key);
   if (navigator.vibrate) navigator.vibrate(25);
   log(`${name} ${full ? 'construction canceled' : 'sold'} for ${refund}g${full ? ' (full refund)' : ' (75%)'}. ${cachedRouteText}.`);
@@ -3577,6 +3592,7 @@ function buildAt(cell) {
   if (player.gold < def.cost) return log(`Not enough gold — ${def.name} costs ${def.cost}g.`);
   if (def.name === 'Laser Cannon' && player.lumber < 1) return log('The Laser Cannon costs 650g + 1 lumber, as in the original map.');
   player.gold -= def.cost;
+  effects.push({ kind:'num', x:cell.c + .5, y:cell.r + .25, text:`-${def.cost}g`, until:simTime + .8, color:'#ff9f6e' });
   if (def.name === 'Laser Cannon') { player.lumber -= 1; player.lumberSpent += 1; if (player.lumberSpent >= 3) award('lumberjack'); renderTowerList(); }
   questEvent('architect');
   const placed = makeTower(cell.r, cell.c, raceId, selectedTowerTier, 'player');
@@ -3864,7 +3880,7 @@ function frameBody(now) {
   lastFrame = now;
   if (battleRunning && !battlePaused) {
     // fixed-step accumulator keeps combat deterministic-ish across frame rates
-    let acc = dt;
+    let acc = dt * (ghost && !mp.active ? 0.5 : 1);   // solo: time slows to 50% while a tower is staged
     while (acc > 0) { const step = Math.min(1 / 30, acc); simulate(step); acc -= step; }
     hudClock -= dt;
     if (hudClock <= 0) { hudClock = .2; renderHud(); if (selectedTowerKey !== null) renderTowerDetails(); renderCommandBar(); }   // renderHud already calls renderCommandSheet
@@ -4428,7 +4444,12 @@ async function mpOpenRoom(join) {
       mp.transport?.presence?.('guest', { t:'hello', name:mpPlayerName(), race:selectedRace.id, ts:Date.now() });
       mpStartHelloLoop();
     } else {
-      mpStatus(`Room <b>${code}</b> is open — your opponent can join from any device. Share the code!`);
+      const link = mpInviteLink(code);
+      mpStatus(`Room <b>${code}</b> is open — <button id="mp-copy-link" class="mp-linkbtn">🔗 Copy invite link</button><div class="mp-link">${link}</div>`);
+      $('mp-copy-link')?.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(link); $('mp-copy-link').textContent = '✓ Link copied — send it!'; }
+        catch (e) { $('mp-copy-link').textContent = 'Copy failed — long-press the link below'; }
+      });
       // retained host beacon: a guest that subscribes at ANY later time instantly receives this — kills the discovery race
       mp.transport?.presence?.('host', { t:'config', name:mpPlayerName(), race:selectedRace.id, mode:mpModeNow(), lives:startingLives(), ts:Date.now() });
     }
@@ -4693,10 +4714,19 @@ function wireTowerCard(card) {
   // single tap = select + show its detail above the card; drag UP = place on the board
   const tier = Number(card.dataset.barTower);
   let start = null;
-  card.addEventListener('pointerdown', (event) => { start = { x:event.clientX, y:event.clientY }; try { card.setPointerCapture(event.pointerId); } catch (e) {} });
+  card.addEventListener('pointerdown', (event) => { start = { x:event.clientX, y:event.clientY }; dragGhost = null; try { card.setPointerCapture(event.pointerId); } catch (e) {} });
+  card.addEventListener('pointermove', (event) => {
+    if (!start) return;
+    const dx = event.clientX - start.x, dy = event.clientY - start.y;
+    // once the finger is clearly dragging up onto the board, show a live ghost tower + range at the target cell
+    if (dy < -20 && Math.abs(dy) > Math.abs(dx)) {
+      const cell = cellFromEvent(event);
+      dragGhost = cell ? { r:cell.r, c:cell.c, tier, valid: terrainAt(cell.r, cell.c) === T.FLOOR && isPlayerBuildRow(cell.r) && !towers.has(idx(cell.r, cell.c)) && !protectedCells.has(idx(cell.r, cell.c)) } : null;
+    } else dragGhost = null;
+  });
   card.addEventListener('pointerup', (event) => {
     if (!start) return;
-    const dx = event.clientX - start.x, dy = event.clientY - start.y; start = null;
+    const dx = event.clientX - start.x, dy = event.clientY - start.y; start = null; dragGhost = null;
     selectedTowerTier = tier; SFX.play('tap');
     card.parentNode.querySelectorAll('.bar-card.on').forEach((c) => c.classList.remove('on'));
     card.classList.add('on');
@@ -4716,7 +4746,7 @@ function wireTowerCard(card) {
       }
     }
   });
-  card.addEventListener('pointercancel', () => { start = null; });
+  card.addEventListener('pointercancel', () => { start = null; dragGhost = null; });
 }
 let wispParked = null;   // where the wisp was before docking onto the open sheet
 function dockWisp() {
@@ -5164,9 +5194,20 @@ $('ui-mode-select')?.addEventListener('change', (event) => {
   applyUiMode();
 });
 window.addEventListener('resize', applyUiMode);
+function mpInviteLink(code) { return `${location.origin}${location.pathname}?room=${code}`; }
 $('mp-create').addEventListener('click', () => mpOpenRoom(false));
 $('mp-join').addEventListener('click', () => mpOpenRoom(true));
 $('mp-name').value = profile.name || '';
+// arrive via an invite link (?room=CODE): prefill the code and drop straight into the room
+try {
+  const room = (new URLSearchParams(location.search).get('room') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
+  if (room) {
+    const codeInput = $('mp-code'); if (codeInput) codeInput.value = room;
+    document.querySelector('.mp-panel')?.scrollIntoView({ behavior:'smooth', block:'center' });
+    if ((profile.name || '').trim()) window.setTimeout(() => mpOpenRoom(true), 500);
+    else { $('mp-name')?.focus(); mpStatus(`Enter your commander name, then tap Join to enter room <b>${room}</b>.`); }
+  }
+} catch (e) { /* no URL / SSR-safe */ }
 window.addEventListener('beforeunload', () => { if (mp.transport) mpSend({ t:'bye' }); });
 setupMapZoom();
 renderRaceCards();
