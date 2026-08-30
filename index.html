@@ -1521,7 +1521,7 @@ function proposeWager() {
     window.setTimeout(() => {
       if (!wager.pending || !battleRunning) return;
       const confident = enemy && player && enemy.lives >= player.lives * .8;
-      resolveWager(Math.random() < (confident ? .7 : .3));
+      resolveWager(rng() < (confident ? .7 : .3));
     }, 1400);
   }
   sheetKey = ''; renderCommandSheet();
@@ -1562,7 +1562,20 @@ const debug = { routes:false, ranges:false, ref:false };
 let cachedRouteText = '';
 
 let incomeClock = INCOME_PERIOD, waypointFxClock = 2;
+// Seeded PRNG (mulberry32) for the SIMULATION only — same seed => same crits/stuns/enemy pick,
+// which unlocks a reproducible daily gauntlet, same-seed rematch, and async ghosts. Visual-only
+// randomness (FX particles, SFX, tower shake, skybolt flicker) intentionally stays on Math.random.
+let rngState = 1, matchSeed = 0, lastMatchSeed = 0, pendingSeed = null;
+function seedRng(seed) { rngState = (seed >>> 0) || 1; }
+function rng() {
+  rngState = (rngState + 0x6D2B79F5) | 0;
+  let t = Math.imul(rngState ^ (rngState >>> 15), 1 | rngState);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
 function resetMatchState() {
+  matchSeed = ((pendingSeed != null ? pendingSeed : Math.floor(Math.random() * 0x7fffffff)) >>> 0) || 1;
+  pendingSeed = null; lastMatchSeed = matchSeed; seedRng(matchSeed);
   towers.clear(); towersVersion += 1;
   creeps.length = 0; projectiles.length = 0; effects.length = 0; pendingSpawns.length = 0;
   matchMode = document.getElementById('mode-select')?.value === 'classic' ? 'classic' : 'skirmish';
@@ -1571,7 +1584,7 @@ function resetMatchState() {
   const questGold = mp.active ? 0 : 25 * (ensureDaily().done.length || 0);
   if (questGold) { player.gold += questGold; log(`🗒 Daily quest reward: +${questGold}g starting gold.`); }
   buildRaceIdx = 0;
-  enemy = { gold:START_GOLD, income:0, lives, lumber:0, shrine:1, raceId:races[Math.floor(Math.random() * races.length)].id, spotIndex:0, buildClock:2, sendClock:matchMode === 'classic' ? 14 : 24 };
+  enemy = { gold:START_GOLD, income:0, lives, lumber:0, shrine:1, raceId:races[Math.floor(rng() * races.length)].id, spotIndex:0, buildClock:2, sendClock:matchMode === 'classic' ? 14 : 24 };
   wave = 0; waveClock = FIRST_WAVE_DELAY; incomeClock = INCOME_PERIOD; simTime = 0; battlePaused = false; matchOver = false;
   selectedTowerKey = null; selectedGroupKeys = [];
   refreshRouteDebug();
@@ -1846,7 +1859,7 @@ function applyHitEffects(creep, tower, stats) {
     }
   }
   // ELECTRICITY — brief stasis (movement stops, regen continues)
-  if (race === 'electricity' && Math.random() < TRAIT.elecStasis * tierPot(tower)) creep.stasisUntil = Math.max(creep.stasisUntil, simTime + TRAIT.elecStasisDur);
+  if (race === 'electricity' && rng() < TRAIT.elecStasis * tierPot(tower)) creep.stasisUntil = Math.max(creep.stasisUntil, simTime + TRAIT.elecStasisDur);
   if (special === 'pause' && !creep.boss) creep.stunUntil = simTime + 3.5;
   if (special === 'armorshred') creep.armorShred = Math.min(creep.armor, creep.armorShred + 5);
 }
@@ -1871,7 +1884,7 @@ function resolveProjectileHit(projectile) {
     let dmg = stats.dmg;
     let crit = false;
     // STONE — every tower can crit
-    if (isStone && Math.random() < TRAIT.stoneCritChance * tierPot(tower)) { dmg *= TRAIT.stoneCritMult; crit = true; }
+    if (isStone && rng() < TRAIT.stoneCritChance * tierPot(tower)) { dmg *= TRAIT.stoneCritMult; crit = true; }
     if (stats.special === 'ion' && target.hp > 500) dmg += 500;
     if (stats.special === 'halve' && !target.boss) target.hp = Math.max(1, target.hp * .5);
     if (stats.special === 'mind' && !target.boss) target.hp = Math.max(1, target.hp * .7);
@@ -1880,7 +1893,7 @@ function resolveProjectileHit(projectile) {
     if (crit) effects.push({ kind:'num', x:target.x, y:target.y - .6, text:`${Math.round(dmg)}!`, until:simTime + .8, color:'#e0b8ff' });
     applyHitEffects(target, tower, stats);
     // EARTH — chance to stun the direct target (stun freezes HP regen)
-    if (isEarth && !target.boss && Math.random() < TRAIT.earthStunDirect * tierPot(tower)) { target.stunUntil = Math.max(target.stunUntil, simTime + .5); effects.push({ kind:'num', x:target.x, y:target.y - .6, text:'✦', until:simTime + .6, color:'#ffd86b' }); }
+    if (isEarth && !target.boss && rng() < TRAIT.earthStunDirect * tierPot(tower)) { target.stunUntil = Math.max(target.stunUntil, simTime + .5); effects.push({ kind:'num', x:target.x, y:target.y - .6, text:'✦', until:simTime + .6, color:'#ffd86b' }); }
   }
   if (splash) {
     const rad = splash.radius * (isEarth ? TRAIT.earthSplashRadius : 1);
@@ -1889,7 +1902,7 @@ function resolveProjectileHit(projectile) {
       if (other !== target && other.hp > 0 && other.half === projectile.half && Math.hypot(other.x - impactX, other.y - impactY) <= rad) {
         applyDamage(other, stats.dmg * mult, tower);
         if (stats.special === 'frostnova' && tower.raceId === 'ice') { other.frostUntil = simTime + 1.6; other.frostStacks = Math.min(30, (other.frostStacks || 0) + 1); }
-        if (isEarth && !other.boss && Math.random() < TRAIT.earthStunSplash * tierPot(tower)) other.stunUntil = Math.max(other.stunUntil, simTime + .1);
+        if (isEarth && !other.boss && rng() < TRAIT.earthStunSplash * tierPot(tower)) other.stunUntil = Math.max(other.stunUntil, simTime + .1);
       }
     });
   }
@@ -1934,14 +1947,14 @@ function firePulse(tower, stats) {
   eligible.forEach((creep) => {
     if (stats.special === 'thunder') {
       creep.shield = 0; creep.shieldHitAt = simTime;                       // strip shields
-      if (Math.random() < TRAIT.elecStasis * tierPot(tower)) creep.stasisUntil = Math.max(creep.stasisUntil, simTime + TRAIT.elecStasisDur);
+      if (rng() < TRAIT.elecStasis * tierPot(tower)) creep.stasisUntil = Math.max(creep.stasisUntil, simTime + TRAIT.elecStasisDur);
       const floor = creep.maxHp * TRAIT.thunderFloor;                       // chip down to 75% max, ≤25% max per pulse
       if (creep.hp > floor) creep.hp -= Math.min(creep.hp - floor, creep.maxHp * TRAIT.thunderCap);
     } else if (isGravity) {
       applyDamage(creep, stats.dmg, tower);                                 // Warp damage (respects matrix)
-      if (creep.hp > 0 && Math.random() < TRAIT.gravSlowChance * tierPot(tower)) { creep.slowUntil = Math.max(creep.slowUntil, simTime + 1.4); creep.slowPct = Math.max(creep.slowPct || 0, Math.round(TRAIT.gravSlowPct * tierPot(tower))); }
+      if (creep.hp > 0 && rng() < TRAIT.gravSlowChance * tierPot(tower)) { creep.slowUntil = Math.max(creep.slowUntil, simTime + 1.4); creep.slowPct = Math.max(creep.slowPct || 0, Math.round(TRAIT.gravSlowPct * tierPot(tower))); }
       // pushback gated by a per-tower cooldown AND a per-creep cooldown so it can't chain-lock
-      if (creep.hp > 0 && simTime >= (tower.pushClock || 0) && Math.random() < TRAIT.gravPushChance * tierPot(tower)) { if (pushBackCreep(creep)) tower.pushClock = simTime + TRAIT.gravTowerPushCD; }
+      if (creep.hp > 0 && simTime >= (tower.pushClock || 0) && rng() < TRAIT.gravPushChance * tierPot(tower)) { if (pushBackCreep(creep)) tower.pushClock = simTime + TRAIT.gravTowerPushCD; }
     } else applyDamage(creep, stats.dmg || 550, tower, true);
   });
   return true;
@@ -2162,7 +2175,7 @@ function showMatchSummary(result, earnedBefore) {
     <div class="summary-actions"><button id="summary-share" class="ghost-button">📸 Share</button><button id="summary-back" class="ghost-button">Change element</button></div>
   </div>`;
   $('summary-share').addEventListener('click', () => shareMatchCard(result));
-  $('summary-again').addEventListener('click', () => { box.classList.add('hidden'); if (mp.active) mpLeave(); startBattle(); });
+  $('summary-again').addEventListener('click', () => { box.classList.add('hidden'); if (mp.active) mpLeave(); else pendingSeed = lastMatchSeed; startBattle(); });   // solo rematch replays the SAME seed — "I'll get it this time" is literally true
   $('summary-back').addEventListener('click', () => { box.classList.add('hidden'); if (mp.active) mpLeave(); battleRunning = false; matchOver = false; $('battle-screen').classList.add('hidden'); $('race-screen').classList.remove('hidden'); renderRaceCards(); });
 }
 
