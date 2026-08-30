@@ -654,6 +654,17 @@ body.mp-live .resource.rival-income { display:inline-flex; }
 .arena .resource.lives, .arena .resource.enemy { flex:0 0 auto; }   /* lifeforce always renders */
 .mp-linkbtn { margin-left:6px; padding:6px 10px; border:1px solid #8fe6b8; border-radius:8px; background:#0f2b1f; color:#8fe6b8; font:700 11px 'DM Mono',monospace; cursor:pointer; }
 .mp-link { margin-top:6px; font:600 10px 'DM Mono',monospace; color:#8fb4e6; word-break:break-all; user-select:all; }
+.summary-best { margin:8px 0 0; font:700 13px 'DM Mono',monospace; color:#ffd86b; text-align:center; text-shadow:0 0 10px #ffd86b66; }
+.summary-xp { margin:10px auto 0; max-width:280px; }
+.summary-xp .xp-line { display:flex; justify-content:space-between; align-items:baseline; font:600 11px 'DM Mono',monospace; color:#bcd2ff; }
+.summary-xp .xp-line b { color:#8fe6b8; }
+.summary-xp .xp-bar { margin-top:4px; height:6px; border-radius:4px; background:#1a2540; overflow:hidden; border:1px solid #2c4a7a; }
+.summary-xp .xp-bar i { display:block; height:100%; background:linear-gradient(90deg,#4aa3e0,#77d6ff); transition:width .5s; }
+.summary-diag { margin:9px 0 0; font-size:12px; color:#9fb4d8; text-align:center; }
+.summary-next { margin:6px 0 0; font:600 11px 'DM Mono',monospace; color:#ffd86b; text-align:center; opacity:.85; }
+#push-wave-button, .debug-bar { display:none; }
+body.dev #push-wave-button { display:inline-flex; }
+body.dev .debug-bar { display:flex; }
 
 </style>
 </head>
@@ -1364,7 +1375,7 @@ function loadProfile() {
   try { profile = JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null') || {}; } catch (error) { profile = {}; }
   profile.matches = profile.matches || 0;
   profile.wins = profile.wins || 0; profile.streak = profile.streak || 0; profile.bestStreak = profile.bestStreak || 0;
-  profile.bestWave = profile.bestWave || 0;
+  profile.bestWave = profile.bestWave || 0; profile.xp = profile.xp || 0; profile.matches = profile.matches || 0;
   profile.totalKills = profile.totalKills || 0;
   profile.dragonsSent = profile.dragonsSent || 0;
   profile.achievements = profile.achievements || {};
@@ -1400,6 +1411,28 @@ function showToast(html) {
   window.setTimeout(() => toast.remove(), 4100);
 }
 loadProfile();
+// Commander level from cumulative XP (progressive curve). Cosmetic only — never grants power.
+function commanderLevel(xp) {
+  xp = xp == null ? (profile.xp || 0) : xp;
+  let lvl = 1, need = 120, into = xp;
+  while (into >= need) { into -= need; lvl += 1; need = Math.round(need * 1.32); }
+  return { level: lvl, into: Math.round(into), need };
+}
+// the next locked element and how to earn it (drives the "reason to play again" surface)
+function nextUnlockHint() {
+  if (profile.devUnlockAll) return '';
+  const a = ACHIEVEMENTS.find((x) => x.unlocks && !(profile.achievements && profile.achievements[x.id]));
+  if (!a) return '';
+  const race = races.find((r) => r.id === a.unlocks);
+  return race ? `Next: ${race.symbol} ${race.name} — ${a.desc}` : '';
+}
+let matchLeak = { west: 0, east: 0 };
+function leakDiagnostic() {
+  const w = matchLeak.west, e = matchLeak.east, tot = w + e;
+  if (!tot) return '';
+  const where = w > e * 1.5 ? 'the west lane' : e > w * 1.5 ? 'the east lane' : 'both lanes';
+  return `${tot} creep${tot > 1 ? 's' : ''} leaked through ${where} — lengthen the maze there.`;
+}
 function sendCreepDef(send) {
   // killing a send pays the defender exactly the income it granted its sender
   // the defender earns the send's income value per PURCHASE (each of the two units carries half)
@@ -1576,6 +1609,7 @@ function rng() {
 function resetMatchState() {
   matchSeed = ((pendingSeed != null ? pendingSeed : Math.floor(Math.random() * 0x7fffffff)) >>> 0) || 1;
   pendingSeed = null; lastMatchSeed = matchSeed; seedRng(matchSeed);
+  matchLeak = { west: 0, east: 0 };
   towers.clear(); towersVersion += 1;
   creeps.length = 0; projectiles.length = 0; effects.length = 0; pendingSpawns.length = 0;
   matchMode = document.getElementById('mode-select')?.value === 'classic' ? 'classic' : 'skirmish';
@@ -1639,7 +1673,7 @@ function waveBoardRetire(creep, leaked) {
   const board = waveBoards[creep.waveIdx];
   if (!board) return;
   board.gone += 1;
-  if (leaked) board.leaked += 1;
+  if (leaked) { board.leaked += 1; matchLeak[creep.side === 'east' ? 'east' : 'west'] += 1; }
   if (board.gone >= board.spawned && !board.graded && !pendingSpawns.some((s) => s.waveIdx === creep.waveIdx)) {
     board.graded = true;
     showWaveGrade(creep.waveIdx, board.leaked);
@@ -2145,18 +2179,23 @@ function endMatch(result) {
     if (selectedRace.id === raceOfDay().id) questEvent('race_day');
   }
   if (result !== 'victory') profile.streak = 0;
+  const prevBest = profile.bestWave, prevLevel = commanderLevel().level;
   profile.bestWave = Math.max(profile.bestWave, wave);
+  const xpGain = wave * 8 + player.kills + (result === 'victory' ? 150 : 0);   // XP for progress, win OR loss
+  profile.xp = (profile.xp || 0) + xpGain;
+  const nowLevel = commanderLevel().level;
   saveProfile();
-  showMatchSummary(result, earnedBefore);
+  showMatchSummary(result, earnedBefore, { xpGain, prevLevel, nowLevel, newBest: wave > prevBest });
   renderHud();
   applyUiMode();
 }
-function showMatchSummary(result, earnedBefore) {
+function showMatchSummary(result, earnedBefore, prog = {}) {
   const box = $('match-summary');
   if (!box) return;
   const earnedNow = Object.entries(profile.achievements).sort((a, b) => b[1] - a[1]).slice(0, Math.max(0, Object.keys(profile.achievements).length - earnedBefore));
   const newBadges = earnedNow.map(([id]) => ACHIEVEMENTS.find((a) => a.id === id)).filter(Boolean);
   box.classList.remove('hidden');
+  const cl = commanderLevel();
   const total = WAVES.length;
   const hook = result === 'victory'
     ? (profile.streak > 1 ? `🔥 ${profile.streak}-win streak!` : 'Flawless commander.')
@@ -2168,6 +2207,10 @@ function showMatchSummary(result, earnedBefore) {
       <span>Waves<b>${wave}/${total}</b></span><span>Kills<b>${player.kills}</b></span>
       <span>Send income<b>+${player.income}</b></span><span>Lifeforce<b>${player.lives} : ${enemy.lives}</b></span>
     </div>
+    ${prog.newBest ? `<p class="summary-best">🏆 NEW BEST — Wave ${wave}</p>` : ''}
+    ${prog.xpGain != null ? `<div class="summary-xp"><div class="xp-line"><span>${prog.nowLevel > prog.prevLevel ? `⭐ LEVEL UP → Lv ${prog.nowLevel}` : `Commander Lv ${cl.level}`}</span><b>+${prog.xpGain} XP</b></div><div class="xp-bar"><i style="width:${Math.round(cl.into / cl.need * 100)}%"></i></div></div>` : ''}
+    ${leakDiagnostic() ? `<p class="summary-diag">💡 ${leakDiagnostic()}</p>` : ''}
+    ${nextUnlockHint() ? `<p class="summary-next">${nextUnlockHint()}</p>` : ''}
     ${(profile.streak > 1 || profile.bestStreak > 1) ? `<p class="summary-streak">🔥 streak ${profile.streak} · best ${profile.bestStreak} · ${profile.wins} wins</p>` : ''}
     ${newBadges.length ? `<div class="summary-badges">${newBadges.map((a) => `<span>${a.icon} ${a.name}</span>`).join('')}</div>` : ''}
     ${matchGrades.length ? `<div class="summary-grades">${matchGrades.map((g) => `<span class="grade-${g}">${g}</span>`).join('')}</div>` : ''}
@@ -2239,12 +2282,13 @@ function simulate(dt) {
     effects.push({ kind:'skybolt', x:flag.c + .5, y:flag.r + .5, until:simTime + .3 });
   }
   for (let i = pendingSpawns.length - 1; i >= 0; i -= 1) {
-    if (pendingSpawns[i].at <= simTime) { const s = pendingSpawns.splice(i, 1)[0]; spawningWaveIdx = s.waveIdx; spawnCreep(s.waveDef, s.half, s.side, false); spawningWaveIdx = null; }
+    if (pendingSpawns[i].at <= simTime && creeps.length < 280) { const s = pendingSpawns.splice(i, 1)[0]; spawningWaveIdx = s.waveIdx; spawnCreep(s.waveDef, s.half, s.side, false); spawningWaveIdx = null; }   // defer (don't drop) spawns when the board is saturated — endless perf floor
   }
   creeps.forEach((creep) => updateCreep(creep, dt));
   for (let i = creeps.length - 1; i >= 0; i -= 1) if (creeps[i].hp <= 0) creeps.splice(i, 1);
   towers.forEach((tower) => updateTower(tower, dt));
   for (let i = projectiles.length - 1; i >= 0; i -= 1) if (!updateProjectile(projectiles[i], dt)) projectiles.splice(i, 1);
+  if (projectiles.length > 360) projectiles.splice(0, projectiles.length - 360);   // endless perf cap
   for (let i = effects.length - 1; i >= 0; i -= 1) if (effects[i].until <= simTime) effects.splice(i, 1);
   if (effects.length > 140) effects.splice(0, effects.length - 140);
   if (!mp.active) updateEnemyAI(dt);
@@ -4286,7 +4330,8 @@ function renderProfileStrip() {
   const strip = $('profile-strip');
   if (!strip) return;
   const earned = Object.keys(profile.achievements).length;
-  strip.innerHTML = `<button id="achievements-toggle" class="profile-summary">🏆 ${earned}/${ACHIEVEMENTS.length} achievements • ${profile.wins} wins • best wave ${profile.bestWave}</button>
+  const _cl = commanderLevel();
+  strip.innerHTML = `<button id="achievements-toggle" class="profile-summary">⭐ Lv ${_cl.level} • 🏆 ${earned}/${ACHIEVEMENTS.length} • ${profile.wins} wins • best W${profile.bestWave}${nextUnlockHint() ? ` • <em>${nextUnlockHint()}</em>` : ''}</button>
     <div id="achievements-list" class="achievements-list hidden">${ACHIEVEMENTS.map((a) => {
       const got = Boolean(profile.achievements[a.id]);
       const unlockRace = a.unlocks ? races.find((race) => race.id === a.unlocks) : null;
@@ -4484,6 +4529,7 @@ async function mpOpenRoom(join) {
 function mpSend(msg) { if (mp.transport) mp.transport.send(msg); }
 function mpOnMessage(msg) {
   if (!msg || !msg.t) return;
+  mp.lastRecv = performance.now(); if (mp.dropped) { mp.dropped = false; showToast('<b>🔌 Opponent reconnected</b>'); }
   if (msg.ts && Date.now() - msg.ts > 90000) return;   // ignore a stale RETAINED beacon left on the broker by an old room
   if (msg.t === 'hello' && mp.role === 'host') {
     if (mp.started) return;   // repeated knocks are fine; answer again until the match starts
@@ -4554,6 +4600,10 @@ function mpLeave() {
 window.addEventListener('beforeunload', () => { try { if (mp.transport) mp.transport.presence?.(mp.role === 'guest' ? 'guest' : 'host', null); } catch (e) {} });
 function mpTick(dt) {
   if (!mp.active || !battleRunning) return;
+  // opponent-silence detection: the public relay has no disconnect signal, so infer it from silence
+  if (mp.lastRecv && performance.now() - mp.lastRecv > 9000 && !mp.dropped) {
+    mp.dropped = true; showToast('<b>🔌 Opponent connection lost</b><span>Waiting for them to reconnect…</span>');
+  }
   if (player.lives !== mp.livesSent) { mp.livesSent = player.lives; mpSend({ t:'lives', value:player.lives }); }
   if (player.income !== mp.incomeSent) { mp.incomeSent = player.income; mpSend({ t:'income', value:player.income }); }
   mp.snapClock -= dt;
@@ -5221,6 +5271,8 @@ try {
     else { $('mp-name')?.focus(); mpStatus(`Enter your commander name, then tap Join to enter room <b>${room}</b>.`); }
   }
 } catch (e) { /* no URL / SSR-safe */ }
+// dev chrome (Push wave, debug bar) is hidden for players — shown only for the dev or via ?dev=1
+try { if (profile.devUnlockAll || /[?&]dev=1/.test(location.search)) document.body.classList.add('dev'); } catch (e) {}
 window.addEventListener('beforeunload', () => { if (mp.transport) mpSend({ t:'bye' }); });
 setupMapZoom();
 renderRaceCards();
