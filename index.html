@@ -658,6 +658,7 @@ body.show-incomes .resource.rival-income { display:inline-flex; }
         <p class="set-hint">Touch shows the bottom command bar; desktop shows the side panel and the action ring.</p>
         <label class="set-toggle"><input type="checkbox" id="set-routes"> <span>Show creep routes</span></label>
         <label class="set-toggle"><input type="checkbox" id="set-ranges"> <span>Show tower ranges</span></label>
+        <label class="set-toggle"><input type="checkbox" id="set-sound" checked> <span>Sound effects</span></label>
         <label class="set-toggle"><input type="checkbox" id="set-reduce"> <span>Reduce motion (calmer effects)</span></label>
         <div class="settings-sep"></div>
         <button id="set-resetmap" class="ghost-button set-dev">🗺 Restore default map</button>
@@ -1287,6 +1288,52 @@ const ACHIEVEMENTS = [
   { id:'lumberjack', icon:'🪵', name:'Lumberjack', desc:'Spend 3 lumber in one match' }
 ];
 let profile;
+/* ---------------- Sound (Web Audio, fully synthesized — no assets) ---------------- */
+const SFX = (() => {
+  let ctx = null, master = null, lastCoin = 0;
+  function ensure() {
+    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+    try {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      master = ctx.createGain(); master.gain.value = 0.5; master.connect(ctx.destination);
+    } catch (e) { ctx = null; }
+  }
+  function on() { return ctx && !(typeof profile === 'object' && profile.sfxOff); }
+  function tone(freq, dur, type, gain, slideTo, t0) {
+    const t = t0 || ctx.currentTime;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type || 'sine'; o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(20, slideTo), t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain || 0.3, t + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.02);
+  }
+  function noise(dur, gain, hp) {
+    const n = Math.floor(ctx.sampleRate * dur), buf = ctx.createBuffer(1, n, ctx.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = hp || 800;
+    const g = ctx.createGain(); g.gain.value = gain || 0.2;
+    src.connect(f); f.connect(g); g.connect(master); src.start();
+  }
+  const recipes = {
+    build:  () => { tone(360, 0.09, 'triangle', 0.3, 560); },
+    sell:   () => { tone(700, 0.07, 'sine', 0.28, 900); tone(1050, 0.09, 'sine', 0.2, 1200, ctx.currentTime + 0.06); },
+    send:   () => { noise(0.18, 0.16, 500); tone(150, 0.18, 'sawtooth', 0.22, 90); },
+    grade:  () => { [523, 659, 784].forEach((f, i) => tone(f, 0.22, 'triangle', 0.26, null, ctx.currentTime + i * 0.07)); },
+    leak:   () => { tone(220, 0.35, 'sawtooth', 0.3, 70); },
+    wager:  () => { tone(880, 0.3, 'sine', 0.25, null); tone(1320, 0.3, 'sine', 0.18, null, ctx.currentTime + 0.02); },
+    coin:   () => { const now = performance.now(); if (now - lastCoin < 55) return; lastCoin = now; tone(1200 + Math.random() * 300, 0.05, 'square', 0.12, null); },
+    tap:    () => { tone(420, 0.03, 'square', 0.12, null); },
+    victory:() => { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.3, 'triangle', 0.28, null, ctx.currentTime + i * 0.12)); },
+    defeat: () => { [440, 349, 262].forEach((f, i) => tone(f, 0.4, 'sawtooth', 0.26, null, ctx.currentTime + i * 0.16)); }
+  };
+  return {
+    unlock: ensure,
+    play(name) { if (!on()) return; const r = recipes[name]; if (r) try { r(); } catch (e) {} }
+  };
+})();
+window.addEventListener('pointerdown', () => SFX.unlock(), { once:false });
 function loadProfile() {
   try { profile = JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null') || {}; } catch (error) { profile = {}; }
   profile.matches = profile.matches || 0;
@@ -1403,7 +1450,7 @@ function questEvent(id, amount = 1, absolute = false) {
 }
 function showWaveGrade(waveIdx, leaked) {
   const grade = leaked === 0 ? 'S' : leaked <= 2 ? 'A' : leaked <= 5 ? 'B' : 'C';
-  matchGrades.push(grade); if (matchGrades.length > 40) matchGrades.shift();
+  matchGrades.push(grade); if (matchGrades.length > 40) matchGrades.shift(); SFX.play('grade');
   if (grade === 'S') questEvent('s_hunter');
   const colors = { S:'#ffd86b', A:'#8fe6b8', B:'#77d6ff', C:'#ff9faf' };
   const el = document.createElement('div');
@@ -1417,6 +1464,7 @@ const WAGER_COOLDOWN = 90, WAGER_WINDOW = 10;
 function wagerBonus() { return Math.max(10, Math.round(player.income * .4)); }
 function applyWagerBenefit() {
   if (!battleRunning || matchOver) return;
+  SFX.play('wager');
   const bonus = wagerBonus();
   player.gold += bonus;
   if (!mp.active && enemy) enemy.gold += bonus;
@@ -1684,7 +1732,7 @@ function resolveLeak(creep) {
   const owner = creep.half === PLAYER_HALF ? player : enemy;
   owner.lives = Math.max(0, owner.lives - creep.livesCost);
   effects.push({ kind:'leak', x:creep.x, y:creep.y, until:simTime + .6 });
-  if (creep.half === PLAYER_HALF) waveBoardRetire(creep, true);
+  if (creep.half === PLAYER_HALF) { waveBoardRetire(creep, true); SFX.play('leak'); }
   if (creep.half === PLAYER_HALF) log(`${creep.name} reached your ship — that is a leak (−${creep.livesCost} ${creep.livesCost > 1 ? 'lives' : 'life'}).`);
   else if (creep.sent) log(`Your ${creep.name} broke through! Enemy loses ${creep.livesCost} ${creep.livesCost > 1 ? 'lives' : 'life'}.`);
   if (owner.lives <= 0) endMatch(creep.half === PLAYER_HALF ? 'defeat' : 'victory');
@@ -1731,6 +1779,7 @@ function applyDamage(creep, amount, tower, isDot = false, opts) {
       const paid = creep.sent ? creep.bounty : creep.bounty * BOUNTY_MULT;
       if (paid >= 1) effects.push({ kind:'num', x:creep.x, y:creep.y - .7, text:`+${Math.round(paid)}g`, until:simTime + .9, color:'#ffd86b' });
       if (creep.sent) questEvent('send_slayer');
+      SFX.play('coin');
       waveBoardRetire(creep, false);
     }
     if (creep.half === PLAYER_HALF) player.kills += 1;
@@ -2040,6 +2089,7 @@ function endMatch(result) {
   if (matchOver) return;
   matchOver = true; battleRunning = false;
   const banner = $('wave-banner');
+  SFX.play(result === 'victory' ? 'victory' : 'defeat');
   if (result === 'victory') { banner.textContent = '★ VICTORY — THE ENEMY SHIP HAS FALLEN'; log('Victory! The rival force is out of lifeforce. Restart to run it back.'); }
   else { banner.textContent = '☠ DEFEAT — YOUR SHIP HAS FALLEN'; log('Your ship has fallen. Restart the match to test another maze.'); }
   if (mp.active) mpSend({ t:'over', result });
@@ -3205,7 +3255,7 @@ function towerAction(kind) {
   } else if (kind === 'sell') {
     let refund = 0;
     const n = group.length;
-    group.forEach((t) => { refund += towerSellValue(t); removeTower(t.key); });
+    group.forEach((t) => { refund += towerSellValue(t); removeTower(t.key); }); SFX.play('sell');
     player.gold += refund;
     selectedGroupKeys = []; selectedTowerKey = null;
     log(`${n > 1 ? `${n} towers` : 'Tower'} sold for ${refund}g. ${cachedRouteText}.`);
@@ -3271,7 +3321,7 @@ function renderSendPanel() {
     if (!battleRunning) return log('Start a match before sending.');
     if (player.shrine < send.shrine) return log(`${send.name} needs Shrine level ${send.shrine}.`);
     if (player.gold < send.cost) return log(`Not enough gold — ${send.name} costs ${send.cost}g.`);
-    player.gold -= send.cost; player.income += send.income;
+    player.gold -= send.cost; player.income += send.income; SFX.play('send');
     // one purchase sends a unit down BOTH rival lanes (over the wire in PvP)
     if (mp.active) mpSend({ t:'send', id:send.id });
     else {
@@ -4514,7 +4564,7 @@ function wireTowerCard(card) {
   card.addEventListener('pointerup', (event) => {
     if (!start) return;
     const dx = event.clientX - start.x, dy = event.clientY - start.y; start = null;
-    selectedTowerTier = tier;
+    selectedTowerTier = tier; SFX.play('tap');
     card.parentNode.querySelectorAll('.bar-card.on').forEach((c) => c.classList.remove('on'));
     card.classList.add('on');
     renderTowerList();
@@ -4940,6 +4990,7 @@ function openSettings() {
   $('set-routes').checked = !!debug.routes;
   $('set-ranges').checked = !!debug.ranges;
   $('set-reduce').checked = !!profile.reduceMotion;
+  const snd = $('set-sound'); if (snd) snd.checked = !profile.sfxOff;
   $('set-dev').textContent = profile.devUnlockAll ? 'DEV: relock elements' : 'DEV: unlock all elements';
   m.classList.remove('hidden');
 }
@@ -4958,6 +5009,7 @@ $('set-uimode')?.addEventListener('change', (e) => { profile.uiMode = e.target.v
 $('set-routes')?.addEventListener('change', (e) => { debug.routes = e.target.checked; syncMapToggles(); barStructKey = ''; renderCommandBar(); });
 $('set-ranges')?.addEventListener('change', (e) => { debug.ranges = e.target.checked; syncMapToggles(); barStructKey = ''; renderCommandBar(); });
 $('set-reduce')?.addEventListener('change', (e) => { profile.reduceMotion = e.target.checked; saveProfile(); document.body.classList.toggle('reduce-motion', e.target.checked); });
+$('set-sound')?.addEventListener('change', (e) => { profile.sfxOff = !e.target.checked; saveProfile(); if (!profile.sfxOff) { SFX.unlock(); SFX.play('tap'); } });
 $('set-resetmap')?.addEventListener('click', () => {
   try { localStorage.removeItem(SKETCH_KEY); } catch (e) {}
   drawpadMarks = [];
