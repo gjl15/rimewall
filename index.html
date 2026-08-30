@@ -592,6 +592,18 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 /* detail popup shown on single tap, anchored above a card */
 .card-info { z-index:205; }
 
+/* single-bar top HUD in arena — more map space */
+.arena .hud { display:flex !important; flex-wrap:nowrap; grid-template-columns:none; align-items:center; gap:8px; padding:6px 10px; overflow:hidden; }
+.arena .hud-brand span { display:none; }
+.arena #settings-open-hud { display:none !important; }
+.arena .match-state { gap:6px; font-size:11px; flex:0 0 auto; }
+.arena .wave-threat { margin:0 2px; }
+.arena .wave-threat .wt-tag { padding:2px 5px; }
+.arena .resources { gap:7px; margin-left:auto; flex:0 1 auto; font-size:11px; }
+.arena .resources .resource b { font-size:9px; }
+.arena .resources .resource em { font-size:12px; }
+.arena .vs-mark { display:none; }
+
 </style>
 </head>
 <body>
@@ -4641,6 +4653,7 @@ function renderWispPanel(mode) {
         <button class="wp-u ${selectMode==='box'?'on':''}" data-wp-do="box">▭<i>Box</i></button>
         <button class="wp-u ${selectMode==='lasso'?'on':''}" data-wp-do="lasso">➰<i>Lasso</i></button>
         <button class="wp-u" data-wp-do="learn">🎓<i>Learn</i></button>
+        <button class="wp-u" data-wp-do="settings">⚙<i>Settings</i></button>
         <button class="wp-u ${battlePaused?'on':''}" data-wp-do="pause">${battlePaused?'▶':'⏸'}<i>${battlePaused?'Resume':'Pause'}</i></button>
         ${matchMode==='classic'?'':`<button class="wp-u" data-wp-do="pushwave">⏩<i>Push</i></button>`}
         <button class="wp-u" data-wp-do="restart">↻<i>Restart</i></button>
@@ -4657,6 +4670,7 @@ function renderWispPanel(mode) {
     const d = b.dataset.wpDo, vp = $('map-viewport'), r = vp.getBoundingClientRect();
     if (d === 'close') return closeWispMenus();
     if (d === 'learn') return renderWispPanel('learn');
+    if (d === 'settings') { closeWispMenus(); openSettings(); return; }
     if (d === 'zoomin') { smoothZoomTo(camZoomNow() + .3, { x:r.width/2, y:r.height/2 }); }
     else if (d === 'zoomout') { smoothZoomTo(camZoomNow() - .3, { x:r.width/2, y:r.height/2 }); }
     else if (d === 'zoomreset') { camAnim = { z:1, x:0, y:0 }; }
