@@ -552,8 +552,9 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 .cb-handle { display:flex; align-items:center; justify-content:space-between; width:100%; padding:5px 14px; border:0; background:#0b1424; color:#bcd2ff; font:700 10px 'DM Mono',monospace; letter-spacing:.1em; }
 .cb-handle .cb-chev { transition:transform .15s; color:#77d6ff; }
 .cb-sub.collapsed .cb-chev { transform:rotate(-90deg); }
-.cb-sub.collapsed .cb-body { display:none; }
-.cb-body { display:flex; gap:6px; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; touch-action:pan-x; padding:6px 10px; align-items:stretch; }
+
+.cb-body { display:flex; gap:6px; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; touch-action:pan-x; padding:6px 10px; align-items:stretch; max-height:120px; transition:max-height .22s ease, padding .22s ease, opacity .2s; }
+.cb-sub.collapsed .cb-body { max-height:0; padding-top:0; padding-bottom:0; opacity:0; }
 .cb-body::-webkit-scrollbar { display:none; }
 
 /* wisp tools + learn */
@@ -978,6 +979,8 @@ const TRAIT = {
   gravSlowChance:.28, gravSlowPct:35, gravPushChance:.12, gravPushCD:6, gravTowerPushCD:5,
   shieldRegenDelay:4
 };
+function pointInPoly(x, y, poly) { let hit = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { if ((poly[i].y > y) !== (poly[j].y > y) && x < (poly[j].x - poly[i].x) * (y - poly[i].y) / (poly[j].y - poly[i].y) + poly[i].x) hit = !hit; } return hit; }
+function tierPot(tower) { return Math.min(1, .55 + .09 * (tower.tier || 0)); }
 function isChaos(tower, stats) { return !!(ATTACK_PROFILE[tower.raceId] && ATTACK_PROFILE[tower.raceId].chaos) || tower.raceId === 'crystal' || stats.special === 'laser'; }
 function attackProfileText(raceId) {
   const p = ATTACK_PROFILE[raceId];
@@ -1481,7 +1484,7 @@ function spawnCreep(waveDef, half, side, sent = false) {
     bounty:Math.round((waveDef.bounty || 0) * (jugg ? 2.2 : 1) * (sent ? 1 : hpScale * .8 + .2)), livesCost:waveDef.lives || 1,
     x:spawn.c + .5, y:spawn.r + .5, cpIndex:0, path:null, pathStep:0, pathVersion:-1,
     state:'walk', blockTargetKey:null, attackClock:0,
-    slowUntil:0, slowPct:0, frostUntil:0, frostStacks:0, stunUntil:0, stasisUntil:0,
+    slowUntil:0, slowPct:0, frostUntil:0, frostStacks:0, frostPct:0, stunUntil:0, stasisUntil:0,
     dots:[], armorShred:0, shield:shieldMax, shieldMax, shieldHitAt:0, regen,
     fireCharge:0, pushUntil:0, healAura:role === 'warden'
   };
@@ -1618,7 +1621,7 @@ function updateCreep(creep, dt) {
   }
 }
 function moveAlong(creep, node, dt) {
-  const frostPct = creep.frostUntil > simTime ? Math.min(TRAIT.frostMax, TRAIT.frostBase + creep.frostStacks * TRAIT.frostStep) : 0;
+  const frostPct = creep.frostUntil > simTime ? (creep.frostPct || 0) : 0;
   const otherPct = creep.slowUntil > simTime ? (creep.slowPct || 0) : 0;
   const speed = creep.spd * (1 - Math.min(80, Math.max(frostPct, otherPct)) / 100);
   const tx = node.c + .5, ty = node.r + .5;
@@ -1696,11 +1699,12 @@ function applyHitEffects(creep, tower, stats) {
   // FROST — ramping slow that also freezes HP regen
   if (race === 'ice' && (special === 'slow' || special === 'frostnova')) {
     creep.frostUntil = simTime + 1.6; creep.frostStacks = Math.min(30, (creep.frostStacks || 0) + 1);
+    creep.frostPct = Math.max(creep.frostPct || 0, Math.min(TRAIT.frostMax, TRAIT.frostBase + creep.frostStacks * TRAIT.frostStep) * tierPot(tower));
   }
   // POISON — 3% stacking DoT + a gentle slow (weaker than frost)
   if (special === 'poison') {
     pushDot(creep, stats.dmg * TRAIT.poisonPct, TRAIT.poisonDur, 'poison');
-    creep.slowUntil = Math.max(creep.slowUntil, simTime + 1.2); creep.slowPct = Math.max(creep.slowPct || 0, TRAIT.poisonSlow);
+    creep.slowUntil = Math.max(creep.slowUntil, simTime + 1.2); creep.slowPct = Math.max(creep.slowPct || 0, Math.round(TRAIT.poisonSlow * tierPot(tower)));
   }
   // laser (crystal capstone) keeps a slow + light burn
   if (special === 'laser') { creep.slowUntil = Math.max(creep.slowUntil, simTime + 1.2); creep.slowPct = Math.max(creep.slowPct || 0, 40); pushDot(creep, stats.dmg * .1, 2); }
@@ -1715,7 +1719,7 @@ function applyHitEffects(creep, tower, stats) {
     }
   }
   // ELECTRICITY — brief stasis (movement stops, regen continues)
-  if (race === 'electricity' && Math.random() < TRAIT.elecStasis) creep.stasisUntil = Math.max(creep.stasisUntil, simTime + TRAIT.elecStasisDur);
+  if (race === 'electricity' && Math.random() < TRAIT.elecStasis * tierPot(tower)) creep.stasisUntil = Math.max(creep.stasisUntil, simTime + TRAIT.elecStasisDur);
   if (special === 'pause' && !creep.boss) creep.stunUntil = simTime + 3.5;
   if (special === 'armorshred') creep.armorShred = Math.min(creep.armor, creep.armorShred + 5);
 }
@@ -1738,7 +1742,7 @@ function resolveProjectileHit(projectile) {
     let dmg = stats.dmg;
     let crit = false;
     // STONE — every tower can crit
-    if (isStone && Math.random() < TRAIT.stoneCritChance) { dmg *= TRAIT.stoneCritMult; crit = true; }
+    if (isStone && Math.random() < TRAIT.stoneCritChance * tierPot(tower)) { dmg *= TRAIT.stoneCritMult; crit = true; }
     if (stats.special === 'ion' && target.hp > 500) dmg += 500;
     if (stats.special === 'halve' && !target.boss) target.hp = Math.max(1, target.hp * .5);
     if (stats.special === 'mind' && !target.boss) target.hp = Math.max(1, target.hp * .7);
@@ -1747,7 +1751,7 @@ function resolveProjectileHit(projectile) {
     if (crit) effects.push({ kind:'num', x:target.x, y:target.y - .6, text:`${Math.round(dmg)}!`, until:simTime + .8, color:'#e0b8ff' });
     applyHitEffects(target, tower, stats);
     // EARTH — chance to stun the direct target (stun freezes HP regen)
-    if (isEarth && !target.boss && Math.random() < TRAIT.earthStunDirect) { target.stunUntil = Math.max(target.stunUntil, simTime + .5); effects.push({ kind:'num', x:target.x, y:target.y - .6, text:'✦', until:simTime + .6, color:'#ffd86b' }); }
+    if (isEarth && !target.boss && Math.random() < TRAIT.earthStunDirect * tierPot(tower)) { target.stunUntil = Math.max(target.stunUntil, simTime + .5); effects.push({ kind:'num', x:target.x, y:target.y - .6, text:'✦', until:simTime + .6, color:'#ffd86b' }); }
   }
   if (splash) {
     const rad = splash.radius * (isEarth ? TRAIT.earthSplashRadius : 1);
@@ -1756,7 +1760,7 @@ function resolveProjectileHit(projectile) {
       if (other !== target && other.hp > 0 && other.half === projectile.half && Math.hypot(other.x - impactX, other.y - impactY) <= rad) {
         applyDamage(other, stats.dmg * mult, tower);
         if (stats.special === 'frostnova' && tower.raceId === 'ice') { other.frostUntil = simTime + 1.6; other.frostStacks = Math.min(30, (other.frostStacks || 0) + 1); }
-        if (isEarth && !other.boss && Math.random() < TRAIT.earthStunSplash) other.stunUntil = Math.max(other.stunUntil, simTime + .1);
+        if (isEarth && !other.boss && Math.random() < TRAIT.earthStunSplash * tierPot(tower)) other.stunUntil = Math.max(other.stunUntil, simTime + .1);
       }
     });
   }
@@ -1801,14 +1805,14 @@ function firePulse(tower, stats) {
   eligible.forEach((creep) => {
     if (stats.special === 'thunder') {
       creep.shield = 0; creep.shieldHitAt = simTime;                       // strip shields
-      if (Math.random() < TRAIT.elecStasis) creep.stasisUntil = Math.max(creep.stasisUntil, simTime + TRAIT.elecStasisDur);
+      if (Math.random() < TRAIT.elecStasis * tierPot(tower)) creep.stasisUntil = Math.max(creep.stasisUntil, simTime + TRAIT.elecStasisDur);
       const floor = creep.maxHp * TRAIT.thunderFloor;                       // chip down to 75% max, ≤25% max per pulse
       if (creep.hp > floor) creep.hp -= Math.min(creep.hp - floor, creep.maxHp * TRAIT.thunderCap);
     } else if (isGravity) {
       applyDamage(creep, stats.dmg, tower);                                 // Warp damage (respects matrix)
-      if (creep.hp > 0 && Math.random() < TRAIT.gravSlowChance) { creep.slowUntil = Math.max(creep.slowUntil, simTime + 1.4); creep.slowPct = Math.max(creep.slowPct || 0, TRAIT.gravSlowPct); }
+      if (creep.hp > 0 && Math.random() < TRAIT.gravSlowChance * tierPot(tower)) { creep.slowUntil = Math.max(creep.slowUntil, simTime + 1.4); creep.slowPct = Math.max(creep.slowPct || 0, Math.round(TRAIT.gravSlowPct * tierPot(tower))); }
       // pushback gated by a per-tower cooldown AND a per-creep cooldown so it can't chain-lock
-      if (creep.hp > 0 && simTime >= (tower.pushClock || 0) && Math.random() < TRAIT.gravPushChance) { if (pushBackCreep(creep)) tower.pushClock = simTime + TRAIT.gravTowerPushCD; }
+      if (creep.hp > 0 && simTime >= (tower.pushClock || 0) && Math.random() < TRAIT.gravPushChance * tierPot(tower)) { if (pushBackCreep(creep)) tower.pushClock = simTime + TRAIT.gravTowerPushCD; }
     } else applyDamage(creep, stats.dmg || 550, tower, true);
   });
   return true;
@@ -2871,18 +2875,34 @@ function renderFrame() {
   projectiles.forEach((projectile) => drawProjectile(fxCtx, projectile));
   effects.forEach((effect) => drawEffect(fxCtx, effect));
   if (marquee) {
+    const col = marquee.mode === 'lasso' ? '#c58fd8' : '#77d6ff';
     fxCtx.save();
-    fxCtx.strokeStyle = '#77d6ff'; fxCtx.lineWidth = 1.6; fxCtx.setLineDash([6, 4]); fxCtx.globalAlpha = .9;
-    fxCtx.fillStyle = '#77d6ff18';
+    // marching-ants dashes that crawl, a glowing fill, and a shadow halo
+    fxCtx.shadowColor = col; fxCtx.shadowBlur = 10;
+    fxCtx.lineWidth = 2; fxCtx.strokeStyle = col; fxCtx.setLineDash([7, 5]); fxCtx.lineDashOffset = -(simTime * 22 % 12);
+    const grd = fxCtx.createLinearGradient(0, 0, 0, BOARD_H); grd.addColorStop(0, col + '22'); grd.addColorStop(1, col + '0e'); fxCtx.fillStyle = grd;
     if (marquee.mode === 'lasso') {
       fxCtx.beginPath();
       marquee.points.forEach((p, i) => i ? fxCtx.lineTo(p.x * CELL, p.y * CELL) : fxCtx.moveTo(p.x * CELL, p.y * CELL));
       fxCtx.closePath(); fxCtx.fill(); fxCtx.stroke();
+      // sparkle node at the drawing head
+      const head = marquee.points[marquee.points.length - 1];
+      if (head) { fxCtx.setLineDash([]); fxCtx.shadowBlur = 14; fxCtx.fillStyle = '#fff'; fxCtx.beginPath(); fxCtx.arc(head.x * CELL, head.y * CELL, 3.2, 0, Math.PI * 2); fxCtx.fill(); }
     } else {
       const mx = Math.min(marquee.x0, marquee.x1) * CELL, my = Math.min(marquee.y0, marquee.y1) * CELL;
       const mw = Math.abs(marquee.x1 - marquee.x0) * CELL, mh = Math.abs(marquee.y1 - marquee.y0) * CELL;
-      fxCtx.fillRect(mx, my, mw, mh); fxCtx.strokeRect(mx, my, mw, mh);
+      fxCtx.beginPath(); fxCtx.roundRect(mx, my, mw, mh, 5); fxCtx.fill(); fxCtx.stroke();
+      // corner ticks
+      fxCtx.setLineDash([]); fxCtx.lineWidth = 2.4;
+      [[mx,my,1,1],[mx+mw,my,-1,1],[mx,my+mh,1,-1],[mx+mw,my+mh,-1,-1]].forEach(([x,y,sx,sy]) => { fxCtx.beginPath(); fxCtx.moveTo(x,y+sy*9); fxCtx.lineTo(x,y); fxCtx.lineTo(x+sx*9,y); fxCtx.stroke(); });
     }
+    // pulse-highlight any of your towers currently inside the marquee
+    const inside = (tx, ty) => marquee.mode === 'lasso'
+      ? pointInPoly(tx, ty, marquee.points)
+      : tx >= Math.min(marquee.x0,marquee.x1) && tx <= Math.max(marquee.x0,marquee.x1) && ty >= Math.min(marquee.y0,marquee.y1) && ty <= Math.max(marquee.y0,marquee.y1);
+    fxCtx.setLineDash([]); fxCtx.shadowBlur = 8; fxCtx.strokeStyle = '#ffd86b'; fxCtx.lineWidth = 2;
+    const pr = 9 + Math.sin(simTime * 6) * 1.5;
+    towers.forEach((t) => { if (t.owner === 'player' && inside(t.c + .5, t.r + .5)) { fxCtx.beginPath(); fxCtx.arc((t.c + .5) * CELL, (t.r + .5) * CELL, pr, 0, Math.PI * 2); fxCtx.stroke(); } });
     fxCtx.restore();
   }
   // staged ghost: translucent tower + dashed range preview (ring handles confirm/cancel)
@@ -4838,6 +4858,12 @@ function pinBarToVisualViewport() {
 window.visualViewport?.addEventListener('resize', pinBarToVisualViewport);
 window.visualViewport?.addEventListener('scroll', pinBarToVisualViewport);
 setupWisp();
+document.querySelectorAll('[data-cb]').forEach((b) => b.addEventListener('click', () => {
+  if (b.dataset.cb === 'build') barBuildCollapsed = !barBuildCollapsed; else barSendCollapsed = !barSendCollapsed;
+  $('cb-build').classList.toggle('collapsed', barBuildCollapsed && !ghost);
+  $('cb-send').classList.toggle('collapsed', barSendCollapsed);
+  setTimeout(fitBoardToViewport, 240);   // regrow the map after the slide
+}));
 function openSettings() {
   const m = $('settings-modal'); if (!m) return;
   $('set-uimode').value = uiMode();
