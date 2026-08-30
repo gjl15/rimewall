@@ -646,9 +646,13 @@ body.show-incomes .resource.rival-income { display:inline-flex; }
 .summary-rematch { width:100%; margin-top:12px; font-size:15px; }
 
 /* clean arena top bar: crest + RIMEWALL on the left, gold + YOU/RIVAL on the right */
-.arena .hud-brand span { display:inline; font:800 13px 'DM Mono',monospace; letter-spacing:.06em; }
+/* brand YIELDS first (ellipsis) so gold + YOU + RIVAL lives are never the ones clipped when incomes are on */
+.arena .hud-brand { flex:0 1 auto; min-width:0; overflow:hidden; }
+.arena .hud-brand span { display:inline-block; max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; vertical-align:middle; font:800 13px 'DM Mono',monospace; letter-spacing:.06em; }
+.arena .hud-brand .crest-mark { flex:0 0 auto; }
 .arena .match-state { display:none; }              /* wave/timer/threat shown on the river banner + threat chip stays there */
-.arena .resources { margin-left:auto; flex:0 0 auto; gap:7px; }
+.arena .resources { margin-left:auto; flex:0 0 auto; gap:6px; }
+.arena .resource.lives, .arena .resource.enemy { flex:0 0 auto; }   /* lifeforce always renders */
 
 </style>
 </head>
@@ -1095,6 +1099,7 @@ function towerSellValue(tower) { return underConstruction(tower) ? tower.investe
    corridor → up/down the outer lane → back toward the middle along the top corridor → exit gate →
    ship in the purple harbor. Lanes are 8 tower-widths wide so mazing is meaningful. */
 const COLS = 32, ROWS = 49, CELL = 24;
+const FX_SCALE = 2.0;   // projectile/impact glyphs are enlarged this much so they're visible at the mobile fit-scale
 const BOARD_W = COLS * CELL, BOARD_H = ROWS * CELL;
 const T = { FLOOR:0, CLIFF:1, RIVER:2, GATE:3, HARBOR:4 };
 const baseTerrain = new Uint8Array(COLS * ROWS);
@@ -1304,7 +1309,7 @@ const ACHIEVEMENTS = [
 let profile;
 /* ---------------- Sound (Web Audio, fully synthesized — no assets) ---------------- */
 const SFX = (() => {
-  let ctx = null, master = null, lastCoin = 0;
+  let ctx = null, master = null, lastCoin = 0, lastZap = 0;
   function ensure() {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
     try {
@@ -1340,7 +1345,10 @@ const SFX = (() => {
     coin:   () => { const now = performance.now(); if (now - lastCoin < 55) return; lastCoin = now; tone(1200 + Math.random() * 300, 0.05, 'square', 0.12, null); },
     tap:    () => { tone(420, 0.03, 'square', 0.12, null); },
     victory:() => { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.3, 'triangle', 0.28, null, ctx.currentTime + i * 0.12)); },
-    defeat: () => { [440, 349, 262].forEach((f, i) => tone(f, 0.4, 'sawtooth', 0.26, null, ctx.currentTime + i * 0.16)); }
+    defeat: () => { [440, 349, 262].forEach((f, i) => tone(f, 0.4, 'sawtooth', 0.26, null, ctx.currentTime + i * 0.16)); },
+    zoomin: () => { tone(300, 0.14, 'sine', 0.10, 640); },
+    zoomout:() => { tone(640, 0.14, 'sine', 0.10, 300); },
+    zap:    () => { const now = performance.now(); if (now - lastZap < 70) return; lastZap = now; noise(0.05, 0.10, 1800); tone(1500 + Math.random() * 500, 0.05, 'square', 0.07, 800); }
   };
   return {
     unlock: ensure,
@@ -1847,7 +1855,9 @@ function resolveProjectileHit(projectile) {
   const impactX = target && target.hp > 0 ? target.x : projectile.tx;
   const impactY = target && target.hp > 0 ? target.y : projectile.ty;
   const splash = splashSpec(stats.special);
-  effects.push({ kind:'impact', x:impactX, y:impactY, color:stats.color, big:Boolean(splash && splash.radius > 1.5), until:simTime + .3 });
+  effects.push({ kind:'impact', x:impactX, y:impactY, color:stats.color, big:Boolean(splash && splash.radius > 1.5), until:simTime + .35 });
+  // venom leaves a lingering cloud (~1.1s) — the long-lived signature that makes poison recognizable
+  if ((tower && tower.raceId === 'poison') || ELEMENT_BY_COLOR[stats.color] === 'poison') effects.push({ kind:'venomcloud', x:impactX, y:impactY, color:stats.color, life:1.1, until:simTime + 1.1 });
   const isEarth = tower && tower.raceId === 'earth';
   const isStone = tower && tower.raceId === 'stone';
   if (target && target.hp > 0) {
@@ -1883,7 +1893,7 @@ function resolveProjectileHit(projectile) {
       const next = creeps.filter((other) => other.hp > 0 && !hitIds.has(other.id) && other.half === projectile.half && Math.hypot(other.x - last.x, other.y - last.y) <= 2.6)
         .sort((a, b) => Math.hypot(a.x - last.x, a.y - last.y) - Math.hypot(b.x - last.x, b.y - last.y))[0];
       if (!next) break;
-      effects.push({ kind:'bolt', x1:last.x, y1:last.y, x2:next.x, y2:next.y, until:simTime + .18 });
+      effects.push({ kind:'bolt', x1:last.x, y1:last.y, x2:next.x, y2:next.y, until:simTime + .28 });
       applyDamage(next, stats.dmg * mult, tower);
       applyHitEffects(next, tower, stats);
       hitIds.add(next.id); last = next; mult *= .7;
@@ -1972,7 +1982,7 @@ function updateTower(tower, dt) {
     x:tower.c + .5, y:tower.r + .5, sx:tower.c + .5, sy:tower.r + .5,
     tx:target.x, ty:target.y, t:0, dur:projectileFlightTime(stats.special)
   });
-  if (stats.special === 'chain') effects.push({ kind:'bolt', x1:tower.c + .5, y1:tower.r + .5, x2:target.x, y2:target.y, until:simTime + .15 });
+  if (stats.special === 'chain') { effects.push({ kind:'bolt', x1:tower.c + .5, y1:tower.r + .5, x2:target.x, y2:target.y, until:simTime + .28 }); SFX.play('zap'); }
 }
 function updateProjectile(projectile, dt) {
   projectile.t += dt;
@@ -2345,7 +2355,7 @@ function redrawBoard() { boardCtx.clearRect(0, 0, BOARD_W, BOARD_H); drawTerrain
 function drawTowerStructure(ctx, tower, stats, building) {
   // per-element silhouettes, tier scales the build; all local coords, origin = cell center
   const tier = tower.tier || 0;
-  const s = 1 + tier * .07;
+  const s = 1.12 + tier * .075;   // motifs fill more of the cell so the element reads at mobile size
   const color = stats.color;
   const seed = (tower.key % 97) * .61;
   ctx.save();
@@ -2382,9 +2392,13 @@ function drawTowerStructure(ctx, tower, stats, building) {
     ctx.fillStyle = '#2a3a55';
     ctx.beginPath(); ctx.roundRect(-5.5, -2.5, 11, 8, 2); ctx.fill(); ctx.stroke();
     ctx.save(); ctx.rotate(-.6);
-    ctx.fillStyle = '#9db4dd'; ctx.fillRect(-1.4, -10 - tier, 2.8, 9); ctx.restore();
-    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0, .8, 2, 0, Math.PI * 2); ctx.fill();
-    if (tier >= 3) { ctx.strokeStyle = '#9db4dd'; ctx.beginPath(); ctx.moveTo(4.5, -2.5); ctx.lineTo(6.5, -9); ctx.stroke(); }
+    ctx.fillStyle = '#9db4dd'; ctx.fillRect(-1.4, -10 - tier, 2.8, 9);
+    if (tier >= 2) ctx.fillRect(-4, -8 - tier, 2.4, 7);   // second barrel at T2+
+    ctx.restore();
+    // amber status lights — the disambiguator so Tech never reads as Ice-blue
+    const blink = Math.sin(simTime * 6 + seed) > 0 ? 'ff' : '55';
+    ctx.fillStyle = '#ffcf6b' + blink; ctx.beginPath(); ctx.arc(0, .8, 2, 0, Math.PI * 2); ctx.fill();
+    if (tier >= 3) { ctx.strokeStyle = '#9db4dd'; ctx.beginPath(); ctx.moveTo(4.5, -2.5); ctx.lineTo(6.5, -9); ctx.stroke(); ctx.fillStyle = '#ffcf6b'; ctx.beginPath(); ctx.arc(6.5, -9, 1.2, 0, Math.PI * 2); ctx.fill(); }
   } else if (race === 'crystal') {
     ctx.fillStyle = '#3a2a5c';
     ctx.beginPath(); ctx.moveTo(0, -9 - tier); ctx.lineTo(5.4, 0); ctx.lineTo(0, 6.4); ctx.lineTo(-5.4, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
@@ -2414,13 +2428,16 @@ function drawTowerStructure(ctx, tower, stats, building) {
       ctx.beginPath(); ctx.moveTo(0, -6.5); ctx.lineTo(3.5, -2.5); ctx.lineTo(1.5, -2); ctx.lineTo(4.6, 2); ctx.stroke();
     }
   } else if (race === 'gravity') {
-    ctx.strokeStyle = color;
+    ctx.strokeStyle = color; ctx.lineWidth = 1.4;
     ctx.beginPath(); ctx.ellipse(0, 0, 7.4, 2.9, -.5, 0, Math.PI * 2); ctx.stroke();
-    ctx.fillStyle = '#1a1030';
-    ctx.beginPath(); ctx.arc(0, 0, 3.6 + tier * .3, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    const a = simTime * 2.2 + seed;
+    if (tier >= 3) { ctx.beginPath(); ctx.ellipse(0, 0, 7.4, 2.9, .5, 0, Math.PI * 2); ctx.stroke(); }  // crossed rings at T3+
+    // near-black void core — reads as a HOLE (darker than the tile), never a bright crystal gem
+    ctx.fillStyle = '#050210';
+    ctx.beginPath(); ctx.arc(0, 0, 3.6 + tier * .3, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#3a2550'; ctx.stroke();
+    const motes = 1 + Math.min(2, Math.floor(tier / 2));
     ctx.fillStyle = '#e6d8ff';
-    ctx.beginPath(); ctx.arc(Math.cos(a) * 7.4, Math.sin(a) * 2.9 - Math.cos(a) * 1.2, 1.4, 0, Math.PI * 2); ctx.fill();
+    for (let m = 0; m < motes; m += 1) { const a = simTime * 2.2 + seed + m * 2.1; ctx.beginPath(); ctx.arc(Math.cos(a) * 7.4, Math.sin(a) * 2.9 - Math.cos(a) * 1.2, 1.4, 0, Math.PI * 2); ctx.fill(); }
   } else if (race === 'laser') {
     ctx.fillStyle = '#2a3a55';
     ctx.beginPath(); ctx.roundRect(-5, 1, 10, 5.4, 2); ctx.fill(); ctx.stroke();
@@ -2442,11 +2459,16 @@ function drawTower(ctx, tower) {
   ctx.save();
   ctx.translate(x + CELL / 2 + shake, y + CELL / 2);
   if (building) ctx.globalAlpha = .6;
-  ctx.fillStyle = '#0b1425';
-  ctx.strokeStyle = stats.color; ctx.lineWidth = tower.key === selectedTowerKey ? 3 : 1.6;
-  if (building) ctx.setLineDash([4, 3]);
   const half = CELL / 2 - 2.5;
-  ctx.beginPath(); ctx.roundRect(-half, -half, half * 2, half * 2, 5); ctx.fill(); ctx.stroke();
+  const selected = tower.key === selectedTowerKey || (selectedGroupKeys && selectedGroupKeys.includes(tower.key));
+  // element-colored ground glow — this is what tints the TILE by element, replacing the old bright identical frame
+  ctx.fillStyle = stats.color + (building ? '18' : '3a');
+  ctx.beginPath(); ctx.ellipse(0, half * .78, half * .95, half * .42, 0, 0, Math.PI * 2); ctx.fill();
+  // small dark plinth behind the motif, dim neutral frame (no longer the dominant shape)
+  ctx.fillStyle = '#0b1425e0';
+  ctx.strokeStyle = '#26324c'; ctx.lineWidth = 1;
+  if (building) ctx.setLineDash([4, 3]);
+  ctx.beginPath(); ctx.roundRect(-half + 1.5, -half + 1.5, (half - 1.5) * 2, (half - 1.5) * 2, 5); ctx.fill(); ctx.stroke();
   ctx.setLineDash([]);
   if (building) {
     const progress = 1 - (tower.buildUntil - simTime) / tower.buildTime;
@@ -2456,9 +2478,18 @@ function drawTower(ctx, tower) {
     ctx.globalAlpha = .6;
   }
   drawTowerStructure(ctx, tower, stats, building);
-  for (let i = 0; i < Math.min(5, tower.tier); i += 1) { ctx.fillRect(-half + 2 + i * 3.4, half - 4, 2.4, 2); }
+  // tier ladder along the bottom edge (element-colored, shows all 6 — was colorless & capped at 5)
+  ctx.fillStyle = stats.color;
+  for (let i = 0; i < Math.min(6, tower.tier); i += 1) { ctx.fillRect(-half + 2 + i * 2.9, half - 3.5, 2.1, 2); }
   ctx.fillStyle = '#ffd86b';
   for (let i = 0; i < (tower.level || 0); i += 1) { ctx.fillRect(-half + 2 + i * 3.4, -half + 2, 2.4, 2); }
+  // selection = rotating dashed element-colored reticle (reads without a permanent bright frame)
+  if (selected) {
+    ctx.save(); ctx.rotate(simTime * .9);
+    ctx.strokeStyle = stats.color; ctx.lineWidth = 1.8; ctx.globalAlpha = 1; ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.arc(0, 0, half + 2.5, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]); ctx.restore();
+  }
   if (tower.blockHp < tower.blockMaxHp) {
     ctx.fillStyle = '#5a2635'; ctx.fillRect(-half, -half - 4, half * 2, 2.5);
     ctx.fillStyle = '#ff8a9a'; ctx.fillRect(-half, -half - 4, half * 2 * tower.blockHp / tower.blockMaxHp, 2.5);
@@ -2593,6 +2624,7 @@ function drawCreep(ctx, creep) {
 // Per-element signature body for the common (non-trajectory-special) projectiles.
 // race drives the look; color is the tower tint; reduced dampens random particles.
 function drawElementBolt(ctx, p, race, color, x, y, k, reduced) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(FX_SCALE, FX_SCALE); ctx.translate(-x, -y);
   const dx = p.tx - p.sx, dy = p.ty - p.sy;
   const len = Math.hypot(dx, dy) || 1;
   const ux = dx / len, uy = dy / len;                 // unit travel direction
@@ -2682,6 +2714,12 @@ function drawElementBolt(ctx, p, race, color, x, y, k, reduced) {
     ctx.lineTo(x, y); ctx.stroke();
     ctx.globalAlpha = 1; ctx.fillStyle = '#fffbe0'; ctx.beginPath(); ctx.arc(x, y, Math.max(0, 2), 0, Math.PI * 2); ctx.fill();
     if (!reduced) { ctx.fillStyle = color + '88'; ctx.beginPath(); ctx.arc(x, y, Math.max(0, 3.4), 0, Math.PI * 2); ctx.fill(); }
+  } else if (race === 'gravity') {
+    // dark warp orb with a violet lensing ring + faint wake (was falling to the generic fallback)
+    if (!reduced) { ctx.strokeStyle = color + '55'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x - ux * 4, y - uy * 4, Math.max(0, 2.6), 0, Math.PI * 2); ctx.stroke(); }
+    ctx.fillStyle = '#050210'; ctx.beginPath(); ctx.arc(x, y, Math.max(0, 3), 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = color; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(x, y, Math.max(0, 3.6 + Math.sin(p.t * 8 + ph) * .5), 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = '#e6d8ff'; ctx.beginPath(); ctx.arc(x - 1, y - 1, Math.max(0, .9), 0, Math.PI * 2); ctx.fill();
   } else {
     // default fast bolt with a short trail (unknown element / fallback)
     ctx.fillStyle = color + '66'; ctx.beginPath(); ctx.arc(x - (p.tx - p.sx) * 2, y - (p.ty - p.sy) * 2, Math.max(0, 2.4), 0, Math.PI * 2); ctx.fill();
@@ -2689,6 +2727,7 @@ function drawElementBolt(ctx, p, race, color, x, y, k, reduced) {
     ctx.fillStyle = '#ffffff77'; ctx.beginPath(); ctx.arc(x, y, Math.max(0, 1.3), 0, Math.PI * 2); ctx.fill();
   }
   ctx.globalAlpha = 1;
+  ctx.restore();
 }
 function drawProjectile(ctx, p) {
   const x = p.x * CELL, y = p.y * CELL;
@@ -2753,6 +2792,10 @@ function jaggedLine(ctx, x1, y1, x2, y2) {
 function drawEffect(ctx, effect) {
   const remain = Math.max(0, effect.until - simTime);
   ctx.save();
+  if (effect.kind === 'impact' || effect.kind === 'death' || effect.kind === 'venomcloud' || effect.kind === 'pulse') {
+    const _cx = effect.x * CELL, _cy = effect.y * CELL;
+    ctx.translate(_cx, _cy); ctx.scale(FX_SCALE, FX_SCALE); ctx.translate(-_cx, -_cy);
+  }
   if (effect.kind === 'impact') {
     const k = clamp01(1 - remain / .35);
     const reduced = rmReduced();
@@ -2796,6 +2839,14 @@ function drawEffect(ctx, effect) {
       ctx.strokeStyle = '#eaf1ff'; ctx.globalAlpha = clamp01((1 - k) * .9); ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(cx, cy, Math.max(0, baseR * .6), 0, Math.PI * 2); ctx.stroke();
     }
+  } else if (effect.kind === 'venomcloud') {
+    const life = effect.life || 1.1;
+    const k = clamp01(1 - remain / life);
+    const cx = effect.x * CELL, cy = effect.y * CELL;
+    const r = 6 + k * 9;
+    ctx.fillStyle = effect.color; ctx.globalAlpha = clamp01((1 - k) * .38);
+    ctx.beginPath(); ctx.arc(cx, cy - k * 4, Math.max(0, r), 0, Math.PI * 2); ctx.fill();
+    if (!rmReduced()) { for (let i = 0; i < 3; i += 1) { const a = i / 3 * Math.PI * 2 + effect.x; ctx.globalAlpha = clamp01((1 - k) * .3); ctx.beginPath(); ctx.arc(cx + Math.cos(a) * r * .5, cy - k * 4 + Math.sin(a) * r * .45, Math.max(0, 2.6 * (1 - k) + 1), 0, Math.PI * 2); ctx.fill(); } }
   } else if (effect.kind === 'death') {
     const k = clamp01(1 - remain / .35);
     const reduced = rmReduced();
@@ -2810,8 +2861,20 @@ function drawEffect(ctx, effect) {
     ctx.strokeStyle = effect.color; ctx.globalAlpha = clamp01((1 - k) * .6); ctx.lineWidth = 1.4;
     ctx.beginPath(); ctx.arc(cx, cy, Math.max(0, 12 * k), 0, Math.PI * 2); ctx.stroke();
   } else if (effect.kind === 'bolt') {
-    ctx.strokeStyle = '#ffd86b'; ctx.globalAlpha = Math.min(1, remain / .1); ctx.lineWidth = 1.8;
-    jaggedLine(ctx, effect.x1 * CELL, effect.y1 * CELL, effect.x2 * CELL, effect.y2 * CELL);
+    const a = Math.min(1, remain / .12);
+    const x1 = effect.x1 * CELL, y1 = effect.y1 * CELL, x2 = effect.x2 * CELL, y2 = effect.y2 * CELL;
+    const seg = 6, pts = [[x1, y1]];
+    for (let i = 1; i < seg; i += 1) { const k = i / seg; pts.push([x1 + (x2 - x1) * k + (Math.random() - .5) * 9, y1 + (y2 - y1) * k + (Math.random() - .5) * 9]); }
+    pts.push([x2, y2]);
+    const stroke = (col, w, al) => { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.globalAlpha = al; ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i += 1) ctx.lineTo(pts[i][0], pts[i][1]); ctx.stroke(); };
+    ctx.lineCap = 'round';
+    stroke('#ffe89a', 6, a * .25);     // soft outer glow
+    stroke('#ffd86b', 2.6, a * .85);   // gold arc
+    stroke('#fffdf0', 1, a);           // white-hot core
+    ctx.fillStyle = '#fffdf0'; ctx.globalAlpha = a;
+    ctx.beginPath(); ctx.arc(x2, y2, 2.6 * a + .6, 0, Math.PI * 2); ctx.fill();     // strike node
+    ctx.beginPath(); ctx.arc(x1, y1, 1.5 * a + .4, 0, Math.PI * 2); ctx.fill();     // source spark
+    ctx.lineCap = 'butt';
   } else if (effect.kind === 'num') {
     ctx.fillStyle = effect.color || '#fff'; ctx.globalAlpha = Math.min(1, remain / .4);
     ctx.font = '700 10px "DM Mono", monospace'; ctx.textAlign = 'center';
@@ -3541,6 +3604,7 @@ function smoothZoomTo(nextScale, anchor = null) {
   const sw = frameBase.width * z, sh = frameBase.height * z;
   x = sw <= rect.width ? (rect.width - sw) / 2 - frameBase.left : Math.max(rect.width - sw - frameBase.left, Math.min(-frameBase.left, x));
   y = sh <= rect.height ? (rect.height - sh) / 2 - frameBase.top : Math.max(rect.height - sh - frameBase.top, Math.min(-frameBase.top, y));
+  if (Math.abs(z - fromScale) > .02) { const _t = performance.now(); if (_t - (smoothZoomTo._sfxAt || 0) > 130) { smoothZoomTo._sfxAt = _t; SFX.play(z > fromScale ? 'zoomin' : 'zoomout'); } }
   camAnim = { z, x, y };
 }
 function camZoomNow() { return camAnim ? camAnim.z : mapZoomScale; }
@@ -3784,6 +3848,11 @@ function setupMapZoom() {
 /* ---------------- Main loop ---------------- */
 let hudClock = 0;
 function frame(now) {
+  try { frameBody(now); }
+  catch (e) { if (!frame._warned) { frame._warned = true; console.error('frame error (recovered, loop kept alive):', e); } }
+  requestAnimationFrame(frame);   // ALWAYS reschedule — one throw must never freeze the whole game
+}
+function frameBody(now) {
   const dt = Math.min(.1, (now - lastFrame) / 1000 || 0);
   lastFrame = now;
   if (battleRunning && !battlePaused) {
@@ -3824,7 +3893,6 @@ function frame(now) {
     renderFrame();
     renderRing();
   }
-  requestAnimationFrame(frame);
 }
 
 /* ---------------- Match controls ---------------- */
@@ -4240,7 +4308,7 @@ const mp = { active:false, transport:null, role:null, code:'', oppName:'', oppRa
 function mpMakeLocalTransport(code, onMessage) {
   const channel = new BroadcastChannel(`wmw-room-${code}`);
   channel.onmessage = (event) => onMessage(event.data);
-  return { kind:'local', send:(msg) => channel.postMessage(msg), close:() => channel.close() };
+  return { kind:'local', send:(msg) => channel.postMessage(msg), presence:(kind, msg) => { if (msg) channel.postMessage(msg); }, close:() => channel.close() };
 }
 /* Interim cross-device relay: a public MQTT-over-WebSocket test broker. Fine
    for game events during testing (messages are visible to anyone who knows
@@ -4252,8 +4320,10 @@ function mpMakeMqttTransport(code, onMessage, onOpen, onFail) {
     let opened = false;
     const client = window.mqtt.connect(MQTT_BROKER, { clean:true, connectTimeout:7000, reconnectPeriod:2000 });
     const topic = `wmw-remake/room/${code}`;
+    // main topic carries live gameplay; the two /host & /guest topics hold a RETAINED
+    // presence beacon so whoever connects second instantly discovers the first — no timing race.
     client.on('connect', () => {
-      client.subscribe(topic, (err) => {
+      client.subscribe([topic, `${topic}/host`, `${topic}/guest`], (err) => {
         if (err) { if (!opened) onFail?.(); return; }
         if (!opened) { opened = true; onOpen?.(); }
       });
@@ -4267,7 +4337,13 @@ function mpMakeMqttTransport(code, onMessage, onOpen, onFail) {
     });
     client.on('error', () => { if (!opened) { onFail?.(); try { client.end(true); } catch (e) {} } });
     window.setTimeout(() => { if (!opened) { onFail?.(); try { client.end(true); } catch (e) {} } }, 8000);
-    return { kind:'online', send:(msg) => client.publish(topic, JSON.stringify({ ...msg, __from:mp.sid }), { qos: msg.t === 'snap' ? 0 : 1 }), close:() => client.end(true) };
+    return {
+      kind:'online',
+      send:(msg) => client.publish(topic, JSON.stringify({ ...msg, __from:mp.sid }), { qos: msg.t === 'snap' ? 0 : 1 }),
+      // retained presence: msg is stored on the broker and delivered to any late subscriber; null clears it
+      presence:(kind, msg) => client.publish(`${topic}/${kind}`, msg ? JSON.stringify({ ...msg, __from:mp.sid }) : '', { retain:true, qos:1 }),
+      close:() => client.end(true),
+    };
   };
   if (window.mqtt) return boot();
   return new Promise((resolve, reject) => {
@@ -4316,13 +4392,15 @@ function mpStartHelloLoop() {
       if (mp.role === 'guest' && !mp.config) { mpStatus(`No host found for <b>${mp.code}</b>. Check the code — the host's room must be open on the same site.`); mpLeave(); }
       return;
     }
-    if (mp.role === 'guest') {
-      if (!mp.config) mpSend({ t:'hello', name:mpPlayerName(), race:selectedRace.id });
-      else { mpSend({ t:'ready' }); }                                   // keep confirming ready until the host starts
-    } else if (mp.oppName) {                                            // host has seen a guest: keep re-offering config+ready
-      mpSend({ t:'config', name:mpPlayerName(), race:selectedRace.id, mode:mpModeNow(), lives:startingLives() });
-      mpSend({ t:'ready' });
-    }
+    try {
+      if (mp.role === 'guest') {
+        if (!mp.config) mpSend({ t:'hello', name:mpPlayerName(), race:selectedRace.id });
+        else { mpSend({ t:'ready' }); }                                 // keep confirming ready until the host starts
+      } else if (mp.oppName) {                                          // host has seen a guest: keep re-offering config+ready
+        mpSend({ t:'config', name:mpPlayerName(), race:selectedRace.id, mode:mpModeNow(), lives:startingLives() });
+        mpSend({ t:'ready' });
+      }
+    } catch (e) { /* a transient bad state must never kill the heartbeat */ }
   };
   mp.helloTimer = window.setInterval(beat, 1100);
   beat();
@@ -4334,12 +4412,19 @@ async function mpOpenRoom(join) {
   if (join && code.length < 3) return mpStatus('Enter the 4-character room code.');
   if (!code || code.length < 3) return mpStatus('Enter the room code your opponent shared.');
   if (mp.transport) mpLeave();
-  mp.code = code; mp.role = join ? 'guest' : 'host'; mp.ready = false; mp.oppReady = false; mp.started = false; mp.oppName = ''; mp.oppLives = null;
+  mp.code = code; mp.role = join ? 'guest' : 'host'; mp.ready = false; mp.oppReady = false; mp.started = false; mp.oppName = ''; mp.oppLives = null; mp.config = null;
   mpStatus(join ? `Connecting to room <b>${code}</b>…` : `Opening room <b>${code}</b>…`);
   const useSupabase = Boolean(MP_CONFIG.url && MP_CONFIG.anonKey);
   const onOpen = () => {
-    if (join) { mpStatus(`Looking for the host of <b>${code}</b>…`); mpStartHelloLoop(); }
-    else mpStatus(`Room <b>${code}</b> is open — your opponent can join from any device. Share the code!`);
+    if (join) {
+      mpStatus(`Looking for the host of <b>${code}</b>…`);
+      mp.transport?.presence?.('guest', { t:'hello', name:mpPlayerName(), race:selectedRace.id, ts:Date.now() });
+      mpStartHelloLoop();
+    } else {
+      mpStatus(`Room <b>${code}</b> is open — your opponent can join from any device. Share the code!`);
+      // retained host beacon: a guest that subscribes at ANY later time instantly receives this — kills the discovery race
+      mp.transport?.presence?.('host', { t:'config', name:mpPlayerName(), race:selectedRace.id, mode:mpModeNow(), lives:startingLives(), ts:Date.now() });
+    }
   };
   const fallbackLocal = () => {
     if (mp.started) return;
@@ -4358,10 +4443,12 @@ async function mpOpenRoom(join) {
 function mpSend(msg) { if (mp.transport) mp.transport.send(msg); }
 function mpOnMessage(msg) {
   if (!msg || !msg.t) return;
+  if (msg.ts && Date.now() - msg.ts > 90000) return;   // ignore a stale RETAINED beacon left on the broker by an old room
   if (msg.t === 'hello' && mp.role === 'host') {
     if (mp.started) return;   // repeated knocks are fine; answer again until the match starts
     mp.oppName = cleanName(msg.name); mp.oppRace = msg.race;
     mpSend({ t:'config', name:mpPlayerName(), race:selectedRace.id, mode:mpModeNow(), lives:startingLives() });
+    mp.transport?.presence?.('host', { t:'config', name:mpPlayerName(), race:selectedRace.id, mode:mpModeNow(), lives:startingLives(), ts:Date.now() });
     mpStatus(`<b>${escapeHTML(mp.oppName)}</b> joined! Starting…`);
     mp.ready = true; mpSend({ t:'ready' });
     if (!mp.helloTimer || true) mpStartHelloLoop();   // keep re-offering config+ready until both start
@@ -4419,10 +4506,11 @@ function mpMaybeStart() {
 }
 function mpLeave() {
   window.clearInterval(mp.helloTimer);
-  if (mp.transport) { mpSend({ t:'bye' }); try { mp.transport.close(); } catch (e) {} }
-  mp.transport = null; mp.active = false; mp.started = false; mp.code = '';
+  if (mp.transport) { try { mp.transport.presence?.(mp.role === 'guest' ? 'guest' : 'host', null); } catch (e) {} mpSend({ t:'bye' }); try { mp.transport.close(); } catch (e) {} }
+  mp.transport = null; mp.active = false; mp.started = false; mp.code = ''; mp.config = null;
   mpStatus('');
 }
+window.addEventListener('beforeunload', () => { try { if (mp.transport) mp.transport.presence?.(mp.role === 'guest' ? 'guest' : 'host', null); } catch (e) {} });
 function mpTick(dt) {
   if (!mp.active || !battleRunning) return;
   if (player.lives !== mp.livesSent) { mp.livesSent = player.lives; mpSend({ t:'lives', value:player.lives }); }
