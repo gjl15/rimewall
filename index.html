@@ -454,6 +454,12 @@ h2 span { color:#7583a6; }
 .bar-card { flex:0 0 auto; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-width:58px; min-height:52px; padding:6px 8px; border:1.5px solid #2c4a7a; border-radius:11px; background:#111a30; color:#eafcff; touch-action:pan-x; scroll-snap-align:start; }
 .bar-card small { font:700 9px 'DM Mono',monospace; opacity:.9; max-width:74px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .bar-card b { font:700 10px 'DM Mono',monospace; color:#ffd86b; }
+/* third line: hp · armour · speed · tag. One line, ellipsised, so every card
+   in the row keeps the same width and the scroller stays predictable. */
+/* fixed width, not max-width: it pins every send card to the same size, and is
+   sized so hp/armour/speed always survive — only the trailing tag ellipsises */
+.bar-card .bar-stats { width:120px; font:500 8px/1.25 'DM Mono',monospace; font-style:normal; color:#8590ae; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bar-card.has-stats { min-height:64px; }
 .bar-card span { font-size:17px; line-height:1; }
 .bar-card.on { border-color:#ffd86b; box-shadow:0 0 0 1.5px #ffd86b55; }
 .bar-card.poor { opacity:.45; }
@@ -599,7 +605,9 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 .wisp-panel .wp-u.on { border-color:#8fe6b8; color:#8fe6b8; background:#0f2b1f; }
 .wisp-panel .wp-u.wp-uwide { font:700 12px 'DM Mono',monospace; }
 /* tap-and-hold card info tooltip */
-.card-info { position:fixed; z-index:200; display:flex; flex-direction:column; gap:2px; padding:9px 11px; border:1px solid #4aa3e0; border-radius:11px; background:#0d1424f7; box-shadow:0 10px 30px #000b; }
+/* purely informational, so it must never take a tap: it is fixed, z-index 205
+   and lingers 3.2s, which made it swallow the next tap wherever it landed */
+.card-info { position:fixed; z-index:200; pointer-events:none; display:flex; flex-direction:column; gap:2px; padding:9px 11px; border:1px solid #4aa3e0; border-radius:11px; background:#0d1424f7; box-shadow:0 10px 30px #000b; }
 .card-info.hidden { display:none; }
 .card-info b { font:700 11px 'DM Mono',monospace; color:#eafcff; }
 .card-info span { font:500 9px/1.35 'DM Mono',monospace; color:#bcd2ff; }
@@ -4732,8 +4740,8 @@ function renderCommandBar() {
       <button id="bar-auto" class="bar-card ${autoSend.on ? 'toggle-on' : ''}"><span>🔁</span><small>AUTO</small><b>${autoSend.on ? 'ON' : 'off'}</b></button>
       ${matchMode === 'classic' ? '' : `<button id="bar-wager" class="bar-card ${wagerReady ? '' : 'poor'}"><span>⏩</span><small>Rush</small><b>×${wager.tokens}</b></button>`}
       ${SENDS.filter((send) => player.shrine >= send.shrine).map((send) => `
-      <button class="bar-card ${player.gold < send.cost ? 'poor' : ''}" data-bar-send="${send.id}">
-        <span>${send.air ? '🐉' : send.symbol}</span><small>${send.name.split(' ')[0]}</small><b>${send.cost}g +${send.income}</b></button>`).join('')}`;
+      <button class="bar-card has-stats ${player.gold < send.cost ? 'poor' : ''}" data-bar-send="${send.id}">
+        <span>${send.air ? '🐉' : send.symbol}</span><small>${send.name.split(' ')[0]}</small><b>${send.cost}g +${send.income}</b><i class="bar-stats">${sendStatLine(send)}</i></button>`).join('')}`;
     $('bar-auto').addEventListener('click', () => { autoSend.on = !autoSend.on; log(autoSend.on ? `AUTO-send on — repeats your last send each wave${autoSend.last ? '' : ' (send one to arm it)'}.` : 'AUTO-send off.'); renderCommandBar(); });
     $('bar-wager')?.addEventListener('click', proposeWager);
     sendBody.querySelectorAll('[data-bar-send]').forEach((b) => wireSendCard(b));
@@ -4750,11 +4758,15 @@ function barRefreshAffordable() {
   });
   const wc = $('bar-wager'); if (wc) wc.classList.toggle('poor', !(wager.tokens > 0 && simTime >= wager.cooldownUntil && !wager.pending));
 }
-function sendInfoText(sd) { return `<b>${sd.name} · ${sd.cost}g (+${sd.income})</b><span>${sd.hp} hp · ${sd.armor||0} armor · spd ${sd.spd}${sd.air?' · AIR':''}${sd.role&&sd.role!=='standard'?' · '+sd.role:''}</span>`; }
+/* Stats live ON the send card now (third line), so sending is a single tap with
+   no intermediate state and nothing floating over the board. */
+function sendStatLine(sd) {
+  const tag = [sd.air ? 'air' : '', sd.role && sd.role !== 'standard' ? sd.role : ''].filter(Boolean).join(' ');
+  return `${sd.hp}hp · ${sd.armor || 0} arm · ${sd.spd} spd${tag ? ` · ${tag}` : ''}`;
+}
 function wireSendCard(card) {
-  const id = card.dataset.barSend, sd = SENDS.find((x) => x.id === id);
+  const id = card.dataset.barSend;
   card.addEventListener('click', () => {
-    showCardInfoHTML(sendInfoText(sd), card);   // detail above the card
     autoSend.last = id; document.querySelector(`[data-send="${id}"]`)?.click();
   });
 }
