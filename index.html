@@ -681,6 +681,7 @@ body.dev .debug-bar { display:flex; }
 #open-collab-card, #set-dev, #dev-unlock-toggle { display:none; }
 body.dev #open-collab-card { display:flex; }
 body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
+.mp-note { display:block; margin-top:4px; color:#8fb4d8; font-size:11px; }
 
 </style>
 </head>
@@ -749,7 +750,7 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
         <div id="daily-quests" class="daily-quests"></div>
 
         <div class="mp-panel">
-          <div class="mp-head"><span class="selection-kicker">MULTIPLAYER • LIVE 1V1</span><strong>Challenge a real commander.</strong></div>
+          <div class="mp-head"><span class="selection-kicker">MULTIPLAYER • LIVE 1V1 • BETA</span><strong>Challenge a real commander.</strong><small class="mp-note">Best played with a friend — share the invite link when your room opens.</small></div>
           <div class="mp-controls">
             <input id="mp-name" type="text" maxlength="16" placeholder="Your commander name" autocomplete="nickname" />
             <button id="mp-create" class="ghost-button">Create room</button>
@@ -1427,6 +1428,19 @@ function showToast(html) {
   window.setTimeout(() => toast.remove(), 4100);
 }
 loadProfile();
+// Telemetry: emit the funnel client-side now (capped localStorage ring + optional ingest hook).
+// Ingest stands up when the Supabase login lands; no PHI, anonymous per-install id only.
+const TELE_KEY = 'wmw-tele-v1';
+if (!profile.anonId) { try { profile.anonId = Math.random().toString(36).slice(2, 12); saveProfile(); } catch (e) {} }
+function track(event, props) {
+  try {
+    const e = { ts: Date.now(), ev: event, aid: profile.anonId, ...(props || {}) };
+    const buf = JSON.parse(localStorage.getItem(TELE_KEY) || '[]');
+    buf.push(e); if (buf.length > 600) buf.splice(0, buf.length - 600);
+    localStorage.setItem(TELE_KEY, JSON.stringify(buf));
+    if (typeof window !== 'undefined' && window.__rwIngest) window.__rwIngest(e);
+  } catch (err) { /* telemetry must never break the game */ }
+}
 // Commander level from cumulative XP (progressive curve). Cosmetic only — never grants power.
 function commanderLevel(xp) {
   xp = xp == null ? (profile.xp || 0) : xp;
@@ -1506,6 +1520,7 @@ function startDaily() {
   selectedRace = raceOfDay();
   const modeSel = document.getElementById('mode-select'); if (modeSel) modeSel.value = 'skirmish';
   pendingDaily = true; pendingSeed = daySeed();
+  track('daily_start', {});
   startBattle();
 }
 function dailyQuests() {
@@ -1538,6 +1553,7 @@ function questEvent(id, amount = 1, absolute = false) {
 }
 function showWaveGrade(waveIdx, leaked) {
   Coach.notify('waveClear');
+  track('wave_cleared', { wave: waveIdx, leaked });
   const grade = leaked === 0 ? 'S' : leaked <= 2 ? 'A' : leaked <= 5 ? 'B' : 'C';
   matchGrades.push(grade); if (matchGrades.length > 40) matchGrades.shift(); SFX.play('grade');
   if (grade === 'S') questEvent('s_hunter');
@@ -2221,6 +2237,7 @@ function endMatch(result) {
     profile.dailyDone = today; profile.dailyBest = wave;
   }
   saveProfile();
+  track('match_end', { result, wave, kills: player.kills, daily: matchIsDaily, level: nowLevel });
   showMatchSummary(result, earnedBefore, { xpGain, prevLevel, nowLevel, newBest: wave > prevBest, daily: matchIsDaily });
   renderHud();
   applyUiMode();
@@ -2260,6 +2277,7 @@ function showMatchSummary(result, earnedBefore, prog = {}) {
 }
 
 async function shareMatchCard(result) {
+  track('share', { result });
   const card = document.createElement('canvas');
   card.width = 840; card.height = 440;
   const ctx = card.getContext('2d');
@@ -3521,7 +3539,7 @@ function renderSendPanel() {
     if (!battleRunning) return log('Start a match before sending.');
     if (player.shrine < send.shrine) return log(`${send.name} needs Shrine level ${send.shrine}.`);
     if (player.gold < send.cost) return log(`Not enough gold — ${send.name} costs ${send.cost}g.`);
-    player.gold -= send.cost; player.income += send.income; SFX.play('send'); Coach.notify('send');
+    player.gold -= send.cost; player.income += send.income; SFX.play('send'); Coach.notify('send'); track('send', { id: send.id });
     // one purchase sends a unit down BOTH rival lanes (over the wire in PvP)
     if (mp.active) mpSend({ t:'send', id:send.id });
     else {
@@ -3967,7 +3985,7 @@ function setupMapZoom() {
 let hudClock = 0;
 function frame(now) {
   try { frameBody(now); }
-  catch (e) { if (!frame._warned) { frame._warned = true; console.error('frame error (recovered, loop kept alive):', e); } }
+  catch (e) { if (!frame._warned) { frame._warned = true; console.error('frame error (recovered, loop kept alive):', e); try { track('error', { msg: String((e && e.message) || e).slice(0, 200) }); } catch (_) {} } }
   requestAnimationFrame(frame);   // ALWAYS reschedule — one throw must never freeze the whole game
 }
 function frameBody(now) {
@@ -4066,6 +4084,7 @@ function startBattle() {
   if (rivalLabel && !mp.active) rivalLabel.textContent = 'RIVAL';
   renderHud();
   matchIsDaily = pendingDaily; pendingDaily = false;
+  track('match_start', { race: selectedRace.id, mode: matchMode, daily: matchIsDaily });
   applyUiMode();
   Coach.start();
   log(matchMode === 'classic'
