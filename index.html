@@ -1705,7 +1705,7 @@ function resetMatchState() {
   const questGold = mp.active ? 0 : 25 * (ensureDaily().done.length || 0);
   if (questGold) { player.gold += questGold; log(`🗒 Daily quest reward: +${questGold}g starting gold.`); }
   buildRaceIdx = 0;
-  enemy = { gold:START_GOLD, income:0, lives, lumber:0, shrine:1, raceId:races[Math.floor(rng() * races.length)].id, spotIndex:0, buildClock:2, sendClock:matchMode === 'classic' ? 14 : 24 };
+  enemy = { gold:START_GOLD, income:0, lives, lumber:0, shrine:1, raceId:races[Math.floor(rng() * races.length)].id, spotIndex:0, towersBuilt:0, buildClock:2, sendClock:matchMode === 'classic' ? 14 : 24 };
   wave = 0; waveClock = FIRST_WAVE_DELAY; incomeClock = INCOME_PERIOD; simTime = 0; battlePaused = false; matchOver = false;
   selectedTowerKey = null; selectedGroupKeys = [];
   refreshRouteDebug();
@@ -2154,19 +2154,29 @@ function updateEnemyAI(dt) {
   if (enemy.buildClock <= 0) {
     enemy.buildClock = 1.6;
     const list = towerListFor(enemy.raceId);
+    // Skip unbuildable spots in one go. Advancing one per 1.6s tick burned the
+    // first six spots (all blocked on this map) before a single tower existed.
+    while (enemy.spotIndex < ENEMY_SPOTS.length
+      && !isBuildableCell(ENEMY_SPOTS[enemy.spotIndex].r, ENEMY_SPOTS[enemy.spotIndex].c, ENEMY_HALF)) {
+      enemy.spotIndex += 1;
+    }
     if (enemy.spotIndex < ENEMY_SPOTS.length) {
       const spot = ENEMY_SPOTS[enemy.spotIndex];
       let buyTier = Math.min(maxTierNow, list.length - 2);
       while (buyTier > 0 && list[buyTier].cost > enemy.gold) buyTier -= 1;
       const def = towerDef(enemy.raceId, buyTier);
-      // in classic mode the AI keeps a send reserve so its income engine runs too
-      const buildBudget = enemy.gold - (enemy.spotIndex >= 6 ? 120 : 0);   // once a maze exists, keep a send/shrine reserve
-      if (buildBudget >= def.cost && isBuildableCell(spot.r, spot.c, ENEMY_HALF)) {
+      /* The send/shrine reserve must key off towers ACTUALLY BUILT, not off how
+         far the spot cursor has walked. Keyed to spotIndex it engaged after the
+         six blocked spots were skipped — with no maze standing — so the AI
+         needed 130g for its first 10g tower on a 30g start and starved: one
+         tower in the first 300s. */
+      const builtCount = enemy.towersBuilt || 0;
+      const buildBudget = enemy.gold - (builtCount >= 6 ? 120 : 0);
+      if (buildBudget >= def.cost) {
         enemy.gold -= def.cost;
         addTower(makeTower(spot.r, spot.c, enemy.raceId, buyTier, 'enemy'));
         enemy.spotIndex += 1;
-      } else if (!isBuildableCell(spot.r, spot.c, ENEMY_HALF)) {
-        enemy.spotIndex += 1;
+        enemy.towersBuilt = builtCount + 1;
       }
     } else {
       // maze finished: sell the weakest tower and rebuild the best affordable tier there
