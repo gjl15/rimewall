@@ -587,6 +587,7 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
         <label class="set-toggle"><input type="checkbox" id="set-ranges"> <span>Show tower ranges</span></label>
         <label class="set-toggle"><input type="checkbox" id="set-reduce"> <span>Reduce motion (calmer effects)</span></label>
         <div class="settings-sep"></div>
+        <button id="set-resetmap" class="ghost-button set-dev">🗺 Restore default map</button>
         <button id="set-dev" class="ghost-button set-dev">DEV: unlock all elements</button>
       </div>
     </div>
@@ -3657,6 +3658,7 @@ function frame(now) {
 /* ---------------- Match controls ---------------- */
 function startBattle() {
   $('match-summary')?.classList.add('hidden');
+  try { localStorage.removeItem(SKETCH_KEY); } catch (e) {}   // clear any stuck applied-sketch from older builds
   applySavedSketchToTerrain();
   resetMatchState();
   battleRunning = true;
@@ -3703,6 +3705,7 @@ const drawpadBoxTools = new Set(['ground', 'cliff-box', 'water', 'wave-box']);
 const drawpadToolNames = { ground:'FLOOR BOX', 'cliff-box':'CLIFF BOX', water:'RIVER BOX', 'wave-box':'CREEP WAVE', cliff:'CLIFF STROKE', path:'PATH', checkpoint:'CHECKPOINT', spawn:'SPAWN', shrine:'SHRINE', player:'PLAYER', ship:'SHIP', erase:'ERASE' };
 let drawpadReferenceVisible = true, drawpadReferenceOpacity = .58;
 const SKETCH_KEY = 'wmw-map-sketch-v2';
+const DRAWPAD_APPLIES_TO_MAP = false;   // drawpad is a planning tool only — it must never overwrite the battle map
 
 function drawpadCanvasPoint(event, canvas) {
   const rect = canvas.getBoundingClientRect();
@@ -3813,6 +3816,7 @@ function loadDrawpad() {
 }
 function applySavedSketchToTerrain() {
   terrain.set(baseTerrain);
+  if (!DRAWPAD_APPLIES_TO_MAP) { if (canvasesReady) redrawBoard(); return; }   // always the authoritative symmetrical map
   let sketch = null;
   try { sketch = JSON.parse(localStorage.getItem(SKETCH_KEY) || 'null'); } catch (error) { sketch = null; }
   if (!sketch?.initialized || sketch.grid?.cols !== COLS || !Array.isArray(sketch.marks)) return;
@@ -4834,6 +4838,14 @@ $('set-uimode')?.addEventListener('change', (e) => { profile.uiMode = e.target.v
 $('set-routes')?.addEventListener('change', (e) => { debug.routes = e.target.checked; syncMapToggles(); barStructKey = ''; renderCommandBar(); });
 $('set-ranges')?.addEventListener('change', (e) => { debug.ranges = e.target.checked; syncMapToggles(); barStructKey = ''; renderCommandBar(); });
 $('set-reduce')?.addEventListener('change', (e) => { profile.reduceMotion = e.target.checked; saveProfile(); document.body.classList.toggle('reduce-motion', e.target.checked); });
+$('set-resetmap')?.addEventListener('click', () => {
+  try { localStorage.removeItem(SKETCH_KEY); } catch (e) {}
+  drawpadMarks = [];
+  terrain.set(baseTerrain);
+  if (typeof redrawBoard === 'function' && boardCtx) redrawBoard();
+  log('Map reset to the default symmetrical layout.');
+  showToast('<b>🗺 Map restored</b><span>Back to the default symmetrical battlefield.</span>');
+});
 $('set-dev')?.addEventListener('click', () => {
   profile.devUnlockAll = !profile.devUnlockAll; saveProfile();
   $('set-dev').textContent = profile.devUnlockAll ? 'DEV: relock elements' : 'DEV: unlock all elements';
