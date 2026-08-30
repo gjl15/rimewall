@@ -675,6 +675,12 @@ body.dev .debug-bar { display:flex; }
 .coach-dots i { width:6px; height:6px; border-radius:50%; background:#2c4a7a; }
 .coach-dots i.on { background:#ffd86b; box-shadow:0 0 6px #ffd86b99; }
 #coach-skip { min-height:36px; padding:7px 14px; border:1px solid #2c4a7a; border-radius:9px; background:#111a30; color:#bcd2ff; font:700 11px 'DM Mono',monospace; }
+.dq-play { width:100%; margin:8px 0 4px; min-height:46px; border:1px solid #8fe6b8; border-radius:11px; background:linear-gradient(120deg,#0f2b1f,#122a3a); color:#8fe6b8; font:700 13px 'DM Mono',monospace; letter-spacing:.03em; cursor:pointer; }
+.dq-play-done { border-color:#2c4a7a; background:#111a2e; color:#8fb4d8; }
+.dq-streak { margin:2px 0 6px; text-align:center; font:700 11px 'DM Mono',monospace; color:#ff9f6e; }
+#open-collab-card, #set-dev, #dev-unlock-toggle { display:none; }
+body.dev #open-collab-card { display:flex; }
+body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
 
 </style>
 </head>
@@ -935,14 +941,13 @@ body.dev .debug-bar { display:flex; }
     </main>
   
 <script>
-/* Wintermaul Wars Remake — authoritative board model + fixed-step simulation.
+/* Rimewall — authoritative board model + fixed-step simulation.
    One source of truth: MAP terrain cells + ROUTES checkpoints drive rendering,
    placement rules, A* pathfinding, hard blocks, and the creep simulation. */
 
 /* Races, towers, waves, and economy are calibrated to the supplied source map
-   "Wintermaul TD V.1" by Duke-Wintermaul (data mined from source-maps/*.w3x as
-   research context — no assets copied) plus the Wintermaul Wars send/income
-   loop observed in the referenced gameplay videos. Ranges are WC3 units ÷ 128
+   the reference design (studied as research context — no assets copied) plus the classic maze-TD send/income
+   loop observed in the referenced gameplay videos. Ranges are source units ÷ 128
    cells; damage is the map's stated tooltip value; sell refund is 75%. */
 const races = [
   { id:'ice', name:'Ice', title:'Ice Freezer', builder:'Ice Former', symbol:'❄', color:'#77d6ff', desc:'Frost attacks slow everything they touch.', trait:'Slow / control' },
@@ -1036,11 +1041,11 @@ const TOWERS = {
 const LASER_TOWER = { name:'Laser Cannon', cost:650, dmg:300, cd:.2, range:20, special:'laser', desc:'The forbidden capstone: crits, slows, and poisons at extreme speed.' };
 function towerListFor(raceId) { return [...(TOWERS[raceId] || TOWERS.ice), LASER_TOWER]; }
 
-/* WC3-style armor: reduction = a×0.06 / (1 + a×0.06); race attack bonuses vs
+/* classic-style armor: reduction = a×0.06 / (1 + a×0.06); race attack bonuses vs
    armor classes follow the source map's design notes. Poison/crystal/laser are
    chaos (full damage to everything). */
 function armorReduction(armor) { const k = armor * .06; return k / (1 + k); }
-/* Full attack-type matrix, WC3-style: every race has strengths AND weaknesses
+/* Full attack-type matrix, classic-style: every race has strengths AND weaknesses
    vs armor classes, so waves punish mono-race builds and the second element
    is a real strategic answer (e.g. pierce shreds light but bounces off heavy
    and fortified; siege cracks fortified; storm is elite anti-air). Crystal
@@ -1144,7 +1149,7 @@ function buildBaseTerrain() {
   for (let r = 3; r <= 22; r += 1) for (let c = 11; c <= 20; c += 1) baseTerrain[idx(r, c)] = T.CLIFF;
   for (let r = 26; r <= 45; r += 1) for (let c = 11; c <= 20; c += 1) baseTerrain[idx(r, c)] = T.CLIFF;
   // ...but re-open a WIDE middle mazing region near each base (below/above the pillar) plus the
-  // approach to the ship, so the middle is a real third lane (wider than the sides, as in WMW).
+  // approach to the ship, so the middle is a real third lane (wider than the sides, as in the reference).
   for (let r = 38; r <= 45; r += 1) for (let c = 9; c <= 22; c += 1) baseTerrain[idx(r, c)] = T.FLOOR;
   for (let r = 3; r <= 10; r += 1) for (let c = 9; c <= 22; c += 1) baseTerrain[idx(r, c)] = T.FLOOR;
   // Gates: the center river spawn and the two harbor exits stay walkable, never buildable.
@@ -1249,7 +1254,7 @@ function routesAreOpen() {
 }
 
 /* ---------------- Waves — the source map's creep roster, levels 1–19 + the
-   level-30 boss as our wave 20. HP, armor values, speeds (WC3 ÷128), and flat
+   level-30 boss as our wave 20. HP, armor values, speeds (source ÷128), and flat
    bounties are the mined originals; counts are adapted to ~10 per half.
    Waves 5 and 14 are AIR: they fly over the maze and cannot be blocked. ---------------- */
 const WAVES = [
@@ -1288,8 +1293,8 @@ const roleStyle = {
 const roleColors = { standard:'#ff9faf', runner:'#ffd27d', air:'#9fd8ff', armored:'#9fb6cf', boss:'#ff6b81',
   regenerator:'#8fe6b8', shieldbearer:'#77d6ff', juggernaut:'#d9a441', warden:'#c9b6ff', swarm:'#ff9f6e' };
 
-/* Shrine send ladder (Wintermaul Wars): buy an attacker and one runs EACH
-   lane of the rival half, permanently raising your income. HP, speed (WC3
+/* Shrine send ladder (the classic maze-TD): buy an attacker and one runs EACH
+   lane of the rival half, permanently raising your income. HP, speed (classic
    ÷128), and armor come from the source map's creep table; costs and income
    deltas follow the observed originals (~11–21% of cost). Dragons are AIR:
    they fly straight over the maze. Higher shrine levels unlock the upgraded
@@ -1493,6 +1498,16 @@ const QUEST_POOL = [
 function todayKey() { return new Date().toISOString().slice(0, 10); }
 function daySeed() { return Number(todayKey().replace(/-/g, '')); }
 function raceOfDay() { return races[daySeed() % races.length]; }
+// Daily Gauntlet: everyone plays the SAME element + the SAME seed today, one scored attempt.
+let pendingDaily = false, matchIsDaily = false;
+function dailyDoneToday() { return profile.dailyDone === todayKey(); }
+function startDaily() {
+  if (dailyDoneToday()) { showToast(`<b>🗓 Daily Gauntlet done</b><span>You reached Wave ${profile.dailyBest || 0}. A fresh one drops tomorrow!</span>`); return; }
+  selectedRace = raceOfDay();
+  const modeSel = document.getElementById('mode-select'); if (modeSel) modeSel.value = 'skirmish';
+  pendingDaily = true; pendingSeed = daySeed();
+  startBattle();
+}
 function dailyQuests() {
   const seed = daySeed();
   const picks = [];
@@ -1639,7 +1654,7 @@ function resetMatchState() {
 const priorities = ['first', 'last', 'strong', 'weak', 'near'];
 function makeTower(r, c, raceId, tier, owner) {
   const def = towerDef(raceId, tier);
-  const buildTime = 1.2 + tier * .4;   // WC3-style construction; canceling during it refunds fully
+  const buildTime = 1.2 + tier * .4;   // classic-style construction; canceling during it refunds fully
   return { key:idx(r, c), r, c, raceId, tier, level:0, owner, cooldown:0, priority:'first', kills:0, invested:def.cost, placedAt:simTime, buildTime, buildUntil:simTime + buildTime, blockHp:4 + tier, blockMaxHp:4 + tier, underAttack:0 };
 }
 function addTower(tower) { towers.set(tower.key, tower); towersVersion += 1; refreshRouteDebug(); }
@@ -1831,7 +1846,7 @@ function flagReached(half, side, flagIndex) {
   flagFlashes.set(`${half}-${side}-${flagIndex}`, simTime + 1.4);
 }
 
-/* ---------------- Damage & effects (WC3 armor formula + source-map specials) ---------------- */
+/* ---------------- Damage & effects (classic armor formula + source-map specials) ---------------- */
 function applyDamage(creep, amount, tower, isDot = false, opts) {
   if (creep.hp <= 0) return;
   let raw = amount;
@@ -2196,8 +2211,17 @@ function endMatch(result) {
   const xpGain = wave * 8 + player.kills + (result === 'victory' ? 150 : 0);   // XP for progress, win OR loss
   profile.xp = (profile.xp || 0) + xpGain;
   const nowLevel = commanderLevel().level;
+  if (matchIsDaily) {
+    const today = todayKey();
+    if (profile.dailyDone !== today) {
+      const yest = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+      profile.dailyStreak = (profile.dailyLast === yest ? (profile.dailyStreak || 0) : 0) + 1;
+      profile.dailyLast = today;
+    }
+    profile.dailyDone = today; profile.dailyBest = wave;
+  }
   saveProfile();
-  showMatchSummary(result, earnedBefore, { xpGain, prevLevel, nowLevel, newBest: wave > prevBest });
+  showMatchSummary(result, earnedBefore, { xpGain, prevLevel, nowLevel, newBest: wave > prevBest, daily: matchIsDaily });
   renderHud();
   applyUiMode();
 }
@@ -2219,6 +2243,7 @@ function showMatchSummary(result, earnedBefore, prog = {}) {
       <span>Waves<b>${wave}/${total}</b></span><span>Kills<b>${player.kills}</b></span>
       <span>Send income<b>+${player.income}</b></span><span>Lifeforce<b>${player.lives} : ${enemy.lives}</b></span>
     </div>
+    ${prog.daily ? `<p class="summary-best">🗓 DAILY GAUNTLET — Wave ${wave}${profile.dailyStreak > 1 ? ` · 🔥 ${profile.dailyStreak}-day streak` : ''}</p>` : ''}
     ${prog.newBest ? `<p class="summary-best">🏆 NEW BEST — Wave ${wave}</p>` : ''}
     ${prog.xpGain != null ? `<div class="summary-xp"><div class="xp-line"><span>${prog.nowLevel > prog.prevLevel ? `⭐ LEVEL UP → Lv ${prog.nowLevel}` : `Commander Lv ${cl.level}`}</span><b>+${prog.xpGain} XP</b></div><div class="xp-bar"><i style="width:${Math.round(cl.into / cl.need * 100)}%"></i></div></div>` : ''}
     ${leakDiagnostic() ? `<p class="summary-diag">💡 ${leakDiagnostic()}</p>` : ''}
@@ -3272,7 +3297,7 @@ function renderUndoSlot() {
     profile.tutorialUndoSeen = true;
     saveProfile();
     slot.classList.add('spotlight');
-    showToast('<b>↩ Undo, the WC3 way</b><span>Towers take a moment to build — hit CANCEL during construction for a FULL refund.</span>');
+    showToast('<b>↩ Undo, the clean way</b><span>Towers take a moment to build — hit CANCEL during construction for a FULL refund.</span>');
     window.setTimeout(() => slot.classList.remove('spotlight'), 9000);
   }
 }
@@ -4040,6 +4065,7 @@ function startBattle() {
   const rivalLabel = $('rival-name-label');
   if (rivalLabel && !mp.active) rivalLabel.textContent = 'RIVAL';
   renderHud();
+  matchIsDaily = pendingDaily; pendingDaily = false;
   applyUiMode();
   Coach.start();
   log(matchMode === 'classic'
@@ -4363,13 +4389,16 @@ function renderDailyQuests() {
   if (!box) return;
   const daily = ensureDaily();
   const rod = raceOfDay();
-  box.innerHTML = `<p class="dq-title">🗒 DAILY QUESTS <small>element of the day: <span style="color:${rod.color}">${rod.symbol} ${rod.name}</span> • +25g starting gold each</small></p>
+  box.innerHTML = `<p class="dq-title">🗒 DAILY GAUNTLET <small>everyone plays <span style="color:${rod.color}">${rod.symbol} ${rod.name}</span> on the same seed — one run a day</small></p>
+    <button id="play-daily" class="dq-play ${dailyDoneToday() ? 'dq-play-done' : ''}">${dailyDoneToday() ? `✓ Today's run: Wave ${profile.dailyBest || 0} — back tomorrow` : `▶ Play today's gauntlet`}</button>
+    ${profile.dailyStreak > 1 ? `<p class="dq-streak">🔥 ${profile.dailyStreak}-day streak</p>` : ''}
     <div class="dq-rows">${dailyQuests().map((q) => {
       const done = daily.done.includes(q.id);
       const cur = Math.min(q.target, daily.progress[q.id] || 0);
       return `<div class="dq-row ${done ? 'dq-done' : ''}"><span>${q.icon} ${q.name.replace('the element of the day', `${rod.symbol} ${rod.name}`)}</span>
         <div class="dq-bar"><i style="width:${Math.round(cur / q.target * 100)}%"></i></div><b>${done ? '✓' : `${cur}/${q.target}`}</b></div>`;
     }).join('')}</div>`;
+  $('play-daily')?.addEventListener('click', startDaily);
 }
 function renderProfileStrip() {
   const strip = $('profile-strip');
@@ -4416,7 +4445,7 @@ function openCollabDashboard() {
   $('collab-screen').classList.remove('hidden');
   loadCollabTasks(); renderCollabDashboard();
 }
-const brotherHandoffPrompt = 'You are helping build Rimewall (working title was WMW remake). Work from the repository files and the shared project context. Preserve the 32×49 traced map, mirrored routes, center creep gate, cliff blockers, touch zoom, low-HP opening waves, tower descriptions, HP bars, projectiles, sending for income, and the Push wave test control. Before editing, inspect the relevant files and explain the smallest safe change. After editing, run node --check app.js and git diff --check, then test the local browser. Keep the project dependency-free and do not add extracted Warcraft III assets. Make changes on a feature branch and summarize the files changed, behavior added, and any remaining balance issues.';
+const brotherHandoffPrompt = 'You are helping build Rimewall (Rimewall). Work from the repository files and the shared project context. Preserve the 32×49 traced map, mirrored routes, center creep gate, cliff blockers, touch zoom, low-HP opening waves, tower descriptions, HP bars, projectiles, sending for income, and the Push wave test control. Before editing, inspect the relevant files and explain the smallest safe change. After editing, run node --check app.js and git diff --check, then test the local browser. Keep the project dependency-free and do not add extracted assets from any source game. Make changes on a feature branch and summarize the files changed, behavior added, and any remaining balance issues.';
 
 /* ---------------- Multiplayer (test build: half-authority sync) ----------------
    Each player simulates ONLY their own half. Across the wire go: sends, life
