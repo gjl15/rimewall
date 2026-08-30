@@ -183,9 +183,9 @@ h2 span { color:#7583a6; }
 .wave-banner { position:absolute; top:46%; left:50%; z-index:14; display:flex; flex-direction:column; align-items:center; gap:1px; max-width:94%; padding:6px 14px; border:1px solid #ffd86b99; border-radius:12px; color:#ffe9a5; background:#0d1424f0; box-shadow:0 4px 16px #000a; font:500 10px 'DM Mono',monospace; letter-spacing:.04em; transform:translate(-50%,-50%); text-align:center; pointer-events:none; }
 .wave-banner b { font-weight:700; color:#fff2c8; }
 .wave-banner small { font-size:8px; opacity:.75; color:#bcd2ff; }
-.wave-banner { opacity:.16; transition:opacity .4s; }
-.wave-banner.banner-fade { animation:banner-show 5s ease forwards; }
-@keyframes banner-show { 0%{opacity:0;} 8%{opacity:1;} 70%{opacity:1;} 100%{opacity:.16;} }
+.wave-banner { opacity:0; transition:opacity .4s; }
+.wave-banner.banner-fade { animation:banner-show 5.5s ease forwards; }
+@keyframes banner-show { 0%{opacity:0;} 7%{opacity:1;} 82%{opacity:1;} 100%{opacity:0;} }
 .debug-bar { display:flex; align-items:center; flex-wrap:wrap; gap:14px; margin-top:10px; padding:7px 12px; border:1px solid #233150; border-radius:9px; color:#8e9ab8; background:#0d1424; font:9px 'DM Mono',monospace; letter-spacing:.06em; text-transform:uppercase; }
 .debug-bar label { display:flex; align-items:center; gap:5px; cursor:pointer; }
 .debug-bar input { accent-color:#77d6ff; }
@@ -438,9 +438,6 @@ h2 span { color:#7583a6; }
 
 /* P2 — locked bottom command bar (thumb zone, fixed anchors) */
 .command-bar { position:fixed; left:0; right:0; bottom:0; z-index:160; display:flex; flex-direction:column; gap:6px; padding:7px 10px calc(8px + env(safe-area-inset-bottom)); background:#0d1424f6; border-top:1.5px solid #2c4a7a; box-shadow:0 -8px 24px #0008; }
-/* fixed chrome must never be a zoom target: manipulation kills double-tap zoom,
-   and the document-level gesture guard (setupMapZoom) kills pinch */
-.command-bar, .hud, .map-toggles, .wisp-panel, .wisp-radial { touch-action:manipulation; }
 .command-bar.hidden { display:none; }
 .bar-top { display:flex; align-items:center; justify-content:space-between; gap:8px; }
 .bar-res { display:flex; gap:10px; font:700 11px 'DM Mono',monospace; color:#ffd86b; }
@@ -454,12 +451,6 @@ h2 span { color:#7583a6; }
 .bar-card { flex:0 0 auto; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-width:58px; min-height:52px; padding:6px 8px; border:1.5px solid #2c4a7a; border-radius:11px; background:#111a30; color:#eafcff; touch-action:pan-x; scroll-snap-align:start; }
 .bar-card small { font:700 9px 'DM Mono',monospace; opacity:.9; max-width:74px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .bar-card b { font:700 10px 'DM Mono',monospace; color:#ffd86b; }
-/* third line: hp · armour · speed · tag. One line, ellipsised, so every card
-   in the row keeps the same width and the scroller stays predictable. */
-/* fixed width, not max-width: it pins every send card to the same size, and is
-   sized so hp/armour/speed always survive — only the trailing tag ellipsises */
-.bar-card .bar-stats { width:120px; font:500 8px/1.25 'DM Mono',monospace; font-style:normal; color:#8590ae; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.bar-card.has-stats { min-height:64px; }
 .bar-card span { font-size:17px; line-height:1; }
 .bar-card.on { border-color:#ffd86b; box-shadow:0 0 0 1.5px #ffd86b55; }
 .bar-card.poor { opacity:.45; }
@@ -558,29 +549,12 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 /* two collapsible quick bars (build + send) */
 .command-bar { padding:0 0 env(safe-area-inset-bottom); }
 .cb-sub { border-top:1px solid #22345c; }
-.cb-handle { display:flex; align-items:center; gap:10px; width:100%; padding:5px 12px; border:0; background:#0b1424; color:#bcd2ff; font:700 11px 'DM Mono',monospace; letter-spacing:.12em; }
-.cb-handle .cb-label { flex:1 1 auto; text-align:left; }
-.cb-handle .cb-chev { flex:0 0 auto; transition:transform .22s cubic-bezier(.2,.8,.3,1); color:#77d6ff; }
+.cb-handle { display:flex; align-items:center; justify-content:space-between; width:100%; padding:5px 14px; border:0; background:#0b1424; color:#bcd2ff; font:700 10px 'DM Mono',monospace; letter-spacing:.1em; }
+.cb-handle .cb-chev { transition:transform .15s; color:#77d6ff; }
 .cb-sub.collapsed .cb-chev { transform:rotate(-90deg); }
 
-/* BUILD = shield (defend your half) · SEND = sword (attack theirs).
-   Inline SVG, not text glyphs — ⛫/⚔ fall back to tofu on iOS. */
-.cb-ico-wrap { flex:0 0 auto; display:grid; place-items:center; width:34px; height:34px; border-radius:10px; border:1px solid #2b3f66; background:#0a1120; transition:border-color .22s, background .22s, box-shadow .22s, transform .22s cubic-bezier(.2,.8,.3,1); }
-.cb-ico { display:block; width:22px; height:22px; transition:transform .22s cubic-bezier(.2,.8,.3,1), filter .22s; }
-.cb-sub.cb-defend .cb-label { color:#cfe9ff; }
-.cb-sub.cb-attack .cb-label { color:#ffd8bd; }
-/* expanded = the tray is out: badge lights up in its own identity colour */
-.cb-sub.cb-defend:not(.collapsed) .cb-ico-wrap { border-color:#77d6ff; background:#0f2340; box-shadow:0 0 0 1px #77d6ff33, 0 0 16px #77d6ff2e; }
-.cb-sub.cb-attack:not(.collapsed) .cb-ico-wrap { border-color:#ff9f6e; background:#2a1408; box-shadow:0 0 0 1px #ff9f6e33, 0 0 16px #ff9f6e2e; }
-.cb-sub:not(.collapsed) .cb-ico { transform:scale(1.06); filter:drop-shadow(0 1px 3px #0008); }
-.cb-sub.collapsed .cb-ico { filter:saturate(.5) brightness(.8); }
-.cb-handle:active .cb-ico-wrap { transform:scale(.94); }
-@media (prefers-reduced-motion:reduce) { .cb-ico-wrap,.cb-ico,.cb-chev,.cb-body { transition:none !important; } }
-
-/* the tray SLIDES out from behind its handle and slides back in when collapsed;
-   max-height still animates so the board reclaims the space (fitBoardToViewport) */
-.cb-body { display:flex; gap:6px; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; touch-action:pan-x; scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch; padding:6px 4px; align-items:stretch; max-height:120px; transform:translateY(0); opacity:1; transition:max-height .24s cubic-bezier(.2,.8,.3,1), padding .24s cubic-bezier(.2,.8,.3,1), transform .24s cubic-bezier(.2,.8,.3,1), opacity .18s ease; }
-.cb-sub.collapsed .cb-body { max-height:0; padding-top:0; padding-bottom:0; transform:translateY(-10px); opacity:0; }
+.cb-body { display:flex; gap:6px; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; touch-action:pan-x; scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch; padding:6px 4px; align-items:stretch; max-height:120px; transition:max-height .22s ease, padding .22s ease, opacity .2s; }
+.cb-sub.collapsed .cb-body { max-height:0; padding-top:0; padding-bottom:0; opacity:0; }
 .cb-body::-webkit-scrollbar { display:none; }
 
 /* wisp tools + learn */
@@ -605,9 +579,7 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 .wisp-panel .wp-u.on { border-color:#8fe6b8; color:#8fe6b8; background:#0f2b1f; }
 .wisp-panel .wp-u.wp-uwide { font:700 12px 'DM Mono',monospace; }
 /* tap-and-hold card info tooltip */
-/* purely informational, so it must never take a tap: it is fixed, z-index 205
-   and lingers 3.2s, which made it swallow the next tap wherever it landed */
-.card-info { position:fixed; z-index:200; pointer-events:none; display:flex; flex-direction:column; gap:2px; padding:9px 11px; border:1px solid #4aa3e0; border-radius:11px; background:#0d1424f7; box-shadow:0 10px 30px #000b; }
+.card-info { position:fixed; z-index:200; display:flex; flex-direction:column; gap:2px; padding:9px 11px; border:1px solid #4aa3e0; border-radius:11px; background:#0d1424f7; box-shadow:0 10px 30px #000b; }
 .card-info.hidden { display:none; }
 .card-info b { font:700 11px 'DM Mono',monospace; color:#eafcff; }
 .card-info span { font:500 9px/1.35 'DM Mono',monospace; color:#bcd2ff; }
@@ -633,13 +605,10 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 .arena .vs-mark { display:none; }
 
 /* pager arrows for the quick bars — fast tap paging */
-/* the ROW is the animated tray — it clips the pagers too, so the whole thing
-   slides away. (It used to be display:none when collapsed, which killed every
-   transition on it: display is not animatable.) */
-.cb-row { display:flex; align-items:stretch; overflow:hidden; max-height:132px; opacity:1; transform:translateY(0); transition:max-height .24s cubic-bezier(.2,.8,.3,1), opacity .18s ease, transform .24s cubic-bezier(.2,.8,.3,1); }
-.cb-sub.collapsed .cb-row { max-height:0; opacity:0; transform:translateY(-8px); }
+.cb-row { display:flex; align-items:stretch; }
 .cb-pager { flex:0 0 auto; width:26px; border:0; background:#0b1424; color:#77d6ff; font-size:18px; font-weight:700; }
 .cb-pager:active { background:#122040; }
+.cb-sub.collapsed .cb-row { display:none; }
 
 /* THREE LOCKED ZONES in arena: HUD top, map middle, command bars bottom */
 .arena .hud { position:fixed !important; top:0; left:0; right:0; z-index:170; border-radius:0; }
@@ -671,37 +640,18 @@ body.mp-live .resource.rival-income { display:inline-flex; }
 .summary-streak { margin:8px 0 0; font:600 11px 'DM Mono',monospace; color:#ff9f6e; text-align:center; }
 .summary-rematch { width:100%; margin-top:12px; font-size:15px; }
 
-/* ============================ TOP BAR CONTRACT ============================
-   The arena top bar is a fixed-height instrument panel. These are requirements,
-   not preferences — enforceHudContract() re-checks them on every HUD render and
-   hudContractReport() fails loudly in debug mode when one breaks.
-
-   R1  ONE ROW.        Never wraps, never scrolls, never grows. Fixed height
-                       (--hud-h) so fitBoardToViewport() math stays stable.
-   R2  NO HALF-VALUES. A number is shown in full or not at all. Values abbreviate
-                       (20983 -> 21.0k) rather than clip mid-digit.
-   R3  YIELD ORDER.    When space runs out, items drop whole, lowest priority
-                       first, in exactly this order:
-                          1. RIMEWALL wordmark   (goes first)
-                          2. crest mark
-                          3. rival income  (+R)
-                          4. your income   (+)
-                       Gold, YOU lifeforce and RIVAL lifeforce NEVER yield.
-                       If those four alone cannot fit, that is a bug, not a
-                       layout outcome — the report flags it.
-   R4  NO JITTER.      Digits are tabular; a value changing width must never
-                       shift a neighbour.
-   ========================================================================= */
-.arena .hud { --hud-h:38px; height:var(--hud-h); min-height:var(--hud-h); max-height:var(--hud-h); flex-wrap:nowrap; overflow:hidden; }
+/* clean arena top bar: crest + RIMEWALL on the left, gold + YOU/RIVAL on the right */
+/* brand YIELDS first (ellipsis) so gold + YOU + RIVAL lives are never the ones clipped when incomes are on */
 .arena .hud-brand { flex:0 1 auto; min-width:0; overflow:hidden; }
-.arena .hud-brand span { display:inline-block; max-width:100%; white-space:nowrap; overflow:hidden; vertical-align:middle; font:800 13px 'DM Mono',monospace; letter-spacing:.06em; }
+.arena .hud-brand span { display:inline-block; max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; vertical-align:middle; font:800 13px 'DM Mono',monospace; letter-spacing:.06em; }
 .arena .hud-brand .crest-mark { flex:0 0 auto; }
-.arena .match-state { display:none; }              /* wave/timer/threat shown on the river banner + threat chip stays there */
-.arena .resources { margin-left:auto; flex:0 0 auto; gap:6px; flex-wrap:nowrap; }
-.arena .resource { flex:0 0 auto; white-space:nowrap; }
-.arena .resource em { font-variant-numeric:tabular-nums; font-feature-settings:'tnum' 1; }   /* R4 */
-.arena .resource.lives, .arena .resource.enemy, .arena .resource.gold { flex:0 0 auto; }     /* R3: never yield */
-.hud-yield { display:none !important; }                                                      /* R3 */
+/* compact, always-visible wave + countdown in the top bar (threat/stats live on the river banner) */
+.arena .match-state { display:flex !important; align-items:center; gap:5px; flex:0 1 auto; min-width:0; font:600 11px 'DM Mono',monospace; }
+.arena .match-state #wave-label { flex:0 0 auto; white-space:nowrap; color:var(--ice); }
+.arena .match-state #timer-label { flex:0 0 auto; white-space:nowrap; color:#ffd86b; }
+.arena .match-state .wave-threat, .arena .match-state .live-dot { display:none; }
+.arena .resources { margin-left:auto; flex:0 0 auto; gap:6px; }
+.arena .resource.lives, .arena .resource.enemy { flex:0 0 auto; }   /* lifeforce always renders */
 
 </style>
 </head>
@@ -914,15 +864,15 @@ body.mp-live .resource.rival-income { display:inline-flex; }
               </div>
               <div id="arena-log" class="arena-log" aria-live="polite"></div>
               <div id="action-ring" class="action-ring hidden"></div>
-              <div class="map-toggles" aria-label="Map indicators"><button id="mt-routes" title="Show creep routes">🧭</button><button id="mt-ranges" title="Show tower ranges">◎</button><button id="mt-inspect" title="Inspect — tap a tower or creep to read its stats" aria-pressed="false">🔍</button></div>
+              <div class="map-toggles" aria-label="Map indicators"><button id="mt-routes" title="Show creep routes">🧭</button><button id="mt-ranges" title="Show tower ranges">◎</button></div>
               <div class="map-zoom-controls" aria-label="Map zoom controls"><button id="zoom-out-button" aria-label="Zoom out">−</button><span id="zoom-label">100%</span><button id="zoom-in-button" aria-label="Zoom in">+</button><button id="zoom-reset-button" aria-label="Reset map zoom">reset</button></div>
               <div class="zoom-hint">PINCH TO ZOOM • DRAG WHEN ZOOMED<span class="hotkey-hint"> • 1–9 SEND • Q–U TOWERS • ESC / DBL-TAP SCAFFOLD = UNDO • RIGHT-CLICK / HOLD = SELL</span></div>
             </div>
 
             <div id="quick-send" class="quick-send" aria-label="Quick send bar"></div>
             <div id="command-bar" class="command-bar hidden" aria-label="Command bars">
-              <div id="cb-build" class="cb-sub cb-defend"><button class="cb-handle" data-cb="build" aria-expanded="true" aria-controls="cb-build-body"><span class="cb-ico-wrap"><svg class="cb-ico" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="cbShieldG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bfeaff"/><stop offset="1" stop-color="#3f9ad8"/></linearGradient></defs><path d="M12 2.2 20.2 5.5v6.6c0 4.9-3.5 8.4-8.2 9.7-4.7-1.3-8.2-4.8-8.2-9.7V5.5z" fill="#0d1f3a" stroke="url(#cbShieldG)" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 6.9v9.6M7.9 9.9 12 12.2l4.1-2.3" fill="none" stroke="url(#cbShieldG)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="cb-label">BUILD</span><b class="cb-chev">▾</b></button><div class="cb-row"><button class="cb-pager cb-prev" data-pg="cb-build-body">‹</button><div id="cb-build-body" class="cb-body"></div><button class="cb-pager cb-next" data-pg="cb-build-body">›</button></div></div>
-              <div id="cb-send" class="cb-sub cb-attack"><button class="cb-handle" data-cb="send" aria-expanded="true" aria-controls="cb-send-body"><span class="cb-ico-wrap"><svg class="cb-ico" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="cbSwordG" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#ffcf8f"/><stop offset="1" stop-color="#ff7a4d"/></linearGradient></defs><path d="M21.2 2.8v3.4l-9.4 9.4-3.4-3.4z" fill="#2a1408" stroke="url(#cbSwordG)" stroke-width="1.5" stroke-linejoin="round"/><path d="M6.1 14.2l3.7 3.7M8.2 16.3l-3.5 3.5" fill="none" stroke="url(#cbSwordG)" stroke-width="1.9" stroke-linecap="round"/><circle cx="3.9" cy="20.6" r="1.4" fill="url(#cbSwordG)"/></svg></span><span class="cb-label">SEND</span><b class="cb-chev">▾</b></button><div class="cb-row"><button class="cb-pager cb-prev" data-pg="cb-send-body">‹</button><div id="cb-send-body" class="cb-body"></div><button class="cb-pager cb-next" data-pg="cb-send-body">›</button></div></div>
+              <div id="cb-build" class="cb-sub"><button class="cb-handle" data-cb="build"><span>⛫ BUILD</span><b class="cb-chev">▾</b></button><div class="cb-row"><button class="cb-pager cb-prev" data-pg="cb-build-body">‹</button><div id="cb-build-body" class="cb-body"></div><button class="cb-pager cb-next" data-pg="cb-build-body">›</button></div></div>
+              <div id="cb-send" class="cb-sub"><button class="cb-handle" data-cb="send"><span>⚔ SEND</span><b class="cb-chev">▾</b></button><div class="cb-row"><button class="cb-pager cb-prev" data-pg="cb-send-body">‹</button><div id="cb-send-body" class="cb-body"></div><button class="cb-pager cb-next" data-pg="cb-send-body">›</button></div></div>
             </div>
 
             <div class="debug-bar" aria-label="Debug toggles">
@@ -3242,46 +3192,9 @@ function renderUndoSlot() {
   }
 }
 let bannerShownWave = -1;
-/* --- TOP BAR CONTRACT enforcement (see "TOP BAR CONTRACT" in the stylesheet) --- */
-/* R2: a value is shown whole or abbreviated — never clipped mid-digit. */
-function hudNum(n) {
-  const v = Math.floor(Math.abs(n)), sign = n < 0 ? '-' : '';
-  if (v < 10000) return sign + v;
-  if (v < 999500) { const k = v / 1000; return `${sign}${k < 99.95 ? k.toFixed(1) : Math.round(k)}k`; }
-  return `${sign}${(v / 1e6).toFixed(1)}M`;   // 999500+ rolls to 1.0M, never "1000k"
-}
-/* income reads as a delta, so it always carries its sign — and never "+-4" */
-function hudSigned(n) { return (n < 0 ? '' : '+') + hudNum(n); }
-/* R3: drop whole items, lowest priority first, until the row fits on one line. */
-/* Hiding the brand's children leaves a zero-width flex item that still eats a
-   gap, so step 2 drops the whole container — gap included. */
-const HUD_YIELD_ORDER = ['.hud-brand span', '.hud-brand', '.resource.rival-income', '.resource.income'];
-function enforceHudContract() {
-  const hud = document.querySelector('.arena .hud');
-  if (!hud) return true;
-  HUD_YIELD_ORDER.forEach((sel) => hud.querySelector(sel)?.classList.remove('hud-yield'));
-  const overflows = () => hud.scrollWidth > hud.clientWidth + 1;
-  for (let i = 0; i < HUD_YIELD_ORDER.length && overflows(); i += 1) {
-    hud.querySelector(HUD_YIELD_ORDER[i])?.classList.add('hud-yield');
-  }
-  return !overflows();   // false = even the never-yield set could not fit (R3 violation)
-}
-/* Debug-mode assertion: surfaces a contract break instead of letting it ship silently. */
-function hudContractReport() {
-  const hud = document.querySelector('.arena .hud');
-  if (!hud) return null;
-  const fits = enforceHudContract();
-  const r = hud.getBoundingClientRect();
-  const bad = [];
-  if (!fits) bad.push('R3: gold/YOU/RIVAL cannot fit — nothing left to yield');
-  if (Math.round(r.height) > parseInt(getComputedStyle(hud).getPropertyValue('--hud-h'), 10) + 1) bad.push(`R1: height grew to ${Math.round(r.height)}px`);
-  if (hud.scrollWidth > hud.clientWidth + 1) bad.push('R1/R2: row still overflows after yielding');
-  if (bad.length) console.warn('[top bar contract]', bad.join(' | '));
-  return bad;
-}
 function renderHud() {
-  $('gold-label').textContent = hudNum(player.gold);
-  $('income-label').textContent = hudSigned(BASE_INCOME + player.income);
+  $('gold-label').textContent = Math.floor(player.gold);
+  $('income-label').textContent = `+${BASE_INCOME + player.income}`;
   $('lumber-label').textContent = player.lumber;
   // keep economy buttons in step with live gold/lumber
   const buyLumber = $('buy-lumber');
@@ -3296,15 +3209,17 @@ function renderHud() {
   renderUndoSlot();
   $('lives-label').textContent = player.lives;
   $('enemy-lives-label').textContent = enemy.lives;
-  const rivInc = $('rival-income-label'); if (rivInc) rivInc.textContent = mp.oppIncome != null ? hudSigned(BASE_INCOME + mp.oppIncome) : '+?';
-  enforceHudContract();   // R1–R3: re-fit the row against the values just written
+  const rivInc = $('rival-income-label'); if (rivInc) rivInc.textContent = mp.oppIncome != null ? `+${BASE_INCOME + mp.oppIncome}` : '+?';
   $('player-ship-label').textContent = `YOUR SHIP • ${player.lives}`;
   if (matchMode === 'classic') {
     $('wave-label').textContent = 'CLASSIC WARS';
     if (!matchOver) $('wave-banner').textContent = 'CLASSIC WARS • SENDS ONLY — RACE THE RIVAL’S LIFEFORCE';
     $('timer-label').textContent = `+${String(Math.max(0, Math.ceil(incomeClock))).padStart(2, '0')}s`;
   } else {
-    $('wave-label').textContent = wave <= WAVES.length ? `WAVE ${String(Math.max(1, wave)).padStart(2, '0')}/20` : `WAVE ${wave} ∞`;
+    const arenaHud = document.body.classList.contains('arena');
+    $('wave-label').textContent = wave <= WAVES.length
+      ? (arenaHud ? `WAVE ${Math.max(1, wave)}/20` : `WAVE ${String(Math.max(1, wave)).padStart(2, '0')}/20`)
+      : (arenaHud ? `WAVE ${wave}∞` : `WAVE ${wave} ∞`);
     const upcoming = waveDefFor(wave + 1);
     if (!matchOver) {
       const cur = wave === 0 ? WAVES[0] : waveDefFor(wave);
@@ -3916,15 +3831,6 @@ function setupMapZoom() {
   viewport.addEventListener('touchmove', blockNativePinch, { passive:false });
   viewport.addEventListener('gesturestart', (event) => event.preventDefault());
   viewport.addEventListener('gesturechange', (event) => event.preventDefault());
-  /* Safari has ignored user-scalable=no since iOS 10, so the page could still be
-     pinch-zoomed by grabbing the top bar or the command bar — and once zoomed
-     into fixed-position chrome there is no way back. The board owns pinch; a
-     multi-touch gesture anywhere else is refused at the document. */
-  ['gesturestart', 'gesturechange', 'gestureend'].forEach((type) =>
-    document.addEventListener(type, (event) => event.preventDefault(), { passive:false }));
-  document.addEventListener('touchmove', (event) => {
-    if (event.touches && event.touches.length > 1) event.preventDefault();
-  }, { passive:false });
   viewport.addEventListener('wheel', (event) => {
     if (!battleRunning && !event.ctrlKey && !event.metaKey) return;   // outside battle the page scrolls normally
     const rect = viewport.getBoundingClientRect();
@@ -3942,8 +3848,6 @@ function setupMapZoom() {
   window.addEventListener('resize', fitBoardToViewport);
   window.visualViewport?.addEventListener('resize', fitBoardToViewport);
   window.visualViewport?.addEventListener('scroll', fitBoardToViewport);
-  window.addEventListener('resize', enforceHudContract);              // R3: re-fit on rotate/resize
-  window.visualViewport?.addEventListener('resize', enforceHudContract);
 }
 
 /* ---------------- Main loop ---------------- */
@@ -4698,26 +4602,20 @@ function applyUiMode() {
 let sheetTab = 'sends', sheetKey = '';
 let barTab = 'build', barKey = '', barStructKey = '', autoSend = { on:false, last:null };
 let barBuildCollapsed = false, barSendCollapsed = false;
-/* one place that owns tray state, so the class and the a11y flag can never drift */
-function setCbCollapsed(id, collapsed) {
-  const sub = $(id); if (!sub) return;
-  sub.classList.toggle('collapsed', collapsed);
-  sub.querySelector('.cb-handle')?.setAttribute('aria-expanded', String(!collapsed));
-}
 function renderCommandBar() {
   const bar = $('command-bar');
   if (!bar || bar.classList.contains('hidden') || !player) return;
   const raceId = currentBuildRaceId();
   const buildBody = $('cb-build-body'), sendBody = $('cb-send-body');
   if (!buildBody || !sendBody) return;
-  setCbCollapsed('cb-build', barBuildCollapsed && !ghost);
-  setCbCollapsed('cb-send', barSendCollapsed);
+  $('cb-build').classList.toggle('collapsed', barBuildCollapsed && !ghost);
+  $('cb-send').classList.toggle('collapsed', barSendCollapsed);
   // ---- BUILD bar (or the ghost confirm while staging) ----
   if (ghost) {
     const def = towerDef(raceId, selectedTowerTier);
     buildBody.innerHTML = `<button id="bar-ghost-build" class="bar-card bar-wide toggle-on ${player.gold < def.cost ? 'poor' : ''}"><span>✓</span><small>BUILD ${def.name}</small><b>−${def.cost}g</b></button>
       <button id="bar-ghost-cancel" class="bar-card bar-wide"><span>✖</span><small>CANCEL</small><b>free</b></button>`;
-    setCbCollapsed('cb-build', false);
+    $('cb-build').classList.remove('collapsed');
     $('bar-ghost-build').addEventListener('click', () => { const c = { ...ghost }; ghost = null; buildAt(c); closeWispMenus(); renderCommandBar(); });
     $('bar-ghost-cancel').addEventListener('click', () => { ghost = null; renderCommandBar(); });
   } else if (!barBuildCollapsed) {
@@ -4740,8 +4638,8 @@ function renderCommandBar() {
       <button id="bar-auto" class="bar-card ${autoSend.on ? 'toggle-on' : ''}"><span>🔁</span><small>AUTO</small><b>${autoSend.on ? 'ON' : 'off'}</b></button>
       ${matchMode === 'classic' ? '' : `<button id="bar-wager" class="bar-card ${wagerReady ? '' : 'poor'}"><span>⏩</span><small>Rush</small><b>×${wager.tokens}</b></button>`}
       ${SENDS.filter((send) => player.shrine >= send.shrine).map((send) => `
-      <button class="bar-card has-stats ${player.gold < send.cost ? 'poor' : ''}" data-bar-send="${send.id}">
-        <span>${send.air ? '🐉' : send.symbol}</span><small>${send.name.split(' ')[0]}</small><b>${send.cost}g +${send.income}</b><i class="bar-stats">${sendStatLine(send)}</i></button>`).join('')}`;
+      <button class="bar-card ${player.gold < send.cost ? 'poor' : ''}" data-bar-send="${send.id}">
+        <span>${send.air ? '🐉' : send.symbol}</span><small>${send.name.split(' ')[0]}</small><b>${send.cost}g +${send.income}</b></button>`).join('')}`;
     $('bar-auto').addEventListener('click', () => { autoSend.on = !autoSend.on; log(autoSend.on ? `AUTO-send on — repeats your last send each wave${autoSend.last ? '' : ' (send one to arm it)'}.` : 'AUTO-send off.'); renderCommandBar(); });
     $('bar-wager')?.addEventListener('click', proposeWager);
     sendBody.querySelectorAll('[data-bar-send]').forEach((b) => wireSendCard(b));
@@ -4758,15 +4656,11 @@ function barRefreshAffordable() {
   });
   const wc = $('bar-wager'); if (wc) wc.classList.toggle('poor', !(wager.tokens > 0 && simTime >= wager.cooldownUntil && !wager.pending));
 }
-/* Stats live ON the send card now (third line), so sending is a single tap with
-   no intermediate state and nothing floating over the board. */
-function sendStatLine(sd) {
-  const tag = [sd.air ? 'air' : '', sd.role && sd.role !== 'standard' ? sd.role : ''].filter(Boolean).join(' ');
-  return `${sd.hp}hp · ${sd.armor || 0} arm · ${sd.spd} spd${tag ? ` · ${tag}` : ''}`;
-}
+function sendInfoText(sd) { return `<b>${sd.name} · ${sd.cost}g (+${sd.income})</b><span>${sd.hp} hp · ${sd.armor||0} armor · spd ${sd.spd}${sd.air?' · AIR':''}${sd.role&&sd.role!=='standard'?' · '+sd.role:''}</span>`; }
 function wireSendCard(card) {
-  const id = card.dataset.barSend;
+  const id = card.dataset.barSend, sd = SENDS.find((x) => x.id === id);
   card.addEventListener('click', () => {
+    showCardInfoHTML(sendInfoText(sd), card);   // detail above the card
     autoSend.last = id; document.querySelector(`[data-send="${id}"]`)?.click();
   });
 }
@@ -5183,8 +5077,6 @@ $('undo-slot')?.addEventListener('click', () => {
 function syncMapToggles() {
   $('mt-routes')?.classList.toggle('on', debug.routes);
   $('mt-ranges')?.classList.toggle('on', debug.ranges);
-  const insp = $('mt-inspect');
-  if (insp) { const on = inspectPanelOpen(); insp.classList.toggle('on', on); insp.setAttribute('aria-pressed', String(on)); }
   const r = $('dbg-routes'); if (r) r.checked = debug.routes;
   const g = $('dbg-ranges'); if (g) g.checked = debug.ranges;
   const sr = $('set-routes'); if (sr) sr.checked = !!debug.routes;
@@ -5192,17 +5084,6 @@ function syncMapToggles() {
 }
 $('mt-routes')?.addEventListener('click', () => { debug.routes = !debug.routes; syncMapToggles(); });
 $('mt-ranges')?.addEventListener('click', () => { debug.ranges = !debug.ranges; syncMapToggles(); });
-/* Inspect used to be reachable only by double-tapping, which competes with the
-   scaffold-undo double-tap. This is the direct way in: it opens the same panel,
-   showing the last inspected thing or a prompt to tap one. */
-$('mt-inspect')?.addEventListener('click', () => {
-  if (inspectPanelOpen()) closeWispMenus(); else renderWispPanel('inspect');
-  syncMapToggles();
-});
-function inspectPanelOpen() {
-  const p = $('wisp-panel');
-  return !!p && !p.classList.contains('hidden') && wispTab === 'inspect';
-}
 $('wisp-undo')?.addEventListener('click', (event) => {
   event.stopPropagation();
   const t = lastPlaced ? towers.get(lastPlaced.key) : null;
@@ -5227,9 +5108,9 @@ document.querySelectorAll('[data-pg]').forEach((b) => b.addEventListener('click'
 }));
 document.querySelectorAll('[data-cb]').forEach((b) => b.addEventListener('click', () => {
   if (b.dataset.cb === 'build') barBuildCollapsed = !barBuildCollapsed; else barSendCollapsed = !barSendCollapsed;
-  setCbCollapsed('cb-build', barBuildCollapsed && !ghost);
-  setCbCollapsed('cb-send', barSendCollapsed);
-  setTimeout(fitBoardToViewport, 260);   // regrow the map after the slide finishes
+  $('cb-build').classList.toggle('collapsed', barBuildCollapsed && !ghost);
+  $('cb-send').classList.toggle('collapsed', barSendCollapsed);
+  setTimeout(fitBoardToViewport, 240);   // regrow the map after the slide
 }));
 function openSettings() {
   const m = $('settings-modal'); if (!m) return;
