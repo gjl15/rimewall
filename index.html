@@ -438,6 +438,9 @@ h2 span { color:#7583a6; }
 
 /* P2 — locked bottom command bar (thumb zone, fixed anchors) */
 .command-bar { position:fixed; left:0; right:0; bottom:0; z-index:160; display:flex; flex-direction:column; gap:6px; padding:7px 10px calc(8px + env(safe-area-inset-bottom)); background:#0d1424f6; border-top:1.5px solid #2c4a7a; box-shadow:0 -8px 24px #0008; }
+/* fixed chrome must never be a zoom target: manipulation kills double-tap zoom,
+   and the document-level gesture guard (setupMapZoom) kills pinch */
+.command-bar, .hud, .map-toggles, .wisp-panel, .wisp-radial { touch-action:manipulation; }
 .command-bar.hidden { display:none; }
 .bar-top { display:flex; align-items:center; justify-content:space-between; gap:8px; }
 .bar-res { display:flex; gap:10px; font:700 11px 'DM Mono',monospace; color:#ffd86b; }
@@ -903,7 +906,7 @@ body.mp-live .resource.rival-income { display:inline-flex; }
               </div>
               <div id="arena-log" class="arena-log" aria-live="polite"></div>
               <div id="action-ring" class="action-ring hidden"></div>
-              <div class="map-toggles" aria-label="Map indicators"><button id="mt-routes" title="Show creep routes">🧭</button><button id="mt-ranges" title="Show tower ranges">◎</button></div>
+              <div class="map-toggles" aria-label="Map indicators"><button id="mt-routes" title="Show creep routes">🧭</button><button id="mt-ranges" title="Show tower ranges">◎</button><button id="mt-inspect" title="Inspect — tap a tower or creep to read its stats" aria-pressed="false">🔍</button></div>
               <div class="map-zoom-controls" aria-label="Map zoom controls"><button id="zoom-out-button" aria-label="Zoom out">−</button><span id="zoom-label">100%</span><button id="zoom-in-button" aria-label="Zoom in">+</button><button id="zoom-reset-button" aria-label="Reset map zoom">reset</button></div>
               <div class="zoom-hint">PINCH TO ZOOM • DRAG WHEN ZOOMED<span class="hotkey-hint"> • 1–9 SEND • Q–U TOWERS • ESC / DBL-TAP SCAFFOLD = UNDO • RIGHT-CLICK / HOLD = SELL</span></div>
             </div>
@@ -3905,6 +3908,15 @@ function setupMapZoom() {
   viewport.addEventListener('touchmove', blockNativePinch, { passive:false });
   viewport.addEventListener('gesturestart', (event) => event.preventDefault());
   viewport.addEventListener('gesturechange', (event) => event.preventDefault());
+  /* Safari has ignored user-scalable=no since iOS 10, so the page could still be
+     pinch-zoomed by grabbing the top bar or the command bar — and once zoomed
+     into fixed-position chrome there is no way back. The board owns pinch; a
+     multi-touch gesture anywhere else is refused at the document. */
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach((type) =>
+    document.addEventListener(type, (event) => event.preventDefault(), { passive:false }));
+  document.addEventListener('touchmove', (event) => {
+    if (event.touches && event.touches.length > 1) event.preventDefault();
+  }, { passive:false });
   viewport.addEventListener('wheel', (event) => {
     if (!battleRunning && !event.ctrlKey && !event.metaKey) return;   // outside battle the page scrolls normally
     const rect = viewport.getBoundingClientRect();
@@ -5159,6 +5171,8 @@ $('undo-slot')?.addEventListener('click', () => {
 function syncMapToggles() {
   $('mt-routes')?.classList.toggle('on', debug.routes);
   $('mt-ranges')?.classList.toggle('on', debug.ranges);
+  const insp = $('mt-inspect');
+  if (insp) { const on = inspectPanelOpen(); insp.classList.toggle('on', on); insp.setAttribute('aria-pressed', String(on)); }
   const r = $('dbg-routes'); if (r) r.checked = debug.routes;
   const g = $('dbg-ranges'); if (g) g.checked = debug.ranges;
   const sr = $('set-routes'); if (sr) sr.checked = !!debug.routes;
@@ -5166,6 +5180,17 @@ function syncMapToggles() {
 }
 $('mt-routes')?.addEventListener('click', () => { debug.routes = !debug.routes; syncMapToggles(); });
 $('mt-ranges')?.addEventListener('click', () => { debug.ranges = !debug.ranges; syncMapToggles(); });
+/* Inspect used to be reachable only by double-tapping, which competes with the
+   scaffold-undo double-tap. This is the direct way in: it opens the same panel,
+   showing the last inspected thing or a prompt to tap one. */
+$('mt-inspect')?.addEventListener('click', () => {
+  if (inspectPanelOpen()) closeWispMenus(); else renderWispPanel('inspect');
+  syncMapToggles();
+});
+function inspectPanelOpen() {
+  const p = $('wisp-panel');
+  return !!p && !p.classList.contains('hidden') && wispTab === 'inspect';
+}
 $('wisp-undo')?.addEventListener('click', (event) => {
   event.stopPropagation();
   const t = lastPlaced ? towers.get(lastPlaced.key) : null;
