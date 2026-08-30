@@ -943,14 +943,14 @@ const TOWERS = {
     { name:'Whiteout Spire', cost:100, dmg:85, cd:1.2, range:5.5, special:'slow', desc:'Freezing bursts on clustered creeps.' },
     { name:'Meltjet', cost:200, dmg:90, cd:4.0, range:5.9, special:'pause', desc:'Locks a creep in place for a few seconds. Bosses resist.' },
     { name:'Shatterfrost', cost:270, dmg:100, cd:2.25, range:5.5, special:'frostnova', desc:'Huge frost explosion that slows everything caught in it.' },
-    { name:'Absolute Zero', cost:350, dmg:700, cd:1.0, range:6.1, special:null, desc:'A single devastating frozen bolt.' }
+    { name:'Absolute Zero', cost:350, dmg:520, cd:1.0, range:6.1, special:null, desc:'A single devastating frozen bolt.' }
   ],
   fire:[
     { name:'Kindler', cost:10, dmg:6, cd:.6, range:5.5, special:'smallsplash', desc:'Fast fireballs with light splash.' },
     { name:'Emberwhirl', cost:45, dmg:35, cd:.9, range:5.5, special:'splash', desc:'Rapid flames splash across nearby creeps.' },
     { name:'Skyfall Brazier', cost:95, dmg:88, cd:1.2, range:7.0, special:'meteor', desc:'Calls down meteors with a large blast.' },
     { name:'Slagworks', cost:200, dmg:238, cd:1.15, range:5.5, special:'splash', desc:'Furnace blasts melt tight groups.' },
-    { name:'Ashmaker', cost:280, dmg:105, cd:.15, range:5.5, special:'machinegun', desc:'A machine-gun stream of fire. No splash.' },
+    { name:'Ashmaker', cost:280, dmg:105, cd:.22, range:5.5, special:'machinegun', desc:'A machine-gun stream of fire. No splash.' },
     { name:'Pyroclast Rod', cost:350, dmg:125, cd:.35, range:5.5, special:'smallsplash', desc:'Very fast staff fire with light splash.' }
   ],
   earth:[
@@ -958,7 +958,7 @@ const TOWERS = {
     { name:'Rootwarden', cost:40, dmg:35, cd:1.0, range:4.2, special:'splash', desc:'Boulder bursts bomb the front line.' },
     { name:"Worldheart Coffer", cost:100, dmg:88, cd:1.5, range:4.2, special:'splash', desc:'Bombards a wide stretch of lane.' },
     { name:"Earth's Soul", cost:200, dmg:330, cd:1.2, range:4.4, special:'splash', desc:'Massive earthen impacts.' },
-    { name:'Worldheart', cost:350, dmg:625, cd:1.0, range:4.6, special:'meteor', desc:'The living world drops mountains on creeps.' }
+    { name:'Worldheart', cost:350, dmg:500, cd:1.0, range:4.6, special:'meteor', desc:'The living world drops mountains on creeps.' }
   ],
   tech:[
     { name:'Bolt Turret', cost:6, dmg:6, cd:1.7, range:12.5, special:null, armorPierce:4, desc:'Cheap long-range arrows that ignore 4 armor — a keeper for chipping armored runners.' },
@@ -989,7 +989,7 @@ const TOWERS = {
     { name:'Boulder Maw', cost:40, dmg:43, cd:1.1, range:3.5, special:'crit', desc:'Heavy rocks for narrow turns.' },
     { name:'Monolith', cost:100, dmg:140, cd:1.2, range:3.1, special:'crit', desc:'Crushing stone waves up close.' },
     { name:'Runestone Seer', cost:200, dmg:350, cd:1.1, range:3.9, special:'armorshred', desc:'Faerie fire strips armor for every tower.' },
-    { name:'Quakebreaker', cost:285, dmg:500, cd:.95, range:4.2, special:'crit', desc:'The only stone tower with real range.' },
+    { name:'Quakebreaker', cost:285, dmg:420, cd:.95, range:4.2, special:'crit', desc:'The only stone tower with real range.' },
     { name:'Petrifier', cost:350, dmg:60, cd:6.0, range:4.2, special:'paralyze', desc:'Drops a creep to 11 HP, then crits it. Bosses resist.' }
   ],
   electricity:[
@@ -997,7 +997,7 @@ const TOWERS = {
     { name:'Stormcrown', cost:40, dmg:30, cd:.8, range:3.9, special:null, desc:'Lightning strikes from a storm core.' },
     { name:'Arc Weaver', cost:100, dmg:60, cd:2.0, range:4.0, special:'chain', desc:'Casts chain lightning through the wave.' },
     { name:'Thunderspike', cost:200, dmg:0, cd:2.0, range:4.5, special:'thunder', desc:'Pulse chips every nearby creep toward 75% max HP, strips shields, may stun.' },
-    { name:'Coil Dynamo', cost:285, dmg:225, cd:.4, range:5.5, special:null, airBonus:1.6, desc:'Relentless sparks; +60% vs air — the dedicated anti-air tower.' },
+    { name:'Coil Dynamo', cost:285, dmg:170, cd:.4, range:5.5, special:null, airBonus:1.6, desc:'Relentless sparks; +60% vs air — the dedicated anti-air tower.' },
     { name:'Capacitor Bank', cost:350, dmg:175, cd:.5, range:5.1, special:null, desc:'The must-have electric tower.' }
   ],
   gravity:[
@@ -1034,7 +1034,7 @@ const ATTACK_PROFILE = {
 };
 /* Per-builder identity tunables (the rework). */
 const TRAIT = {
-  hpScaleNeutral:1.5, hpScaleSend:1.35, armorBonus:2,
+  hpScaleNeutral:2.0, hpScaleSend:1.35, armorBonus:2, hpLateRamp:1.04, hpLateFrom:13,
   frostBase:50, frostMax:70, frostStep:1,
   poisonPct:.03, poisonSlow:20, poisonDur:3, dotCap:16,
   fireIgnitePct:.15, fireEruptMult:.5, fireEruptRadius:1.9,
@@ -1233,9 +1233,9 @@ const WAVES = [
   { name:'Sapper', role:'standard', count:8, hp:60, spd:1.8, armor:0, aClass:'light', bounty:1 },
   { name:'Duskstalker', role:'standard', count:8, hp:113, spd:2.0, armor:2, aClass:'light', bounty:1 },
   { name:'Marauder', role:'standard', count:8, hp:160, spd:1.9, armor:3, aClass:'medium', bounty:1 },
-  { name:'Drake Whelp', role:'air', count:6, hp:110, spd:2.2, armor:0, aClass:'light', bounty:2, air:true },
+  { name:'Drake Whelp', role:'air', count:8, hp:110, spd:2.2, armor:0, aClass:'light', bounty:2, air:true },
   { name:'Prowler', role:'runner', count:8, hp:265, spd:2.2, armor:3, aClass:'light', bounty:2 },
-  { name:'Sapper Swarm', role:'swarm', count:16, hp:70, spd:2.1, armor:1, aClass:'unarmored', bounty:1 },
+  { name:'Sapper Swarm', role:'swarm', count:20, hp:91, spd:2.1, armor:1, aClass:'unarmored', bounty:1 },
   { name:'Tideskimmer', role:'runner', count:8, hp:325, spd:2.2, armor:4, aClass:'medium', bounty:2 },
   { name:'Rimeborn Brute', role:'standard', count:8, hp:375, spd:2.3, armor:5, aClass:'medium', bounty:2 },
   { name:'Fang Outrider', role:'runner', count:8, hp:400, spd:2.5, armor:7, aClass:'medium', bounty:2 },
@@ -1245,7 +1245,7 @@ const WAVES = [
   { name:'Glacier Basilisk', role:'runner', count:8, hp:782, spd:2.9, armor:10, aClass:'medium', bounty:2 },
   { name:'Imp Familiar', role:'standard', count:8, hp:900, spd:2.5, armor:10, aClass:'light', bounty:2 },
   { name:'Aegis Runner', role:'shieldbearer', count:8, hp:720, spd:2.5, armor:6, aClass:'light', bounty:3 },
-  { name:'Elder Drake', role:'air', count:6, hp:825, spd:2.9, armor:12, aClass:'light', bounty:3, air:true },
+  { name:'Elder Drake', role:'air', count:8, hp:825, spd:2.9, armor:12, aClass:'light', bounty:3, air:true },
   { name:'Shardhide Golem', role:'armored', count:8, hp:1375, spd:2.7, armor:12, aClass:'heavy', bounty:3 },
   { name:'Undying Shade', role:'standard', count:8, hp:1300, spd:2.9, armor:14, aClass:'unarmored', bounty:3 },
   { name:'Siege Hauler', role:'armored', count:8, hp:1525, spd:2.8, armor:10, aClass:'fortified', bounty:3 },
@@ -1411,8 +1411,10 @@ const WAVE_PERIOD = 30;
    (25 classic / 50 / 100 easy). Bounties run ×2 because a solo defender
    covers both streams that a team shares in the source map. */
 const START_GOLD = 30, FIRST_WAVE_DELAY = 20;
-const INCOME_PERIOD = 25, BASE_INCOME = 33;   // "Your Income: 33" at match start in the reference footage
-const BOUNTY_MULT = 2;
+const INCOME_PERIOD = 25, BASE_INCOME = 24;   // was 33 — balance audit: income was the flat snowball outpacing HP growth
+const BOUNTY_MULT = 1;   // was 2 — kill-gold was the fattest early faucet (defense out-damaged threat ~5.7x)
+// late-wave HP multiplier: waves past hpLateFrom compound so the endgame can actually be lost
+function waveHpMult(n) { return Math.pow(TRAIT.hpLateRamp, Math.max(0, (n || 0) - TRAIT.hpLateFrom)); }
 function startingLives() { return Number(document.getElementById('lives-select')?.value) || 100; }
 let selectedRace = races[0];
 let selectedTowerTier = 0;
@@ -1590,7 +1592,7 @@ function refreshRouteDebug() {
 function spawnCreep(waveDef, half, side, sent = false) {
   const spawn = SPAWNS[half][side];
   const role = waveDef.role || 'standard';
-  const hpScale = waveDef.boss ? 1 : (sent ? TRAIT.hpScaleSend : TRAIT.hpScaleNeutral);
+  const hpScale = waveDef.boss ? 1 : (sent ? TRAIT.hpScaleSend : TRAIT.hpScaleNeutral * waveHpMult(wave));
   const jugg = role === 'juggernaut';
   const baseHp = Math.round((waveDef.hp || 1) * hpScale * (jugg ? 2.4 : 1));
   const spd = waveDef.spd * (jugg ? .6 : 1);
@@ -2076,7 +2078,7 @@ function waveTags(def) {
   return t;
 }
 function waveStatLine(def, n) {
-  const hp = Math.round((def.hp || 0) * TRAIT.hpScaleNeutral * (def.role === 'juggernaut' ? 2.4 : 1));
+  const hp = Math.round((def.hp || 0) * (def.boss ? 1 : TRAIT.hpScaleNeutral * waveHpMult(n)) * (def.role === 'juggernaut' ? 2.4 : 1));
   const arm = (def.armor || 0) + (def.boss ? 0 : TRAIT.armorBonus) + (def.role === 'juggernaut' ? 4 : 0);
   const cls = def.role === 'juggernaut' ? 'fortified' : (def.aClass || 'medium');
   const tags = waveTags(def);
@@ -2092,7 +2094,7 @@ function launchNextWave() {
   if (matchMode === 'classic') return;
   wave += 1;
   // the source map's per-level defender payout, alongside the Wars income clock
-  const levelPay = 10 + 2 * Math.min(wave, 30);
+  const levelPay = 6 + Math.round(1.5 * Math.min(wave, 30));   // was 10 + 2*wave — level-pay compounded the snowball
   player.gold += levelPay;
   enemy.gold += levelPay;
   if (wave >= 15) award('wave_15');
@@ -4750,7 +4752,7 @@ function learnContent() {
     <p class="sheet-heading">EVERY TOWER — dmg · dps · range · spell</p>
     ${races.map((race) => `<div class="learn-block"><b style="color:${race.color}">${race.symbol} ${race.name}</b>${towerListFor(race.id).map((t) => `<div class="learn-row"><span>${t.name}</span><small>${t.cost}g · ${t.dmg} dmg · ${(t.dmg/t.cd).toFixed(0)} dps · ${t.range} rng${t.special?' · '+t.special:''}</small></div>`).join('')}</div>`).join('')}
     <p class="sheet-heading">EVERY WAVE — hp · armor · class · trait</p>
-    <div class="learn-list">${WAVES.map((w, i) => `<div class="learn-row"><span>${i+1}. ${w.name}</span><small>${Math.round((w.hp||0)*TRAIT.hpScaleNeutral*(w.role==='juggernaut'?2.4:1))} hp · ${(w.armor||0)+(w.boss?0:TRAIT.armorBonus)} armor · ${w.aClass}${w.air?' · air':''}${w.role&&w.role!=='standard'?' · '+w.role:''}</small></div>`).join('')}</div>
+    <div class="learn-list">${WAVES.map((w, i) => `<div class="learn-row"><span>${i+1}. ${w.name}</span><small>${Math.round((w.hp||0)*(w.boss?1:TRAIT.hpScaleNeutral*waveHpMult(i+1))*(w.role==='juggernaut'?2.4:1))} hp · ${(w.armor||0)+(w.boss?0:TRAIT.armorBonus)} armor · ${w.aClass}${w.air?' · air':''}${w.role&&w.role!=='standard'?' · '+w.role:''}</small></div>`).join('')}</div>
     <p class="sheet-heading">EVERY SEND — cost · income · hp · armor</p>
     <div class="learn-list">${SENDS.map((sd) => `<div class="learn-row"><span>${sd.name} <em>(L${sd.shrine})</em></span><small>${sd.cost}g +${sd.income} · ${sd.hp} hp · ${sd.armor||0} armor · ${sd.aClass||'?'}${sd.air?' · air':''}${sd.role&&sd.role!=='standard'?' · '+sd.role:''}</small></div>`).join('')}</div>
     <p class="sheet-heading">RULES OF THUMB</p>
