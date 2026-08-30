@@ -616,6 +616,22 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 .arena .command-bar { position:fixed; left:0; right:0; bottom:0; z-index:160; }
 .arena .battle-main { min-width:0; }
 
+/* HUD leak fix: let wave/threat shrink+truncate so YOU/RIVAL never push off the right */
+.arena .match-state { flex:1 1 auto; min-width:0; overflow:hidden; }
+.arena .match-state #wave-label { flex:0 0 auto; }
+.arena .wave-threat { overflow:hidden; max-width:46vw; flex-wrap:nowrap; }
+.arena .wave-threat .wt-tag, .arena .wave-threat .wt-arm { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.arena .resources { flex:0 0 auto; margin-left:6px; gap:6px; }
+.arena .hud { overflow:visible; }
+/* income toggle + rival income */
+.income-toggle { width:26px; height:26px; border:1px solid #2c4a7a; border-radius:7px; background:#111a30; color:#8fe6b8; font-size:13px; }
+.income-toggle.on { border-color:#8fe6b8; background:#0f2b1f; }
+.resource.income, .resource.rival-income { display:none; }
+body.show-incomes .resource.income { display:inline-flex; }
+body.show-incomes .resource.rival-income { display:inline-flex; }
+.resource.rival-income { color:#ff9faf; }
+.resource.hidden { display:none; }
+
 </style>
 </head>
 <body>
@@ -795,7 +811,7 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
           <div class="resources">
             <span class="resource gold"><b>◆</b><em id="gold-label">30</em></span>
             <span class="resource lumber" title="Lumber — buys shrine upgrades, a second element, or a Laser Cannon"><b>🪵</b><em id="lumber-label">0</em></span>
-            <span class="resource income"><b>↗</b><em id="income-label">+33</em></span>
+            <button id="income-toggle" class="income-toggle" title="Show incomes">↗</button><span class="resource income"><b>↗</b><em id="income-label">+33</em></span><span class="resource rival-income hidden"><b>↗R</b><em id="rival-income-label">+0</em></span>
             <span class="resource lives" title="Your lifeforce"><b>♥ YOU</b><em id="lives-label">100</em></span>
             <span class="vs-mark">⚔</span>
             <span class="resource enemy" title="Rival lifeforce"><b id="rival-name-label">RIVAL</b><em id="enemy-lives-label">100</em></span>
@@ -3047,6 +3063,7 @@ function renderHud() {
   renderUndoSlot();
   $('lives-label').textContent = player.lives;
   $('enemy-lives-label').textContent = enemy.lives;
+  const rivInc = $('rival-income-label'); if (rivInc) rivInc.textContent = mp.oppIncome != null ? `+${BASE_INCOME + mp.oppIncome}` : '+?';
   $('player-ship-label').textContent = `YOUR SHIP • ${player.lives}`;
   if (matchMode === 'classic') {
     $('wave-label').textContent = 'CLASSIC WARS';
@@ -4130,7 +4147,7 @@ const MP_CONFIG = (() => {
   try { return JSON.parse(localStorage.getItem('wmw-mp-config') || 'null') || { url:'', anonKey:'' }; }
   catch (error) { return { url:'', anonKey:'' }; }
 })();
-const mp = { active:false, transport:null, role:null, code:'', oppName:'', oppRace:null, oppLives:null, snap:{ towers:[], creeps:[] }, snapClock:0, livesSent:-1, ready:false, oppReady:false, started:false, sid:Math.random().toString(36).slice(2, 10), helloTimer:null };
+const mp = { active:false, transport:null, role:null, code:'', oppName:'', oppRace:null, oppLives:null, snap:{ towers:[], creeps:[] }, snapClock:0, livesSent:-1, incomeSent:-999, oppIncome:null, ready:false, oppReady:false, started:false, sid:Math.random().toString(36).slice(2, 10), helloTimer:null };
 
 function mpMakeLocalTransport(code, onMessage) {
   const channel = new BroadcastChannel(`wmw-room-${code}`);
@@ -4282,6 +4299,8 @@ function mpOnMessage(msg) {
     mp.oppLives = v;
     if (enemy) enemy.lives = v;
     if (v <= 0) endMatch('victory');
+  } else if (msg.t === 'income') {
+    mp.oppIncome = clampLives(msg.value);
   } else if (msg.t === 'wager') {
     if (battleRunning) showWagerPrompt();
   } else if (msg.t === 'wager-verdict') {
@@ -4319,6 +4338,7 @@ function mpLeave() {
 function mpTick(dt) {
   if (!mp.active || !battleRunning) return;
   if (player.lives !== mp.livesSent) { mp.livesSent = player.lives; mpSend({ t:'lives', value:player.lives }); }
+  if (player.income !== mp.incomeSent) { mp.incomeSent = player.income; mpSend({ t:'income', value:player.income }); }
   mp.snapClock -= dt;
   if (mp.snapClock <= 0) {
     mp.snapClock = .3;
@@ -4914,6 +4934,11 @@ function openSettings() {
   m.classList.remove('hidden');
 }
 function closeSettings() { $('settings-modal')?.classList.add('hidden'); }
+$('income-toggle')?.addEventListener('click', () => {
+  const on = document.body.classList.toggle('show-incomes');
+  $('income-toggle').classList.toggle('on', on);
+});
+document.body.classList.add('show-incomes');   // incomes visible by default on desktop
 $('settings-open')?.addEventListener('click', openSettings);
 $('settings-open-hud')?.addEventListener('click', openSettings);
 $('settings-close')?.addEventListener('click', closeSettings);
