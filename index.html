@@ -1785,8 +1785,10 @@ function resetMatchState() {
   const questGold = mp.active ? 0 : 25 * (ensureDaily().done.length || 0);
   if (questGold) { player.gold += questGold; log(`🗒 Daily quest reward: +${questGold}g starting gold.`); }
   buildRaceIdx = 0;
-  enemy = { gold:START_GOLD, income:0, lives, lumber:0, shrine:1, raceId:races[Math.floor(rng() * races.length)].id, spotIndex:0, towersBuilt:0, buildClock:2, sendClock:matchMode === 'classic' ? 14 : 24 };
+  const opening = AI_OPENINGS[Math.floor(rng() * AI_OPENINGS.length)];
+  enemy = { gold:START_GOLD, income:0, lives, lumber:0, shrine:1, raceId:races[Math.floor(rng() * races.length)].id, spotIndex:0, towersBuilt:0, buildClock:2, sendClock:matchMode === 'classic' ? 14 : 24, opening, spots:aiSpots(opening) };
   wave = 0; waveClock = FIRST_WAVE_DELAY; incomeClock = INCOME_PERIOD; simTime = 0; battlePaused = false; matchOver = false;
+  if (!mp.active) log(`Rival opening: ${opening === 'centre' ? 'CENTRE — massing on the flag both your lanes cross' : 'SIDES — a cluster on each lane flag'}.`);
   selectedTowerKey = null; selectedGroupKeys = [];
   refreshRouteDebug();
 }
@@ -2428,7 +2430,7 @@ function updateProjectile(projectile, dt) {
    on the south half (weave both corridors, then weave the open band), mirrored
    onto the north half across row 48, and ordered nearest-the-ship first so every
    prefix the AI can afford is already a working maze. */
-function aiSpots() {
+function aiSpots(strategy) {
   const south = [];
   for (const [c0, c1] of [[1, 10], [21, 30]]) { let b = 0;
     for (let r = 27; r <= 36; r += 2) { const gapLeft = b % 2 === 0; b += 1;
@@ -2444,9 +2446,18 @@ function aiSpots() {
      wall now grows outward from there: the first tower it can afford already
      covers every creep in the wave, and the two lanes are always covered
      evenly because they are equidistant from the centre. */
-  const flag = sharedFlagCell(ENEMY_HALF);
-  return south.map(({ r, c }) => ({ r:(ROWS - 1) - r, c }))
-    .sort((a, b) => Math.hypot(a.r - flag.r, a.c - flag.c) - Math.hypot(b.r - flag.r, b.c - flag.c));
+  const cells = south.map(({ r, c }) => ({ r:(ROWS - 1) - r, c }));
+  const near = (cell, marks) => Math.min(...marks.map((m) => Math.hypot(cell.r - m.r, cell.c - m.c)));
+  /* TWO OPENINGS, and they are the two openings worth teaching.
+       centre — one cluster on the flag both lanes are forced across. Every tower
+                you can afford covers every creep in the wave, but nothing is
+                stopped until it reaches the middle.
+       sides  — a cluster on each lane's own flag. Each lane is met early and
+                separately, so nothing walks deep before anything shoots it, at
+                the cost of splitting your gold two ways.
+     Which one wins is a measurement, not an opinion. */
+  const marks = strategy === 'sides' ? laneFlagCells(ENEMY_HALF) : [sharedFlagCell(ENEMY_HALF)];
+  return cells.sort((a, b) => near(a, marks) - near(b, marks));
 }
 /* the one node both lanes of a half have in common — the middle flag */
 function sharedFlagCell(half) {
@@ -2454,7 +2465,19 @@ function sharedFlagCell(half) {
   for (const a of west) for (const b of east) if (a.r === b.r && a.c === b.c) return a;
   return west[Math.max(0, west.length - 3)];
 }
-const ENEMY_SPOTS = aiSpots();
+/* each lane's own flag — the first one it is forced to cross */
+function laneFlagCells(half) {
+  return [ROUTES[half].west[FLAG_START], ROUTES[half].east[FLAG_START]];
+}
+/* Measured head to head over three seeds, rival defending, player building
+   nothing — leaks by wave 25: centre 140.7, sides 209.0. Centre wins at every
+   checkpoint, and structurally it should: both lanes are forced across the
+   middle flag, so a tower there covers EVERY creep in the wave while a side
+   cluster only ever sees its own lane. Same gold, twice the work. The rival
+   plays the stronger line two matches in three and the weaker one otherwise,
+   so solo games still vary without handing you an easy draw half the time. */
+const AI_OPENINGS = ['centre', 'centre', 'sides'];
+function enemySpots() { return enemy && enemy.spots ? enemy.spots : aiSpots('centre'); }
 function updateEnemyAI(dt) {
   enemy.buildClock -= dt;
   enemy.sendClock -= dt;
@@ -2465,12 +2488,13 @@ function updateEnemyAI(dt) {
     const list = towerListFor(enemy.raceId);
     // Skip unbuildable spots in one go. Advancing one per 1.6s tick burned the
     // first six spots (all blocked on this map) before a single tower existed.
-    while (enemy.spotIndex < ENEMY_SPOTS.length
-      && !isBuildableCell(ENEMY_SPOTS[enemy.spotIndex].r, ENEMY_SPOTS[enemy.spotIndex].c, ENEMY_HALF)) {
+    const spots = enemySpots();
+    while (enemy.spotIndex < spots.length
+      && !isBuildableCell(spots[enemy.spotIndex].r, spots[enemy.spotIndex].c, ENEMY_HALF)) {
       enemy.spotIndex += 1;
     }
-    if (enemy.spotIndex < ENEMY_SPOTS.length) {
-      const spot = ENEMY_SPOTS[enemy.spotIndex];
+    if (enemy.spotIndex < spots.length) {
+      const spot = spots[enemy.spotIndex];
       /* BREADTH BEFORE HEIGHT. Buying the highest affordable tier bought 14
          towers by wave 25 — no maze, so the route stayed short and every one of
          them got a single pass. Only step up a tier when the AI could still lay
