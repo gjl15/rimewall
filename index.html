@@ -1028,7 +1028,7 @@ const TOWERS = {
     { name:'Whiteout Spire', cost:100, dmg:105, cd:1.2, range:5.5, special:'slow', desc:'Freezing bursts on clustered creeps.' },
     { name:'Meltjet', cost:200, dmg:90, cd:4.0, range:5.9, special:'pause', desc:'Locks a creep in place for a few seconds. Bosses resist.' },
     { name:'Shatterfrost', cost:270, dmg:100, cd:2.25, range:5.5, special:'frostnova', desc:'Huge frost explosion that slows everything caught in it.' },
-    { name:'Absolute Zero', cost:350, dmg:520, cd:1.0, range:6.1, special:null, desc:'A single devastating frozen bolt.' }
+    { name:'Absolute Zero', cost:350, dmg:360, cd:1.0, range:6.1, special:'shatter', desc:'+50% against anything already slowed or frozen — and Ice slows everything.' }
   ],
   fire:[
     { name:'Kindler', cost:10, dmg:6, cd:.6, range:5.5, special:'smallsplash', desc:'Fast fireballs with light splash.' },
@@ -1038,28 +1038,35 @@ const TOWERS = {
     { name:'Ashmaker', cost:280, dmg:105, cd:.22, range:5.5, special:'machinegun', desc:'A machine-gun stream of fire. No splash.' },
     { name:'Pyroclast Rod', cost:350, dmg:125, cd:.35, range:5.5, special:'smallsplash', desc:'Very fast staff fire with light splash.' }
   ],
+  /* EARTH is the splash race, and it pays for that by standing close. Every tier
+     but one is short reach with a wide blast, so an Earth wall has to be built
+     ON the route rather than lobbing from behind it. The exception is the
+     Bramble Speck: long reach, almost no damage, a five second cooldown, and it
+     roots what it hits — targeting BOSSES first, which is the one thing a
+     splash wall cannot handle on its own. */
   earth:[
-    { name:'Verdant Spring', cost:10, dmg:7, cd:1.0, range:4.6, special:'smallsplash', desc:'Earth shocks with light splash.' },
-    { name:'Rootwarden', cost:40, dmg:44, cd:1.0, range:4.6, special:'splash', desc:'Boulder bursts bomb the front line.' },
-    { name:"Worldheart Coffer", cost:100, dmg:110, cd:1.5, range:4.2, special:'splash', desc:'Bombards a wide stretch of lane.' },
-    { name:"Earth's Soul", cost:200, dmg:330, cd:1.2, range:4.4, special:'splash', desc:'Massive earthen impacts.' },
-    { name:'Worldheart', cost:350, dmg:500, cd:1.0, range:4.6, special:'meteor', desc:'The living world drops mountains on creeps.' }
+    { name:'Verdant Spring', cost:10, dmg:9, cd:1.0, range:3.2, special:'smallsplash', desc:'Close-range earth shock with a light blast.' },
+    { name:'Rootwarden', cost:40, dmg:52, cd:1.0, range:3.4, special:'splash', desc:'Boulder bursts bomb the front line. Stands close.' },
+    { name:"Worldheart Coffer", cost:100, dmg:130, cd:1.5, range:3.4, special:'splash', desc:'A wide blast over a short stretch of lane.' },
+    { name:"Earth's Soul", cost:200, dmg:390, cd:1.2, range:3.6, special:'splash', desc:'Massive earthen impacts at melee reach.' },
+    { name:'Worldheart', cost:350, dmg:580, cd:1.0, range:3.8, special:'meteor', desc:'The living world drops mountains on whatever is next to it.' },
+    { name:'Bramble Speck', cost:170, dmg:20, cd:5.0, range:9.5, special:'entangle', desc:'Long reach, barely any damage: roots its target for 1.6s and goes for BOSSES first.' }
   ],
   tech:[
-    { name:'Bolt Turret', cost:8, dmg:6, cd:1.7, range:12.5, special:null, armorPierce:4, desc:'Cheap long-range arrows that ignore 4 armor — a keeper for chipping armored runners.' },
-    { name:'Longshot Nest', cost:25, dmg:28, cd:1.75, range:13.0, special:null, desc:'Sniper shots reach across the lane.' },
+    { name:'Bolt Turret', cost:8, dmg:6, cd:1.7, range:12.5, special:'pierce', armorPierce:4, desc:'Cheap long-range arrows that ignore 4 armor — a keeper for chipping armored runners.' },
+    { name:'Longshot Nest', cost:25, dmg:21, cd:1.75, range:13.0, special:'snipe', desc:'+40% against whichever creep is furthest along the route.' },
     { name:'Rocket Rack', cost:85, dmg:100, cd:2.2, range:15, special:'rocket', groundOnly:true, desc:'Long-range rockets with splash. Ground only.' },
     { name:'Ion Array', cost:145, dmg:300, cd:3.0, range:15, special:'ion', desc:'Ion beam; +500 bonus damage to healthy targets.' },
     { name:'Seeker Launcher', cost:215, dmg:760, cd:4.5, range:17, special:'rocket', desc:'Cruise missiles with an enormous blast.' },
     { name:'Doomsday Silo', cost:265, dmg:860, cd:7.0, range:17, special:'rocket', desc:'Slow reload. City-block splash radius.' }
   ],
   crystal:[
-    { name:'Shardcaster', cost:10, dmg:11, cd:.9, range:5.9, special:null, desc:'Chaos crystal bolts hurt every armor type.' },
+    { name:'Shardcaster', cost:10, dmg:10, cd:.9, range:5.9, special:'splinter', desc:'Chaos bolts that ignore armor and splinter into one creep beside the target.' },
     { name:'Prism Cannon', cost:50, dmg:40, cd:1.0, range:5.5, special:'smallsplash', desc:'Sprays sharp crystal shards.' },
-    { name:'Facet Fury', cost:235, dmg:64, cd:.25, range:5.5, special:null, desc:'Blinding-fast bursts that can crit double.' },
+    { name:'Facet Fury', cost:235, dmg:50, cd:.25, range:5.5, special:'focus', desc:'Every hit on the SAME creep ramps +8%, to +40%. Switching targets resets it.' },
     { name:'Refraction Snare', cost:275, dmg:283, cd:.9, range:6.25, special:'slow', desc:'Heavy shards that chill and splash.' },
     { name:'Geode Breaker', cost:400, dmg:560, cd:1.2, range:7.0, special:'splash', desc:'Huge crystalline explosions.' },
-    { name:'Lattice Annihilator', cost:650, dmg:360, cd:.35, range:5.5, special:null, desc:'The best non-laser tower in the game.' }
+    { name:'Lattice Annihilator', cost:650, dmg:300, cd:.35, range:5.5, special:'resonate', desc:'Every fifth shot detonates for double across a small radius.' }
   ],
   poison:[
     { name:'Venom Barb', cost:10, dmg:10, cd:1.25, range:7.8, special:'poison', desc:'Poison spikes slow and sicken.' },
@@ -1079,11 +1086,11 @@ const TOWERS = {
   ],
   electricity:[
     { name:'Static Post', cost:10, dmg:6, cd:.6, range:4.7, special:'chain', desc:'Fast shocks that arc to a couple of nearby creeps — worth keeping all game.' },
-    { name:'Stormcrown', cost:40, dmg:30, cd:.8, range:3.9, special:null, desc:'Lightning strikes from a storm core.' },
+    { name:'Stormcrown', cost:40, dmg:24, cd:.8, range:3.9, special:'overcharge', desc:'Every fourth bolt lands at double.' },
     { name:'Arc Weaver', cost:100, dmg:60, cd:2.0, range:4.0, special:'chain', desc:'Casts chain lightning through the wave.' },
     { name:'Thunderspike', cost:200, dmg:0, cd:2.0, range:4.5, special:'thunder', desc:'Pulse chips every nearby creep toward 75% max HP, strips shields, may stun.' },
-    { name:'Coil Dynamo', cost:285, dmg:170, cd:.4, range:5.5, special:null, airBonus:1.6, desc:'Relentless sparks; +60% vs air — the dedicated anti-air tower.' },
-    { name:'Capacitor Bank', cost:350, dmg:175, cd:.5, range:5.1, special:null, desc:'The must-have electric tower.' }
+    { name:'Coil Dynamo', cost:285, dmg:170, cd:.4, range:5.5, special:'skyhunter', airBonus:1.6, desc:'Relentless sparks; +60% vs air — the dedicated anti-air tower.' },
+    { name:'Capacitor Bank', cost:350, dmg:165, cd:.5, range:5.1, special:'discharge', desc:'Banks a charge while idle: the first hit after a lull lands at 2.5x.' }
   ],
   /* BEAM: the opposite of a burst tower. One damage a tick at tier 0, eleven at
      the top, but the light never stops and it reaches further than anything but
@@ -1125,11 +1132,11 @@ const ATTACK_PROFILE = {
   fire:{ label:'Blast', vs:{ unarmored:1.25, medium:1.25, fortified:.65 } },
   earth:{ label:'Siege', vs:{ light:.6, heavy:1.15, fortified:1.55 } },
   tech:{ label:'Pierce', vs:{ unarmored:1.3, light:1.5, medium:1.1, heavy:.6, fortified:.4 } },
-  crystal:{ label:'Chaos', chaos:true, vs:{} },
+  crystal:{ label:'Chaos', chaos:true, vs:{ unarmored:1.15, light:1.1, heavy:.85, fortified:.7 } },
   poison:{ label:'Venom', vs:{ unarmored:1.3, light:1.25, heavy:.75, fortified:.5 } },
   stone:{ label:'Crush', vs:{ unarmored:.9, light:.65, heavy:1.2, fortified:1.5 } },
   electricity:{ label:'Storm', vs:{ unarmored:1.1, light:1.4, medium:1.2, heavy:.85, fortified:.5 } },
-  gravity:{ label:'Warp', vs:{ light:.9, medium:1.15, heavy:1.2 } },
+  gravity:{ label:'Warp', vs:{ unarmored:.85, light:.9, medium:1.15, heavy:1.2, fortified:.7 } },
   beam:{ label:'Lumen', vs:{ unarmored:1.2, light:1.15, medium:1.05, heavy:.8, fortified:.6 } }
 };
 /* Per-builder identity tunables (the rework). */
@@ -1151,6 +1158,8 @@ const TRAIT = {
   gravPulseMult:.4, gravPulseCap:5, gravKnockdown:.55, gravKnockup:.9, gravSlamMult:.8,
   gravSlowChance:.18, gravSlowPct:30, gravPushChance:.07, gravPushCD:6, gravTowerPushCD:9,
   deathPayloadRadius:3.2, deathHealPct:.18, deathShieldPct:.25,
+  snipeMult:1.4, focusStep:.08, dischargeIdle:2, dischargeMult:2.5, shatterMult:1.5,
+  splinterMult:.35, entangleDur:1.6,
   shieldRegenDelay:4
 };
 function pointInPoly(x, y, poly) { let hit = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { if ((poly[i].y > y) !== (poly[j].y > y) && x < (poly[j].x - poly[i].x) * (y - poly[i].y) / (poly[j].y - poly[i].y) + poly[i].x) hit = !hit; } return hit; }
@@ -1159,7 +1168,7 @@ function isChaos(tower, stats) { return !!(ATTACK_PROFILE[tower.raceId] && ATTAC
 function attackProfileText(raceId) {
   const p = ATTACK_PROFILE[raceId];
   if (!p) return '';
-  if (p.chaos) return 'Chaos: full damage vs everything';
+  if (p.chaos) return 'Chaos: ignores armor entirely (armor class still applies)';
   const parts = Object.entries(p.vs).map(([cls, m]) => `${m >= 1.15 ? '+' : m <= .55 ? '−−' : '−'}${cls}`);
   if (p.air && p.air > 1) parts.push('+air');
   return `${p.label}: ${parts.join(' ')}`;
@@ -2013,9 +2022,14 @@ function applyDamage(creep, amount, tower, isDot = false, opts) {
   if (!isDot && tower) {
     const stats = towerLiveStats(tower);
     const profile = ATTACK_PROFILE[tower.raceId] || { vs:{} };
+    /* Chaos used to skip this whole block, so Crystal ignored armour AND the
+       class matrix — a strength with no matching weakness anywhere, which is
+       why it kept measuring best-in-class. Chaos now means what it says: it
+       ignores the ARMOUR VALUE. Every race, Crystal included, answers to the
+       armour-class matrix, so every race has something it does not want to meet. */
+    dmg *= profile.vs[creep.aClass] ?? 1;
+    if (creep.air && stats.airBonus) dmg *= stats.airBonus;
     if (!isChaos(tower, stats)) {
-      dmg *= profile.vs[creep.aClass] ?? 1;
-      if (creep.air && stats.airBonus) dmg *= stats.airBonus;
       const effectiveArmor = Math.max(0, creep.armor - creep.armorShred - (stats.armorPierce || 0));
       dmg *= 1 - armorReduction(effectiveArmor);
     }
@@ -2118,6 +2132,44 @@ function resolveProjectileHit(projectile) {
     // STONE — every tower can crit
     if (isStone && rng() < TRAIT.stoneCritChance * tierPot(tower)) { dmg *= TRAIT.stoneCritMult; crit = true; }
     if (stats.special === 'ion' && target.hp > 500) dmg += 500;
+    /* --- per-tier specials. Each declared special does something; a tower that
+       says 'basic' on its card really is basic. --- */
+    if (stats.special === 'snipe') {
+      // the creep furthest along the route is the one about to leak
+      const lead = creeps.filter((c) => c.hp > 0 && c.half === projectile.half)
+        .sort((a, b) => creepProgress(b) - creepProgress(a))[0];
+      if (lead === target) dmg *= TRAIT.snipeMult;
+    }
+    if (stats.special === 'focus') {
+      // hits on the SAME creep ramp; switching target resets the stack
+      if (tower.focusId === target.id) tower.focusHits = Math.min(5, (tower.focusHits || 0) + 1);
+      else { tower.focusId = target.id; tower.focusHits = 0; }
+      dmg *= 1 + TRAIT.focusStep * tower.focusHits;
+    }
+    if (stats.special === 'overcharge') {
+      tower.shotTick = (tower.shotTick || 0) + 1;
+      if (tower.shotTick % 4 === 0) { dmg *= 2; crit = true; }
+    }
+    if (stats.special === 'resonate') {
+      tower.shotTick = (tower.shotTick || 0) + 1;
+      if (tower.shotTick % 5 === 0) { dmg *= 2; crit = true; tower.resonateNow = true; }
+    }
+    if (stats.special === 'discharge') {
+      // banked while the tower had nothing to shoot at
+      if (simTime - (tower.lastFireAt || -99) >= TRAIT.dischargeIdle) { dmg *= TRAIT.dischargeMult; crit = true; }
+      tower.lastFireAt = simTime;
+    }
+    if (stats.special === 'shatter' && (target.slowUntil > simTime || target.frostUntil > simTime)) dmg *= TRAIT.shatterMult;
+    if (stats.special === 'entangle' && !target.boss) {
+      target.stunUntil = Math.max(target.stunUntil, simTime + TRAIT.entangleDur);
+      target.knockKind = 'root'; target.knockUntil = target.stunUntil;
+      pushFx({ kind:'num', x:target.x, y:target.y - .6, text:'⩗', until:simTime + .7, color:'#8fe6b8' });
+    } else if (stats.special === 'entangle' && target.boss) {
+      // bosses resist a full root but still get slowed hard — this is the tower's job
+      target.slowUntil = Math.max(target.slowUntil, simTime + TRAIT.entangleDur);
+      target.slowPct = Math.max(target.slowPct || 0, 60);
+      pushFx({ kind:'num', x:target.x, y:target.y - .6, text:'⩗', until:simTime + .7, color:'#8fe6b8' });
+    }
     if (stats.special === 'halve' && !target.boss) target.hp = Math.max(1, target.hp * .5);
     if (stats.special === 'mind' && !target.boss) target.hp = Math.max(1, target.hp * .7);
     if (stats.special === 'paralyze' && !target.boss) { target.hp = Math.min(target.hp, 11); pushFx({ kind:'num', x:target.x, y:target.y - .6, text:'11!', until:simTime + .9, color:'#a9b3c6' }); }
@@ -2128,6 +2180,19 @@ function resolveProjectileHit(projectile) {
     applyHitEffects(target, tower, stats);
     // EARTH — chance to stun the direct target (stun freezes HP regen)
     if (isEarth && !target.boss && rng() < TRAIT.earthStunDirect * tierPot(tower)) { target.stunUntil = Math.max(target.stunUntil, simTime + .5); pushFx({ kind:'num', x:target.x, y:target.y - .6, text:'✦', until:simTime + .6, color:'#ffd86b' }); }
+  }
+  if (stats.special === 'splinter' && target) {
+    // one shard peels off into a neighbour
+    const near = creeps.filter((o) => o !== target && o.hp > 0 && o.half === projectile.half
+      && Math.hypot(o.x - impactX, o.y - impactY) <= 2.2)
+      .sort((a, b) => Math.hypot(a.x - impactX, a.y - impactY) - Math.hypot(b.x - impactX, b.y - impactY))[0];
+    if (near) { applyDamage(near, stats.dmg * TRAIT.splinterMult, tower); pushFx({ kind:'impact', x:near.x, y:near.y, color:stats.color, until:simTime + .25 }); }
+  }
+  if (tower && tower.resonateNow) {
+    tower.resonateNow = false;
+    creeps.forEach((o) => { if (o !== target && o.hp > 0 && o.half === projectile.half
+      && Math.hypot(o.x - impactX, o.y - impactY) <= 1.8) applyDamage(o, stats.dmg, tower); });
+    pushFx({ kind:'impact', x:impactX, y:impactY, color:stats.color, big:true, until:simTime + .4 });
   }
   if (splash) {
     const rad = splash.radius * (isEarth ? TRAIT.earthSplashRadius : 1);
@@ -2279,6 +2344,12 @@ function pickTarget(tower, stats) {
     && !(stats.groundOnly && creep.air)
     && Math.hypot(creep.x - (tower.c + .5), creep.y - (tower.r + .5)) <= stats.range);
   if (!inRange.length) return null;
+  if (stats.special === 'entangle') {
+    // bosses first, then anything not already rooted, then whoever is furthest along
+    return inRange.sort((a, b) => (b.boss ? 1 : 0) - (a.boss ? 1 : 0)
+      || ((a.knockUntil > simTime ? 1 : 0) - (b.knockUntil > simTime ? 1 : 0))
+      || creepProgress(b) - creepProgress(a))[0];
+  }
   if (tower.raceId === 'poison' && tower.priority !== 'last' && tower.priority !== 'strong' && tower.priority !== 'weak' && tower.priority !== 'near')
     return inRange.sort((a, b) => poisonStacks(a) - poisonStacks(b) || creepProgress(b) - creepProgress(a))[0];
   if (tower.priority === 'last') return inRange.sort((a, b) => creepProgress(a) - creepProgress(b))[0];
@@ -3084,9 +3155,9 @@ function drawCreep(ctx, creep) {
   if (creep.regen && creep.hp < creep.maxHp && !(creep.frostUntil > simTime) && !(creep.stunUntil > simTime)) { ctx.fillStyle = '#8fe6b8'; ctx.font = '700 8px "DM Mono", monospace'; ctx.textAlign = 'center'; ctx.fillText('✚', -size - 3, -size + 1); }
   if (creep.stunUntil > simTime || creep.stasisUntil > simTime) {
     const knocked = creep.knockUntil > simTime ? creep.knockKind : null;
-    ctx.fillStyle = knocked === 'up' ? '#d9b8ff' : knocked === 'down' ? '#c58fd8' : '#ffd86b';
+    ctx.fillStyle = knocked === 'up' ? '#d9b8ff' : knocked === 'down' ? '#c58fd8' : knocked === 'root' ? '#8fe6b8' : '#ffd86b';
     ctx.font = '8px "DM Mono", monospace'; ctx.textAlign = 'center';
-    ctx.fillText(knocked === 'up' ? '▲' : knocked === 'down' ? '▼' : '✦', 0, -size - 6);
+    ctx.fillText(knocked === 'up' ? '▲' : knocked === 'down' ? '▼' : knocked === 'root' ? '⩗' : '✦', 0, -size - 6);
   }
   const width = Math.max(16, size * 2.4);
   // shield bar (cyan) sits just above the HP bar when present
@@ -4794,8 +4865,8 @@ function renderRaceDetail() {
     <div class="detail-info">
       <h3>${race.title} <small>• ${race.builder}</small></h3>
       <p>${race.desc}</p>
-      <div class="vs-row"><em>${prof.label || ''} damage${prof.chaos ? ' — ignores armor, full damage to every class' : ''}</em></div>
-      ${prof.chaos ? '' : `<div class="vs-row"><i>Strong vs</i>${chips(strong, 'vs-good')}</div>
+      <div class="vs-row"><em>${prof.label || ''} damage${prof.chaos ? ' — ignores armor entirely' : ''}</em></div>
+      ${`<div class="vs-row"><i>Strong vs</i>${chips(strong, 'vs-good')}</div>
       <div class="vs-row"><i>Weak vs</i>${chips(weak, 'vs-bad')}</div>`}
       <div class="vs-row"><i>Signature</i>${sig.map((t) => `<span class="vs-chip">${t.name} • ${t.cost}g</span>`).join('')}</div>
       ${locked ? `<p class="detail-locked">🔒 ${unlockHint(race.id)}</p>` : ''}
