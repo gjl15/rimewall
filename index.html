@@ -2436,7 +2436,23 @@ function aiSpots() {
   let n = 0;
   for (let r = 38; r <= 45; r += 2) { const gapWest = n % 2 === 0; n += 1;
     for (let c = 1; c <= 30; c += 1) { if (gapWest ? c <= 2 : c >= 29) continue; south.push({ r, c }); } }
-  return south.map(({ r, c }) => ({ r:(ROWS - 1) - r, c })).sort((a, b) => a.r - b.r);
+  /* ORDER BY THE SHARED FLAG, NOT BY ROW. Sorting on row alone left the cells
+     within each row in generation order — west to east — so the AI filled every
+     row from column 1 rightward and the east half of its half stood bare for
+     minutes while creeps walked through it. Both lanes are forced across ONE
+     middle flag, which makes it the highest-traffic cell on the board, so the
+     wall now grows outward from there: the first tower it can afford already
+     covers every creep in the wave, and the two lanes are always covered
+     evenly because they are equidistant from the centre. */
+  const flag = sharedFlagCell(ENEMY_HALF);
+  return south.map(({ r, c }) => ({ r:(ROWS - 1) - r, c }))
+    .sort((a, b) => Math.hypot(a.r - flag.r, a.c - flag.c) - Math.hypot(b.r - flag.r, b.c - flag.c));
+}
+/* the one node both lanes of a half have in common — the middle flag */
+function sharedFlagCell(half) {
+  const west = ROUTES[half].west, east = ROUTES[half].east;
+  for (const a of west) for (const b of east) if (a.r === b.r && a.c === b.c) return a;
+  return west[Math.max(0, west.length - 3)];
 }
 const ENEMY_SPOTS = aiSpots();
 function updateEnemyAI(dt) {
