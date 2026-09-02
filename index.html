@@ -528,19 +528,21 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 .wisp-radial button.on { background:#173a2b; border-color:#8fe6b8; color:#8fe6b8; }
 .wisp-radial button:active { transform:scale(.9); }
 @keyframes radial-pop { from { opacity:0; transform:scale(.4); } to { opacity:1; transform:scale(1); } }
-.wisp-panel { position:fixed; z-index:182; width:min(300px,86vw); max-height:44vh; overflow-y:auto; padding:12px; border:1px solid #34497a; border-radius:14px; background:#0d1424f7; box-shadow:0 12px 40px #000b; }
+.wisp-panel { position:fixed; z-index:182; width:min(330px,92vw); max-height:52vh; overflow-y:auto; padding:12px; border:1px solid #34497a; border-radius:14px; background:#0d1424f7; box-shadow:0 12px 40px #000b; }
 .wisp-panel.hidden { display:none; }
-.wisp-panel .wp-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:9px; font:700 12px 'DM Mono',monospace; color:#eafcff; }
+.wisp-panel .wp-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:9px; font:700 14px 'DM Mono',monospace; color:#fff; }
 .wisp-panel .wp-head button { width:36px; height:36px; border:1px solid #2c4a7a; border-radius:7px; background:#111a30; color:#bcd2ff; }
 .wisp-panel .wp-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; }
 .wisp-panel .wp-card { display:flex; flex-direction:column; align-items:center; gap:2px; padding:8px 4px; border:1.5px solid #2c4a7a; border-radius:10px; background:#111a30; color:#eafcff; }
 .wisp-panel .wp-card.on { border-color:#ffd86b; box-shadow:0 0 0 1.5px #ffd86b55; }
 .wisp-panel .wp-card.poor { opacity:.45; }
-.wisp-panel .wp-card span { font-size:18px; } .wisp-panel .wp-card small { font:700 8px 'DM Mono',monospace; } .wisp-panel .wp-card b { font:700 9px 'DM Mono',monospace; color:#ffd86b; }
-.wisp-panel .wp-detail { margin-top:9px; padding:9px; border:1px solid #34497a; border-radius:10px; background:#0b1a34; font:500 10px/1.4 'DM Mono',monospace; color:#bcd2ff; }
-.wisp-panel .wp-detail b { color:#eafcff; font-size:11px; } .wisp-panel .wp-detail i { font-style:normal; color:#8fe6b8; }
+.wisp-panel .wp-card span { font-size:20px; } .wisp-panel .wp-card small { font:700 10px 'DM Mono',monospace; color:#cfdcff; } .wisp-panel .wp-card b { font:700 11px 'DM Mono',monospace; color:#ffd86b; }
+/* Inspect was 10px body over 8-9px labels in a mid blue — legible on a desktop,
+   guesswork on a phone. Sizes and contrast lifted across the panel. */
+.wisp-panel .wp-detail { margin-top:9px; padding:11px; border:1px solid #34497a; border-radius:10px; background:#0b1a34; font:500 12.5px/1.55 'DM Mono',monospace; color:#dfe9ff; }
+.wisp-panel .wp-detail b { color:#fff; font-size:14px; } .wisp-panel .wp-detail i { font-style:normal; color:#8fe6b8; }
 .wisp-panel .wp-actions { display:grid; grid-template-columns:repeat(2,1fr); gap:7px; margin-top:9px; }
-.wisp-panel .wp-act { min-height:44px; padding:9px; border:1px solid #2c4a7a; border-radius:9px; background:#111a30; color:#eafcff; font:700 10px 'DM Mono',monospace; }
+.wisp-panel .wp-act { min-height:48px; padding:9px; border:1px solid #2c4a7a; border-radius:9px; background:#111a30; color:#fff; font:700 12px 'DM Mono',monospace; }
 /* slim send rail = the command-bar in arena when not staging a ghost */
 .command-bar.rail .bar-top { display:none; }
 .command-bar.rail .bar-content { min-height:56px; }
@@ -605,7 +607,7 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 .wave-threat .wt-tag { font:700 9px 'DM Mono',monospace; letter-spacing:.03em; color:#0b1020; background:#ffd86b; border-radius:99px; padding:2px 7px; }
 
 /* wisp tools/util grid */
-.wisp-panel .wp-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:9px; font:700 12px 'DM Mono',monospace; color:#eafcff; }
+.wisp-panel .wp-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:9px; font:700 14px 'DM Mono',monospace; color:#fff; }
 .wisp-panel .wp-head button { width:36px; height:36px; border:1px solid #2c4a7a; border-radius:7px; background:#111a30; color:#bcd2ff; }
 .wisp-panel .wp-util { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; }
 .wisp-panel .wp-u { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-height:48px; padding:7px 4px; border:1px solid #2c4a7a; border-radius:10px; background:#111a30; color:#eafcff; font-size:17px; }
@@ -2903,10 +2905,20 @@ function drawTower(ctx, tower) {
   for (let i = 0; i < (tower.level || 0); i += 1) { ctx.fillRect(-half + 2 + i * 3.4, -half + 2, 2.4, 2); }
   // selection = rotating dashed element-colored reticle (reads without a permanent bright frame)
   if (selected) {
-    ctx.save(); ctx.rotate(simTime * .9);
-    ctx.strokeStyle = stats.color; ctx.lineWidth = 1.8; ctx.globalAlpha = 1; ctx.setLineDash([4, 4]);
-    ctx.beginPath(); ctx.arc(0, 0, half + 2.5, 0, Math.PI * 2); ctx.stroke();
-    ctx.setLineDash([]); ctx.restore();
+    /* The ring used to be drawn in the tower's OWN element colour, on a tile
+       already tinted that colour — so on a phone you could not tell which tower
+       you had actually selected. It is now a fixed bright gold over a dark
+       backing ring, which reads against every element and every tile. */
+    ctx.save();
+    ctx.strokeStyle = '#05080f'; ctx.globalAlpha = .85; ctx.lineWidth = 4.5;
+    ctx.beginPath(); ctx.arc(0, 0, half + 3, 0, Math.PI * 2); ctx.stroke();
+    ctx.rotate(simTime * .9);
+    ctx.strokeStyle = '#ffd86b'; ctx.globalAlpha = 1; ctx.lineWidth = 2.4; ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.arc(0, 0, half + 3, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.strokeStyle = '#ffd86b55'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(0, 0, half + 6, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
   }
   if (tower.blockHp < tower.blockMaxHp) {
     ctx.fillStyle = '#5a2635'; ctx.fillRect(-half, -half - 4, half * 2, 2.5);
