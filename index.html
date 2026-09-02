@@ -777,7 +777,7 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
             <span class="race-card-copy"><span class="selection-kicker">YOUR ELEMENT — TAP TO CHANGE</span><strong id="selected-name">Ice</strong><span id="selected-desc">Slows enemies and buys your maze time.</span></span>
             <span class="race-card-caret">▾</span>
           </button>
-          <div class="selection-actions"><label class="lives-pick" for="mode-select">MODE <select id="mode-select"><option value="skirmish" selected>Waves vs rival</option><option value="classic">Classic Wars • sends only</option></select></label><label class="lives-pick" for="lives-select">LIFEFORCE <select id="lives-select"><option value="25">25 • classic</option><option value="50">50 • veteran</option><option value="100" selected>100 • easy</option></select></label></div>
+          <div class="selection-actions"><label class="lives-pick" for="mode-select">MODE <select id="mode-select"><option value="skirmish" selected>Waves vs rival</option><option value="classic">Classic Wars • sends only</option></select></label><label class="lives-pick" for="team-select">TEAM <select id="team-select"><option value="1" selected>1v1 • one batch</option><option value="2">2v2 • two batches</option><option value="3">3v3 • three batches</option></select></label><label class="lives-pick" for="lives-select">LIFEFORCE <select id="lives-select"><option value="25">25 • classic</option><option value="50">50 • veteran</option><option value="100" selected>100 • easy</option></select></label></div>
           <div class="setup-actions-row">
             <button id="start-button" class="primary-button">Enter the battlefield <span>→</span></button>
             <button id="settings-open" class="gear-button" title="Settings" aria-label="Settings">⚙</button>
@@ -1535,11 +1535,22 @@ const BOUNTY_MULT = 1;   // was 2 — kill-gold was the fattest early faucet (de
    pure builder's 4,147g, and simply bought a maxed maze. Paying income^0.62
    above a soft cap keeps sending clearly the stronger line (2.2x at wave 40,
    not 6.2x) without letting it decide the match on its own. */
-const INCOME_SOFT = 120, INCOME_EXP = .62;
+const INCOME_SOFT = 200, INCOME_EXP = .75;
 function incomePayout(raw) {
   const r = Math.max(0, raw || 0);
   return r <= INCOME_SOFT ? Math.round(r) : Math.round(INCOME_SOFT * Math.pow(r / INCOME_SOFT, INCOME_EXP));
 }
+/* Unrounded, so the send cards can still tell the ladder apart. At 120/0.62 the
+   marginal gain of every send collapsed into the same low single digit past ~1000
+   income — a 5g Pathfinder and a 126g Fang Outrider both printed "+2", which read
+   as a bug because it made the whole ladder look broken. 200/0.75 keeps sending
+   the stronger line (3.4x a pure builder's wall at wave 40, against 6.2x uncapped)
+   while leaving the steps between rungs legible. */
+function incomePayoutExact(raw) {
+  const r = Math.max(0, raw || 0);
+  return r <= INCOME_SOFT ? r : INCOME_SOFT * Math.pow(r / INCOME_SOFT, INCOME_EXP);
+}
+function incomeGainText(n) { return n >= 10 || n === 0 ? String(Math.round(n)) : n.toFixed(1); }
 // late-wave HP multiplier: waves past hpLateFrom compound so the endgame can actually be lost
 function waveHpMult(n) { return Math.pow(TRAIT.hpLateRamp, Math.max(0, (n || 0) - TRAIT.hpLateFrom)); }
 function startingLives() { return Number(document.getElementById('lives-select')?.value) || 100; }
@@ -1790,7 +1801,15 @@ function waveBoardRetire(creep, leaked) {
    third wave's worth of work instead of thinning the two already there — and a
    teammate who only sends is a teammate whose batch someone else has to hold.
    Always 1 until the shared-half layout exists; the wave maths is ready for it. */
-function defendersPerHalf() { return Math.max(1, Math.min(4, (mp.active && mp.teamSize) || 1)); }
+function teamSizeSetting() {
+  const n = parseInt(document.getElementById('team-select')?.value, 10);
+  return Math.max(1, Math.min(3, Number.isFinite(n) ? n : 1));
+}
+function defendersPerHalf() {
+  // the host plays its own selector; the guest plays whatever the host sent
+  const n = mp.active && mp.role !== 'host' ? (mp.teamSize || 1) : teamSizeSetting();
+  return Math.max(1, Math.min(3, n));
+}
 function queueWaveSpawns(waveDef) {
   const count = Math.round((waveDef.count || 6) * (waveDef.boss ? 1 : 1.3));   // ~30% more bodies
   const gap = (waveDef.role === 'swarm' ? .26 : .45) * (waveDef.boss ? 4 : 1); // arrive in overlapping packs, not a trickle
@@ -3748,8 +3767,8 @@ function refreshSendLocks() {
     button.classList.toggle('send-locked', locked);
     // show what this send would actually ADD to the payout, not its raw ladder number:
     // above the soft cap the two diverge, and the card is where that decision is made
-    const gain = incomePayout(player.income + send.income) - incomePayout(player.income);
-    note.textContent = `+${gain} income${gain < send.income ? ` (of +${send.income})` : ''}${locked ? ` • Shrine L${send.shrine}` : ''}`;
+    const gain = incomePayoutExact(player.income + send.income) - incomePayoutExact(player.income);
+    note.textContent = `+${incomeGainText(gain)} income${gain < send.income - .05 ? ` (of +${send.income})` : ''}${locked ? ` • Shrine L${send.shrine}` : ''}`;
   });
 }
 function renderBattleIdentity() {
@@ -4676,7 +4695,7 @@ const MP_CONFIG = (() => {
   try { return JSON.parse(localStorage.getItem('wmw-mp-config') || 'null') || { url:'', anonKey:'' }; }
   catch (error) { return { url:'', anonKey:'' }; }
 })();
-const mp = { active:false, transport:null, role:null, code:'', oppName:'', oppRace:null, oppLives:null, snap:{ towers:[], creeps:[] }, snapClock:0, livesSent:-1, incomeSent:-999, oppIncome:null, ready:false, oppReady:false, started:false, sid:Math.random().toString(36).slice(2, 10), helloTimer:null };
+const mp = { active:false, teamSize:1, transport:null, role:null, code:'', oppName:'', oppRace:null, oppLives:null, snap:{ towers:[], creeps:[] }, snapClock:0, livesSent:-1, incomeSent:-999, oppIncome:null, ready:false, oppReady:false, started:false, sid:Math.random().toString(36).slice(2, 10), helloTimer:null };
 
 function mpMakeLocalTransport(code, onMessage) {
   const channel = new BroadcastChannel(`wmw-room-${code}`);
@@ -4770,7 +4789,7 @@ function mpStartHelloLoop() {
         if (!mp.config) mpSend({ t:'hello', name:mpPlayerName(), race:selectedRace.id });
         else { mpSend({ t:'ready' }); }                                 // keep confirming ready until the host starts
       } else if (mp.oppName) {                                          // host has seen a guest: keep re-offering config+ready
-        mpSend({ t:'config', name:mpPlayerName(), race:selectedRace.id, mode:mpModeNow(), lives:startingLives() });
+        mpSend({ t:'config', name:mpPlayerName(), race:selectedRace.id, mode:mpModeNow(), lives:startingLives(), team:teamSizeSetting() });
         mpSend({ t:'ready' });
       }
     } catch (e) { /* a transient bad state must never kill the heartbeat */ }
@@ -4801,7 +4820,7 @@ async function mpOpenRoom(join) {
         catch (e) { $('mp-copy-link').textContent = 'Copy failed — long-press the link below'; }
       });
       // retained host beacon: a guest that subscribes at ANY later time instantly receives this — kills the discovery race
-      mp.transport?.presence?.('host', { t:'config', name:mpPlayerName(), race:selectedRace.id, mode:mpModeNow(), lives:startingLives(), ts:Date.now() });
+      mp.transport?.presence?.('host', { t:'config', name:mpPlayerName(), race:selectedRace.id, mode:mpModeNow(), lives:startingLives(), team:teamSizeSetting(), ts:Date.now() });
     }
   };
   const fallbackLocal = () => {
@@ -4826,8 +4845,8 @@ function mpOnMessage(msg) {
   if (msg.t === 'hello' && mp.role === 'host') {
     if (mp.started) return;   // repeated knocks are fine; answer again until the match starts
     mp.oppName = cleanName(msg.name); mp.oppRace = msg.race;
-    mpSend({ t:'config', name:mpPlayerName(), race:selectedRace.id, mode:mpModeNow(), lives:startingLives() });
-    mp.transport?.presence?.('host', { t:'config', name:mpPlayerName(), race:selectedRace.id, mode:mpModeNow(), lives:startingLives(), ts:Date.now() });
+    mpSend({ t:'config', name:mpPlayerName(), race:selectedRace.id, mode:mpModeNow(), lives:startingLives(), team:teamSizeSetting() });
+    mp.transport?.presence?.('host', { t:'config', name:mpPlayerName(), race:selectedRace.id, mode:mpModeNow(), lives:startingLives(), team:teamSizeSetting(), ts:Date.now() });
     mpStatus(`<b>${escapeHTML(mp.oppName)}</b> joined! Starting…`);
     mp.ready = true; mpSend({ t:'ready' });
     if (!mp.helloTimer || true) mpStartHelloLoop();   // keep re-offering config+ready until both start
@@ -4835,6 +4854,8 @@ function mpOnMessage(msg) {
   } else if (msg.t === 'config' && mp.role === 'guest') {
     window.clearInterval(mp.helloTimer);
     mp.oppName = cleanName(msg.name); mp.oppRace = msg.race; mp.config = { mode:msg.mode, lives:clampLives(msg.lives) };
+    mp.teamSize = Math.max(1, Math.min(3, parseInt(msg.team, 10) || 1));   // the host's team size decides the creep load for BOTH halves
+    const teamSel = document.getElementById('team-select'); if (teamSel) teamSel.value = String(mp.teamSize);
     mpStatus(`Connected to <b>${escapeHTML(mp.oppName)}</b>! Starting…`);
     mp.ready = true; mpSend({ t:'ready' });
     mpMaybeStart();
