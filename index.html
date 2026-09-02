@@ -29,7 +29,14 @@ body { margin:0; min-width:320px; min-height:100vh; background:radial-gradient(c
 button { font:inherit; color:inherit; cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
 select { touch-action:manipulation; }
 .map-viewport, .map-viewport canvas { user-select:none; -webkit-user-select:none; }
-@media (pointer:coarse) { .lives-pick select { font-size:16px; } }
+/* iOS Safari force-zooms the whole page when you focus a control smaller than
+   16px and never zooms back out — and it has ignored user-scalable=no and
+   maximum-scale since iOS 10, so the viewport meta does not protect against it.
+   That, not pinch, is what leaves you stuck zoomed on a menu bar: the settings
+   selects were 12px, the debug bar 9px, the multiplayer join box 12px. Every
+   focusable control is 16px on a touch pointer; the visual size is held with
+   padding instead. */
+@media (pointer:coarse) { select, input, textarea { font-size:16px !important; } }
 /* The shell manages its own scrolling so the game works inside fixed-height
    embeds (artifact iframes, webviews) as well as a normal document. */
 html, body { height:100%; }
@@ -746,7 +753,7 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
           <span>Build mode</span>
           <select id="set-buildmode"><option value="quick">Quick — tap to place</option><option value="confirm">Precision — confirm with ✓</option></select>
         </label>
-        <p class="set-hint">Quick builds the instant you tap a cell (cancel during construction for a full refund). Precision stages a ghost you confirm — fewer misplacements.</p>
+        <p class="set-hint">Quick builds the instant you tap a cell (undo within 8s for a full refund). Precision stages a ghost you confirm — fewer misplacements.</p>
         <label class="set-toggle"><input type="checkbox" id="set-routes"> <span>Show creep routes</span></label>
         <label class="set-toggle"><input type="checkbox" id="set-ranges"> <span>Show tower ranges</span></label>
         <label class="set-toggle"><input type="checkbox" id="set-sound" checked> <span>Sound effects</span></label>
@@ -1170,7 +1177,15 @@ function towerTierUp(tower) {
   return { next, cost:next.cost };   // full price — you pay for the space; the old tower's value is forfeit
 }
 function underConstruction(tower) { return typeof simTime === 'number' && simTime < (tower.buildUntil ?? 0); }
-function towerSellValue(tower) { return underConstruction(tower) ? tower.invested : Math.round(tower.invested * .75); }
+/* MISPLACEMENT GRACE. A full refund used to last only as long as construction —
+   1.2s for a tier-0 tower — so undoing a mistap meant finding the tower again and
+   hitting cancel inside a second and a half, which on a phone is not a window at
+   all. The refund now stays full for REFUND_GRACE seconds after PLACEMENT,
+   independent of build time, so a misplaced tower is always recoverable. */
+const REFUND_GRACE = 8;
+function withinRefundGrace(tower) { return typeof simTime === 'number' && simTime - (tower.placedAt ?? -1e9) <= REFUND_GRACE; }
+function fullRefund(tower) { return underConstruction(tower) || withinRefundGrace(tower); }
+function towerSellValue(tower) { return fullRefund(tower) ? tower.invested : Math.round(tower.invested * .75); }
 
 /* ---------------- Authoritative map model (traced from assets/reference-map.png) ----------------
    32×49 cells. Horizontal navy river band through the middle with the creep gate at its center;
@@ -3261,7 +3276,7 @@ function renderRing() {
   if (ghost && battleRunning) { mode = 'ghost'; cell = ghost; }
   else if (selectedGroupKeys.length === 1 && battleRunning) {
     tower = towers.get(selectedGroupKeys[0]);
-    if (tower && tower.owner === 'player') { mode = underConstruction(tower) ? 'construction' : 'built'; cell = tower; }
+    if (tower && tower.owner === 'player') { mode = fullRefund(tower) ? 'construction' : 'built'; cell = tower; }
   }
   if (!mode) { ring.classList.add('hidden'); ring._sig = ''; return; }
   const cr = $('fx-canvas').getBoundingClientRect();
@@ -3288,7 +3303,7 @@ function renderRing() {
     label = `${def.name} −${def.cost}g`;
   } else if (mode === 'construction') {
     btns = [{ slot:'left', glyph:'↩', tag:`+${towerSellValue(tower)}g`, color:'#ffd86b', act:'t-cancel' }];
-    label = 'cancel = full refund';
+    label = `undo — full refund (${Math.max(0, Math.ceil(REFUND_GRACE - (simTime - tower.placedAt)))}s)`;
   } else {
     btns = [
       { slot:'top', glyph:'⬆', tag:'LVL', color:'#8fe6b8', act:'t-level' },
@@ -3704,7 +3719,7 @@ function renderTowerDetails() {
   const tierable = group.filter((t) => towerTierUp(t));
   const tierCostAll = tierable.reduce((sum, t) => sum + towerTierUp(t).cost, 0);
   const sellAll = group.reduce((sum, t) => sum + towerSellValue(t), 0);
-  const graceNote = !many && underConstruction(tower) ? ' • cancel build, full refund' : many ? '' : ' • 75%';
+  const graceNote = !many && fullRefund(tower) ? ' • undo, full refund' : many ? '' : ' • 75%';
   panel.innerHTML = `
     <div class="td-head"><span class="td-rune" style="--race:${stats.color}">${stats.symbol}</span>
       <div><strong>${many ? `${group.length} × ` : ''}${stats.name}</strong><small>${isYours ? (many ? 'Batch selection — actions apply to all' : `Level ${(tower.level || 0) + 1} • ${tower.kills} kills`) : 'Rival tower'}</small></div>
@@ -3796,12 +3811,12 @@ function sellTowerAt(cell) {
   if (!tower || tower.owner !== 'player') return false;
   const name = towerLiveStats(tower).name;
   const refund = towerSellValue(tower);
-  const full = underConstruction(tower);
+  const full = fullRefund(tower);
   player.gold += refund;
   effects.push({ kind:'num', x:cell.c + .5, y:cell.r + .25, text:`+${refund}g`, until:simTime + .9, color:'#ffd86b' });
   removeTower(key);
   if (navigator.vibrate) navigator.vibrate(25);
-  log(`${name} ${full ? 'construction canceled' : 'sold'} for ${refund}g${full ? ' (full refund)' : ' (75%)'}. ${cachedRouteText}.`);
+  log(`${name} ${full ? 'build undone' : 'sold'} for ${refund}g${full ? ' (full refund)' : ' (75%)'}. ${cachedRouteText}.`);
   showToast(`<b>${full ? 'Canceled' : 'Sold'} ${name}</b><span>+${refund}g${full ? ' — full refund' : ''}</span>`);
   renderHud(); renderTowerDetails();
   return true;
@@ -4025,6 +4040,18 @@ function setMapZoom(nextScale, anchor = null, fromScale = mapZoomScale, fromOffs
 }
 function resetMapZoom() { mapZoomScale = 1; mapOffsetX = 0; mapOffsetY = 0; applyMapTransform(); }
 function pointerDistance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+/* Best-effort escape hatch for a page Safari has already zoomed: drop the focus
+   that caused it, then re-assert the viewport so the engine re-lays-out at 1x.
+   iOS gives no API for this, so it is not guaranteed — the 16px rule above is
+   the actual cure, this is the way back out when something else zooms you. */
+function resetPageZoom() {
+  try { document.activeElement?.blur?.(); } catch (e) {}
+  const meta = document.querySelector('meta[name="viewport"]');
+  if (!meta) return;
+  const content = meta.getAttribute('content');
+  meta.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover');
+  window.requestAnimationFrame(() => { window.scrollTo(0, 0); meta.setAttribute('content', content); });
+}
 function setupMapZoom() {
   const viewport = $('map-viewport');
   if (!viewport) return;
@@ -4191,7 +4218,7 @@ function setupMapZoom() {
   }, { passive:false });
   $('zoom-in-button').addEventListener('click', () => smoothZoomTo(camZoomNow() + .25));
   $('zoom-out-button').addEventListener('click', () => smoothZoomTo(camZoomNow() - .25));
-  $('zoom-reset-button').addEventListener('click', () => { camAnim = { z:1, x:0, y:0 }; });
+  $('zoom-reset-button').addEventListener('click', () => { camAnim = { z:1, x:0, y:0 }; resetPageZoom(); });
   window.addEventListener('resize', fitBoardToViewport);
   window.visualViewport?.addEventListener('resize', fitBoardToViewport);
   window.visualViewport?.addEventListener('scroll', fitBoardToViewport);
