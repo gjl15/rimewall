@@ -758,6 +758,7 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
         <label class="set-toggle"><input type="checkbox" id="set-ranges"> <span>Show tower ranges</span></label>
         <label class="set-toggle"><input type="checkbox" id="set-sound" checked> <span>Sound effects</span></label>
         <label class="set-toggle"><input type="checkbox" id="set-reduce"> <span>Reduce motion (calmer effects)</span></label>
+        <label class="set-toggle"><input type="checkbox" id="set-noparticles"> <span>Turn off particles (helps lag)</span></label>
         <div class="settings-sep"></div>
         <button id="set-tutorial" class="ghost-button set-dev">🎓 Replay tutorial</button>
         <button id="set-resetmap" class="ghost-button set-dev">🗺 Restore default map</button>
@@ -1129,7 +1130,7 @@ const TRAIT = {
      Gravity Well the best damage in the game by an order of magnitude. The pulse
      stays (it is the race's identity) but it now falls off like splash and hits
      a bounded number of creeps, and only the lead creep gets the control kit. */
-  gravPulseMult:.4, gravPulseCap:5,
+  gravPulseMult:.4, gravPulseCap:5, gravKnockdown:.55, gravKnockup:.9, gravSlamMult:.8,
   gravSlowChance:.18, gravSlowPct:30, gravPushChance:.07, gravPushCD:6, gravTowerPushCD:9,
   shieldRegenDelay:4
 };
@@ -1904,7 +1905,7 @@ function updateCreep(creep, dt) {
       creep.attackClock = .5;
       tower.blockHp -= 1;
       tower.underAttack = now + .6;
-      effects.push({ kind:'towerhit', x:tower.c + .5, y:tower.r + .5, until:now + .25 });
+      pushFx({ kind:'towerhit', x:tower.c + .5, y:tower.r + .5, until:now + .25 });
       if (tower.blockHp <= 0) {
         const name = towerDef(tower.raceId, tower.tier).name;
         removeTower(tower.key);
@@ -1956,7 +1957,7 @@ function resolveLeak(creep) {
   creep.hp = 0; creep.leaked = true;
   const owner = creep.half === PLAYER_HALF ? player : enemy;
   owner.lives = Math.max(0, owner.lives - creep.livesCost);
-  effects.push({ kind:'leak', x:creep.x, y:creep.y, until:simTime + .6 });
+  pushFx({ kind:'leak', x:creep.x, y:creep.y, until:simTime + .6 });
   if (creep.half === PLAYER_HALF) { waveBoardRetire(creep, true); SFX.play('leak'); }
   if (creep.half === PLAYER_HALF) log(`${creep.name} reached your ship — that is a leak (−${creep.livesCost} ${creep.livesCost > 1 ? 'lives' : 'life'}).`);
   else if (creep.sent) log(`Your ${creep.name} broke through! Enemy loses ${creep.livesCost} ${creep.livesCost > 1 ? 'lives' : 'life'}.`);
@@ -1994,7 +1995,7 @@ function applyDamage(creep, amount, tower, isDot = false, opts) {
   }
   creep.hp -= dmg;
   if (!isDot) creep.hitAt = simTime;
-  if (!isDot && dmg >= 60) effects.push({ kind:'num', x:creep.x, y:creep.y - .4, text:String(Math.round(dmg)), until:simTime + .7 });
+  if (!isDot && dmg >= 60) pushFx({ kind:'num', x:creep.x, y:creep.y - .4, text:String(Math.round(dmg)), until:simTime + .7 });
   if (creep.hp <= 0) {
     creep.hp = 0;
     const owner = creep.half === PLAYER_HALF ? player : enemy;
@@ -2002,7 +2003,7 @@ function applyDamage(creep, amount, tower, isDot = false, opts) {
     else { owner.gold += creep.bounty; }   // send kill: bounty = its income value
     if (creep.half === PLAYER_HALF) {
       const paid = creep.sent ? creep.bounty : creep.bounty * BOUNTY_MULT;
-      if (paid >= 1) effects.push({ kind:'num', x:creep.x, y:creep.y - .7, text:`+${Math.round(paid)}g`, until:simTime + .9, color:'#ffd86b' });
+      if (paid >= 1) pushFx({ kind:'num', x:creep.x, y:creep.y - .7, text:`+${Math.round(paid)}g`, until:simTime + .9, color:'#ffd86b' });
       if (creep.sent) questEvent('send_slayer');
       SFX.play('coin');
       waveBoardRetire(creep, false);
@@ -2014,7 +2015,7 @@ function applyDamage(creep, amount, tower, isDot = false, opts) {
       if (creep.boss && !creep.sent) award('boss_slain');
     }
     if (tower) tower.kills += 1;
-    effects.push({ kind:'death', x:creep.x, y:creep.y, color:roleColors[creep.role] || '#ff9faf', until:simTime + .35 });
+    pushFx({ kind:'death', x:creep.x, y:creep.y, color:roleColors[creep.role] || '#ff9faf', until:simTime + .35 });
   }
 }
 function applyHitEffects(creep, tower, stats) {
@@ -2037,7 +2038,7 @@ function applyHitEffects(creep, tower, stats) {
     if (creep.fireCharge >= 2) pushDot(creep, stats.dmg * TRAIT.fireIgnitePct, 3);
     if (creep.fireCharge >= 3) {
       creep.fireCharge = 0;
-      effects.push({ kind:'impact', x:creep.x, y:creep.y, color:'#ff875f', big:true, until:simTime + .35 });
+      pushFx({ kind:'impact', x:creep.x, y:creep.y, color:'#ff875f', big:true, until:simTime + .35 });
       creeps.forEach((o) => { if (o !== creep && o.hp > 0 && o.half === creep.half && Math.hypot(o.x - creep.x, o.y - creep.y) <= TRAIT.fireEruptRadius) { applyDamage(o, stats.dmg * TRAIT.fireEruptMult, tower); pushDot(o, stats.dmg * TRAIT.fireIgnitePct, 3); } });
     }
   }
@@ -2058,9 +2059,9 @@ function resolveProjectileHit(projectile) {
   const impactX = target && target.hp > 0 ? target.x : projectile.tx;
   const impactY = target && target.hp > 0 ? target.y : projectile.ty;
   const splash = splashSpec(stats.special);
-  effects.push({ kind:'impact', x:impactX, y:impactY, color:stats.color, big:Boolean(splash && splash.radius > 1.5), until:simTime + .35 });
+  pushFx({ kind:'impact', x:impactX, y:impactY, color:stats.color, big:Boolean(splash && splash.radius > 1.5), until:simTime + .35 });
   // venom leaves a lingering cloud (~1.1s) — the long-lived signature that makes poison recognizable
-  if ((tower && tower.raceId === 'poison') || ELEMENT_BY_COLOR[stats.color] === 'poison') effects.push({ kind:'venomcloud', x:impactX, y:impactY, color:stats.color, life:1.1, until:simTime + 1.1 });
+  if ((tower && tower.raceId === 'poison') || ELEMENT_BY_COLOR[stats.color] === 'poison') pushFx({ kind:'venomcloud', x:impactX, y:impactY, color:stats.color, life:1.1, until:simTime + 1.1 });
   const isEarth = tower && tower.raceId === 'earth';
   const isStone = tower && tower.raceId === 'stone';
   if (target && target.hp > 0) {
@@ -2071,12 +2072,12 @@ function resolveProjectileHit(projectile) {
     if (stats.special === 'ion' && target.hp > 500) dmg += 500;
     if (stats.special === 'halve' && !target.boss) target.hp = Math.max(1, target.hp * .5);
     if (stats.special === 'mind' && !target.boss) target.hp = Math.max(1, target.hp * .7);
-    if (stats.special === 'paralyze' && !target.boss) { target.hp = Math.min(target.hp, 11); effects.push({ kind:'num', x:target.x, y:target.y - .6, text:'11!', until:simTime + .9, color:'#a9b3c6' }); }
+    if (stats.special === 'paralyze' && !target.boss) { target.hp = Math.min(target.hp, 11); pushFx({ kind:'num', x:target.x, y:target.y - .6, text:'11!', until:simTime + .9, color:'#a9b3c6' }); }
     applyDamage(target, dmg, tower);
-    if (crit) effects.push({ kind:'num', x:target.x, y:target.y - .6, text:`${Math.round(dmg)}!`, until:simTime + .8, color:'#e0b8ff' });
+    if (crit) pushFx({ kind:'num', x:target.x, y:target.y - .6, text:`${Math.round(dmg)}!`, until:simTime + .9, color:'#ffc93d', big:true });
     applyHitEffects(target, tower, stats);
     // EARTH — chance to stun the direct target (stun freezes HP regen)
-    if (isEarth && !target.boss && rng() < TRAIT.earthStunDirect * tierPot(tower)) { target.stunUntil = Math.max(target.stunUntil, simTime + .5); effects.push({ kind:'num', x:target.x, y:target.y - .6, text:'✦', until:simTime + .6, color:'#ffd86b' }); }
+    if (isEarth && !target.boss && rng() < TRAIT.earthStunDirect * tierPot(tower)) { target.stunUntil = Math.max(target.stunUntil, simTime + .5); pushFx({ kind:'num', x:target.x, y:target.y - .6, text:'✦', until:simTime + .6, color:'#ffd86b' }); }
   }
   if (splash) {
     const rad = splash.radius * (isEarth ? TRAIT.earthSplashRadius : 1);
@@ -2096,7 +2097,7 @@ function resolveProjectileHit(projectile) {
       const next = creeps.filter((other) => other.hp > 0 && !hitIds.has(other.id) && other.half === projectile.half && Math.hypot(other.x - last.x, other.y - last.y) <= 2.6)
         .sort((a, b) => Math.hypot(a.x - last.x, a.y - last.y) - Math.hypot(b.x - last.x, b.y - last.y))[0];
       if (!next) break;
-      effects.push({ kind:'bolt', x1:last.x, y1:last.y, x2:next.x, y2:next.y, until:simTime + .28 });
+      pushFx({ kind:'bolt', x1:last.x, y1:last.y, x2:next.x, y2:next.y, until:simTime + .28 });
       applyDamage(next, stats.dmg * mult, tower);
       applyHitEffects(next, tower, stats);
       hitIds.add(next.id); last = next; mult *= .7;
@@ -2104,6 +2105,60 @@ function resolveProjectileHit(projectile) {
   }
 }
 /* Thunder Rod / Black Hole fire as area pulses centered on the tower. */
+/* WARP IMPULSE. Gravity used to have exactly one trick — a shove backwards —
+   so every proc read the same and the race had no texture. A hit now rolls one
+   of five outcomes: a slow, a knockdown, a knock-up with real hang time, the
+   old shove backwards, or a rare fling FORWARD that costs you ground but slams
+   the creep for bonus damage. The displacement outcomes keep the per-creep and
+   per-tower cooldowns so they still cannot chain-lock a lane. */
+const GRAV_IMPULSES = [
+  { id:'slow', w:40 }, { id:'down', w:22 }, { id:'up', w:15 }, { id:'back', w:15 }, { id:'forward', w:8 }
+];
+const GRAV_IMPULSE_TOTAL = GRAV_IMPULSES.reduce((a, i) => a + i.w, 0);
+function rollGravImpulse() {
+  let roll = rng() * GRAV_IMPULSE_TOTAL;
+  for (const i of GRAV_IMPULSES) { roll -= i.w; if (roll <= 0) return i.id; }
+  return 'slow';
+}
+function shoveCreep(creep, node, cells) {
+  if (!node) return;
+  const dx = (node.c + .5) - creep.x, dy = (node.r + .5) - creep.y, d = Math.hypot(dx, dy) || 1;
+  creep.x += dx / d * Math.min(d, cells); creep.y += dy / d * Math.min(d, cells);
+  creep.path = null;
+}
+function gravityImpulse(creep, tower, stats) {
+  const pot = tierPot(tower);
+  const kind = rollGravImpulse();
+  if (kind === 'slow') {
+    creep.slowUntil = Math.max(creep.slowUntil, simTime + 1.4);
+    creep.slowPct = Math.max(creep.slowPct || 0, Math.round(TRAIT.gravSlowPct * pot));
+    return;
+  }
+  // everything below displaces or locks the creep: bosses resist, and the
+  // cooldowns that stopped a permanent pushback lock apply to all of it
+  if (creep.boss || simTime < creep.pushUntil || simTime < (tower.pushClock || 0)) return;
+  creep.pushUntil = simTime + TRAIT.gravPushCD;
+  tower.pushClock = simTime + TRAIT.gravTowerPushCD;
+  const goals = creepGoals(creep);
+  if (kind === 'down') {
+    creep.stunUntil = Math.max(creep.stunUntil, simTime + TRAIT.gravKnockdown * pot);
+    creep.knockKind = 'down'; creep.knockUntil = creep.stunUntil;
+    pushFx({ kind:'num', x:creep.x, y:creep.y - .5, text:'▼', until:simTime + .6, color:'#c58fd8' });
+  } else if (kind === 'up') {
+    creep.stunUntil = Math.max(creep.stunUntil, simTime + TRAIT.gravKnockup * pot);
+    creep.knockKind = 'up'; creep.knockUntil = creep.stunUntil;
+    pushFx({ kind:'num', x:creep.x, y:creep.y - .5, text:'▲', until:simTime + .7, color:'#d9b8ff' });
+  } else if (kind === 'back') {
+    shoveCreep(creep, goals[Math.max(0, creep.cpIndex - 1)], 1.5);
+    if (creep.cpIndex > 0) creep.cpIndex -= 1;   // a passed flag must be crossed again
+    pushFx({ kind:'num', x:creep.x, y:creep.y - .5, text:'«', until:simTime + .6, color:'#c58fd8' });
+  } else {
+    // flung FORWARD: you lose ground, but the slam hurts
+    shoveCreep(creep, goals[creep.cpIndex], 1.5);
+    applyDamage(creep, (stats?.dmg || 0) * TRAIT.gravSlamMult, tower);
+    pushFx({ kind:'num', x:creep.x, y:creep.y - .5, text:'»', until:simTime + .6, color:'#ffb066' });
+  }
+}
 function pushBackCreep(creep) {
   // brutal: shove ~1.5 cells back along the route and re-target the previous checkpoint,
   // so a passed flag must be crossed again. Per-creep cooldown stops a permanent lock.
@@ -2117,7 +2172,7 @@ function pushBackCreep(creep) {
   }
   if (creep.cpIndex > 0) creep.cpIndex -= 1;   // re-cross the previous flag/checkpoint
   creep.path = null;
-  effects.push({ kind:'num', x:creep.x, y:creep.y - .5, text:'«', until:simTime + .6, color:'#c58fd8' });
+  pushFx({ kind:'num', x:creep.x, y:creep.y - .5, text:'«', until:simTime + .6, color:'#c58fd8' });
   return true;
 }
 function firePulse(tower, stats) {
@@ -2129,7 +2184,7 @@ function firePulse(tower, stats) {
   /* Warp pulses are splash, not a free damage multiplier: the lead creep takes
      the full hit, a bounded few behind it take a fraction, the rest are missed. */
   if (isGravity) eligible = eligible.sort((a, b) => creepProgress(b) - creepProgress(a)).slice(0, TRAIT.gravPulseCap);
-  effects.push({ kind:'pulse', x:cx, y:cy, radius, color:stats.color, until:simTime + .45 });
+  pushFx({ kind:'pulse', x:cx, y:cy, radius, color:stats.color, until:simTime + .45 });
   eligible.forEach((creep, rank) => {
     if (stats.special === 'thunder') {
       creep.shield = 0; creep.shieldHitAt = simTime;                       // strip shields
@@ -2140,9 +2195,7 @@ function firePulse(tower, stats) {
       const lead = rank === 0;
       applyDamage(creep, stats.dmg * (lead ? 1 : TRAIT.gravPulseMult), tower);   // Warp damage (respects matrix)
       if (!lead) return;                                                    // the control kit rides the lead creep only
-      if (creep.hp > 0 && rng() < TRAIT.gravSlowChance * tierPot(tower)) { creep.slowUntil = Math.max(creep.slowUntil, simTime + 1.4); creep.slowPct = Math.max(creep.slowPct || 0, Math.round(TRAIT.gravSlowPct * tierPot(tower))); }
-      // pushback gated by a per-tower cooldown AND a per-creep cooldown so it can't chain-lock
-      if (creep.hp > 0 && simTime >= (tower.pushClock || 0) && rng() < TRAIT.gravPushChance * tierPot(tower)) { if (pushBackCreep(creep)) tower.pushClock = simTime + TRAIT.gravTowerPushCD; }
+      if (creep.hp > 0 && rng() < TRAIT.gravSlowChance * tierPot(tower)) gravityImpulse(creep, tower, stats);
     } else applyDamage(creep, stats.dmg || 550, tower, true);
   });
   return true;
@@ -2190,7 +2243,7 @@ function updateTower(tower, dt) {
     x:tower.c + .5, y:tower.r + .5, sx:tower.c + .5, sy:tower.r + .5,
     tx:target.x, ty:target.y, t:0, dur:projectileFlightTime(stats.special)
   });
-  if (stats.special === 'chain') { effects.push({ kind:'bolt', x1:tower.c + .5, y1:tower.r + .5, x2:target.x, y2:target.y, until:simTime + .28 }); SFX.play('zap'); }
+  if (stats.special === 'chain') { pushFx({ kind:'bolt', x1:tower.c + .5, y1:tower.r + .5, x2:target.x, y2:target.y, until:simTime + .28 }); SFX.play('zap'); }
 }
 function updateProjectile(projectile, dt) {
   projectile.t += dt;
@@ -2357,7 +2410,7 @@ function payIncome() {
   const paid = BASE_INCOME + incomePayout(player.income);
   player.gold += paid;
   enemy.gold += BASE_INCOME + incomePayout(enemy.income);
-  effects.push({ kind:'num', x:15.9, y:25.2, text:`+${paid}`, until:simTime + 1.1, color:'#f5d36d' });
+  pushFx({ kind:'num', x:15.9, y:25.2, text:`+${paid}`, until:simTime + 1.1, color:'#f5d36d' });
 }
 function endMatch(result) {
   if (matchOver) return;
@@ -2501,7 +2554,7 @@ function simulate(dt) {
     const half = Math.random() < .5 ? 'north' : 'south';
     const side = Math.random() < .5 ? 'west' : 'east';
     const flag = ROUTES[half][side][Math.floor(Math.random() * 3)];
-    effects.push({ kind:'skybolt', x:flag.c + .5, y:flag.r + .5, until:simTime + .3 });
+    pushFx({ kind:'skybolt', x:flag.c + .5, y:flag.r + .5, until:simTime + .3 });
   }
   for (let i = pendingSpawns.length - 1; i >= 0; i -= 1) {
     if (pendingSpawns[i].at <= simTime && creeps.length < 280) { const s = pendingSpawns.splice(i, 1)[0]; spawningWaveIdx = s.waveIdx; spawnCreep(s.waveDef, s.half, s.side, false); spawningWaveIdx = null; }   // defer (don't drop) spawns when the board is saturated — endless perf floor
@@ -2783,6 +2836,17 @@ function drawTower(ctx, tower) {
   ctx.restore();
 }
 /* ---- FX draw helpers (visual only, shared by the three fx draw funcs) ---- */
+/* PARTICLES OFF. "Reduce motion" only drew the same effects more calmly — every
+   spark, pulse and bolt was still allocated, pushed, walked and culled every
+   frame, so it did nothing for a struggling phone. This gate refuses the
+   decorative kinds at the source; damage and gold numbers are information, not
+   particles, so they always survive. */
+const FX_ALWAYS = new Set(['num']);
+function particlesOff() { return typeof profile !== 'undefined' && profile && profile.noParticles === true; }
+function pushFx(effect) {
+  if (effect && particlesOff() && !FX_ALWAYS.has(effect.kind)) return;
+  effects.push(effect);
+}
 function rmReduced() {
   return (typeof profile !== 'undefined' && profile && profile.reduceMotion)
     || (typeof document !== 'undefined' && document.body && document.body.classList.contains('reduce-motion'));
@@ -2893,7 +2957,12 @@ function drawCreep(ctx, creep) {
   if (creep.dots && creep.dots.length) { ctx.fillStyle = '#a7e36e'; ctx.beginPath(); ctx.arc(size, -size, 2.4, 0, Math.PI * 2); ctx.fill(); }
   if (creep.frostUntil > simTime) { ctx.strokeStyle = '#bfeaff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0, 0, size + 2.5, 0, Math.PI * 2); ctx.stroke(); }
   if (creep.regen && creep.hp < creep.maxHp && !(creep.frostUntil > simTime) && !(creep.stunUntil > simTime)) { ctx.fillStyle = '#8fe6b8'; ctx.font = '700 8px "DM Mono", monospace'; ctx.textAlign = 'center'; ctx.fillText('✚', -size - 3, -size + 1); }
-  if (creep.stunUntil > simTime || creep.stasisUntil > simTime) { ctx.fillStyle = '#ffd86b'; ctx.font = '8px "DM Mono", monospace'; ctx.textAlign = 'center'; ctx.fillText('✦', 0, -size - 6); }
+  if (creep.stunUntil > simTime || creep.stasisUntil > simTime) {
+    const knocked = creep.knockUntil > simTime ? creep.knockKind : null;
+    ctx.fillStyle = knocked === 'up' ? '#d9b8ff' : knocked === 'down' ? '#c58fd8' : '#ffd86b';
+    ctx.font = '8px "DM Mono", monospace'; ctx.textAlign = 'center';
+    ctx.fillText(knocked === 'up' ? '▲' : knocked === 'down' ? '▼' : '✦', 0, -size - 6);
+  }
   const width = Math.max(16, size * 2.4);
   // shield bar (cyan) sits just above the HP bar when present
   if (creep.shieldMax) {
@@ -3162,9 +3231,14 @@ function drawEffect(ctx, effect) {
     ctx.beginPath(); ctx.arc(x1, y1, 1.5 * a + .4, 0, Math.PI * 2); ctx.fill();     // source spark
     ctx.lineCap = 'butt';
   } else if (effect.kind === 'num') {
-    ctx.fillStyle = effect.color || '#fff'; ctx.globalAlpha = Math.min(1, remain / .4);
-    ctx.font = '700 10px "DM Mono", monospace'; ctx.textAlign = 'center';
-    ctx.fillText(effect.text, effect.x * CELL, effect.y * CELL - (0.7 - remain) * 14);
+    ctx.globalAlpha = Math.min(1, remain / .4);
+    ctx.font = `700 ${effect.big ? 14 : 10}px "DM Mono", monospace`; ctx.textAlign = 'center';
+    const nx = effect.x * CELL, ny = effect.y * CELL - (0.7 - remain) * 14;
+    if (effect.big) {   // crits carry a dark outline so the gold reads over any tile
+      ctx.lineWidth = 3; ctx.strokeStyle = '#2a1c00'; ctx.strokeText(effect.text, nx, ny);
+    }
+    ctx.fillStyle = effect.color || '#fff';
+    ctx.fillText(effect.text, nx, ny);
   } else if (effect.kind === 'skybolt') {
     ctx.strokeStyle = '#e8f4ff'; ctx.globalAlpha = Math.min(1, remain / .15) * .8; ctx.lineWidth = 1.6;
     jaggedLine(ctx, effect.x * CELL + (Math.random() - .5) * 4, effect.y * CELL - 46, effect.x * CELL, effect.y * CELL);
@@ -3813,7 +3887,7 @@ function sellTowerAt(cell) {
   const refund = towerSellValue(tower);
   const full = fullRefund(tower);
   player.gold += refund;
-  effects.push({ kind:'num', x:cell.c + .5, y:cell.r + .25, text:`+${refund}g`, until:simTime + .9, color:'#ffd86b' });
+  pushFx({ kind:'num', x:cell.c + .5, y:cell.r + .25, text:`+${refund}g`, until:simTime + .9, color:'#ffd86b' });
   removeTower(key);
   if (navigator.vibrate) navigator.vibrate(25);
   log(`${name} ${full ? 'build undone' : 'sold'} for ${refund}g${full ? ' (full refund)' : ' (75%)'}. ${cachedRouteText}.`);
@@ -3926,7 +4000,7 @@ function buildAt(cell) {
   if (player.gold < def.cost) return log(`Not enough gold — ${def.name} costs ${def.cost}g.`);
   if (def.name === 'Laser Cannon' && player.lumber < 1) return log('The Laser Cannon costs 650g + 1 lumber, as in the original map.');
   player.gold -= def.cost;
-  effects.push({ kind:'num', x:cell.c + .5, y:cell.r + .25, text:`-${def.cost}g`, until:simTime + .8, color:'#ff9f6e' });
+  pushFx({ kind:'num', x:cell.c + .5, y:cell.r + .25, text:`-${def.cost}g`, until:simTime + .8, color:'#ff9f6e' });
   if (def.name === 'Laser Cannon') { player.lumber -= 1; player.lumberSpent += 1; if (player.lumberSpent >= 3) award('lumberjack'); renderTowerList(); }
   questEvent('architect');
   const placed = makeTower(cell.r, cell.c, raceId, selectedTowerTier, 'player');
@@ -5583,6 +5657,7 @@ function openSettings() {
   $('set-routes').checked = !!debug.routes;
   $('set-ranges').checked = !!debug.ranges;
   $('set-reduce').checked = !!profile.reduceMotion;
+  const np = $('set-noparticles'); if (np) np.checked = !!profile.noParticles;
   const snd = $('set-sound'); if (snd) snd.checked = !profile.sfxOff;
   const bm = $('set-buildmode'); if (bm) bm.value = buildMode();
   $('set-dev').textContent = profile.devUnlockAll ? 'DEV: relock elements' : 'DEV: unlock all elements';
@@ -5597,6 +5672,7 @@ $('set-uimode')?.addEventListener('change', (e) => { profile.uiMode = e.target.v
 $('set-routes')?.addEventListener('change', (e) => { debug.routes = e.target.checked; syncMapToggles(); barStructKey = ''; renderCommandBar(); });
 $('set-ranges')?.addEventListener('change', (e) => { debug.ranges = e.target.checked; syncMapToggles(); barStructKey = ''; renderCommandBar(); });
 $('set-reduce')?.addEventListener('change', (e) => { profile.reduceMotion = e.target.checked; saveProfile(); document.body.classList.toggle('reduce-motion', e.target.checked); });
+$('set-noparticles')?.addEventListener('change', (e) => { profile.noParticles = e.target.checked; saveProfile(); if (e.target.checked) effects.length = 0; });
 $('set-sound')?.addEventListener('change', (e) => { profile.sfxOff = !e.target.checked; saveProfile(); if (!profile.sfxOff) { SFX.unlock(); SFX.play('tap'); } });
 $('set-buildmode')?.addEventListener('change', (e) => { profile.buildMode = e.target.value; saveProfile(); ghost = null; barStructKey = ''; renderCommandBar(); log(e.target.value === 'confirm' ? 'Precision build: tap a cell, then ✓ to confirm.' : 'Quick build: tap a cell to place instantly.'); });
 $('set-tutorial')?.addEventListener('click', () => { profile.onboarded = false; saveProfile(); closeSettings(); if (battleRunning && !mp.active) Coach.start(); else showToast('<b>🎓 Tutorial reset</b><span>It will play on your next match.</span>'); });
