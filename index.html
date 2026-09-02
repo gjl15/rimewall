@@ -1012,9 +1012,9 @@ const races = [
    groundOnly towers cannot target air waves. */
 const TOWERS = {
   ice:[
-    { name:'Frostflick', cost:10, dmg:6, cd:1.1, range:5.5, special:'slow', desc:'Frost bolts that slow the first target.' },
-    { name:'Hailslinger', cost:40, dmg:26, cd:1.0, range:5.5, special:'slow', desc:'Heavy snowballs chill whole lanes.' },
-    { name:'Whiteout Spire', cost:100, dmg:85, cd:1.2, range:5.5, special:'slow', desc:'Freezing bursts on clustered creeps.' },
+    { name:'Frostflick', cost:10, dmg:8, cd:1.1, range:5.5, special:'slow', desc:'Frost bolts that slow the first target.' },
+    { name:'Hailslinger', cost:40, dmg:33, cd:1.0, range:5.5, special:'slow', desc:'Heavy snowballs chill whole lanes.' },
+    { name:'Whiteout Spire', cost:100, dmg:105, cd:1.2, range:5.5, special:'slow', desc:'Freezing bursts on clustered creeps.' },
     { name:'Meltjet', cost:200, dmg:90, cd:4.0, range:5.9, special:'pause', desc:'Locks a creep in place for a few seconds. Bosses resist.' },
     { name:'Shatterfrost', cost:270, dmg:100, cd:2.25, range:5.5, special:'frostnova', desc:'Huge frost explosion that slows everything caught in it.' },
     { name:'Absolute Zero', cost:350, dmg:520, cd:1.0, range:6.1, special:null, desc:'A single devastating frozen bolt.' }
@@ -1028,16 +1028,16 @@ const TOWERS = {
     { name:'Pyroclast Rod', cost:350, dmg:125, cd:.35, range:5.5, special:'smallsplash', desc:'Very fast staff fire with light splash.' }
   ],
   earth:[
-    { name:'Verdant Spring', cost:10, dmg:5, cd:1.0, range:4.0, special:'smallsplash', desc:'Earth shocks with light splash.' },
-    { name:'Rootwarden', cost:40, dmg:35, cd:1.0, range:4.2, special:'splash', desc:'Boulder bursts bomb the front line.' },
-    { name:"Worldheart Coffer", cost:100, dmg:88, cd:1.5, range:4.2, special:'splash', desc:'Bombards a wide stretch of lane.' },
+    { name:'Verdant Spring', cost:10, dmg:7, cd:1.0, range:4.6, special:'smallsplash', desc:'Earth shocks with light splash.' },
+    { name:'Rootwarden', cost:40, dmg:44, cd:1.0, range:4.6, special:'splash', desc:'Boulder bursts bomb the front line.' },
+    { name:"Worldheart Coffer", cost:100, dmg:110, cd:1.5, range:4.2, special:'splash', desc:'Bombards a wide stretch of lane.' },
     { name:"Earth's Soul", cost:200, dmg:330, cd:1.2, range:4.4, special:'splash', desc:'Massive earthen impacts.' },
     { name:'Worldheart', cost:350, dmg:500, cd:1.0, range:4.6, special:'meteor', desc:'The living world drops mountains on creeps.' }
   ],
   tech:[
-    { name:'Bolt Turret', cost:6, dmg:6, cd:1.7, range:12.5, special:null, armorPierce:4, desc:'Cheap long-range arrows that ignore 4 armor — a keeper for chipping armored runners.' },
+    { name:'Bolt Turret', cost:8, dmg:6, cd:1.7, range:12.5, special:null, armorPierce:4, desc:'Cheap long-range arrows that ignore 4 armor — a keeper for chipping armored runners.' },
     { name:'Longshot Nest', cost:25, dmg:28, cd:1.75, range:13.0, special:null, desc:'Sniper shots reach across the lane.' },
-    { name:'Rocket Rack', cost:68, dmg:100, cd:2.2, range:15, special:'rocket', groundOnly:true, desc:'Long-range rockets with splash. Ground only.' },
+    { name:'Rocket Rack', cost:85, dmg:100, cd:2.2, range:15, special:'rocket', groundOnly:true, desc:'Long-range rockets with splash. Ground only.' },
     { name:'Ion Array', cost:145, dmg:300, cd:3.0, range:15, special:'ion', desc:'Ion beam; +500 bonus damage to healthy targets.' },
     { name:'Seeker Launcher', cost:215, dmg:760, cd:4.5, range:17, special:'rocket', desc:'Cruise missiles with an enormous blast.' },
     { name:'Doomsday Silo', cost:265, dmg:860, cd:7.0, range:17, special:'rocket', desc:'Slow reload. City-block splash radius.' }
@@ -1045,23 +1045,23 @@ const TOWERS = {
   crystal:[
     { name:'Shardcaster', cost:10, dmg:11, cd:.9, range:5.9, special:null, desc:'Chaos crystal bolts hurt every armor type.' },
     { name:'Prism Cannon', cost:50, dmg:40, cd:1.0, range:5.5, special:'smallsplash', desc:'Sprays sharp crystal shards.' },
-    { name:'Facet Fury', cost:200, dmg:64, cd:.25, range:5.5, special:null, desc:'Blinding-fast bursts that can crit double.' },
-    { name:'Refraction Snare', cost:250, dmg:283, cd:.9, range:6.25, special:'slow', desc:'Heavy shards that chill and splash.' },
+    { name:'Facet Fury', cost:235, dmg:64, cd:.25, range:5.5, special:null, desc:'Blinding-fast bursts that can crit double.' },
+    { name:'Refraction Snare', cost:275, dmg:283, cd:.9, range:6.25, special:'slow', desc:'Heavy shards that chill and splash.' },
     { name:'Geode Breaker', cost:400, dmg:560, cd:1.2, range:7.0, special:'splash', desc:'Huge crystalline explosions.' },
     { name:'Lattice Annihilator', cost:650, dmg:360, cd:.35, range:5.5, special:null, desc:'The best non-laser tower in the game.' }
   ],
   poison:[
-    { name:'Venom Barb', cost:15, dmg:6, cd:1.25, range:7.8, special:'poison', desc:'Poison spikes slow and sicken.' },
-    { name:'Blightspire', cost:60, dmg:28, cd:1.0, range:7.8, special:'poison', desc:'Steady venom over a long reach.' },
-    { name:'Mirelobber', cost:120, dmg:80, cd:1.2, range:8.6, special:'poison', groundOnly:true, desc:'Flings sticky sludge far downrange. Ground only.' },
+    { name:'Venom Barb', cost:10, dmg:10, cd:1.25, range:7.8, special:'poison', desc:'Poison spikes slow and sicken.' },
+    { name:'Blightspire', cost:50, dmg:38, cd:1.0, range:7.8, special:'poison', desc:'Steady venom over a long reach.' },
+    { name:'Mirelobber', cost:150, dmg:130, cd:1.2, range:8.6, special:'poison', groundOnly:true, desc:'Flings sticky sludge far downrange. Ground only.' },
     { name:'Toxin Creeper', cost:190, dmg:45, cd:1.3, range:6.5, special:'halve', desc:'Halves a creep’s current HP and poisons it. Bosses resist.' },
     { name:'Carrion Totem', cost:230, dmg:305, cd:1.15, range:7.0, special:'poison', desc:'Grave rot in heavy doses.' },
     { name:'Miasma Vent', cost:390, dmg:545, cd:.9, range:7.8, special:'poison', desc:'Chokes lanes with lethal gas.' }
   ],
   stone:[
-    { name:'Cairn', cost:10, dmg:14, cd:1.07, range:3.1, special:'crit', desc:'Cheap stones that can hit double.' },
-    { name:'Boulder Maw', cost:40, dmg:43, cd:1.1, range:3.5, special:'crit', desc:'Heavy rocks for narrow turns.' },
-    { name:'Monolith', cost:100, dmg:140, cd:1.2, range:3.1, special:'crit', desc:'Crushing stone waves up close.' },
+    { name:'Cairn', cost:10, dmg:14, cd:1.07, range:3.9, special:'crit', desc:'Cheap stones that can hit double.' },
+    { name:'Boulder Maw', cost:40, dmg:43, cd:1.1, range:4.2, special:'crit', desc:'Heavy rocks for narrow turns.' },
+    { name:'Monolith', cost:100, dmg:170, cd:1.2, range:4.0, special:'crit', desc:'Crushing stone waves up close.' },
     { name:'Runestone Seer', cost:200, dmg:350, cd:1.1, range:3.9, special:'armorshred', desc:'Faerie fire strips armor for every tower.' },
     { name:'Quakebreaker', cost:285, dmg:420, cd:.95, range:4.2, special:'crit', desc:'The only stone tower with real range.' },
     { name:'Petrifier', cost:350, dmg:60, cd:6.0, range:4.2, special:'paralyze', desc:'Drops a creep to 11 HP, then crits it. Bosses resist.' }
@@ -1110,14 +1110,20 @@ const ATTACK_PROFILE = {
 const TRAIT = {
   hpScaleNeutral:2.0, hpScaleSend:1.35, armorBonus:2, hpLateRamp:1.04, hpLateFrom:13,
   frostBase:50, frostMax:70, frostStep:1,
-  poisonPct:.03, poisonSlow:20, poisonDur:3, dotCap:16,
+  poisonPct:.08, poisonSlow:20, poisonDur:3, dotCap:16,
   fireIgnitePct:.15, fireEruptMult:.5, fireEruptRadius:1.9,
   earthSplashRadius:1.5, earthSplashMult:.65, earthStunDirect:.18, earthStunSplash:.1,
   stoneCritChance:.25, stoneCritMult:2,
   elecStasis:.15, elecStasisDur:.3,
   thunderFloor:.75, thunderCap:.25,
   crystalShieldMult:2,
-  gravSlowChance:.28, gravSlowPct:35, gravPushChance:.12, gravPushCD:6, gravTowerPushCD:5,
+  /* Gravity fires as an area pulse, so its listed dps was multiplied by however
+     many creeps stood in the circle — on a maze that is 10-20x, which made a 10g
+     Gravity Well the best damage in the game by an order of magnitude. The pulse
+     stays (it is the race's identity) but it now falls off like splash and hits
+     a bounded number of creeps, and only the lead creep gets the control kit. */
+  gravPulseMult:.4, gravPulseCap:5,
+  gravSlowChance:.18, gravSlowPct:30, gravPushChance:.07, gravPushCD:6, gravTowerPushCD:9,
   shieldRegenDelay:4
 };
 function pointInPoly(x, y, poly) { let hit = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { if ((poly[i].y > y) !== (poly[j].y > y) && x < (poly[j].x - poly[i].x) * (y - poly[i].y) / (poly[j].y - poly[i].y) + poly[i].x) hit = !hit; } return hit; }
@@ -1522,6 +1528,18 @@ const WAVE_PERIOD = 30;
 const START_GOLD = 30, FIRST_WAVE_DELAY = 45;   // longer runway to build before wave 1; WAVE_PERIOD 30s after
 const INCOME_PERIOD = 25, BASE_INCOME = 24;   // was 33 — balance audit: income was the flat snowball outpacing HP growth
 const BOUNTY_MULT = 1;   // was 2 — kill-gold was the fattest early faucet (defense out-damaged threat ~5.7x)
+/* INCOME HAS DIMINISHING RETURNS. Every send in the ladder pays for itself in
+   100-235s and then prints forever with no cap, so income bought income and the
+   curve went exponential while creep HP grew ~4%/wave: a player splitting gold
+   50/50 between sends and towers ended wave 40 with 25,839g of wall against a
+   pure builder's 4,147g, and simply bought a maxed maze. Paying income^0.62
+   above a soft cap keeps sending clearly the stronger line (2.2x at wave 40,
+   not 6.2x) without letting it decide the match on its own. */
+const INCOME_SOFT = 120, INCOME_EXP = .62;
+function incomePayout(raw) {
+  const r = Math.max(0, raw || 0);
+  return r <= INCOME_SOFT ? Math.round(r) : Math.round(INCOME_SOFT * Math.pow(r / INCOME_SOFT, INCOME_EXP));
+}
 // late-wave HP multiplier: waves past hpLateFrom compound so the endgame can actually be lost
 function waveHpMult(n) { return Math.pow(TRAIT.hpLateRamp, Math.max(0, (n || 0) - TRAIT.hpLateFrom)); }
 function startingLives() { return Number(document.getElementById('lives-select')?.value) || 100; }
@@ -1767,13 +1785,23 @@ function waveBoardRetire(creep, leaked) {
     delete waveBoards[creep.waveIdx];   // graded boards are done — don't accumulate across endless waves
   }
 }
+/* ONE BATCH OF CREEPS PER DEFENDER. A half defended by one player faces one
+   batch; a half shared by three players faces three, so a third player adds a
+   third wave's worth of work instead of thinning the two already there — and a
+   teammate who only sends is a teammate whose batch someone else has to hold.
+   Always 1 until the shared-half layout exists; the wave maths is ready for it. */
+function defendersPerHalf() { return Math.max(1, Math.min(4, (mp.active && mp.teamSize) || 1)); }
 function queueWaveSpawns(waveDef) {
   const count = Math.round((waveDef.count || 6) * (waveDef.boss ? 1 : 1.3));   // ~30% more bodies
   const gap = (waveDef.role === 'swarm' ? .26 : .45) * (waveDef.boss ? 4 : 1); // arrive in overlapping packs, not a trickle
+  const batches = defendersPerHalf();
   (mp.active ? ['south'] : ['north', 'south']).forEach((half) => {
-    for (let i = 0; i < count; i += 1) {
-      const side = i % 2 === 0 ? 'west' : 'east';
-      pendingSpawns.push({ at:simTime + Math.floor(i / 2) * gap, waveDef, half, side, waveIdx:wave });  // two lanes fill together
+    for (let batch = 0; batch < batches; batch += 1) {
+      const stagger = batch * gap * .5;   // interleave the batches instead of stacking them on the same tick
+      for (let i = 0; i < count; i += 1) {
+        const side = i % 2 === 0 ? 'west' : 'east';
+        pendingSpawns.push({ at:simTime + stagger + Math.floor(i / 2) * gap, waveDef, half, side, waveIdx:wave });  // two lanes fill together
+      }
     }
   });
 }
@@ -2062,17 +2090,22 @@ function firePulse(tower, stats) {
   const cx = tower.c + .5, cy = tower.r + .5;
   const isGravity = tower.raceId === 'gravity';
   const radius = (isGravity || stats.special === 'thunder') ? Math.max(3, stats.range) : 6.25;
-  const eligible = creeps.filter((creep) => creep.hp > 0 && halfOfRow(tower.r) === creep.half && Math.hypot(creep.x - cx, creep.y - cy) <= radius);
+  let eligible = creeps.filter((creep) => creep.hp > 0 && halfOfRow(tower.r) === creep.half && Math.hypot(creep.x - cx, creep.y - cy) <= radius);
   if (!eligible.length) return false;
+  /* Warp pulses are splash, not a free damage multiplier: the lead creep takes
+     the full hit, a bounded few behind it take a fraction, the rest are missed. */
+  if (isGravity) eligible = eligible.sort((a, b) => creepProgress(b) - creepProgress(a)).slice(0, TRAIT.gravPulseCap);
   effects.push({ kind:'pulse', x:cx, y:cy, radius, color:stats.color, until:simTime + .45 });
-  eligible.forEach((creep) => {
+  eligible.forEach((creep, rank) => {
     if (stats.special === 'thunder') {
       creep.shield = 0; creep.shieldHitAt = simTime;                       // strip shields
       if (rng() < TRAIT.elecStasis * tierPot(tower)) creep.stasisUntil = Math.max(creep.stasisUntil, simTime + TRAIT.elecStasisDur);
       const floor = creep.maxHp * TRAIT.thunderFloor;                       // chip down to 75% max, ≤25% max per pulse
       if (creep.hp > floor) creep.hp -= Math.min(creep.hp - floor, creep.maxHp * TRAIT.thunderCap);
     } else if (isGravity) {
-      applyDamage(creep, stats.dmg, tower);                                 // Warp damage (respects matrix)
+      const lead = rank === 0;
+      applyDamage(creep, stats.dmg * (lead ? 1 : TRAIT.gravPulseMult), tower);   // Warp damage (respects matrix)
+      if (!lead) return;                                                    // the control kit rides the lead creep only
       if (creep.hp > 0 && rng() < TRAIT.gravSlowChance * tierPot(tower)) { creep.slowUntil = Math.max(creep.slowUntil, simTime + 1.4); creep.slowPct = Math.max(creep.slowPct || 0, Math.round(TRAIT.gravSlowPct * tierPot(tower))); }
       // pushback gated by a per-tower cooldown AND a per-creep cooldown so it can't chain-lock
       if (creep.hp > 0 && simTime >= (tower.pushClock || 0) && rng() < TRAIT.gravPushChance * tierPot(tower)) { if (pushBackCreep(creep)) tower.pushClock = simTime + TRAIT.gravTowerPushCD; }
@@ -2136,14 +2169,22 @@ function updateProjectile(projectile, dt) {
 }
 
 /* ---------------- Enemy AI (rival builder on the north half) ---------------- */
+/* The rival's maze. It used to be 48 scattered pillars, which is not a maze at
+   all — the route stayed as short as an empty board, so the AI's towers each got
+   one pass at a creep and single-player was a walkover no matter how much gold
+   the AI had. These are the cells the maze sweep measured as the strongest shape
+   on the south half (weave both corridors, then weave the open band), mirrored
+   onto the north half across row 48, and ordered nearest-the-ship first so every
+   prefix the AI can afford is already a working maze. */
 function aiSpots() {
-  const spots = [];
-  [[21, 13], [21, 18], [19, 13], [19, 18], [17, 14], [17, 17]].forEach(([r, c]) => spots.push({ r, c }));
-  for (let r = 17; r <= 22; r += 1) { spots.push({ r, c:10 }); spots.push({ r, c:21 }); }
-  for (let r = 15; r <= 20; r += 1) { spots.push({ r, c:6 }); spots.push({ r, c:25 }); }
-  for (let r = 4; r <= 9; r += 1) { spots.push({ r, c:8 }); spots.push({ r, c:23 }); }
-  [[5, 13], [5, 18], [4, 12], [4, 19], [9, 12], [9, 19]].forEach(([r, c]) => spots.push({ r, c }));
-  return spots;
+  const south = [];
+  for (const [c0, c1] of [[1, 10], [21, 30]]) { let b = 0;
+    for (let r = 27; r <= 36; r += 2) { const gapLeft = b % 2 === 0; b += 1;
+      for (let c = c0; c <= c1; c += 1) { if (gapLeft ? c === c0 : c === c1) continue; south.push({ r, c }); } } }
+  let n = 0;
+  for (let r = 38; r <= 45; r += 2) { const gapWest = n % 2 === 0; n += 1;
+    for (let c = 1; c <= 30; c += 1) { if (gapWest ? c <= 2 : c >= 29) continue; south.push({ r, c }); } }
+  return south.map(({ r, c }) => ({ r:(ROWS - 1) - r, c })).sort((a, b) => a.r - b.r);
 }
 const ENEMY_SPOTS = aiSpots();
 function updateEnemyAI(dt) {
@@ -2162,8 +2203,12 @@ function updateEnemyAI(dt) {
     }
     if (enemy.spotIndex < ENEMY_SPOTS.length) {
       const spot = ENEMY_SPOTS[enemy.spotIndex];
+      /* BREADTH BEFORE HEIGHT. Buying the highest affordable tier bought 14
+         towers by wave 25 — no maze, so the route stayed short and every one of
+         them got a single pass. Only step up a tier when the AI could still lay
+         eight of them, which builds the wall out first and grows it tall later. */
       let buyTier = Math.min(maxTierNow, list.length - 2);
-      while (buyTier > 0 && list[buyTier].cost > enemy.gold) buyTier -= 1;
+      while (buyTier > 0 && list[buyTier].cost * 8 > enemy.gold) buyTier -= 1;
       const def = towerDef(enemy.raceId, buyTier);
       /* The send/shrine reserve must key off towers ACTUALLY BUILT, not off how
          far the spot cursor has walked. Keyed to spotIndex it engaged after the
@@ -2173,10 +2218,17 @@ function updateEnemyAI(dt) {
       const builtCount = enemy.towersBuilt || 0;
       const buildBudget = enemy.gold - (builtCount >= 6 ? 120 : 0);
       if (buildBudget >= def.cost) {
-        enemy.gold -= def.cost;
         addTower(makeTower(spot.r, spot.c, enemy.raceId, buyTier, 'enemy'));
-        enemy.spotIndex += 1;
-        enemy.towersBuilt = builtCount + 1;
+        // roll back anything that would seal its own lane: a blocked creep stops
+        // walking the maze and chews the wall down instead
+        if (routeLength('north', 'west') == null || routeLength('north', 'east') == null) {
+          removeTower(idx(spot.r, spot.c));
+          enemy.spotIndex += 1;
+        } else {
+          enemy.gold -= def.cost;
+          enemy.spotIndex += 1;
+          enemy.towersBuilt = builtCount + 1;
+        }
       }
     } else {
       // maze finished: sell the weakest tower and rebuild the best affordable tier there
@@ -2200,13 +2252,25 @@ function updateEnemyAI(dt) {
   }
   if ((matchMode === 'classic' ? simTime > 20 : wave >= 2) && enemy.shrine >= wantShrine && enemy.sendClock <= 0) {
     enemy.sendClock = matchMode === 'classic' ? 12 : 20;
-    const unlocked = SENDS.filter((send) => enemy.shrine >= send.shrine);
-    const affordable = [...unlocked].reverse().find((send) => enemy.gold - 60 >= send.cost);
-    if (affordable) {
-      enemy.gold -= affordable.cost; enemy.income += affordable.income;
-      spawnCreep(sendCreepDef(affordable), PLAYER_HALF, 'west', true);
-      spawnCreep(sendCreepDef(affordable), PLAYER_HALF, 'east', true);
-      log(`Rival force sent ${affordable.name} × 2 at your lanes!${affordable.air ? ' They fly over your maze!' : ''} (their income +${affordable.income})`);
+    /* A person clicks send whenever they can afford one; the AI used to buy at
+       most ONE per 20s however rich it got, so its income never compounded and
+       it fell further behind every wave. Spend down to a build reserve instead,
+       taking the shortest payback first — that is what a player actually does. */
+    const unlocked = SENDS.filter((send) => enemy.shrine >= send.shrine)
+      .sort((a, b) => a.cost / a.income - b.cost / b.income);
+    const reserve = 60 + 40 * Math.min(6, Math.floor(wave / 4));   // keep enough back to keep building
+    const bought = [];
+    for (let n = 0; n < 8; n += 1) {
+      const pick = unlocked.find((send) => enemy.gold - reserve >= send.cost);
+      if (!pick) break;
+      enemy.gold -= pick.cost; enemy.income += pick.income;
+      spawnCreep(sendCreepDef(pick), PLAYER_HALF, 'west', true);
+      spawnCreep(sendCreepDef(pick), PLAYER_HALF, 'east', true);
+      bought.push(pick);
+    }
+    if (bought.length) {
+      const lead = bought[bought.length - 1];
+      log(`Rival force sent ${bought.length > 1 ? `${bought.length} packs, latest ` : ''}${lead.name} × 2 at your lanes!${lead.air ? ' They fly over your maze!' : ''} (their income +${bought.reduce((a, s) => a + s.income, 0)})`);
     }
   }
 }
@@ -2256,9 +2320,10 @@ function launchNextWave() {
   renderHud();
 }
 function payIncome() {
-  player.gold += BASE_INCOME + player.income;
-  enemy.gold += BASE_INCOME + enemy.income;
-  effects.push({ kind:'num', x:15.9, y:25.2, text:`+${BASE_INCOME + player.income}`, until:simTime + 1.1, color:'#f5d36d' });
+  const paid = BASE_INCOME + incomePayout(player.income);
+  player.gold += paid;
+  enemy.gold += BASE_INCOME + incomePayout(enemy.income);
+  effects.push({ kind:'num', x:15.9, y:25.2, text:`+${paid}`, until:simTime + 1.1, color:'#f5d36d' });
 }
 function endMatch(result) {
   if (matchOver) return;
@@ -3441,7 +3506,7 @@ function hudContractReport() {
 }
 function renderHud() {
   $('gold-label').textContent = hudNum(player.gold);
-  $('income-label').textContent = hudSigned(BASE_INCOME + player.income);
+  $('income-label').textContent = hudSigned(BASE_INCOME + incomePayout(player.income));   // what you are actually paid, after diminishing returns
   $('lumber-label').textContent = player.lumber;
   // keep economy buttons in step with live gold/lumber
   const buyLumber = $('buy-lumber');
@@ -3456,7 +3521,7 @@ function renderHud() {
   renderUndoSlot();
   $('lives-label').textContent = player.lives;
   $('enemy-lives-label').textContent = enemy.lives;
-  const rivInc = $('rival-income-label'); if (rivInc) rivInc.textContent = mp.oppIncome != null ? hudSigned(BASE_INCOME + mp.oppIncome) : '+?';
+  const rivInc = $('rival-income-label'); if (rivInc) rivInc.textContent = mp.oppIncome != null ? hudSigned(BASE_INCOME + incomePayout(mp.oppIncome)) : '+?';
   enforceHudContract();   // R1-R3: re-fit the row against the values just written
   $('player-ship-label').textContent = `YOUR SHIP • ${player.lives}`;
   if (matchMode === 'classic') {
@@ -3681,7 +3746,10 @@ function refreshSendLocks() {
     if (!button || !note) return;
     const locked = player.shrine < send.shrine;
     button.classList.toggle('send-locked', locked);
-    note.textContent = locked ? `+${send.income} income • Shrine L${send.shrine}` : `+${send.income} income`;
+    // show what this send would actually ADD to the payout, not its raw ladder number:
+    // above the soft cap the two diverge, and the card is where that decision is made
+    const gain = incomePayout(player.income + send.income) - incomePayout(player.income);
+    note.textContent = `+${gain} income${gain < send.income ? ` (of +${send.income})` : ''}${locked ? ` • Shrine L${send.shrine}` : ''}`;
   });
 }
 function renderBattleIdentity() {
