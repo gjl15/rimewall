@@ -1132,6 +1132,7 @@ const TRAIT = {
      a bounded number of creeps, and only the lead creep gets the control kit. */
   gravPulseMult:.4, gravPulseCap:5, gravKnockdown:.55, gravKnockup:.9, gravSlamMult:.8,
   gravSlowChance:.18, gravSlowPct:30, gravPushChance:.07, gravPushCD:6, gravTowerPushCD:9,
+  deathPayloadRadius:3.2, deathHealPct:.18, deathShieldPct:.25,
   shieldRegenDelay:4
 };
 function pointInPoly(x, y, poly) { let hit = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { if ((poly[i].y > y) !== (poly[j].y > y) && x < (poly[j].x - poly[i].x) * (y - poly[i].y) / (poly[j].y - poly[i].y) + poly[i].x) hit = !hit; } return hit; }
@@ -1355,10 +1356,12 @@ const roleStyle = {
   standard:{ symbol:'•', size:7 }, runner:{ symbol:'➤', size:6.5 }, air:{ symbol:'▲', size:6.5 },
   armored:{ symbol:'⬢', size:8 }, boss:{ symbol:'★', size:11 },
   regenerator:{ symbol:'✚', size:7.5 }, shieldbearer:{ symbol:'⛨', size:7.5 },
-  juggernaut:{ symbol:'◆', size:10 }, warden:{ symbol:'⚕', size:7.5 }, swarm:{ symbol:'∴', size:5.5 }
+  juggernaut:{ symbol:'◆', size:10 }, warden:{ symbol:'⚕', size:7.5 }, swarm:{ symbol:'∴', size:5.5 },
+  deathheal:{ symbol:'♻', size:8 }, deathshield:{ symbol:'⛊', size:8 }
 };
 const roleColors = { standard:'#ff9faf', runner:'#ffd27d', air:'#9fd8ff', armored:'#9fb6cf', boss:'#ff6b81',
-  regenerator:'#8fe6b8', shieldbearer:'#77d6ff', juggernaut:'#d9a441', warden:'#c9b6ff', swarm:'#ff9f6e' };
+  regenerator:'#8fe6b8', shieldbearer:'#77d6ff', juggernaut:'#d9a441', warden:'#c9b6ff', swarm:'#ff9f6e',
+  deathheal:'#8fe6b8', deathshield:'#77d6ff' };
 
 /* Shrine send ladder (the classic maze-TD): buy an attacker and one runs EACH
    lane of the rival half, permanently raising your income. HP, speed (classic
@@ -1376,11 +1379,13 @@ const SENDS = [
   { id:'regenerator', name:'Mossback', symbol:'✚', cost:620, income:70, hp:430, spd:2.1, armor:6, aClass:'medium', role:'regenerator', shrine:2 },
   { id:'shieldbearer', name:'Aegis Runner', symbol:'⛨', cost:900, income:100, hp:720, spd:2.5, armor:6, aClass:'light', role:'shieldbearer', shrine:2 },
   { id:'spirit', name:'Undying Shade', symbol:'❖', cost:1590, income:180, hp:1300, spd:2.9, armor:14, aClass:'unarmored', shrine:2 },
+  { id:'bonecaller', name:'Bonecaller', symbol:'♻', cost:700, income:78, hp:620, spd:2.3, armor:8, aClass:'medium', role:'deathheal', shrine:2 },
   { id:'matureddragon', name:'Elder Drake', symbol:'▲', cost:800, income:90, hp:825, spd:2.9, armor:12, aClass:'light', air:true, shrine:2 },
   { id:'totem', name:'Idol Bearer', symbol:'⬢', cost:3995, income:450, hp:2500, spd:3.0, armor:15, aClass:'heavy', shrine:3 },
   { id:'juggernaut', name:'Bulwark', symbol:'◆', cost:4600, income:520, hp:2200, spd:2.6, armor:14, aClass:'heavy', role:'juggernaut', shrine:3 },
   { id:'unholy', name:'Dread Knight', symbol:'♞', cost:5330, income:600, hp:2875, spd:3.1, armor:15, aClass:'heavy', shrine:3 },
   { id:'adultdragon', name:'Ancient Drake', symbol:'▲', cost:3200, income:360, hp:3000, spd:3.1, armor:20, aClass:'heavy', air:true, shrine:3 },
+  { id:'wardbearer', name:'Ward Bearer', symbol:'⛊', cost:4200, income:470, hp:2600, spd:2.8, armor:14, aClass:'heavy', role:'deathshield', shrine:3 },
   { id:'wraith', name:'Wraith Lord', symbol:'❖', cost:7000, income:760, hp:4600, spd:3.0, armor:18, aClass:'unarmored', role:'regenerator', shrine:4 },
   { id:'colossus', name:'Colossus', symbol:'◆', cost:8800, income:940, hp:6600, spd:2.6, armor:20, aClass:'heavy', role:'juggernaut', shrine:4 },
   { id:'stormdrake', name:'Storm Drake', symbol:'🐲', cost:9500, income:1020, hp:5800, spd:3.2, armor:20, aClass:'heavy', air:true, shrine:4 },
@@ -1532,7 +1537,10 @@ function leakDiagnostic() {
 function sendCreepDef(send) {
   // killing a send pays the defender exactly the income it granted its sender
   // the defender earns the send's income value per PURCHASE (each of the two units carries half)
-  return { name:send.name, role:send.air ? 'air' : 'standard', hp:send.hp, spd:send.spd, armor:send.armor, aClass:send.aClass, air:Boolean(send.air), bounty:Math.max(1, Math.round(send.income / 2)), lives:1 };
+  // the ladder has always declared roles (Mossback regenerates, Aegis Runner is
+  // shielded, Bulwark is a juggernaut) and this threw every one of them away, so
+  // sends spawned plain no matter what their card promised
+  return { name:send.name, role:send.role || (send.air ? 'air' : 'standard'), hp:send.hp, spd:send.spd, armor:send.armor, aClass:send.aClass, air:Boolean(send.air), bounty:Math.max(1, Math.round(send.income / 2)), lives:1 };
 }
 
 /* ---------------- Match state ---------------- */
@@ -1775,12 +1783,13 @@ function spawnCreep(waveDef, half, side, sent = false) {
   const spawn = SPAWNS[half][side];
   const role = waveDef.role || 'standard';
   const hpScale = waveDef.boss ? 1 : (sent ? TRAIT.hpScaleSend : TRAIT.hpScaleNeutral * waveHpMult(wave));
-  const jugg = role === 'juggernaut';
+  const jugg = role === 'juggernaut' && !sent;   // sends carry their own tuned stats; don't multiply them again
   const baseHp = Math.round((waveDef.hp || 1) * hpScale * (jugg ? 2.4 : 1));
   const spd = waveDef.spd * (jugg ? .6 : 1);
   const armor = (waveDef.armor || 0) + (waveDef.boss ? 0 : TRAIT.armorBonus) + (jugg ? 4 : 0);
   const aClass = jugg ? 'fortified' : (waveDef.aClass || 'medium');
   const shieldMax = role === 'shieldbearer' ? Math.round(baseHp * .38) : 0;
+  const onDeath = role === 'deathheal' ? 'heal' : (role === 'deathshield' ? 'shield' : null);
   const regen = role === 'regenerator' ? .02 : (role === 'warden' ? .01 : 0);
   const creep = {
     id:creepSerial += 1, half, side, sent, role,
@@ -1791,7 +1800,7 @@ function spawnCreep(waveDef, half, side, sent = false) {
     state:'walk', blockTargetKey:null, attackClock:0,
     slowUntil:0, slowPct:0, frostUntil:0, frostStacks:0, frostPct:0, stunUntil:0, stasisUntil:0,
     dots:[], armorShred:0, shield:shieldMax, shieldMax, shieldHitAt:0, regen,
-    fireCharge:0, pushUntil:0, healAura:role === 'warden'
+    fireCharge:0, pushUntil:0, healAura:role === 'warden', onDeath
   };
   if (!sent && half === PLAYER_HALF && spawningWaveIdx != null) {
     creep.waveIdx = spawningWaveIdx;
@@ -2016,6 +2025,27 @@ function applyDamage(creep, amount, tower, isDot = false, opts) {
     }
     if (tower) tower.kills += 1;
     pushFx({ kind:'death', x:creep.x, y:creep.y, color:roleColors[creep.role] || '#ff9faf', until:simTime + .35 });
+    /* DEATH PAYLOADS: killing one of these is not purely good news — it mends or
+       armours whatever was walking beside it, so the order you focus a pack in
+       starts to matter. The radius is small enough that a strung-out lane defuses it. */
+    if (creep.onDeath) {
+      const rad = TRAIT.deathPayloadRadius;
+      let touched = 0;
+      creeps.forEach((other) => {
+        if (other === creep || other.hp <= 0 || other.half !== creep.half) return;
+        if (Math.hypot(other.x - creep.x, other.y - creep.y) > rad) return;
+        if (creep.onDeath === 'heal') other.hp = Math.min(other.maxHp, other.hp + other.maxHp * TRAIT.deathHealPct);
+        else {
+          const add = Math.round(other.maxHp * TRAIT.deathShieldPct);
+          other.shieldMax = Math.max(other.shieldMax || 0, add);
+          other.shield = Math.min(other.shieldMax, (other.shield || 0) + add);
+          other.shieldHitAt = simTime;
+        }
+        touched += 1;
+      });
+      if (touched) pushFx({ kind:'pulse', x:creep.x, y:creep.y, radius:rad,
+        color:creep.onDeath === 'heal' ? '#8fe6b8' : '#77d6ff', until:simTime + .5 });
+    }
   }
 }
 function applyHitEffects(creep, tower, stats) {
@@ -2372,6 +2402,8 @@ function waveTags(def) {
   if (def.role === 'regenerator') t.push('REGEN — heals unless frozen');
   if (def.role === 'shieldbearer') t.push('SHIELDED — burst it down');
   if (def.role === 'warden') t.push('WARDEN — heals its allies');
+  if (def.role === 'deathheal') t.push('REVENANT — heals nearby allies when it dies');
+  if (def.role === 'deathshield') t.push('WARDING — shields nearby allies when it dies');
   if (def.role === 'swarm') t.push('SWARM — many small');
   return t;
 }
