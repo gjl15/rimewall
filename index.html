@@ -1100,12 +1100,12 @@ const TOWERS = {
     { name:'Aurora Lance', cost:350, dmg:11, cd:.018, range:11, special:'beam', desc:'Eleven a tick, forever, from most of the way across the map.' }
   ],
   gravity:[
-    { name:'Gravity Well', cost:10, dmg:9, cd:.95, range:5.5, special:null, desc:'Dense slugs of collapsed matter.' },
-    { name:"Gravity's Pull", cost:50, dmg:40, cd:1.0, range:3.9, special:null, desc:'Drags creeps back with splashing pulls.' },
-    { name:'Psi Emitter', cost:150, dmg:120, cd:1.0, range:5.5, special:null, desc:'Warp pulse — steady area damage that may slow or shove.' },
-    { name:'Collapsar', cost:280, dmg:70, cd:.35, range:5.0, special:null, desc:'Pulses splash damage extremely fast.' },
-    { name:'Singularity Mortar', cost:280, dmg:220, cd:1.4, range:6.25, special:null, desc:'Bombs that can collapse for double.' },
-    { name:'Event Horizon', cost:350, dmg:400, cd:1.6, range:4.5, special:'blackhole', desc:'Collapsing pulse: heavy area damage with a strong slow/shove chance.' }
+    { name:'Gravity Well', cost:10, dmg:9, cd:.95, range:5.5, special:'warp', desc:'A single warped slug that drags its target to a crawl.' },
+    { name:"Gravity's Pull", cost:50, dmg:40, cd:1.0, range:3.9, special:'gravslam', desc:'Single heavy pull that slams its target to the ground.' },
+    { name:'Psi Emitter', cost:150, dmg:120, cd:1.0, range:5.5, special:'warppulse', desc:'Where the AREA pulse begins — the lead creep takes it all, a few behind take less.' },
+    { name:'Collapsar', cost:280, dmg:70, cd:.35, range:5.0, special:'repulse', desc:'Very fast pulses that mostly shove the lead creep back down the lane.' },
+    { name:'Singularity Mortar', cost:280, dmg:220, cd:1.4, range:6.25, special:'liftoff', desc:'Heavy pulses that mostly hurl the lead creep into the air.' },
+    { name:'Event Horizon', cost:350, dmg:400, cd:1.6, range:4.5, special:'blackhole', desc:'Every warp effect at once — slow, slam, lift, shove, and the rare fling forward.' }
   ]
 };
 const LASER_TOWER = { name:'Laser Cannon', cost:650, dmg:300, cd:.2, range:20, special:'laser', desc:'The forbidden capstone: crits, slows, and poisons at extreme speed.' };
@@ -2122,6 +2122,8 @@ function resolveProjectileHit(projectile) {
     if (stats.special === 'mind' && !target.boss) target.hp = Math.max(1, target.hp * .7);
     if (stats.special === 'paralyze' && !target.boss) { target.hp = Math.min(target.hp, 11); pushFx({ kind:'num', x:target.x, y:target.y - .6, text:'11!', until:simTime + .9, color:'#a9b3c6' }); }
     applyDamage(target, dmg, tower);
+    // the non-pulsing gravity tiers carry their impulse on the shot instead
+    if (tower && tower.raceId === 'gravity' && target.hp > 0 && rng() < TRAIT.gravSlowChance * tierPot(tower)) gravityImpulse(target, tower, stats);
     if (crit) pushFx({ kind:'num', x:target.x, y:target.y - .6, text:`${Math.round(dmg)}!`, until:simTime + .9, color:'#ffc93d', big:true });
     applyHitEffects(target, tower, stats);
     // EARTH — chance to stun the direct target (stun freezes HP regen)
@@ -2159,13 +2161,33 @@ function resolveProjectileHit(projectile) {
    old shove backwards, or a rare fling FORWARD that costs you ground but slams
    the creep for bonus damage. The displacement outcomes keep the per-creep and
    per-tower cooldowns so they still cannot chain-lock a lane. */
-const GRAV_IMPULSES = [
-  { id:'slow', w:40 }, { id:'down', w:22 }, { id:'up', w:15 }, { id:'back', w:15 }, { id:'forward', w:8 }
-];
-const GRAV_IMPULSE_TOTAL = GRAV_IMPULSES.reduce((a, i) => a + i.w, 0);
-function rollGravImpulse() {
-  let roll = rng() * GRAV_IMPULSE_TOTAL;
-  for (const i of GRAV_IMPULSES) { roll -= i.w; if (roll <= 0) return i.id; }
+/* Every gravity tower used to run ONE race-wide kit as an area pulse, so all six
+   tiers played identically, nothing in the ladder was worth choosing over raw
+   damage, and no table could describe any of it. Each tier now declares a
+   special, and the special decides two things: whether it pulses at all, and
+   which impulses it favours. The area pulse is EARNED at tier 2 rather than
+   free on a 10g opener, and the ladder reads as a progression:
+     warp      single target, pure slow            (T0)
+     gravslam  single target, slam it down         (T1)
+     warppulse the area pulse begins               (T2)
+     repulse   fast pulses that shove back         (T3)
+     liftoff   heavy pulses that throw upward      (T4)
+     blackhole every effect at once                (T5) */
+const GRAV_SPECIALS = {
+  warp:      { pulse:false, w:{ slow:100 } },
+  gravslam:  { pulse:false, w:{ slow:35, down:65 } },
+  warppulse: { pulse:true,  w:{ slow:55, down:30, back:15 } },
+  repulse:   { pulse:true,  w:{ slow:25, back:55, down:20 } },
+  liftoff:   { pulse:true,  w:{ slow:25, up:55, down:20 } },
+  blackhole: { pulse:true,  w:{ slow:30, down:20, up:20, back:20, forward:10 } }
+};
+function gravSpec(special) { return GRAV_SPECIALS[special] || GRAV_SPECIALS.warppulse; }
+function gravPulses(special) { return gravSpec(special).pulse; }
+function rollGravImpulse(special) {
+  const w = gravSpec(special).w;
+  const total = Object.values(w).reduce((a, v) => a + v, 0);
+  let roll = rng() * total;
+  for (const k of Object.keys(w)) { roll -= w[k]; if (roll <= 0) return k; }
   return 'slow';
 }
 function shoveCreep(creep, node, cells) {
@@ -2176,7 +2198,7 @@ function shoveCreep(creep, node, cells) {
 }
 function gravityImpulse(creep, tower, stats) {
   const pot = tierPot(tower);
-  const kind = rollGravImpulse();
+  const kind = rollGravImpulse(stats && stats.special);
   if (kind === 'slow') {
     creep.slowUntil = Math.max(creep.slowUntil, simTime + 1.4);
     creep.slowPct = Math.max(creep.slowPct || 0, Math.round(TRAIT.gravSlowPct * pot));
@@ -2276,6 +2298,18 @@ function projectileFlightTime(special) {
 function updateTower(tower, dt) {
   if (underConstruction(tower)) return;   // still building — inert but blocks the maze
   const beamStats = towerLiveStats(tower);
+  if (beamStats.raceId === 'gravity' && !gravPulses(beamStats.special)) {
+    // single-target gravity: an ordinary shot that carries the tier's impulse
+    tower.cooldown -= dt;
+    if (tower.cooldown > 0) return;
+    const mark = pickTarget(tower, beamStats);
+    if (!mark) { tower.cooldown = .08; return; }
+    tower.cooldown = beamStats.cd;
+    projectiles.push({ tower, stats:beamStats, target:mark, half:halfOfRow(tower.r), style:'bolt',
+      x:tower.c + .5, y:tower.r + .5, sx:tower.c + .5, sy:tower.r + .5,
+      tx:mark.x, ty:mark.y, t:0, dur:projectileFlightTime(null) });
+    return;
+  }
   if (beamStats.special === 'beam') {
     /* A ray, not a volley. At cd .018 a shot-based tower would queue ~55
        projectiles a second per tower; applying dmg/cd * dt instead gives the
@@ -2290,7 +2324,7 @@ function updateTower(tower, dt) {
   tower.cooldown -= dt;
   if (tower.cooldown > 0) return;
   const stats = towerLiveStats(tower);
-  if (stats.special === 'thunder' || tower.raceId === 'gravity') {
+  if (stats.special === 'thunder' || (tower.raceId === 'gravity' && gravPulses(stats.special))) {
     if (firePulse(tower, stats)) tower.cooldown = stats.cd;
     else tower.cooldown = .12;
     return;
