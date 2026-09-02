@@ -745,7 +745,7 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
       
     <div id="settings-modal" class="settings-modal hidden" role="dialog" aria-label="Settings">
       <div class="settings-card">
-        <div class="settings-head"><h3>⚙ Settings</h3><button id="settings-close" aria-label="Close">✕</button></div>
+        <div class="settings-head"><h3 id="settings-title" title="Tap five times for developer tools">⚙ Settings</h3><button id="settings-close" aria-label="Close">✕</button></div>
         <label class="set-row">
           <span>Layout</span>
           <select id="set-uimode"><option value="auto">Auto (detect device)</option><option value="touch">Touch / mobile</option><option value="desktop">Desktop / mouse</option></select>
@@ -5758,6 +5758,26 @@ function closeSettings() { $('settings-modal')?.classList.add('hidden'); }
 $('settings-open')?.addEventListener('click', openSettings);
 $('settings-open-hud')?.addEventListener('click', openSettings);
 $('settings-close')?.addEventListener('click', closeSettings);
+/* DEV MODE WAS UNREACHABLE. It showed only when profile.devUnlockAll was already
+   true or the URL carried ?dev=1 — so the button that turns it ON was hidden
+   unless it was already on, and clearing your profile or moving to another
+   browser locked you out with no discoverable way back. Five taps on the
+   Settings heading reveals the tools, the classic pattern, and ?dev=1 still
+   works for anyone who has it bookmarked. */
+let devTapCount = 0, devTapAt = 0;
+$('settings-title')?.addEventListener('click', () => {
+  const now = Date.now();
+  devTapCount = now - devTapAt > 1500 ? 1 : devTapCount + 1;
+  devTapAt = now;
+  if (devTapCount < 5) {
+    if (devTapCount >= 3) log(`Developer tools in ${5 - devTapCount}…`);
+    return;
+  }
+  devTapCount = 0;
+  document.body.classList.toggle('dev');
+  const on = document.body.classList.contains('dev');
+  log(on ? 'Developer tools revealed in Settings.' : 'Developer tools hidden.');
+});
 $('settings-modal')?.addEventListener('click', (e) => { if (e.target.id === 'settings-modal') closeSettings(); });
 $('set-uimode')?.addEventListener('change', (e) => { profile.uiMode = e.target.value; saveProfile(); applyUiMode(); });
 $('set-routes')?.addEventListener('change', (e) => { debug.routes = e.target.checked; syncMapToggles(); barStructKey = ''; renderCommandBar(); });
