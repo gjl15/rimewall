@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rimewall — Tower Reference</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;700&display=swap">
+<style>
+:root {
+  --ground:#eaeff5; --surface:#fff; --sunk:#f3f6fa;
+  --ink:#0f1822; --ink-2:#3d4d5e; --muted:#66788c; --line:#cfd9e4; --line-soft:#e2e9f1;
+  --accent:#0d7f9e; --good:#1f7d55; --bad:#b32d43; --warn:#8a5c05;
+  --good-bg:#e2f4ec; --bad-bg:#fbe4e8; --warn-bg:#faeed6;
+  --race-ink: color-mix(in srgb, var(--race, var(--accent)) 68%, #0a1018);
+  --shadow:0 1px 2px #0f18220f, 0 8px 24px #0f18220a;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:#090f18; --surface:#111a27; --sunk:#0d1420;
+    --ink:#e8eef7; --ink-2:#b9c6d6; --muted:#8496aa; --line:#22303f; --line-soft:#1a2531;
+    --accent:#5ec8e8; --good:#68c99a; --bad:#f0798c; --warn:#e2ad4b;
+    --good-bg:#122a20; --bad-bg:#2e1620; --warn-bg:#2c2312;
+    --race-ink: color-mix(in srgb, var(--race, var(--accent)) 88%, #fff);
+    --shadow:0 1px 2px #0006, 0 10px 30px #0004;
+    color-scheme:dark;
+  }
+}
+* { box-sizing:border-box; }
+body { margin:0; background:var(--ground); color:var(--ink);
+  font:500 15px/1.6 Manrope, system-ui, -apple-system, sans-serif;
+  -webkit-text-size-adjust:100%; }
+.wrap { max-width:1180px; margin:0 auto; padding:0 20px 90px; }
+h1,h2,h3 { font-family:"Chakra Petch", system-ui, sans-serif; font-weight:700; margin:0;
+  text-wrap:balance; letter-spacing:-.01em; }
+p { margin:0; }
+code { font:400 12.5px "DM Mono", ui-monospace, monospace; background:var(--sunk); padding:1px 5px; }
+
+.mast { padding:46px 0 26px; border-bottom:2px solid var(--ink); }
+.eyebrow { font:500 11px/1 "DM Mono",ui-monospace,monospace; letter-spacing:.18em;
+  text-transform:uppercase; color:var(--muted); }
+.mast h1 { font-size:clamp(32px,5.5vw,54px); line-height:1.03; margin-top:12px; }
+.mast .lede { margin-top:14px; max-width:62ch; color:var(--ink-2); }
+.legend { margin-top:20px; display:flex; flex-wrap:wrap; gap:6px 20px;
+  font:400 12px/1.5 "DM Mono",ui-monospace,monospace; color:var(--muted); }
+.legend b { color:var(--ink-2); font-weight:500; }
+
+#status { margin-top:22px; padding:11px 14px; border-left:3px solid var(--accent);
+  background:var(--sunk); font:400 13px/1.5 "DM Mono",ui-monospace,monospace; color:var(--ink-2); }
+#status.bad { border-left-color:var(--bad); color:var(--bad); }
+
+section.band { padding-top:48px; }
+.bandhead { display:flex; align-items:baseline; gap:16px; flex-wrap:wrap;
+  padding-bottom:12px; border-bottom:1px solid var(--line); }
+.bandhead h2 { font-size:25px; }
+.bandhead p { color:var(--muted); font-size:14px; max-width:54ch; }
+
+.races { margin-top:22px; display:grid; gap:18px; }
+.race { border:1px solid var(--line); border-left:3px solid var(--race);
+  background:var(--surface); box-shadow:var(--shadow); }
+.rh { display:flex; align-items:center; gap:15px; flex-wrap:wrap;
+  padding:15px 17px; border-bottom:1px solid var(--line); }
+.glyph { font-size:24px; color:var(--race-ink); line-height:1; }
+.rid { flex:1 1 210px; }
+.rid h3 { font-size:21px; color:var(--race-ink); }
+.rid p { font:400 11.5px/1.35 "DM Mono",ui-monospace,monospace; color:var(--muted); margin-top:3px; }
+.mxwrap { flex:0 0 auto; }
+.mxlabel { display:block; font:500 9.5px/1 "DM Mono",ui-monospace,monospace; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--muted); margin-bottom:6px; text-align:right; }
+.mxrow { display:flex; gap:4px; }
+.mx { display:grid; gap:2px; padding:5px 7px; min-width:52px; text-align:center;
+  font:400 10px/1 "DM Mono",ui-monospace,monospace; background:var(--sunk); }
+.mx i { font-style:normal; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+.mx b { font-weight:500; font-variant-numeric:tabular-nums; }
+.m-good b { color:var(--good); } .m-bad b { color:var(--bad); } .m-even b { color:var(--muted); }
+
+.scroll { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; font-size:13.5px; }
+th, td { text-align:left; padding:9px 12px; border-bottom:1px solid var(--line-soft); vertical-align:top; }
+thead th { font:500 10.5px/1 "DM Mono",ui-monospace,monospace; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--muted); white-space:nowrap; border-bottom:1px solid var(--line); }
+td.n, th.n { text-align:right; font-family:"DM Mono",ui-monospace,monospace;
+  font-variant-numeric:tabular-nums; white-space:nowrap; }
+td.em { font-weight:500; }
+.tier { font:500 11px/1 "DM Mono",ui-monospace,monospace; color:var(--muted); }
+.twname { font-weight:700; }
+.tdesc { display:block; margin-top:3px; font-size:12px; color:var(--muted); max-width:52ch; }
+td.sp { font:400 12.5px/1.4 "DM Mono",ui-monospace,monospace; color:var(--ink-2); white-space:nowrap; }
+.noair { color:var(--bad); background:var(--bad-bg); padding:2px 5px; font-size:10.5px; letter-spacing:.06em; }
+.eff { color:var(--accent); }
+
+.spells { margin-top:22px; display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:0 32px; }
+.spell { padding:16px 0; border-bottom:1px solid var(--line-soft); }
+.spell h3 { font:500 13px/1 "DM Mono",ui-monospace,monospace; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--race-ink, var(--accent)); }
+.spell p { margin-top:7px; font-size:13.5px; color:var(--ink-2); max-width:52ch; }
+.spell .who { display:block; margin-top:6px; font:400 11.5px/1.4 "DM Mono",ui-monospace,monospace; color:var(--muted); }
+
+footer { margin-top:56px; padding-top:20px; border-top:1px solid var(--line);
+  font:400 12px/1.7 "DM Mono",ui-monospace,monospace; color:var(--muted); }
+footer a { color:var(--accent); }
+@media (max-width:820px) { .mxwrap { flex:1 1 100%; } .mxlabel { text-align:left; } .mxrow { flex-wrap:wrap; } }
+@media (prefers-reduced-motion:reduce) { * { animation:none !important; transition:none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="mast">
+    <div class="eyebrow">Rimewall &middot; tower reference</div>
+    <h1>Every race, every tier,<br>and what each one does.</h1>
+    <p class="lede">This page reads <code>index.html</code> when you open it and renders whatever
+    the live game currently says. It is not a copy of the numbers — change a tower and reload
+    this, and it changes too.</p>
+    <div class="legend">
+      <span><b>DPS</b> damage &divide; cooldown</span>
+      <span><b>g/dps</b> gold per point of damage rate &mdash; lower is better value</span>
+      <span><b>Range</b> board cells</span>
+      <span><b>Poison</b> shows bolt + settled venom</span>
+    </div>
+    <div id="status">Reading the live build&hellip;</div>
+  </header>
+  <main id="out"></main>
+  <footer>
+    Generated in your browser from <a href="index.html">index.html</a> &mdash; no build step, no copy of the data.<br>
+    Rimewall is original code and art. <a href="index.html">Play</a> &middot; <a href="maze-school.html">Maze school</a>
+  </footer>
+</div>
+
+<script>
+/* Pull the live tables straight out of the game file. Everything here is a plain
+   literal declaration in index.html, so we can slice each one out by brace
+   matching and evaluate it. No parsing of logic, no duplicated numbers — if this
+   page and the game ever disagree, this page is the one that is wrong, and it
+   will say so rather than showing stale figures. */
+const CLASSES = ['unarmored', 'light', 'medium', 'heavy', 'fortified'];
+
+function sliceLiteral(src, decl, open, close) {
+  const at = src.indexOf(decl);
+  if (at < 0) throw new Error('could not find ' + decl.trim() + ' in index.html');
+  const start = src.indexOf(open, at);
+  let depth = 0, inStr = null, esc = false, inLine = false, inBlock = false;
+  for (let i = start; i < src.length; i += 1) {
+    const ch = src[i], next = src[i + 1];
+    // comments must be skipped BEFORE quote handling: the source is full of
+    // prose like "Poison's own weakness" inside /* */, and treating that
+    // apostrophe as a string opener desynchronises the whole scan
+    if (inLine) { if (ch === '\n') inLine = false; continue; }
+    if (inBlock) { if (ch === '*' && next === '/') { inBlock = false; i += 1; } continue; }
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === '\\') esc = true;
+      else if (ch === inStr) inStr = null;
+      continue;
+    }
+    if (ch === '/' && next === '/') { inLine = true; i += 1; continue; }
+    if (ch === '/' && next === '*') { inBlock = true; i += 1; continue; }
+    if (ch === '"' || ch === "'" || ch === '`') { inStr = ch; continue; }
+    if (ch === open) depth += 1;
+    else if (ch === close) { depth -= 1; if (!depth) return src.slice(start, i + 1); }
+  }
+  throw new Error('unbalanced literal for ' + decl.trim());
+}
+const evalLiteral = (text) => new Function('return (' + text + ')')();
+
+function esc(x) { return String(x).replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])); }
+
+/* Poison's listed dmg/cd is not its damage: every hit also adds venom worth
+   poisonStackPct of that damage, and the pool settles at (hit rate x venom x
+   duration). Mirror the game's own effectiveDps so the card here matches. */
+function effectiveDps(def, TRAIT) {
+  const raw = def.dmg / def.cd;
+  if (def.special !== 'poison') return raw;
+  return raw + (def.dmg * TRAIT.poisonStackPct / def.cd) * TRAIT.poisonDur;
+}
+
+function matrix(profile) {
+  return CLASSES.map((c) => {
+    const v = profile && profile.vs ? profile.vs[c] : undefined;
+    const cls = v === undefined ? 'm-even' : (v > 1 ? 'm-good' : 'm-bad');
+    return `<span class="mx ${cls}"><i>${c.slice(0, 4)}</i><b>${v === undefined ? '1.0' : v}</b></span>`;
+  }).join('');
+}
+
+function towerRows(list, TRAIT) {
+  return list.map((t, i) => {
+    const eff = effectiveDps(t, TRAIT);
+    const isPoison = t.special === 'poison';
+    const flags = t.groundOnly ? ' <b class="noair">NO AIR</b>' : '';
+    return `<tr>
+      <th scope="row"><span class="tier">T${i}</span></th>
+      <td><span class="twname">${esc(t.name)}</span><small class="tdesc">${esc(t.desc || '')}</small></td>
+      <td class="n">${t.cost}</td><td class="n">${t.dmg}</td><td class="n">${t.cd}</td>
+      <td class="n em${isPoison ? ' eff' : ''}">${eff.toFixed(0)}${isPoison ? '*' : ''}</td>
+      <td class="n em">${t.range}</td>
+      <td class="n">${eff > 0 ? (t.cost / eff).toFixed(2) : '—'}</td>
+      <td class="sp">${esc(t.special || 'basic')}${flags}</td>
+    </tr>`;
+  }).join('');
+}
+
+const HEAD = `<thead><tr><th></th><th>Tower</th><th class="n">Cost</th><th class="n">Dmg</th>
+  <th class="n">CD</th><th class="n">DPS</th><th class="n">Range</th><th class="n">g/dps</th>
+  <th>Special</th></tr></thead>`;
+
+/* What each special actually does, with the live tunables substituted in, so the
+   page cannot drift from the code the way a hand-written glossary would. */
+function spellBook(TRAIT) {
+  const pct = (v) => Math.round(v * 100) + '%';
+  return [
+    ['poison', 'Every hit adds venom worth ' + pct(TRAIT.poisonStackPct) + ' of the tower\'s damage per second to one pool on the creep, and refreshes its timer. Every poison tower feeds the same pool, stacking is unlimited, and it bleeds off over ' + TRAIT.poisonDur + 's so it settles instead of climbing forever. The venom ignores armour VALUE but still takes the armour-class multiplier.'],
+    ['crit', 'A ' + pct(TRAIT.stoneCritChance) + ' chance to deal ' + TRAIT.stoneCritMult + 'x. Crits print in gold.'],
+    ['slow', 'Cuts the target\'s speed. Frost slows deepen as they stack, to a maximum of ' + TRAIT.frostMax + '%.'],
+    ['frostnova', 'A splash that also frost-chills everything it catches, freezing HP regeneration.'],
+    ['pause', 'Locks a creep in place outright. Bosses resist.'],
+    ['splash / smallsplash', 'Damages everything near the impact at a fraction of the hit. Earth splashes wider and harder than anyone else.'],
+    ['meteor / rocket', 'A slow, heavy shot with a large blast radius.'],
+    ['machinegun', 'Very fast single-target fire with no splash at all.'],
+    ['chain', 'The bolt arcs to up to three more creeps, each hop at 70% of the last.'],
+    ['thunder', 'An area pulse that strips shields outright, chips everything toward ' + pct(TRAIT.thunderFloor) + ' of max HP (at most ' + pct(TRAIT.thunderCap) + ' a pulse), and can stun.'],
+    ['ion', 'Adds +500 flat damage against a target still above 500 HP — a burst opener, not a finisher.'],
+    ['halve', 'Cuts a creep\'s CURRENT hit points in half. Bosses resist.'],
+    ['paralyze', 'Drops a creep to 11 HP and then crits it. Bosses resist.'],
+    ['armorshred', 'Strips armour so everything shooting that creep hits harder.'],
+    ['beam', 'A sustained ray rather than a volley: damage is applied every frame, so the rate holds at any framerate and it allocates no projectiles.'],
+    ['entangle', 'Roots the target for ' + TRAIT.entangleDur + 's and targets BOSSES first. Bosses are slowed hard instead of rooted.'],
+    ['warp / gravslam', 'Gravity\'s single-target tiers. Warp is a pure slow; gravslam mostly slams the target to the ground.'],
+    ['warppulse / repulse / liftoff / blackhole', 'Gravity\'s area tiers. Full damage to the lead creep and ' + pct(TRAIT.gravPulseMult) + ' to at most ' + TRAIT.gravPulseCap + ' more. Each favours a different impulse — shove back, throw upward, or at the capstone all five at once, including a rare fling FORWARD that costs you ground but slams for bonus damage.'],
+    ['snipe', 'Adds ' + Math.round((TRAIT.snipeMult - 1) * 100) + '% against whichever creep is furthest along the route.'],
+    ['splinter', 'A shard peels off into one neighbouring creep for ' + pct(TRAIT.splinterMult) + '.'],
+    ['focus', 'Every consecutive hit on the SAME creep adds ' + pct(TRAIT.focusStep) + ', up to five stacks. Switching target resets it.'],
+    ['resonate', 'Every fifth shot detonates for double across a small radius.'],
+    ['overcharge', 'Every fourth bolt lands at double.'],
+    ['discharge', 'Banks a charge while idle: the first hit after ' + TRAIT.dischargeIdle + 's of nothing to shoot lands at ' + TRAIT.dischargeMult + 'x.'],
+    ['shatter', 'Adds ' + Math.round((TRAIT.shatterMult - 1) * 100) + '% against anything already slowed or frozen — and Ice slows everything.'],
+    ['skyhunter', 'A dedicated anti-air tower: +60% against flying creeps.'],
+    ['pierce', 'Ignores a flat 4 points of armour, which matters most against early armoured runners.'],
+    ['laser', 'The shared capstone: extreme rate and reach, crits, slows and poisons at once, and ignores armour.'],
+  ].map(([name, text]) => `<article class="spell"><h3>${esc(name)}</h3><p>${esc(text)}</p></article>`).join('');
+}
+
+(async function build() {
+  const status = document.getElementById('status');
+  const out = document.getElementById('out');
+  try {
+    const res = await fetch('index.html', { cache: 'no-cache' });
+    if (!res.ok) throw new Error('index.html returned ' + res.status);
+    const src = await res.text();
+
+    const races = evalLiteral(sliceLiteral(src, 'const races = [', '[', ']'));
+    const TOWERS = evalLiteral(sliceLiteral(src, 'const TOWERS = {', '{', '}'));
+    const LASER = evalLiteral(sliceLiteral(src, 'const LASER_TOWER = {', '{', '}'));
+    const PROFILE = evalLiteral(sliceLiteral(src, 'const ATTACK_PROFILE = {', '{', '}'));
+    const TRAIT = evalLiteral(sliceLiteral(src, 'const TRAIT = {', '{', '}'));
+
+    const blocks = races.map((race) => {
+      const list = TOWERS[race.id] || [];
+      const prof = PROFILE[race.id] || { vs: {} };
+      return `<section class="race" style="--race:${esc(race.color)}">
+        <header class="rh">
+          <span class="glyph" aria-hidden="true">${esc(race.symbol)}</span>
+          <div class="rid"><h3>${esc(race.name)}</h3>
+            <p>${esc(race.title)} &middot; ${esc(race.trait)}${prof.chaos ? ' &middot; chaos: ignores armour value' : ''}</p></div>
+          <div class="mxwrap"><span class="mxlabel">vs armour class</span>
+            <div class="mxrow">${matrix(prof)}</div></div>
+        </header>
+        <div class="scroll"><table>${HEAD}<tbody>${towerRows(list, TRAIT)}</tbody></table></div>
+      </section>`;
+    }).join('');
+
+    out.innerHTML = `
+      <section class="band">
+        <div class="bandhead"><h2>${races.length} races</h2>
+          <p>Armour-class multipliers sit beside each name. Every race has a class it beats and a class it does not want to meet.</p></div>
+        <div class="races">${blocks}</div>
+      </section>
+      <section class="band">
+        <div class="bandhead"><h2>The shared capstone</h2>
+          <p>Not a race. Bought with lumber, available to everyone.</p></div>
+        <div class="races"><section class="race" style="--race:#ff5f8f">
+          <header class="rh"><span class="glyph">&#10022;</span>
+            <div class="rid"><h3>${esc(LASER.name)}</h3><p>${esc(LASER.desc)}</p></div></header>
+          <div class="scroll"><table>${HEAD}<tbody>${towerRows([LASER], TRAIT)}</tbody></table></div>
+        </section></div>
+      </section>
+      <section class="band">
+        <div class="bandhead"><h2>What every special does</h2>
+          <p>Numbers below are substituted from the live tunables, so this cannot drift from the code.</p></div>
+        <div class="spells">${spellBook(TRAIT)}</div>
+      </section>`;
+
+    const towerCount = races.reduce((a, r) => a + (TOWERS[r.id] || []).length, 0);
+    status.textContent = `Live: ${races.length} races, ${towerCount} towers + the Laser Cannon, read from index.html just now.`;
+  } catch (err) {
+    status.className = 'bad';
+    status.textContent = 'Could not read index.html — ' + err.message
+      + '. This page must be served over http (GitHub Pages or a local server), not opened as a file:// URL.';
+  }
+})();
+</script>
+</body>
+</html>
