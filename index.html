@@ -1173,8 +1173,17 @@ const TRAIT = {
      so the cap never touches one tower. It only binds when a WALL of towers
      works the same creep — and at 8 the whole army was limited to what two
      towers could apply, which is a ceiling no other race has. */
-  poisonDirect:.35, poisonStackPct:.18, poisonStackDur:5, poisonStackCap:22,
-  poisonSlow:20, dotCap:30,
+  /* POISON: full bolt damage, plus a venom pool every poison tower feeds.
+     Each hit adds 3% of that tower's damage per second and refreshes the pool's
+     timer, so it never drops off while anything is still shooting. Two things
+     keep "unlimited stacks, refreshed on every hit" from running away:
+       - the pool is ONE accumulating number per creep, not a list of stack
+         objects, so thirty towers firing for a minute cost one field rather
+         than eighteen hundred allocations on a phone;
+       - the pool bleeds off at 1/poisonDur per second while it burns, so it
+         settles at (incoming rate x duration) instead of climbing forever.
+     Twelve tier-1 towers settle near 55 dps of venom on top of their bolts. */
+  poisonStackPct:.03, poisonDur:4, poisonSlow:20, dotCap:30,
   fireIgnitePct:.15, fireEruptMult:.5, fireEruptRadius:1.9,
   earthSplashRadius:1.5, earthSplashMult:.65, earthStunDirect:.18, earthStunSplash:.1,
   stoneCritChance:.25, stoneCritMult:2,
@@ -1859,7 +1868,7 @@ function spawnCreep(waveDef, half, side, sent = false) {
     x:spawn.c + .5, y:spawn.r + .5, cpIndex:0, path:null, pathStep:0, pathVersion:-1,
     state:'walk', blockTargetKey:null, attackClock:0,
     slowUntil:0, slowPct:0, frostUntil:0, frostStacks:0, frostPct:0, stunUntil:0, stasisUntil:0,
-    dots:[], armorShred:0, shield:shieldMax, shieldMax, shieldHitAt:0, regen,
+    dots:[], venom:0, venomUntil:0, armorShred:0, shield:shieldMax, shieldMax, shieldHitAt:0, regen,
     fireCharge:0, pushUntil:0, healAura:role === 'warden', onDeath
   };
   if (!sent && half === PLAYER_HALF && spawningWaveIdx != null) {
@@ -1949,6 +1958,14 @@ function updateCreep(creep, dt) {
     let dps = 0;
     for (let i = creep.dots.length - 1; i >= 0; i -= 1) { if (creep.dots[i].until <= now) creep.dots.splice(i, 1); else dps += creep.dots[i].dps; }
     if (dps) applyDamage(creep, dps * dt, null, true);
+  }
+  if (creep.venom > 0) {
+    if (now >= creep.venomUntil) creep.venom = 0;   // nothing has poisoned it for a while
+    else {
+      applyDamage(creep, creep.venom * dt, null, true);
+      // bleed off at 1/duration a second: unlimited stacking that still settles
+      creep.venom = Math.max(0, creep.venom - creep.venom * (dt / TRAIT.poisonDur));
+    }
   }
   if (creep.hp <= 0) return;
   // shield refills after shieldRegenDelay seconds untouched (any damage, DoT included, resets it)
@@ -2122,22 +2139,13 @@ function applyHitEffects(creep, tower, stats) {
   }
   // POISON — 3% stacking DoT + a gentle slow (weaker than frost)
   if (special === 'poison') {
-    /* The burn is meant to walk through ARMOUR, not through Poison's own armour-
-       CLASS weakness. Damage-over-time ticks skip both (they carry no tower, so
-       applyDamage cannot look up a matrix), and with the burn now 72% of the
-       race's damage that quietly deleted the x0.5 into fortified — leaving
-       Poison with the flattest matchup spread of any race, 1.5x where Fire is
-       2.9x. Bake the class multiplier in at application time: armour value is
-       still ignored, the class weakness is not. */
+    /* The venom walks through ARMOUR — that is the race's niche — but not
+       through Poison's own armour-CLASS weakness. Damage-over-time ticks carry
+       no tower, so applyDamage cannot look one up; bake the class multiplier in
+       here instead, or the x0.5 into fortified silently stops applying. */
     const vs = (ATTACK_PROFILE[tower.raceId] || { vs:{} }).vs[creep.aClass] ?? 1;
-    if (poisonStacks(creep) < TRAIT.poisonStackCap) {
-      pushDot(creep, stats.dmg * TRAIT.poisonStackPct * vs, TRAIT.poisonStackDur, 'poison');
-    } else {
-      // at the cap, a hit refreshes the oldest stack instead of being wasted
-      const oldest = creep.dots.filter((d) => d.tag === 'poison' && d.until > simTime)
-        .sort((a, b) => a.until - b.until)[0];
-      if (oldest) oldest.until = simTime + TRAIT.poisonStackDur;
-    }
+    creep.venom = (creep.venom || 0) + stats.dmg * TRAIT.poisonStackPct * vs;
+    creep.venomUntil = simTime + TRAIT.poisonDur;   // every hit refreshes the whole pool
     creep.slowUntil = Math.max(creep.slowUntil, simTime + 1.2); creep.slowPct = Math.max(creep.slowPct || 0, Math.round(TRAIT.poisonSlow * tierPot(tower)));
   }
   // laser (crystal capstone) keeps a slow + light burn
@@ -2180,7 +2188,6 @@ function resolveProjectileHit(projectile) {
     // STONE — every tower can crit
     if (isStone && rng() < TRAIT.stoneCritChance * tierPot(tower)) { dmg *= TRAIT.stoneCritMult; crit = true; }
     if (stats.special === 'ion' && target.hp > 500) dmg += 500;
-    if (stats.special === 'poison') dmg *= TRAIT.poisonDirect;   // the bolt is a delivery system; the burn is the damage
     /* --- per-tier specials. Each declared special does something; a tower that
        says 'basic' on its card really is basic. --- */
     if (stats.special === 'snipe') {
@@ -2387,7 +2394,7 @@ function firePulse(tower, stats) {
 
 /* ---------------- Towers firing ---------------- */
 function creepProgress(creep) { return creep.cpIndex * 1000 + (creep.path ? creep.pathStep : 0); }
-function poisonStacks(creep) { let n = 0; if (creep.dots) for (const d of creep.dots) if (d.tag === 'poison' && d.until > simTime) n += 1; return n; }
+function poisonStacks(creep) { return creep && creep.venom > 0 && simTime < creep.venomUntil ? Math.round(creep.venom) : 0; }
 function pickTarget(tower, stats) {
   const inRange = creeps.filter((creep) => creep.hp > 0 && halfOfRow(tower.r) === creep.half
     && !(stats.groundOnly && creep.air)
@@ -2399,19 +2406,10 @@ function pickTarget(tower, stats) {
       || ((a.knockUntil > simTime ? 1 : 0) - (b.knockUntil > simTime ? 1 : 0))
       || creepProgress(b) - creepProgress(a))[0];
   }
-  if (tower.raceId === 'poison' && tower.priority !== 'last' && tower.priority !== 'strong' && tower.priority !== 'weak' && tower.priority !== 'near') {
-    /* Two failure modes to avoid, and the original picked one of them. Sorting
-       stacks ASCENDING shot whichever creep was least poisoned, so a stacking
-       race never stacked. Sorting DESCENDING made all thirty towers pile onto
-       the single most-poisoned creep while the rest of the wave walked past —
-       three kills where fire got ten.
-       So: finish what is already burning but not yet capped, start something
-       new before topping up something capped, and break ties by progress. The
-       stack builds where it pays and the wave still gets covered. */
-    const rank = (c) => { const n = poisonStacks(c);
-      return n === 0 ? 1 : (n >= TRAIT.poisonStackCap ? 2 : 0); };
-    return inRange.sort((a, b) => rank(a) - rank(b) || creepProgress(b) - creepProgress(a))[0];
-  }
+  /* Poison used to have bespoke targeting to manage a per-creep stack cap: it
+     shot whichever creep was LEAST poisoned, which guaranteed the stacks it is
+     named for never accumulated. With one shared uncapped pool there is nothing
+     to manage, so it targets by progress like everything else. */
   if (tower.priority === 'last') return inRange.sort((a, b) => creepProgress(a) - creepProgress(b))[0];
   if (tower.priority === 'strong') return inRange.sort((a, b) => b.hp - a.hp)[0];
   if (tower.priority === 'weak') return inRange.sort((a, b) => a.hp - b.hp)[0];
@@ -3248,7 +3246,7 @@ function drawCreep(ctx, creep) {
     ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0, wob * .4 - size * .2, 1.3, 0, Math.PI * 2); ctx.fill();
   }
   // status pips: DoT (green), frost (cyan ring), regen (mint +), stasis/stun (gold ✦)
-  if (creep.dots && creep.dots.length) { ctx.fillStyle = '#a7e36e'; ctx.beginPath(); ctx.arc(size, -size, 2.4, 0, Math.PI * 2); ctx.fill(); }
+  if ((creep.dots && creep.dots.length) || creep.venom > 0) { ctx.fillStyle = '#a7e36e'; ctx.beginPath(); ctx.arc(size, -size, 2.4, 0, Math.PI * 2); ctx.fill(); }
   if (creep.frostUntil > simTime) { ctx.strokeStyle = '#bfeaff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0, 0, size + 2.5, 0, Math.PI * 2); ctx.stroke(); }
   if (creep.regen && creep.hp < creep.maxHp && !(creep.frostUntil > simTime) && !(creep.stunUntil > simTime)) { ctx.fillStyle = '#8fe6b8'; ctx.font = '700 8px "DM Mono", monospace'; ctx.textAlign = 'center'; ctx.fillText('✚', -size - 3, -size + 1); }
   if (creep.stunUntil > simTime || creep.stasisUntil > simTime) {
@@ -5483,8 +5481,8 @@ function barRefreshAffordable() {
 function effectiveDps(def) {
   const raw = def.dmg / def.cd;
   if (def.special !== 'poison') return raw;
-  const stacks = Math.min(TRAIT.poisonStackCap, TRAIT.poisonStackDur / def.cd);
-  return raw * TRAIT.poisonDirect + def.dmg * TRAIT.poisonStackPct * stacks;
+  // one tower's own venom settles at (its hit rate x per-hit venom x duration)
+  return raw + (def.dmg * TRAIT.poisonStackPct / def.cd) * TRAIT.poisonDur;
 }
 function towerStatLine(def) {
   const rate = effectiveDps(def).toFixed(0);
