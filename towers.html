@@ -49,6 +49,7 @@ code { font:400 12.5px "DM Mono", ui-monospace, monospace; background:var(--sunk
 #status { margin-top:22px; padding:11px 14px; border-left:3px solid var(--accent);
   background:var(--sunk); font:400 13px/1.5 "DM Mono",ui-monospace,monospace; color:var(--ink-2); }
 #status.bad { border-left-color:var(--bad); color:var(--bad); }
+#status.warn { border-left-color:var(--warn); color:var(--warn); }
 #status button { margin-top:8px; padding:9px 13px; border:1px solid var(--bad); border-radius:8px;
   background:transparent; color:var(--bad); font:500 12px "DM Mono",ui-monospace,monospace; cursor:pointer; }
 #status button:hover, #status button:focus-visible { background:var(--bad-bg); }
@@ -137,6 +138,15 @@ footer a { color:var(--accent); }
    page and the game ever disagree, this page is the one that is wrong, and it
    will say so rather than showing stale figures. */
 const CLASSES = ['unarmored', 'light', 'medium', 'heavy', 'fortified'];
+
+/* BAKED COPY. This page used to depend on fetching index.html to render at all,
+   which meant every unseeable failure on a device — a stale service worker, a
+   deploy still in flight, an offline app — produced a blank page and a guess.
+   The data is baked in as of the commit below, so the page ALWAYS renders. It
+   still tries to read the live file first and says which one you are looking
+   at; the bake is the floor, not the plan. */
+const BAKED = {"races":[{"id":"ice","name":"Ice","title":"Ice Freezer","builder":"Ice Former","symbol":"❄","color":"#77d6ff","desc":"Frost attacks slow everything they touch.","trait":"Slow / control"},{"id":"fire","name":"Fire","title":"Forge of Fire","builder":"Fire Minion","symbol":"✹","color":"#ff875f","desc":"Splash damage that punishes crowded waves.","trait":"Splash damage"},{"id":"earth","name":"Earth","title":"Earth Gate","builder":"Gaia's Servant","symbol":"◒","color":"#c6a269","desc":"Front-line bombardment with wide area damage.","trait":"Front-line AoE"},{"id":"tech","name":"Tech","title":"Tech Center","builder":"Scientist","symbol":"⌁","color":"#80a6ff","desc":"Extreme range artillery against heavy armor.","trait":"Range / artillery"},{"id":"crystal","name":"Crystal","title":"Crystal Castle","builder":"Crystal Molder","symbol":"◇","color":"#c48cff","desc":"Expensive chaos-damage towers with brutal scaling.","trait":"Late-game power"},{"id":"poison","name":"Poison","title":"Poison Pool","builder":"Alchemist","symbol":"☣","color":"#a7e36e","desc":"Weak bolts that stack a burn. The burn ignores armour entirely.","trait":"Stacking burn"},{"id":"stone","name":"Stone","title":"Stone Sanctuary","builder":"Stone Summoner","symbol":"⬟","color":"#a9b3c6","desc":"Short-range crushers that crit for double damage.","trait":"Burst / crits"},{"id":"electricity","name":"Electricity","title":"Power Plant","builder":"Spark","symbol":"ϟ","color":"#ffd86b","desc":"Fast attacks, chain lightning, and area shocks.","trait":"Fast / chain"},{"id":"gravity","name":"Gravity","title":"Gravity Generator","builder":"Gravity Lord","symbol":"◉","color":"#b48ead","desc":"Reality-bending towers that crush percentages of HP.","trait":"Gimmicks / AoE"},{"id":"beam","name":"Beam","title":"Lumen Array","builder":"Lightwright","symbol":"⌖","color":"#7ef0d4","desc":"Continuous light at long reach. Tiny damage, never stops.","trait":"Sustained / reach"}],"TOWERS":{"ice":[{"name":"Frostflick","cost":10,"dmg":8,"cd":1.1,"range":5.5,"special":"slow","desc":"Frost bolts that slow the first target."},{"name":"Hailslinger","cost":40,"dmg":33,"cd":1,"range":5.5,"special":"slow","desc":"Heavy snowballs chill whole lanes."},{"name":"Whiteout Spire","cost":100,"dmg":105,"cd":1.2,"range":5.5,"special":"slow","desc":"Freezing bursts on clustered creeps."},{"name":"Meltjet","cost":200,"dmg":90,"cd":4,"range":5.9,"special":"pause","desc":"Locks a creep in place for a few seconds. Bosses resist."},{"name":"Shatterfrost","cost":270,"dmg":100,"cd":2.25,"range":5.5,"special":"frostnova","desc":"Huge frost explosion that slows everything caught in it."},{"name":"Absolute Zero","cost":350,"dmg":360,"cd":1,"range":6.1,"special":"shatter","desc":"+50% against anything already slowed or frozen — and Ice slows everything."}],"fire":[{"name":"Kindler","cost":10,"dmg":6,"cd":0.6,"range":5.5,"special":"smallsplash","desc":"Fast fireballs with light splash."},{"name":"Emberwhirl","cost":45,"dmg":35,"cd":0.9,"range":5.5,"special":"splash","desc":"Rapid flames splash across nearby creeps."},{"name":"Skyfall Brazier","cost":95,"dmg":88,"cd":1.2,"range":7,"special":"meteor","desc":"Calls down meteors with a large blast."},{"name":"Slagworks","cost":200,"dmg":238,"cd":1.15,"range":5.5,"special":"splash","desc":"Furnace blasts melt tight groups."},{"name":"Ashmaker","cost":280,"dmg":105,"cd":0.22,"range":5.5,"special":"machinegun","desc":"A machine-gun stream of fire. No splash."},{"name":"Pyroclast Rod","cost":350,"dmg":125,"cd":0.35,"range":5.5,"special":"smallsplash","desc":"Very fast staff fire with light splash."}],"earth":[{"name":"Verdant Spring","cost":10,"dmg":9,"cd":1,"range":3.2,"special":"smallsplash","desc":"Close-range earth shock with a light blast."},{"name":"Rootwarden","cost":40,"dmg":52,"cd":1,"range":3.4,"special":"splash","desc":"Boulder bursts bomb the front line. Stands close."},{"name":"Worldheart Coffer","cost":100,"dmg":130,"cd":1.5,"range":3.4,"special":"splash","desc":"A wide blast over a short stretch of lane."},{"name":"Earth's Soul","cost":200,"dmg":390,"cd":1.2,"range":3.6,"special":"splash","desc":"Massive earthen impacts at melee reach."},{"name":"Worldheart","cost":350,"dmg":580,"cd":1,"range":3.8,"special":"meteor","desc":"The living world drops mountains on whatever is next to it."},{"name":"Bramble Speck","cost":170,"dmg":20,"cd":5,"range":9.5,"special":"entangle","desc":"Long reach, barely any damage: roots its target for 1.6s and goes for BOSSES first."}],"tech":[{"name":"Bolt Turret","cost":8,"dmg":6,"cd":1.7,"range":12.5,"special":"pierce","armorPierce":4,"desc":"Cheap long-range arrows that ignore 4 armor — a keeper for chipping armored runners."},{"name":"Longshot Nest","cost":25,"dmg":21,"cd":1.75,"range":13,"special":"snipe","desc":"+40% against whichever creep is furthest along the route."},{"name":"Rocket Rack","cost":85,"dmg":100,"cd":2.2,"range":15,"special":"rocket","groundOnly":true,"desc":"Long-range rockets with splash. Ground only."},{"name":"Ion Array","cost":145,"dmg":300,"cd":3,"range":15,"special":"ion","desc":"Ion beam; +500 bonus damage to healthy targets."},{"name":"Seeker Launcher","cost":215,"dmg":760,"cd":4.5,"range":17,"special":"rocket","desc":"Cruise missiles with an enormous blast."},{"name":"Doomsday Silo","cost":265,"dmg":860,"cd":7,"range":17,"special":"rocket","desc":"Slow reload. City-block splash radius."}],"crystal":[{"name":"Shardcaster","cost":10,"dmg":10,"cd":0.9,"range":5.9,"special":"splinter","desc":"Chaos bolts that ignore armor and splinter into one creep beside the target."},{"name":"Prism Cannon","cost":50,"dmg":40,"cd":1,"range":5.5,"special":"smallsplash","desc":"Sprays sharp crystal shards."},{"name":"Facet Fury","cost":235,"dmg":50,"cd":0.25,"range":5.5,"special":"focus","desc":"Every hit on the SAME creep ramps +8%, to +40%. Switching targets resets it."},{"name":"Refraction Snare","cost":275,"dmg":283,"cd":0.9,"range":6.25,"special":"slow","desc":"Heavy shards that chill and splash."},{"name":"Geode Breaker","cost":400,"dmg":560,"cd":1.2,"range":7,"special":"splash","desc":"Huge crystalline explosions."},{"name":"Lattice Annihilator","cost":650,"dmg":300,"cd":0.35,"range":5.5,"special":"resonate","desc":"Every fifth shot detonates for double across a small radius."}],"poison":[{"name":"Venom Barb","cost":10,"dmg":10,"cd":1.25,"range":7.8,"special":"poison","desc":"Poison spikes slow and sicken."},{"name":"Blightspire","cost":50,"dmg":38,"cd":1,"range":7.8,"special":"poison","desc":"Steady venom over a long reach."},{"name":"Mirelobber","cost":150,"dmg":130,"cd":1.2,"range":8.6,"special":"poison","groundOnly":true,"desc":"Flings sticky sludge far downrange. Ground only."},{"name":"Toxin Creeper","cost":190,"dmg":45,"cd":1.3,"range":6.5,"special":"halve","desc":"Halves a creep’s current HP and poisons it. Bosses resist."},{"name":"Carrion Totem","cost":230,"dmg":305,"cd":1.15,"range":7,"special":"poison","desc":"Grave rot in heavy doses."},{"name":"Miasma Vent","cost":390,"dmg":545,"cd":0.9,"range":7.8,"special":"poison","desc":"Chokes lanes with lethal gas."}],"stone":[{"name":"Cairn","cost":10,"dmg":14,"cd":1.07,"range":3.9,"special":"crit","desc":"Cheap stones that can hit double."},{"name":"Boulder Maw","cost":40,"dmg":43,"cd":1.1,"range":4.2,"special":"crit","desc":"Heavy rocks for narrow turns."},{"name":"Monolith","cost":100,"dmg":170,"cd":1.2,"range":4,"special":"crit","desc":"Crushing stone waves up close."},{"name":"Runestone Seer","cost":200,"dmg":350,"cd":1.1,"range":3.9,"special":"armorshred","desc":"Faerie fire strips armor for every tower."},{"name":"Quakebreaker","cost":285,"dmg":420,"cd":0.95,"range":4.2,"special":"crit","desc":"The only stone tower with real range."},{"name":"Petrifier","cost":350,"dmg":60,"cd":6,"range":4.2,"special":"paralyze","desc":"Drops a creep to 11 HP, then crits it. Bosses resist."}],"electricity":[{"name":"Static Post","cost":10,"dmg":6,"cd":0.6,"range":4.7,"special":"chain","desc":"Fast shocks that arc to a couple of nearby creeps — worth keeping all game."},{"name":"Stormcrown","cost":40,"dmg":24,"cd":0.8,"range":3.9,"special":"overcharge","desc":"Every fourth bolt lands at double."},{"name":"Arc Weaver","cost":100,"dmg":60,"cd":2,"range":4,"special":"chain","desc":"Casts chain lightning through the wave."},{"name":"Thunderspike","cost":200,"dmg":0,"cd":2,"range":4.5,"special":"thunder","desc":"Pulse chips every nearby creep toward 75% max HP, strips shields, may stun."},{"name":"Coil Dynamo","cost":285,"dmg":170,"cd":0.4,"range":5.5,"special":"skyhunter","airBonus":1.6,"desc":"Relentless sparks; +60% vs air — the dedicated anti-air tower."},{"name":"Capacitor Bank","cost":350,"dmg":165,"cd":0.5,"range":5.1,"special":"discharge","desc":"Banks a charge while idle: the first hit after a lull lands at 2.5x."}],"beam":[{"name":"Spotlamp","cost":10,"dmg":1,"cd":0.1,"range":9,"special":"beam","desc":"A thin ray that never lets up. One damage a tick."},{"name":"Arclight","cost":40,"dmg":2,"cd":0.055,"range":9.4,"special":"beam","desc":"Brighter, faster, still barely a scratch each tick."},{"name":"Prism Lance","cost":100,"dmg":3,"cd":0.028,"range":9.8,"special":"beam","desc":"A focused lance that holds its target down the lane."},{"name":"Focal Array","cost":200,"dmg":5,"cd":0.018,"range":10.2,"special":"beam","desc":"Mirrors stack the ray into a steady burn."},{"name":"Starcutter","cost":285,"dmg":8,"cd":0.018,"range":10.6,"special":"beam","desc":"Cuts a line across the lane and keeps cutting."},{"name":"Aurora Lance","cost":350,"dmg":11,"cd":0.018,"range":11,"special":"beam","desc":"Eleven a tick, forever, from most of the way across the map."}],"gravity":[{"name":"Gravity Well","cost":10,"dmg":9,"cd":0.95,"range":5.5,"special":"warp","desc":"A single warped slug that drags its target to a crawl."},{"name":"Gravity's Pull","cost":50,"dmg":40,"cd":1,"range":3.9,"special":"gravslam","desc":"Single heavy pull that slams its target to the ground."},{"name":"Psi Emitter","cost":150,"dmg":120,"cd":1,"range":5.5,"special":"warppulse","desc":"Where the AREA pulse begins — the lead creep takes it all, a few behind take less."},{"name":"Collapsar","cost":280,"dmg":70,"cd":0.35,"range":5,"special":"repulse","desc":"Very fast pulses that mostly shove the lead creep back down the lane."},{"name":"Singularity Mortar","cost":280,"dmg":220,"cd":1.4,"range":6.25,"special":"liftoff","desc":"Heavy pulses that mostly hurl the lead creep into the air."},{"name":"Event Horizon","cost":350,"dmg":400,"cd":1.6,"range":4.5,"special":"blackhole","desc":"Every warp effect at once — slow, slam, lift, shove, and the rare fling forward."}]},"LASER":{"name":"Laser Cannon","cost":650,"dmg":300,"cd":0.2,"range":20,"special":"laser","desc":"The forbidden capstone: crits, slows, and poisons at extreme speed."},"PROFILE":{"ice":{"label":"Frost","vs":{"light":1.15,"heavy":1.25,"fortified":0.55}},"fire":{"label":"Blast","vs":{"unarmored":1.25,"medium":1.25,"fortified":0.65}},"earth":{"label":"Siege","vs":{"light":0.6,"heavy":1.15,"fortified":1.55}},"tech":{"label":"Pierce","vs":{"unarmored":1.3,"light":1.5,"medium":1.1,"heavy":0.6,"fortified":0.4}},"crystal":{"label":"Chaos","chaos":true,"vs":{"unarmored":1.15,"light":1.1,"heavy":0.85,"fortified":0.7}},"poison":{"label":"Venom","vs":{"unarmored":1.3,"light":1.25,"heavy":0.75,"fortified":0.5}},"stone":{"label":"Crush","vs":{"unarmored":0.9,"light":0.65,"heavy":1.2,"fortified":1.5}},"electricity":{"label":"Storm","vs":{"unarmored":1.1,"light":1.4,"medium":1.2,"heavy":0.85,"fortified":0.5}},"gravity":{"label":"Warp","vs":{"unarmored":0.85,"light":0.9,"medium":1.15,"heavy":1.2,"fortified":0.7}},"beam":{"label":"Lumen","vs":{"unarmored":1.2,"light":1.15,"medium":1.05,"heavy":0.8,"fortified":0.6}}},"TRAIT":{"hpScaleNeutral":2,"hpScaleSend":1.35,"armorBonus":2,"hpLateRamp":1.04,"hpLateFrom":13,"frostBase":50,"frostMax":70,"frostStep":1,"poisonStackPct":0.03,"poisonDur":4,"poisonSlow":20,"dotCap":30,"fireIgnitePct":0.15,"fireEruptMult":0.5,"fireEruptRadius":1.9,"earthSplashRadius":1.5,"earthSplashMult":0.65,"earthStunDirect":0.18,"earthStunSplash":0.1,"stoneCritChance":0.25,"stoneCritMult":2,"elecStasis":0.15,"elecStasisDur":0.3,"thunderFloor":0.75,"thunderCap":0.25,"crystalShieldMult":2,"gravPulseMult":0.4,"gravPulseCap":5,"gravKnockdown":0.55,"gravKnockup":0.9,"gravSlamMult":0.8,"gravSlowChance":0.18,"gravSlowPct":30,"gravPushChance":0.07,"gravPushCD":6,"gravTowerPushCD":9,"deathPayloadRadius":3.2,"deathHealPct":0.18,"deathShieldPct":0.25,"snipeMult":1.4,"focusStep":0.08,"dischargeIdle":2,"dischargeMult":2.5,"shatterMult":1.5,"splinterMult":0.35,"entangleDur":1.6,"shieldRegenDelay":4}};
+const BAKED_AT = 'dd2d22c / 2026-09-03';
 
 function sliceLiteral(src, decl, open, close) {
   const at = src.indexOf(decl);
@@ -242,9 +252,55 @@ function spellBook(TRAIT) {
   ].map(([name, text]) => `<article class="spell"><h3>${esc(name)}</h3><p>${esc(text)}</p></article>`).join('');
 }
 
+function render(d, live, note) {
+  const { races, TOWERS, LASER, PROFILE, TRAIT } = d;
+  const out = document.getElementById('out');
+  const status = document.getElementById('status');
+  const blocks = races.map((race) => {
+    const list = TOWERS[race.id] || [];
+    const prof = PROFILE[race.id] || { vs: {} };
+    return `<section class="race" style="--race:${esc(race.color)}">
+      <header class="rh">
+        <span class="glyph" aria-hidden="true">${esc(race.symbol)}</span>
+        <div class="rid"><h3>${esc(race.name)}</h3>
+          <p>${esc(race.title)} &middot; ${esc(race.trait)}${prof.chaos ? ' &middot; chaos: ignores armour value' : ''}</p></div>
+        <div class="mxwrap"><span class="mxlabel">vs armour class</span>
+          <div class="mxrow">${matrix(prof)}</div></div>
+      </header>
+      <div class="scroll"><table>${HEAD}<tbody>${towerRows(list, TRAIT)}</tbody></table></div>
+    </section>`;
+  }).join('');
+  out.innerHTML = `
+    <section class="band">
+      <div class="bandhead"><h2>${races.length} races</h2>
+        <p>Armour-class multipliers sit beside each name. Every race has a class it beats and a class it does not want to meet.</p></div>
+      <div class="races">${blocks}</div>
+    </section>
+    <section class="band">
+      <div class="bandhead"><h2>The shared capstone</h2>
+        <p>Not a race. Bought with lumber, available to everyone.</p></div>
+      <div class="races"><section class="race" style="--race:#ff5f8f">
+        <header class="rh"><span class="glyph">&#10022;</span>
+          <div class="rid"><h3>${esc(LASER.name)}</h3><p>${esc(LASER.desc)}</p></div></header>
+        <div class="scroll"><table>${HEAD}<tbody>${towerRows([LASER], TRAIT)}</tbody></table></div>
+      </section></div>
+    </section>
+    <section class="band">
+      <div class="bandhead"><h2>What every special does</h2>
+        <p>Numbers below are substituted from the live tunables, so this cannot drift from the code.</p></div>
+      <div class="spells">${spellBook(TRAIT)}</div>
+    </section>`;
+  const n = races.reduce((a, r) => a + (TOWERS[r.id] || []).length, 0);
+  status.className = live ? '' : 'warn';
+  status.textContent = live
+    ? `Live: ${races.length} races, ${n} towers + the Laser Cannon, read from index.html just now.`
+    : `Showing the built-in copy (${BAKED_AT}): ${races.length} races, ${n} towers + the Laser Cannon. ${note}`;
+}
+
 (async function build() {
   const status = document.getElementById('status');
   const out = document.getElementById('out');
+  render(BAKED, false, 'Trying the live file…');
   try {
     /* Cache-bust the URL rather than trusting cache:'no-cache'. A service worker
        intercepts same-origin fetches whatever the cache mode says, and this
@@ -265,47 +321,10 @@ function spellBook(TRAIT) {
     const PROFILE = evalLiteral(sliceLiteral(src, 'const ATTACK_PROFILE = {', '{', '}'));
     const TRAIT = evalLiteral(sliceLiteral(src, 'const TRAIT = {', '{', '}'));
 
-    const blocks = races.map((race) => {
-      const list = TOWERS[race.id] || [];
-      const prof = PROFILE[race.id] || { vs: {} };
-      return `<section class="race" style="--race:${esc(race.color)}">
-        <header class="rh">
-          <span class="glyph" aria-hidden="true">${esc(race.symbol)}</span>
-          <div class="rid"><h3>${esc(race.name)}</h3>
-            <p>${esc(race.title)} &middot; ${esc(race.trait)}${prof.chaos ? ' &middot; chaos: ignores armour value' : ''}</p></div>
-          <div class="mxwrap"><span class="mxlabel">vs armour class</span>
-            <div class="mxrow">${matrix(prof)}</div></div>
-        </header>
-        <div class="scroll"><table>${HEAD}<tbody>${towerRows(list, TRAIT)}</tbody></table></div>
-      </section>`;
-    }).join('');
-
-    out.innerHTML = `
-      <section class="band">
-        <div class="bandhead"><h2>${races.length} races</h2>
-          <p>Armour-class multipliers sit beside each name. Every race has a class it beats and a class it does not want to meet.</p></div>
-        <div class="races">${blocks}</div>
-      </section>
-      <section class="band">
-        <div class="bandhead"><h2>The shared capstone</h2>
-          <p>Not a race. Bought with lumber, available to everyone.</p></div>
-        <div class="races"><section class="race" style="--race:#ff5f8f">
-          <header class="rh"><span class="glyph">&#10022;</span>
-            <div class="rid"><h3>${esc(LASER.name)}</h3><p>${esc(LASER.desc)}</p></div></header>
-          <div class="scroll"><table>${HEAD}<tbody>${towerRows([LASER], TRAIT)}</tbody></table></div>
-        </section></div>
-      </section>
-      <section class="band">
-        <div class="bandhead"><h2>What every special does</h2>
-          <p>Numbers below are substituted from the live tunables, so this cannot drift from the code.</p></div>
-        <div class="spells">${spellBook(TRAIT)}</div>
-      </section>`;
-
-    const towerCount = races.reduce((a, r) => a + (TOWERS[r.id] || []).length, 0);
-    status.textContent = `Live: ${races.length} races, ${towerCount} towers + the Laser Cannon, read from index.html just now.`;
+    render({ races, TOWERS, LASER, PROFILE, TRAIT }, true);
   } catch (err) {
     status.className = 'bad';
-    status.innerHTML = '<b>Could not read index.html.</b><br>' + esc(err.message)
+    status.innerHTML = '<b>Showing the built-in copy (' + BAKED_AT + ') — the live read failed.</b><br>' + esc(err.message)
       + '<br><br>Served over file:// the fetch is blocked — open it over http instead. '
       + 'If you are on the installed app, a stale service worker can answer with the wrong file: '
       + '<button id="nuke" type="button">reset the offline cache and reload</button>';
