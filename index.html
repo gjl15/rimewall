@@ -2122,8 +2122,16 @@ function applyHitEffects(creep, tower, stats) {
   }
   // POISON — 3% stacking DoT + a gentle slow (weaker than frost)
   if (special === 'poison') {
+    /* The burn is meant to walk through ARMOUR, not through Poison's own armour-
+       CLASS weakness. Damage-over-time ticks skip both (they carry no tower, so
+       applyDamage cannot look up a matrix), and with the burn now 72% of the
+       race's damage that quietly deleted the x0.5 into fortified — leaving
+       Poison with the flattest matchup spread of any race, 1.5x where Fire is
+       2.9x. Bake the class multiplier in at application time: armour value is
+       still ignored, the class weakness is not. */
+    const vs = (ATTACK_PROFILE[tower.raceId] || { vs:{} }).vs[creep.aClass] ?? 1;
     if (poisonStacks(creep) < TRAIT.poisonStackCap) {
-      pushDot(creep, stats.dmg * TRAIT.poisonStackPct, TRAIT.poisonStackDur, 'poison');
+      pushDot(creep, stats.dmg * TRAIT.poisonStackPct * vs, TRAIT.poisonStackDur, 'poison');
     } else {
       // at the cap, a hit refreshes the oldest stack instead of being wasted
       const oldest = creep.dots.filter((d) => d.tag === 'poison' && d.until > simTime)
