@@ -1196,7 +1196,15 @@ const TRAIT = {
      stays (it is the race's identity) but it now falls off like splash and hits
      a bounded number of creeps, and only the lead creep gets the control kit. */
   gravPulseMult:.4, gravPulseCap:5, gravKnockdown:.55, gravKnockup:.9, gravSlamMult:.8,
-  gravSlowChance:.18, gravSlowPct:30, gravPushChance:.07, gravPushCD:6, gravTowerPushCD:9,
+  /* These were tuned when EVERY gravity tower pulsed and every creep in the
+     circle rolled the kit — the cooldowns existed to stop a lane being locked
+     shut. Since then the pulse is earned at tier 2 and only the LEAD creep
+     rolls at all, so the guard was throttling something that no longer needed
+     it: measured with a full 40-tower wall across a whole wave, tier 4 and
+     tier 5 produced ZERO displacements a minute and tier 2 produced three.
+     The per-creep cooldown is what actually prevents a chain-lock and it stays
+     meaningful at 3s — a creep still covers about six cells between shoves. */
+  gravSlowChance:.35, gravSlowPct:30, gravPushChance:.07, gravPushCD:3, gravTowerPushCD:3.5,
   deathPayloadRadius:3.2, deathHealPct:.18, deathShieldPct:.25,
   snipeMult:1.4, focusStep:.08, dischargeIdle:2, dischargeMult:2.5, shatterMult:1.5,
   splinterMult:.35, entangleDur:1.6,
