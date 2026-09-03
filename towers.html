@@ -49,6 +49,9 @@ code { font:400 12.5px "DM Mono", ui-monospace, monospace; background:var(--sunk
 #status { margin-top:22px; padding:11px 14px; border-left:3px solid var(--accent);
   background:var(--sunk); font:400 13px/1.5 "DM Mono",ui-monospace,monospace; color:var(--ink-2); }
 #status.bad { border-left-color:var(--bad); color:var(--bad); }
+#status button { margin-top:8px; padding:9px 13px; border:1px solid var(--bad); border-radius:8px;
+  background:transparent; color:var(--bad); font:500 12px "DM Mono",ui-monospace,monospace; cursor:pointer; }
+#status button:hover, #status button:focus-visible { background:var(--bad-bg); }
 
 section.band { padding-top:48px; }
 .bandhead { display:flex; align-items:baseline; gap:16px; flex-wrap:wrap;
@@ -243,9 +246,18 @@ function spellBook(TRAIT) {
   const status = document.getElementById('status');
   const out = document.getElementById('out');
   try {
-    const res = await fetch('index.html', { cache: 'no-cache' });
-    if (!res.ok) throw new Error('index.html returned ' + res.status);
+    /* Cache-bust the URL rather than trusting cache:'no-cache'. A service worker
+       intercepts same-origin fetches whatever the cache mode says, and this
+       app is a PWA — an older worker was caching navigations under the
+       './index.html' key, so this fetch could be answered with the wrong page
+       entirely. A unique query string misses the SW cache and reaches network. */
+    const res = await fetch('index.html?ref=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) throw new Error('index.html returned HTTP ' + res.status);
     const src = await res.text();
+    if (!/const\s+TOWERS\s*=/.test(src)) {
+      throw new Error('fetched ' + src.length + ' bytes but it is not the game file. '
+        + 'First 120 characters: ' + JSON.stringify(src.slice(0, 120)));
+    }
 
     const races = evalLiteral(sliceLiteral(src, 'const races = [', '[', ']'));
     const TOWERS = evalLiteral(sliceLiteral(src, 'const TOWERS = {', '{', '}'));
@@ -293,8 +305,21 @@ function spellBook(TRAIT) {
     status.textContent = `Live: ${races.length} races, ${towerCount} towers + the Laser Cannon, read from index.html just now.`;
   } catch (err) {
     status.className = 'bad';
-    status.textContent = 'Could not read index.html — ' + err.message
-      + '. This page must be served over http (GitHub Pages or a local server), not opened as a file:// URL.';
+    status.innerHTML = '<b>Could not read index.html.</b><br>' + esc(err.message)
+      + '<br><br>Served over file:// the fetch is blocked — open it over http instead. '
+      + 'If you are on the installed app, a stale service worker can answer with the wrong file: '
+      + '<button id="nuke" type="button">reset the offline cache and reload</button>';
+    const nuke = document.getElementById('nuke');
+    if (nuke) nuke.addEventListener('click', async () => {
+      nuke.textContent = 'clearing…';
+      try {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      } catch (e) { /* nothing to clear */ }
+      location.reload();
+    });
   }
 })();
 </script>
