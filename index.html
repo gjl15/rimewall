@@ -28,6 +28,20 @@
 body { margin:0; min-width:320px; min-height:100vh; background:radial-gradient(circle at 75% 0%,#1b2b4c 0,#0b1020 42%,#060914 100%); color:var(--ink); font-family:Manrope,system-ui,sans-serif; }
 button { font:inherit; color:inherit; cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
 select { touch-action:manipulation; }
+/* THE ZOOM TRAP, PART TWO. Fixing 16px form controls stopped Safari's
+   focus-zoom, but every other zoom gesture was still live: html, body, .arena,
+   .hud, .command-bar, .wisp-panel and .settings-modal all computed
+   touch-action:auto, so a double-tap or a pinch anywhere on the chrome zoomed
+   the page — which is exactly where a thumb lands mid-match. touch-action is
+   intersected down the tree, so declaring it once on the root disables
+   double-tap and pinch everywhere inside while leaving ordinary scrolling
+   alone. The map keeps touch-action:none because it runs its own pinch. */
+html, body { touch-action:pan-x pan-y; -webkit-text-size-adjust:100%; }
+/* declared again on the chrome itself: the root rule already governs these by
+   intersection, but a thumb lands on these elements constantly and the intent
+   should be visible where someone edits them */
+.hud, .command-bar, .wisp-panel, .wisp-radial, .map-toggles, .settings-modal,
+.settings-card, .quick-send, .log-strip { touch-action:pan-x pan-y; }
 .map-viewport, .map-viewport canvas { user-select:none; -webkit-user-select:none; }
 /* iOS Safari force-zooms the whole page when you focus a control smaller than
    16px and never zooms back out — and it has ignored user-scalable=no and
@@ -1010,7 +1024,7 @@ const races = [
   { id:'earth', name:'Earth', title:'Earth Gate', builder:"Gaia's Servant", symbol:'◒', color:'#c6a269', desc:'Front-line bombardment with wide area damage.', trait:'Front-line AoE' },
   { id:'tech', name:'Tech', title:'Tech Center', builder:'Scientist', symbol:'⌁', color:'#80a6ff', desc:'Extreme range artillery against heavy armor.', trait:'Range / artillery' },
   { id:'crystal', name:'Crystal', title:'Crystal Castle', builder:'Crystal Molder', symbol:'◇', color:'#c48cff', desc:'Expensive chaos-damage towers with brutal scaling.', trait:'Late-game power' },
-  { id:'poison', name:'Poison', title:'Poison Pool', builder:'Alchemist', symbol:'☣', color:'#a7e36e', desc:'Poison slows and health cuts wear waves down.', trait:'DoT / weaken' },
+  { id:'poison', name:'Poison', title:'Poison Pool', builder:'Alchemist', symbol:'☣', color:'#a7e36e', desc:'Weak bolts that stack a burn. The burn ignores armour entirely.', trait:'Stacking burn' },
   { id:'stone', name:'Stone', title:'Stone Sanctuary', builder:'Stone Summoner', symbol:'⬟', color:'#a9b3c6', desc:'Short-range crushers that crit for double damage.', trait:'Burst / crits' },
   { id:'electricity', name:'Electricity', title:'Power Plant', builder:'Spark', symbol:'ϟ', color:'#ffd86b', desc:'Fast attacks, chain lightning, and area shocks.', trait:'Fast / chain' },
   { id:'gravity', name:'Gravity', title:'Gravity Generator', builder:'Gravity Lord', symbol:'◉', color:'#b48ead', desc:'Reality-bending towers that crush percentages of HP.', trait:'Gimmicks / AoE' },
@@ -1143,7 +1157,24 @@ const ATTACK_PROFILE = {
 const TRAIT = {
   hpScaleNeutral:2.0, hpScaleSend:1.35, armorBonus:2, hpLateRamp:1.04, hpLateFrom:13,
   frostBase:50, frostMax:70, frostStep:1,
-  poisonPct:.08, poisonSlow:20, poisonDur:3, dotCap:16,
+  /* POISON IS ITS BURN, not its bolt. It used to deal FULL listed damage and
+     add a dot worth a further 24% — so the venom was a garnish on an ordinary
+     damage tower, and the race had no identity beyond a 20% slow. Worse, its
+     targeting deliberately shot whichever creep had the FEWEST stacks, which
+     guaranteed the stacks it is named for never accumulated.
+     Now the bolt is 35% of listed and every hit leaves a stack burning 18% of
+     listed per second for 5s, up to 8 stacks. Sustained fire on one creep ramps
+     to roughly the same steady damage it had before, but it takes five seconds
+     of attention to get there — and it walks straight through armour, because
+     damage-over-time skips the armour and class matrix entirely. That makes
+     Poison the answer to the heavy and fortified waves it used to fold to.
+     The cap is 22 and not 8 because it lives on the CREEP: a single tower still
+     settles at five stacks (five seconds of burn over a one second cooldown),
+     so the cap never touches one tower. It only binds when a WALL of towers
+     works the same creep — and at 8 the whole army was limited to what two
+     towers could apply, which is a ceiling no other race has. */
+  poisonDirect:.35, poisonStackPct:.18, poisonStackDur:5, poisonStackCap:22,
+  poisonSlow:20, dotCap:30,
   fireIgnitePct:.15, fireEruptMult:.5, fireEruptRadius:1.9,
   earthSplashRadius:1.5, earthSplashMult:.65, earthStunDirect:.18, earthStunSplash:.1,
   stoneCritChance:.25, stoneCritMult:2,
@@ -2091,7 +2122,14 @@ function applyHitEffects(creep, tower, stats) {
   }
   // POISON — 3% stacking DoT + a gentle slow (weaker than frost)
   if (special === 'poison') {
-    pushDot(creep, stats.dmg * TRAIT.poisonPct, TRAIT.poisonDur, 'poison');
+    if (poisonStacks(creep) < TRAIT.poisonStackCap) {
+      pushDot(creep, stats.dmg * TRAIT.poisonStackPct, TRAIT.poisonStackDur, 'poison');
+    } else {
+      // at the cap, a hit refreshes the oldest stack instead of being wasted
+      const oldest = creep.dots.filter((d) => d.tag === 'poison' && d.until > simTime)
+        .sort((a, b) => a.until - b.until)[0];
+      if (oldest) oldest.until = simTime + TRAIT.poisonStackDur;
+    }
     creep.slowUntil = Math.max(creep.slowUntil, simTime + 1.2); creep.slowPct = Math.max(creep.slowPct || 0, Math.round(TRAIT.poisonSlow * tierPot(tower)));
   }
   // laser (crystal capstone) keeps a slow + light burn
@@ -2134,6 +2172,7 @@ function resolveProjectileHit(projectile) {
     // STONE — every tower can crit
     if (isStone && rng() < TRAIT.stoneCritChance * tierPot(tower)) { dmg *= TRAIT.stoneCritMult; crit = true; }
     if (stats.special === 'ion' && target.hp > 500) dmg += 500;
+    if (stats.special === 'poison') dmg *= TRAIT.poisonDirect;   // the bolt is a delivery system; the burn is the damage
     /* --- per-tier specials. Each declared special does something; a tower that
        says 'basic' on its card really is basic. --- */
     if (stats.special === 'snipe') {
@@ -2352,8 +2391,19 @@ function pickTarget(tower, stats) {
       || ((a.knockUntil > simTime ? 1 : 0) - (b.knockUntil > simTime ? 1 : 0))
       || creepProgress(b) - creepProgress(a))[0];
   }
-  if (tower.raceId === 'poison' && tower.priority !== 'last' && tower.priority !== 'strong' && tower.priority !== 'weak' && tower.priority !== 'near')
-    return inRange.sort((a, b) => poisonStacks(a) - poisonStacks(b) || creepProgress(b) - creepProgress(a))[0];
+  if (tower.raceId === 'poison' && tower.priority !== 'last' && tower.priority !== 'strong' && tower.priority !== 'weak' && tower.priority !== 'near') {
+    /* Two failure modes to avoid, and the original picked one of them. Sorting
+       stacks ASCENDING shot whichever creep was least poisoned, so a stacking
+       race never stacked. Sorting DESCENDING made all thirty towers pile onto
+       the single most-poisoned creep while the rest of the wave walked past —
+       three kills where fire got ten.
+       So: finish what is already burning but not yet capped, start something
+       new before topping up something capped, and break ties by progress. The
+       stack builds where it pays and the wave still gets covered. */
+    const rank = (c) => { const n = poisonStacks(c);
+      return n === 0 ? 1 : (n >= TRAIT.poisonStackCap ? 2 : 0); };
+    return inRange.sort((a, b) => rank(a) - rank(b) || creepProgress(b) - creepProgress(a))[0];
+  }
   if (tower.priority === 'last') return inRange.sort((a, b) => creepProgress(a) - creepProgress(b))[0];
   if (tower.priority === 'strong') return inRange.sort((a, b) => b.hp - a.hp)[0];
   if (tower.priority === 'weak') return inRange.sort((a, b) => a.hp - b.hp)[0];
@@ -3839,11 +3889,16 @@ function hudContractReport() {
   if (hud.scrollWidth > hud.clientWidth + 1) bad.push('R1/R2: row still overflows after yielding');
   /* R1 is about ONE row, which horizontal overflow alone cannot detect: the
      compact-HUD media query lays the bar out as a grid, so items can stack
-     instead of overflowing. Compare tops to catch that. */
-  const tops = [...hud.children].filter((e) => getComputedStyle(e).display !== 'none')
-    .map((e) => Math.round(e.getBoundingClientRect().top));
-  if (new Set(tops).size > 1 && Math.max(...tops) - Math.min(...tops) > 6) {
-    bad.push(`R1: items are on ${new Set(tops).size} rows (tops ${[...new Set(tops)].join(',')}) - arena .hud cascade is stacking them`);
+     instead of overflowing.
+     This compared child TOPS and was wrong — under align-items:center a 54px
+     brand and a 13px match-state sit on the same row with tops 21px apart, so
+     it reported a three-row stack on every phone render and CLAUDE.md carried
+     it as a known unfixed bug for weeks. Nothing was stacking. Compare vertical
+     CENTRES, which share a value on one row whatever the heights are. */
+  const kids = [...hud.children].filter((e) => getComputedStyle(e).display !== 'none');
+  const centres = kids.map((e) => { const r = e.getBoundingClientRect(); return Math.round(r.top + r.height / 2); });
+  if (centres.length > 1 && Math.max(...centres) - Math.min(...centres) > 6) {
+    bad.push(`R1: items are on ${new Set(centres).size} rows (centres ${[...new Set(centres)].join(',')}) - arena .hud cascade is stacking them`);
   }
   if (bad.length) console.warn('[top bar contract]', bad.join(' | '));
   return bad;
@@ -3911,7 +3966,7 @@ function renderTowerList() {
     const def = towerDef(raceId, tier);
     const isLaser = def.name === 'Laser Cannon';
     return `<button class="tower-row ${tier === selectedTowerTier ? 'selected' : ''} ${isLaser ? 'laser-row' : ''}" data-tower="${tier}">
-      <span><strong>${def.name}</strong><small>${def.desc}</small><small class="tower-stats">${def.dmg} dmg • ${def.range.toFixed(1)} rng • ${def.cd.toFixed(2)}s • ${(def.dmg / def.cd).toFixed(0)} dps${def.special ? ' • ' + def.special : ''}${def.groundOnly ? ' • NO AIR' : ''}</small><small class="tower-stats profile-line">${attackProfileText(raceId)}</small></span><b>${def.cost}g${isLaser ? ' +1🪵' : ''}</b></button>`;
+      <span><strong>${def.name}</strong><small>${def.desc}</small><small class="tower-stats">${def.dmg} dmg • ${def.range.toFixed(1)} rng • ${def.cd.toFixed(2)}s • ${effectiveDps(def).toFixed(0)} dps${def.special === 'poison' ? ' (stacked)' : ''}${def.special ? ' • ' + def.special : ''}${def.groundOnly ? ' • NO AIR' : ''}</small><small class="tower-stats profile-line">${attackProfileText(raceId)}</small></span><b>${def.cost}g${isLaser ? ' +1🪵' : ''}</b></button>`;
   }).join('');
   document.querySelectorAll('[data-tower]').forEach((button) => button.addEventListener('click', () => {
     selectedTowerTier = Number(button.dataset.tower);
@@ -5414,8 +5469,17 @@ function barRefreshAffordable() {
    hint that a tier cannot shoot air, which is the single most expensive thing a
    player can not know. Range leads because it decides how much of the maze route
    the tower actually covers, and NO AIR displaces the special when it applies. */
+/* Poison's listed dmg/cd stopped being its damage the moment the bolt became
+   35% and the burn became the rest. This is what it actually does once the
+   stack is up, so the card is not quietly lying about a whole race. */
+function effectiveDps(def) {
+  const raw = def.dmg / def.cd;
+  if (def.special !== 'poison') return raw;
+  const stacks = Math.min(TRAIT.poisonStackCap, TRAIT.poisonStackDur / def.cd);
+  return raw * TRAIT.poisonDirect + def.dmg * TRAIT.poisonStackPct * stacks;
+}
 function towerStatLine(def) {
-  const rate = (def.dmg / def.cd).toFixed(0);
+  const rate = effectiveDps(def).toFixed(0);
   const flag = def.groundOnly ? 'NO AIR' : (def.special || 'basic');
   return `${def.range.toFixed(1)} rng · ${rate} dps · ${flag}`;
 }
@@ -5522,7 +5586,7 @@ function learnContent() {
     <p class="sheet-heading">ARMOR BY WAVE — plan your build and time your sends</p>
     <div class="learn-list">${Object.entries(classWaves).map(([cls, waves]) => `<div class="learn-row"><span>${cls}</span><small>waves ${waves.join(', ')}</small></div>`).join('')}</div>
     <p class="sheet-heading">EVERY TOWER — dmg · dps · range · spell</p>
-    ${races.map((race) => `<div class="learn-block"><b style="color:${race.color}">${race.symbol} ${race.name}</b>${towerListFor(race.id).map((t) => `<div class="learn-row"><span>${t.name}</span><small>${t.cost}g · ${t.dmg} dmg · ${(t.dmg/t.cd).toFixed(0)} dps · ${t.range} rng · ${(t.cost/(t.dmg/t.cd)).toFixed(2)} g/dps${t.special?' · '+t.special:''}${t.groundOnly?' · <b style="color:#ff9faf">NO AIR</b>':''}</small></div>`).join('')}</div>`).join('')}
+    ${races.map((race) => `<div class="learn-block"><b style="color:${race.color}">${race.symbol} ${race.name}</b>${towerListFor(race.id).map((t) => `<div class="learn-row"><span>${t.name}</span><small>${t.cost}g · ${t.dmg} dmg · ${effectiveDps(t).toFixed(0)} dps${t.special === 'poison' ? ' (stacked)' : ''} · ${t.range} rng · ${(t.cost/effectiveDps(t)).toFixed(2)} g/dps${t.special?' · '+t.special:''}${t.groundOnly?' · <b style="color:#ff9faf">NO AIR</b>':''}</small></div>`).join('')}</div>`).join('')}
     <p class="sheet-heading">EVERY WAVE — hp · armor · class · trait</p>
     <div class="learn-list">${WAVES.map((w, i) => `<div class="learn-row"><span>${i+1}. ${w.name}</span><small>${Math.round((w.hp||0)*(w.boss?1:TRAIT.hpScaleNeutral*waveHpMult(i+1))*(w.role==='juggernaut'?2.4:1))} hp · ${(w.armor||0)+(w.boss?0:TRAIT.armorBonus)} armor · ${w.aClass}${w.air?' · air':''}${w.role&&w.role!=='standard'?' · '+w.role:''}</small></div>`).join('')}</div>
     <p class="sheet-heading">EVERY SEND — cost · income · hp · armor</p>

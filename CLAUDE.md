@@ -53,9 +53,15 @@ the arena HUD, keep `enforceHudContract()` passing — it re-fits the top bar on
 every `renderHud()` and reports violations to the console. The requirements are
 documented in the stylesheet under "TOP BAR CONTRACT".
 
-Known open issue: `.arena .hud` has several competing rules layered over a grid
-media query, and the bar stacks onto multiple rows on a phone. The contract
-detects and names this; nobody has picked an owner for the fix yet.
+Retired 2026-09-03: this file used to record "the bar stacks onto multiple rows
+on a phone" as a known open issue. It was never happening. `hudContractReport()`
+compared child `top` values, and under `align-items:center` a 54px brand sits
+21px above a 13px label on the *same* row — so it reported a three-row stack on
+every phone render. Measured at 390px the bar is 68px tall for a 54px tallest
+child, all three children share vertical centre 34, and `scrollWidth ===
+clientWidth`. The check now compares vertical centres and reports clean.
+
+If a contract fires on every render, suspect the contract.
 
 ## House rules
 
