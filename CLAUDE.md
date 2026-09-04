@@ -43,6 +43,14 @@ There is no test suite. What works:
   Playwright/Chromium at a phone viewport (390×844). Click `#start-button` to
   reach the arena. The onboarding Coach (`.coach-card`, z190) covers the command
   bar on a first match — remove it in tests before clicking the bars.
+- **Harness**: `tools/harness/` drives the real game in real Chrome and prints
+  numbers: phone layout metrics and screenshots (`drive.js`, `hud.js`), the
+  income ground truth (`econ.js`), tech kits (`kits.js`), and equal-gold tower
+  duels with the game's own `simulate` (`bal.js`). See its README. Use it
+  before claiming a layout fits or a balance change is fair.
+- **towers.html** bakes a copy of the tower tables so it renders offline. After
+  any change to `races`, `TOWERS`, `TECH_KITS`, `ATTACK_PROFILE` or `TRAIT`,
+  run `node tools/bake-towers.js` and commit the result.
 - Google Fonts, jsdelivr and `broker.emqx.io` are blocked from cloud sandboxes,
   so cross-device multiplayer cannot be verified there. Only a real device can.
 

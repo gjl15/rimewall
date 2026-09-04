@@ -179,6 +179,13 @@ h1 span { color:var(--ice); }
 /* the income clock, as a line filling along the bottom of the bar: skirmish
    had no visible countdown at all while the send panel promised "every 25s" */
 .income-tick { position:absolute; left:0; bottom:0; height:2px; width:0; background:#8fe6b8; opacity:.85; pointer-events:none; transition:width .2s linear; }
+/* tech kit picker, shared by the desktop panel, the phone sheet and the wisp */
+.kit-line { margin:8px 0 5px; color:#9ba7c4; font:500 10px 'DM Mono',monospace; letter-spacing:.03em; line-height:1.4; }
+.kit-row { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; }
+.kit-row .kit-btn { flex:1 1 56px; display:flex; flex-direction:column; align-items:center; gap:2px; min-height:48px; padding:7px 4px; border:1px solid color-mix(in srgb, var(--kit) 55%, #2c3959); border-radius:9px; background:#0f1a30; color:#dbe4fa; }
+.kit-row .kit-btn span { color:var(--kit); font-size:17px; line-height:1; }
+.kit-row .kit-btn small { font:600 9px 'DM Mono',monospace; letter-spacing:.06em; text-transform:uppercase; }
+.kit-row .kit-btn.poor { opacity:.5; }
 .crest { display:inline-grid; place-items:center; width:28px; height:28px; margin-right:8px; border:1px solid #456181; border-radius:8px; color:var(--ice); }
 .match-state { gap:11px; color:#cad2e6; font:500 11px 'DM Mono',monospace; }
 .match-state strong { color:var(--ice); font-weight:500; }
@@ -1099,11 +1106,11 @@ const TOWERS = {
     { name:'Bramble Speck', cost:170, dmg:20, cd:5.0, range:9.5, special:'entangle', desc:'Long reach, barely any damage: roots its target for 1.6s and goes for BOSSES first.' }
   ],
   tech:[
-    { name:'Bolt Turret', cost:8, dmg:6, cd:1.7, range:12.5, special:'pierce', armorPierce:4, desc:'Cheap long-range arrows that ignore 4 armor — a keeper for chipping armored runners.' },
-    { name:'Longshot Nest', cost:25, dmg:21, cd:1.75, range:13.0, special:'snipe', desc:'+40% against whichever creep is furthest along the route.' },
-    { name:'Rocket Rack', cost:85, dmg:100, cd:2.2, range:15, special:'rocket', groundOnly:true, desc:'Long-range rockets with splash. Ground only.' },
+    { name:'Bolt Turret', short:'Bolt', kits:true, cost:8, dmg:6, cd:1.7, range:12.5, special:'pierce', armorPierce:4, desc:'Cheap long-range arrows that ignore 4 armor. Fit a kit after placing: ice, fire, toxic or piercing.' },
+    { name:'Longshot Nest', short:'Longshot', kits:true, cost:25, dmg:21, cd:1.75, range:16.0, special:'snipe', desc:'+40% against whichever creep is furthest along the route. Takes the same four kits as the Bolt.' },
+    { name:'Rocket Rack', cost:85, dmg:100, cd:2.2, range:15, special:'rocket', groundOnly:true, splashKits:true, desc:'Long-range rockets whose blast burns, chills and sickens everything it catches. Ground only.' },
     { name:'Ion Array', cost:145, dmg:300, cd:3.0, range:15, special:'ion', desc:'Ion beam; +500 bonus damage to healthy targets.' },
-    { name:'Seeker Launcher', cost:215, dmg:760, cd:4.5, range:17, special:'rocket', desc:'Cruise missiles with an enormous blast.' },
+    { name:'Seeker Launcher', cost:215, dmg:760, cd:4.5, range:17, special:'rocket', splashKits:true, desc:'Cruise missiles with an enormous blast that burns, chills and sickens everything in it.' },
     { name:'Doomsday Silo', cost:265, dmg:860, cd:7.0, range:17, special:'rocket', desc:'Slow reload. City-block splash radius.' }
   ],
   crystal:[
@@ -1161,6 +1168,26 @@ const TOWERS = {
     { name:'Event Horizon', cost:350, dmg:400, cd:1.6, range:4.5, special:'blackhole', desc:'Every warp effect at once — slow, slam, lift, shove, and the rare fling forward.' }
   ]
 };
+/* TECH KITS. A Bolt Turret or Longshot Nest can be fitted with ONE kit after
+   it is placed, for half the tower's price (KIT_COST_MULT). Base damage stays; the kit
+   adds an effect. The numbers are the design spec (2026-09-03) and are NOT
+   tierPot-scaled: the player paid for the effect, so the effect is what they
+   get. Rocket Rack and Seeker Launcher carry fire + ice + toxic in their
+   splash for free (SPLASH_KITS), on the target and on everything in the blast.
+   towers.html slices this literal too — keep it a plain object. */
+const TECH_KITS = {
+  ice:      { name:'Ice',      glyph:'❄', color:'#77d6ff', slowPct:30, slowDur:1.5, desc:'Bolts chill: 30% slow for 1.5s.' },
+  fire:     { name:'Fire',     glyph:'✹', color:'#ff875f', burnPct:.20, burnDur:3, desc:'Bolts burn: 20% of the hit per second for 3s. The burn ignores armour and never erupts.' },
+  toxic:    { name:'Toxic',    glyph:'☣', color:'#a7e36e', dotPct:.10, dotDur:3, slowPct:20, slowDur:1.5, nonLethal:true, desc:'Bolts sicken: 20% slow, and 10% of the hit per second for 3s that stops at 1 HP.' },
+  piercing: { name:'Piercing', glyph:'➶', color:'#eaf1ff', cdMult:.85, rangeAdd:1.5, dmgMult:1.10, desc:'Bolts fly faster and further: 15% quicker reload, +1.5 range, +10% damage against every armour class.' },
+};
+const SPLASH_KITS = ['fire', 'ice', 'toxic'];
+/* Rocket Rack and Seeker carry the three kits at this fraction of strength.
+   Measured (tools/balance harness, one tower vs ten creeps): at full dose a
+   Rocket Rack went 922 -> 1965 damage on a medium wave and 255 -> 1262 on
+   fortified, above the 145g Ion Array — a free area slow plus an armour-
+   skipping burn on every blast is Ice-grade control on an 85g tower. */
+const SPLASH_KIT_DOSE = .4;
 const LASER_TOWER = { name:'Laser Cannon', cost:650, dmg:300, cd:.2, range:20, special:'laser', desc:'The forbidden capstone: crits, slows, and poisons at extreme speed.' };
 function towerListFor(raceId) { return [...(TOWERS[raceId] || TOWERS.ice), LASER_TOWER]; }
 
@@ -1260,7 +1287,8 @@ const specialBlurbs = {
   crit:'25% chance to strike for double (all Stone towers).', chain:'Chain lightning jumps to 3 extra creeps.', thunder:'Pulse: chips toward 75% max HP, strips shields, may stun.',
   blackhole:'Gravity pulse: area damage, may slow or shove creeps back.', halve:'Halves the target’s current HP (bosses resist).', mind:'−30% of current HP (bosses resist).',
   paralyze:'Sets the target to 11 HP (bosses resist).', armorshred:'Strips 5 armor from the target.', ion:'+500 bonus damage while the target is above 500 HP.',
-  laser:'Crits, slows, and poisons on every hit.', airbonus:'+60% damage to air units.', pierce4:'Ignores 4 points of armor.'
+  laser:'Crits, slows, and poisons on every hit.', airbonus:'+60% damage to air units.', pierce:'Ignores 4 points of armor. Takes a kit after placing.',
+  snipe:'+40% against the creep furthest along the route. Takes a kit after placing.'
 };
 
 function towerDef(raceId, tier) {
@@ -1276,8 +1304,23 @@ const MAX_LEVEL = 3;
 function towerLiveStats(tower) {
   const def = towerDef(tower.raceId, tower.tier);
   const level = tower.level || 0;
-  return { ...def, dmg:Math.round(def.dmg * (1 + .15 * level)), range:def.range + .25 * level };
+  const kit = def.kits && tower.kit ? TECH_KITS[tower.kit] : null;
+  const live = { ...def, dmg:Math.round(def.dmg * (1 + .15 * level) * (kit && kit.dmgMult || 1)), range:def.range + .25 * level + (kit && kit.rangeAdd || 0) };
+  if (kit) {
+    // the kit renames the tower and tints its BOLTS (kitColor), not the tower itself: Tech must never read as Ice
+    live.cd = +(def.cd * (kit.cdMult || 1)).toFixed(3); live.kit = kit; live.kitId = tower.kit;
+    live.name = `${kit.name} ${def.short || def.name}`; live.kitColor = kit.color;
+  }
+  return live;
 }
+/* A kit costs HALF the tower's price (Bolt 4g, Longshot 13g). Measured with
+   the harness in tools/: at equal gold, kitted bolts at full price dealt 55%
+   of plain bolts on a light wave — a kit adds 10% (fire, light) to 50%
+   (fire, fortified) per tower, never 100%. At half price a kitted group sits
+   within ~10% of plain on light waves and ahead on armoured ones, which is
+   the whole reason to fit one. */
+const KIT_COST_MULT = .5;
+function towerKitCost(tower) { return Math.max(4, Math.ceil(towerDef(tower.raceId, tower.tier).cost * KIT_COST_MULT)); }
 function towerLevelCost(tower) { return Math.max(5, Math.ceil(towerDef(tower.raceId, tower.tier).cost * .4 * ((tower.level || 0) + 1))); }
 function towerTierUp(tower) {
   const list = towerListFor(tower.raceId);
@@ -2001,13 +2044,43 @@ function pushDot(creep, dps, dur, tag) {
   creep.dots.push({ dps, until:simTime + dur, tag });
   if (creep.dots.length > TRAIT.dotCap) creep.dots.shift();
 }
+/* One slow rule for every non-frost slow: the strongest active percentage
+   wins and the timer is the later of the two, so a weaker slow never
+   shortens a stronger one. Frost keeps its own ramp (frostPct). */
+function applySlow(creep, pct, dur) {
+  const active = creep.slowUntil > simTime ? (creep.slowPct || 0) : 0;
+  if (pct >= active) creep.slowPct = pct;
+  creep.slowUntil = Math.max(creep.slowUntil || 0, simTime + dur);
+}
+/* A tagged dot that REFRESHES instead of stacking: one burn of a kind per
+   creep, however many towers feed it. nonLethal dots stop at 1 HP. */
+function refreshDot(creep, tag, dps, dur, nonLethal) {
+  if (!creep.dots) creep.dots = [];
+  const d = creep.dots.find((x) => x.tag === tag);
+  if (d) { d.dps = Math.max(d.dps, dps); d.until = simTime + dur; d.floor = nonLethal ? 1 : 0; return; }
+  creep.dots.push({ dps, until:simTime + dur, tag, floor:nonLethal ? 1 : 0 });
+  if (creep.dots.length > TRAIT.dotCap) creep.dots.shift();
+}
+/* dose < 1 is the splash-carried version (SPLASH_KIT_DOSE). The burn and the
+   sickness skip armour VALUE — that is the kit's point — but keep the
+   armour-CLASS multiplier, the same rule Poison's venom follows: without it a
+   Fire Bolt walked straight through Tech's x0.4 into fortified. */
+function applyKitEffects(creep, tower, kit, hitDmg, dose = 1) {
+  if (!kit || creep.hp <= 0) return;
+  const vs = tower ? ((ATTACK_PROFILE[tower.raceId] || { vs:{} }).vs[creep.aClass] ?? 1) : 1;
+  if (kit.slowPct) applySlow(creep, Math.round(kit.slowPct * dose), kit.slowDur);
+  if (kit.burnPct) refreshDot(creep, 'kit-burn', hitDmg * kit.burnPct * dose * vs, kit.burnDur, false);
+  if (kit.dotPct) refreshDot(creep, 'kit-toxic', hitDmg * kit.dotPct * dose * vs, kit.dotDur, !!kit.nonLethal);
+}
 function updateCreep(creep, dt) {
   const now = simTime;
   // stacking damage-over-time (poison stacks + fire ignite) — bypasses armor, still hits shield
   if (creep.dots && creep.dots.length) {
-    let dps = 0;
-    for (let i = creep.dots.length - 1; i >= 0; i -= 1) { if (creep.dots[i].until <= now) creep.dots.splice(i, 1); else dps += creep.dots[i].dps; }
+    let dps = 0, floorDps = 0;
+    for (let i = creep.dots.length - 1; i >= 0; i -= 1) { const d = creep.dots[i]; if (d.until <= now) creep.dots.splice(i, 1); else if (d.floor) floorDps += d.dps; else dps += d.dps; }
     if (dps) applyDamage(creep, dps * dt, null, true);
+    // non-lethal sickness (toxic kit): softens a creep for the towers but never takes the kill
+    if (floorDps && creep.hp > 1) applyDamage(creep, Math.min(floorDps * dt, creep.hp - 1), null, true);
   }
   if (creep.venom > 0) {
     if (now >= creep.venomUntil) creep.venom = 0;   // nothing has poisoned it for a while
@@ -2214,6 +2287,10 @@ function applyHitEffects(creep, tower, stats) {
   if (race === 'electricity' && rng() < TRAIT.elecStasis * tierPot(tower)) creep.stasisUntil = Math.max(creep.stasisUntil, simTime + TRAIT.elecStasisDur);
   if (special === 'pause' && !creep.boss) creep.stunUntil = simTime + 3.5;
   if (special === 'armorshred') creep.armorShred = Math.min(creep.armor, creep.armorShred + 5);
+  // TECH KITS — a fitted kit rides every direct hit; Rocket/Seeker carry fire+ice+toxic on the
+  // target here and on everything in the blast in the splash loop
+  if (stats.kit) applyKitEffects(creep, tower, stats.kit, stats.dmg);
+  if (stats.splashKits) SPLASH_KITS.forEach((id) => applyKitEffects(creep, tower, TECH_KITS[id], stats.dmg, SPLASH_KIT_DOSE));
 }
 function splashSpec(special) {
   if (special === 'smallsplash') return { radius:1.2, mult:.4 };
@@ -2306,6 +2383,7 @@ function resolveProjectileHit(projectile) {
     creeps.forEach((other) => {
       if (other !== target && other.hp > 0 && other.half === projectile.half && Math.hypot(other.x - impactX, other.y - impactY) <= rad) {
         applyDamage(other, stats.dmg * mult, tower);
+        if (stats.splashKits) SPLASH_KITS.forEach((id) => applyKitEffects(other, tower, TECH_KITS[id], stats.dmg * mult, SPLASH_KIT_DOSE));
         if (stats.special === 'frostnova' && tower.raceId === 'ice') { other.frostUntil = simTime + 1.6; other.frostStacks = Math.min(30, (other.frostStacks || 0) + 1); }
         if (isEarth && !other.boss && rng() < TRAIT.earthStunSplash * tierPot(tower)) other.stunUntil = Math.max(other.stunUntil, simTime + .1);
       }
@@ -2512,7 +2590,7 @@ function updateTower(tower, dt) {
   if (!target) { tower.cooldown = .08; return; }
   tower.cooldown = stats.cd;
   projectiles.push({
-    tower, stats, target, half:halfOfRow(tower.r), style:stats.special || 'bolt',
+    tower, stats:stats.kitColor ? { ...stats, color:stats.kitColor } : stats, target, half:halfOfRow(tower.r), style:stats.special || 'bolt',
     x:tower.c + .5, y:tower.r + .5, sx:tower.c + .5, sy:tower.r + .5,
     tx:target.x, ty:target.y, t:0, dur:projectileFlightTime(stats.special)
   });
@@ -3053,6 +3131,7 @@ function drawTowerStructure(ctx, tower, stats, building) {
     // amber status lights — the disambiguator so Tech never reads as Ice-blue
     const blink = Math.sin(simTime * 6 + seed) > 0 ? 'ff' : '55';
     ctx.fillStyle = '#ffcf6b' + blink; ctx.beginPath(); ctx.arc(0, .8, 2, 0, Math.PI * 2); ctx.fill();
+    if (stats.kit) { ctx.fillStyle = stats.kit.color; ctx.beginPath(); ctx.arc(-4.2, 3.6, 2, 0, Math.PI * 2); ctx.fill(); }   // kit lamp in the kit's colour
     if (tier >= 3) { ctx.strokeStyle = '#9db4dd'; ctx.beginPath(); ctx.moveTo(4.5, -2.5); ctx.lineTo(6.5, -9); ctx.stroke(); ctx.fillStyle = '#ffcf6b'; ctx.beginPath(); ctx.arc(6.5, -9, 1.2, 0, Math.PI * 2); ctx.fill(); }
   } else if (race === 'crystal') {
     ctx.fillStyle = '#3a2a5c';
@@ -3706,7 +3785,7 @@ function renderRing() {
   x = Math.min(vr.width - pad - RAD, Math.max(pad + RAD, x));
   y = Math.min(vr.height - pad - RAD, Math.max(pad + RAD, y));
   ring.style.left = `${x}px`; ring.style.top = `${y}px`;
-  const sig = [mode, tower ? `${tower.key}:${tower.level}:${tower.tier}:${tower.priority}` : `g${cell.r},${cell.c}:${selectedTowerTier}`, Math.floor(player.gold / 10)].join('|');
+  const sig = [mode, tower ? `${tower.key}:${tower.level}:${tower.tier}:${tower.kit || ''}:${tower.priority}` : `g${cell.r},${cell.c}:${selectedTowerTier}`, Math.floor(player.gold / 10)].join('|');
   if (ring._sig === sig) { ring.classList.remove('hidden'); return; }
   ring._sig = sig;
   ring.classList.remove('hidden');
@@ -4119,7 +4198,7 @@ function towerAction(kind) {
         player.lumber -= 1; player.lumberSpent += 1; if (player.lumberSpent >= 3) award('lumberjack');
       }
       player.gold -= up.cost; t.invested = up.cost;   // old investment forfeit — the space premium
-      t.tier += 1; t.level = 0;
+      t.tier += 1; t.level = 0; t.kit = null;   // the kit belonged to the old tower and is forfeit with it
       t.blockHp = t.blockMaxHp = 4 + t.tier;
       done += 1;
     }
@@ -4134,8 +4213,29 @@ function towerAction(kind) {
   } else if (kind === 'priority') {
     const next = priorities[(priorities.indexOf(group[0].priority) + 1) % priorities.length];
     group.forEach((t) => { t.priority = next; });
+  } else if (kind.startsWith('kit:')) {
+    const id = kind.slice(4), kit = TECH_KITS[id];
+    let done = 0;
+    for (const t of group) {
+      if (!kit || !towerDef(t.raceId, t.tier).kits || t.kit) continue;
+      const cost = towerKitCost(t);
+      if (player.gold < cost) { if (!done) log(`A ${kit.name} kit costs ${cost}g.`); break; }
+      player.gold -= cost; t.invested += cost; t.kit = id; done += 1;
+    }
+    if (done) log(`Fitted ${done} ${kit.name} kit${done > 1 ? 's' : ''}. ${kit.desc}`);
   }
   renderHud(); renderTowerDetails(); sheetKey = ''; renderCommandSheet();
+}
+/* The four kit choices for a Bolt or Longshot, or the fitted kit's line. Every
+   surface (desktop panel, phone sheet, wisp) renders this and routes the
+   click to towerAction('kit:<id>'). */
+function kitChoicesHtml(group, cls, attr) {
+  const t0 = group[0]; if (!t0) return '';
+  if (!towerDef(t0.raceId, t0.tier).kits) return '';
+  if (t0.kit) { const k = TECH_KITS[t0.kit]; return `<p class="kit-line"><span style="color:${k.color}">${k.glyph}</span> ${k.name} kit fitted. ${k.desc}</p>`; }
+  const cost = group.filter((t) => !t.kit).reduce((s, t) => s + towerKitCost(t), 0);
+  return `<p class="kit-line">Fit a kit for ${cost}g${group.length > 1 ? ' (all)' : ''}: one per tower, base damage stays.</p><div class="kit-row">${Object.entries(TECH_KITS).map(([id, k]) =>
+    `<button class="${cls}${player.gold < cost ? ' poor' : ''}" ${attr}="kit:${id}" title="${k.desc}" style="--kit:${k.color}"><span>${k.glyph}</span><small>${k.name}</small></button>`).join('')}</div>`;
 }
 function selectionTowers() {
   return selectedGroupKeys.map((key) => towers.get(key)).filter(Boolean);
@@ -4162,7 +4262,7 @@ function renderTowerDetails() {
     <p class="td-desc">${many ? 'Double-tap selected every like tower.' : `${stats.desc} ${specialBlurbs[stats.special] || ''}`}</p>
     <div class="td-stats"><span>DMG <b>${stats.dmg}</b></span><span>RANGE <b>${stats.range.toFixed(1)}</b></span><span>RATE <b>${stats.cd.toFixed(2)}s</b></span></div>
     <p class="td-desc profile-line">${attackProfileText(tower.raceId)}</p>
-    ${isYours ? `<div class="td-actions">
+    ${isYours ? `${kitChoicesHtml(group, 'ghost-button kit-btn', 'data-td-kit')}<div class="td-actions">
       <button id="td-level" class="action-button" ${!upgradable.length || player.gold < (many ? 1 : levelCostAll) ? 'disabled' : ''}>${!upgradable.length ? 'Max level' : many ? `Upgrade all • ${levelCostAll}g` : `Upgrade level ${levelCostAll}g`}</button>
       ${tierable.length ? (() => { const laserNext = towerTierUp(tower)?.next.name === 'Laser Cannon'; const blocked = player.gold < (many ? 1 : tierCostAll) || (laserNext && player.lumber < 1); return `<button id="td-tier" class="action-button td-tier" ${blocked ? 'disabled' : ''}>→ ${towerTierUp(tower)?.next.name || 'next tier'}${many ? ` all • ${tierCostAll}g` : ` ${tierCostAll}g`}${laserNext ? ' +1🪵' : ''}</button>`; })() : ''}
       <button id="td-priority" class="ghost-button">Target: ${tower.priority}</button>
@@ -4174,6 +4274,7 @@ function renderTowerDetails() {
   $('td-tier')?.addEventListener('click', () => towerAction('tier'));
   $('td-sell').addEventListener('click', () => towerAction('sell'));
   $('td-priority').addEventListener('click', () => towerAction('priority'));
+  panel.querySelectorAll('[data-td-kit]').forEach((b) => b.addEventListener('click', () => towerAction(b.dataset.tdKit)));
 }
 
 function renderSendPanel() {
@@ -5401,7 +5502,7 @@ function mpTick(dt) {
   if (mp.snapClock <= 0) {
     mp.snapClock = .3;
     mpSend({ t:'snap',
-      towers:[...towers.values()].filter((t) => t.owner === 'player').map((t) => [t.r, t.c, races.findIndex((race) => race.id === t.raceId), t.tier]),
+      towers:[...towers.values()].filter((t) => t.owner === 'player').map((t) => [t.r, t.c, races.findIndex((race) => race.id === t.raceId), t.tier, t.kit ? Object.keys(TECH_KITS).indexOf(t.kit) + 1 : 0]),   // 5th: kit (0 = none); old clients ignore it
       creeps:creeps.filter((c) => c.hp > 0).map((c) => [+c.x.toFixed(1), +c.y.toFixed(1), Object.keys(roleStyle).indexOf(c.role), +(c.hp / c.maxHp).toFixed(2), c.air ? 1 : 0, c.sent ? 1 : 0])
     });
   }
@@ -5411,7 +5512,7 @@ function drawOpponentMirror(ctx) {
   if (!mp.active) return;
   const roleKeys = Object.keys(roleStyle);
   if (!mp.snap) return;
-  (mp.snap.towers || []).forEach((entry) => { if (!Array.isArray(entry)) return; const [r, c, raceIdx, tier] = entry;
+  (mp.snap.towers || []).forEach((entry) => { if (!Array.isArray(entry)) return; const [r, c, raceIdx, tier, kitN] = entry;
     const race = races[raceIdx] || races[0];
     const x = (31 - c) * CELL, y = (48 - r) * CELL;
     ctx.save();
@@ -5421,6 +5522,7 @@ function drawOpponentMirror(ctx) {
     ctx.beginPath(); ctx.roundRect(-half, -half, half * 2, half * 2, 5); ctx.fill(); ctx.stroke();
     ctx.fillStyle = race.color; ctx.font = `${tier >= 3 ? 14 : 12}px "DM Mono", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(race.symbol, 0, 1);
+    if (kitN) { const k = Object.values(TECH_KITS)[kitN - 1]; if (k) { ctx.fillStyle = k.color; ctx.beginPath(); ctx.arc(half - 3, -half + 3, 2.2, 0, Math.PI * 2); ctx.fill(); } }
     ctx.restore();
   });
   (mp.snap.creeps || []).forEach((entry) => { if (!Array.isArray(entry)) return; const [x, y, roleIdx, hpFrac, air, sent] = entry;
@@ -5733,6 +5835,7 @@ function renderCommandSheet() {
       const laserNext = towerTierUp(t0)?.next.name === 'Laser Cannon';
       body = `
         <div class="sheet-detail"><strong>${many ? `${sel.length} × ` : ''}${stats.name}</strong>${many ? ' — batch selection' : ` — Level ${(t0.level || 0) + 1} • ${t0.kills} kills`}<br>${stats.desc} ${specialBlurbs[stats.special] || ''}<br><em>${stats.dmg} dmg • ${stats.range.toFixed(1)} rng • ${stats.cd.toFixed(2)}s • ${attackProfileText(t0.raceId)}</em></div>
+        ${kitChoicesHtml(sel, 'sheet-chip kit-btn', 'data-sheet-act')}
         <div class="sheet-grid sheet-actions">
           <button class="sheet-chip ${!upgradable.length || player.gold < 1 ? 'poor' : ''}" data-sheet-act="level"><span>⬆</span><small>Level${many ? ' all' : ''}</small><b>${upgradable.length ? `${levelCostAll}g` : 'MAX'}</b></button>
           ${tierable.length ? `<button class="sheet-chip ${player.gold < 1 || (laserNext && player.lumber < 1) ? 'poor' : ''}" data-sheet-act="tier"><span>⏫</span><small>${towerTierUp(t0)?.next.name.split(' ')[0] || 'Tier'}</small><b>${tierCostAll}g${laserNext ? '+🪵' : ''}</b></button>` : ''}
@@ -5863,6 +5966,7 @@ function renderWispInspect() {
   if (!t0) return close + `<div class="wp-detail">Tap any tower, creep, or rival tower to inspect it.</div>`;
   const up = towerTierUp(t0);
   return close + `<div class="wp-detail"><b>${sel.length>1?sel.length+'× ':''}${stats.name}${t0.level?(' +'+t0.level):''}</b><br>${stats.dmg} dmg · ${(stats.dmg/stats.cd).toFixed(0)} dps · ${stats.range.toFixed(1)} rng<br>${attackProfileText(t0.raceId)}<br>${specialBlurbs[stats.special]||stats.desc||''}${up?`<br><i>→ ${up.next.name}: ${up.next.dmg} dmg · ${up.next.range} rng (full ${up.cost}g)</i>`:'<br><i>max tier</i>'}</div>
+    ${kitChoicesHtml(sel, 'wp-act kit-btn', 'data-wp-act')}
     <div class="wp-actions">
       <button class="wp-act" data-wp-act="level">⬆ Level (${sel.filter((t)=>t.level<MAX_LEVEL).reduce((s,t)=>s+towerLevelCost(t),0)||'MAX'}g)</button>
       <button class="wp-act" data-wp-act="tier">⏫ Tier (${sel.filter((t)=>towerTierUp(t)).reduce((s,t)=>s+(towerTierUp(t)?.cost||0),0)}g)</button>

@@ -49,6 +49,8 @@ const data = {
   LASER: evalLiteral(sliceLiteral(src, 'const LASER_TOWER = {', '{', '}')),
   PROFILE: evalLiteral(sliceLiteral(src, 'const ATTACK_PROFILE = {', '{', '}')),
   TRAIT: evalLiteral(sliceLiteral(src, 'const TRAIT = {', '{', '}')),
+  KITS: (() => { try { return evalLiteral(sliceLiteral(src, 'const TECH_KITS = {', '{', '}')); } catch (e) { return null; } })(),
+  SPLASH_DOSE: (() => { const m = src.match(/const SPLASH_KIT_DOSE = ([\d.]+)/); return m ? +m[1] : null; })(),
 };
 
 let sha = 'unknown';

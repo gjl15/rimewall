@@ -1,2 +1,6 @@
 # per-machine Claude Code overrides — never shared
 .claude/settings.local.json
+tools/harness/out/
+tools/harness/node_modules/
+tools/harness/package.json
+tools/harness/package-lock.json
