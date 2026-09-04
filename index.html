@@ -226,7 +226,7 @@ h2 span { color:#7583a6; }
 .map-toggles button.on { background:#ffd86b; border-color:#8a6a12; box-shadow:0 0 0 2px #ffd86b66, 0 4px 12px #17325a33; }
 .wisp-undo { position:absolute; top:-14px; left:-14px; display:flex; align-items:center; justify-content:center; width:34px; height:34px; border:1.5px solid #ffd86b; border-radius:50%; background:#3a2a08; color:#ffd86b; font-size:13px; font-style:normal; box-shadow:0 0 10px #ffd86b99; animation:undo-pulse 1.1s ease-in-out infinite; }
 .wisp-undo.hidden { display:none; }
-.map-zoom-controls { position:absolute; right:12px; bottom:12px; z-index:30; display:flex; align-items:center; gap:8px; padding:5px; border:1px solid #17325a99; border-radius:10px; background:#9ce3d8ee; box-shadow:0 4px 12px #17325a33; }.map-zoom-controls button { min-width:44px; height:44px; padding:0 6px; border:0; border-radius:7px; color:#17325a; background:transparent; font:700 15px 'DM Mono',monospace; }.map-zoom-controls button:hover { background:#d8f6ef; }.map-zoom-controls span { min-width:37px; color:#17325a; font:700 8px 'DM Mono',monospace; text-align:center; }.map-zoom-controls button:last-child { min-width:44px; font-size:8px; text-transform:uppercase; }.zoom-hint { position:absolute; left:12px; bottom:15px; z-index:30; color:#17325a; font:700 8px 'DM Mono',monospace; letter-spacing:.08em; text-shadow:0 1px #d8f6ef; pointer-events:none; }
+.map-zoom-controls { position:absolute; right:12px; bottom:12px; z-index:30; display:flex; align-items:center; gap:8px; padding:5px; border:1px solid #17325a99; border-radius:10px; background:#9ce3d8ee; box-shadow:0 4px 12px #17325a33; }.map-zoom-controls button { min-width:44px; height:44px; padding:0 6px; border:0; border-radius:7px; color:#17325a; background:transparent; font:700 15px 'DM Mono',monospace; }.map-zoom-controls button:hover { background:#d8f6ef; }.map-zoom-controls span { min-width:37px; color:#17325a; font:700 8px 'DM Mono',monospace; text-align:center; }.map-zoom-controls button:last-child { min-width:44px; font-size:8px; text-transform:uppercase; }.zoom-hint { display:block; margin:6px 2px 0; color:#7583a6; font:700 8px 'DM Mono',monospace; letter-spacing:.08em; pointer-events:none; }   /* under the map, not on it: inside the viewport it overprinted the ship row */
 .log-strip { display:flex; align-items:center; gap:10px; min-height:48px; margin-top:12px; padding:0 14px; border:1px solid #233150; border-radius:10px; color:#9ba7c4; font:11px 'DM Mono',monospace; background:#0d1424; }
 .command-panel { align-self:start; padding:18px; border:1px solid #2c3959; border-radius:15px; background:linear-gradient(160deg,#17213a,#0e1527); }
 .race-identity { gap:12px; padding-bottom:18px; border-bottom:1px solid #2a3858; }.big-rune { display:grid; place-items:center; width:48px; height:48px; border:1px solid var(--race,#77d6ff); border-radius:13px; color:var(--race,#77d6ff); background:#77d6ff12; font-size:25px; }.race-identity strong,.race-identity span:last-child { display:block; }.race-identity strong { margin-top:5px; font-size:18px; }.race-identity span:last-child { margin-top:3px; color:#8e9ab8; font-size:11px; }
@@ -352,7 +352,7 @@ h2 span { color:#7583a6; }
   .battle-title-row h2, .battle-title-row .eyebrow { display:none; }
   .battle-title-row .title-actions { margin-left:auto; }
   .battle-title-row .ghost-button { white-space:nowrap; padding:9px 10px; font-size:10px; }
-  .map-viewport { height:calc(100dvh - 260px); min-height:420px; }.wave-banner { font-size:8px; }.ov { font-size:7px; }.ov small { font-size:6px; }.map-zoom-controls { right:8px; bottom:8px; }.zoom-hint { left:8px; bottom:11px; font-size:7px; }.debug-bar { gap:9px; font-size:8px; }.dbg-stats { flex-basis:100%; margin-left:0; }
+  .map-viewport { height:calc(100dvh - 260px); min-height:420px; }.wave-banner { font-size:8px; }.ov { font-size:7px; }.ov small { font-size:6px; }.map-zoom-controls { right:8px; bottom:8px; }.zoom-hint { font-size:7px; }.debug-bar { gap:9px; font-size:8px; }.dbg-stats { flex-basis:100%; margin-left:0; }
   /* tower line becomes a horizontal chip strip so the map stays on screen */
   .tower-list { display:grid; grid-auto-flow:column; grid-auto-columns:168px; max-height:none; overflow-x:auto; overflow-y:hidden; padding-bottom:6px; scrollbar-width:thin; }
   .tower-row { flex-direction:column; align-items:flex-start; gap:4px; }
@@ -693,11 +693,24 @@ body.mp-live .resource.rival-income { display:inline-flex; }
 .arena .resource { flex:0 0 auto; white-space:nowrap; }             /* R1 */
 .arena .resource em { font-variant-numeric:tabular-nums; font-feature-settings:'tnum' 1; }  /* R4 */
 .arena .hud .hud-yield, .hud-yield { display:none !important; }      /* R3 (beats .arena .match-state !important) */
-.arena .match-state { display:flex; align-items:center; gap:5px; flex:1 1 auto; min-width:0; }
+.arena .match-state { display:flex; align-items:center; gap:5px; flex:0 0 auto; }   /* size to content: when this shrank, the timer spilled over the gold readout and the row check saw nothing wrong */
 .arena .match-state #wave-label { flex:0 0 auto; }
 .arena .match-state #timer-label { flex:0 0 auto; }
 .arena .wave-threat { flex:1 1 auto; min-width:0; overflow:hidden; flex-wrap:nowrap; }
 .arena .wave-threat .wt-tag, .arena .wave-threat .wt-arm { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:30vw; }
+
+/* PHONE OVERLAYS. On a phone the board IS the screen, and nothing may sit on
+   the player's ship row. The zoom widget becomes a "150% · reset" pill at the
+   top-right that exists only while zoomed (pinch and double-tap do the zooming),
+   the gesture hint is gone (the Coach teaches it), and the match log moves up
+   to the North Ship strip, which is decoration rather than build cells. */
+.arena .zoom-hint { display:none; }
+.arena .map-zoom-controls { left:auto; right:8px; bottom:auto; top:8px; gap:0; padding:0; opacity:0; pointer-events:none; transition:opacity .18s; }
+.arena .map-viewport.zoomed .map-zoom-controls { opacity:1; pointer-events:auto; }
+.arena .map-zoom-controls #zoom-in-button, .arena .map-zoom-controls #zoom-out-button { display:none; }
+.arena .map-zoom-controls #zoom-label { min-width:0; padding:0 4px 0 10px; font-size:10px; }
+.arena .map-zoom-controls #zoom-reset-button { min-width:0; height:36px; padding:0 10px 0 6px; font-size:9px; }
+.arena #arena-log { left:64px; right:auto; bottom:auto; top:8px; transform:none; max-width:calc(100% - 64px - 104px); }
 .arena .resources { flex:0 0 auto; margin-left:auto; gap:6px; }
 .arena .resource.lumber { display:none; }                 /* lumber lives on the build bar */
 /* pin the wisp to a fixed on-screen corner in arena (was floating half off-screen) */
@@ -713,7 +726,7 @@ body.mp-live .resource.rival-income { display:inline-flex; }
 .arena .hud-brand span { display:inline-block; max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; vertical-align:middle; font:800 13px 'DM Mono',monospace; letter-spacing:.06em; }
 .arena .hud-brand .crest-mark { flex:0 0 auto; }
 /* compact, always-visible wave + countdown in the top bar (threat/stats live on the river banner) */
-.arena .match-state { display:flex !important; align-items:center; gap:5px; flex:0 1 auto; min-width:0; font:600 11px 'DM Mono',monospace; }
+.arena .match-state { display:flex !important; align-items:center; gap:5px; flex:0 0 auto; font:600 11px 'DM Mono',monospace; }   /* never shrink: R5 — a shrunk box spilled the timer over the gold */
 .arena .match-state #wave-label { flex:0 0 auto; white-space:nowrap; color:var(--ice); }
 .arena .match-state #timer-label { flex:0 0 auto; white-space:nowrap; color:#ffd86b; }
 .arena .match-state .wave-threat, .arena .match-state .live-dot { display:none; }
@@ -809,7 +822,7 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
         </div>
 
         <div id="race-grid-wrap" class="race-grid-wrap">
-          <div class="rule-line"><span>SELECT YOUR RACE</span><i></i><small>9 ELEMENTS</small></div>
+          <div class="rule-line"><span>SELECT YOUR RACE</span><i></i><small id="race-count">10 ELEMENTS</small></div>
           <div id="race-grid" class="race-grid" aria-label="Element roster"></div>
           <div id="race-detail" class="race-detail hidden"></div>
         </div>
@@ -965,8 +978,8 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
               <div id="action-ring" class="action-ring hidden"></div>
               <div class="map-toggles" aria-label="Map indicators"><button id="mt-routes" title="Show creep routes">🧭</button><button id="mt-ranges" title="Show tower ranges">◎</button><button id="mt-inspect" title="Inspect — tap a tower or creep to read its stats" aria-pressed="false">🔍</button></div>
               <div class="map-zoom-controls" aria-label="Map zoom controls"><button id="zoom-out-button" aria-label="Zoom out">−</button><span id="zoom-label">100%</span><button id="zoom-in-button" aria-label="Zoom in">+</button><button id="zoom-reset-button" aria-label="Reset map zoom">reset</button></div>
-              <div class="zoom-hint">PINCH TO ZOOM • DRAG WHEN ZOOMED<span class="hotkey-hint"> • 1–9 SEND • Q–U TOWERS • ESC = UNDO • RIGHT-CLICK / HOLD = SELL</span></div>
             </div>
+            <div class="zoom-hint">PINCH TO ZOOM • DRAG WHEN ZOOMED<span class="hotkey-hint"> • 1–9 SEND • Q–U TOWERS • ESC = UNDO • RIGHT-CLICK / HOLD = SELL</span></div>
 
             <div id="quick-send" class="quick-send" aria-label="Quick send bar"></div>
             <div id="command-bar" class="command-bar hidden" aria-label="Command bars">
@@ -3914,6 +3927,16 @@ function hudContractReport() {
   if (centres.length > 1 && Math.max(...centres) - Math.min(...centres) > 6) {
     bad.push(`R1: items are on ${new Set(centres).size} rows (centres ${[...new Set(centres)].join(',')}) - arena .hud cascade is stacking them`);
   }
+  /* R5  NO OVERPRINT. Two readouts never share pixels. The timer once spilled
+     over the gold because .match-state shrank below its content: the row did
+     not overflow, so R1/R2 passed while "00:45 ◆30" read as "00♦430". */
+  const leaves = [...hud.querySelectorAll('.hud-brand, #wave-label, #timer-label, .wave-threat, .resource, .vs-mark')]
+    .filter((e) => getComputedStyle(e).display !== 'none' && !e.closest('.hud-yield'))
+    .map((e) => ({ e, r:e.getBoundingClientRect() })).filter((o) => o.r.width > 0).sort((a, b) => a.r.left - b.r.left);
+  for (let i = 1; i < leaves.length; i += 1) {
+    const prev = leaves[i - 1], cur = leaves[i];
+    if (cur.r.left < prev.r.right - 1) bad.push(`R5: "${prev.e.textContent.trim().slice(0, 12)}" overprints "${cur.e.textContent.trim().slice(0, 12)}" by ${Math.round(prev.r.right - cur.r.left)}px`);
+  }
   if (bad.length) console.warn('[top bar contract]', bad.join(' | '));
   return bad;
 }
@@ -4345,6 +4368,18 @@ function smoothZoomTo(nextScale, anchor = null) {
   camAnim = { z, x, y };
 }
 function camZoomNow() { return camAnim ? camAnim.z : mapZoomScale; }
+/* Where the player's half currently sits on screen, so a discrete zoom step
+   (button, wisp) grows the half you build in rather than the river. Pinch and
+   double-tap keep their own anchors under the fingers. */
+function playerAnchor() {
+  const rect = $('map-viewport').getBoundingClientRect();
+  const z = camZoomNow(), ox = camAnim ? camAnim.x : mapOffsetX, oy = camAnim ? camAnim.y : mapOffsetY;
+  // anchor on the board's bottom edge, centred: zooming in then keeps your ship
+  // row on screen and grows your maze upward from it
+  const x = frameBase.left + ox + frameBase.width * .5 * z;
+  const y = frameBase.top + oy + frameBase.height * z;
+  return { x:Math.min(rect.width - 1, Math.max(1, x)), y:Math.min(rect.height - 1, Math.max(1, y)) };
+}
 function maybeDoubleTapZoom(event, cell, terrain) {
   // double-tap water/cliff/rival ground toggles zoom, Google-Maps style
   const shrine = terrain === T.CLIFF && cell.r >= 34 && cell.r <= 37 && cell.c >= 11 && cell.c <= 20;
@@ -4402,6 +4437,7 @@ function applyMapTransform() {
   else mapOffsetY = Math.max(vh - scaledH - frameBase.top, Math.min(-frameBase.top, mapOffsetY));
   $('map-frame').style.transform = `translate(${mapOffsetX}px, ${mapOffsetY}px) scale(${mapZoomScale})`;
   $('zoom-label').textContent = `${Math.round(mapZoomScale * 100)}%`;
+  viewport.classList.toggle('zoomed', mapZoomScale > 1.01);   // phones show the reset pill only while zoomed
   // arena (touch match): the map owns all gestures. Otherwise: unzoomed maps
   // let one finger scroll the page; zoomed maps pan with one finger.
   viewport.style.touchAction = (document.body.classList.contains('arena') || mapZoomScale > 1) ? 'none' : 'manipulation';
@@ -4595,8 +4631,8 @@ function setupMapZoom() {
     }
     event.preventDefault();
   }, { passive:false });
-  $('zoom-in-button').addEventListener('click', () => smoothZoomTo(camZoomNow() + .25));
-  $('zoom-out-button').addEventListener('click', () => smoothZoomTo(camZoomNow() - .25));
+  $('zoom-in-button').addEventListener('click', () => smoothZoomTo(camZoomNow() + .25, playerAnchor()));
+  $('zoom-out-button').addEventListener('click', () => smoothZoomTo(camZoomNow() - .25, playerAnchor()));
   $('zoom-reset-button').addEventListener('click', () => { camAnim = { z:1, x:0, y:0 }; resetPageZoom(); });
   window.addEventListener('resize', fitBoardToViewport);
   window.visualViewport?.addEventListener('resize', fitBoardToViewport);
@@ -4999,6 +5035,7 @@ function renderRaceDetail() {
   });
 }
 function renderRaceCards() {
+  const raceCount = $('race-count'); if (raceCount) raceCount.textContent = `${races.length} ELEMENTS`;   // was a hardcoded "9" with ten races in the list
   if (!raceUnlocked(selectedRace.id)) selectedRace = races.find((race) => raceUnlocked(race.id)) || races[0];
   $('race-grid').innerHTML = races.map((race) => {
     const locked = !raceUnlocked(race.id);
@@ -5753,8 +5790,8 @@ function renderWispPanel(mode) {
     if (d === 'close') return closeWispMenus();
     if (d === 'learn') return renderWispPanel('learn');
     if (d === 'settings') { closeWispMenus(); openSettings(); return; }
-    if (d === 'zoomin') { smoothZoomTo(camZoomNow() + .3, { x:r.width/2, y:r.height/2 }); }
-    else if (d === 'zoomout') { smoothZoomTo(camZoomNow() - .3, { x:r.width/2, y:r.height/2 }); }
+    if (d === 'zoomin') { smoothZoomTo(camZoomNow() + .3, playerAnchor()); }
+    else if (d === 'zoomout') { smoothZoomTo(camZoomNow() - .3, playerAnchor()); }
     else if (d === 'zoomreset') { camAnim = { z:1, x:0, y:0 }; }
     else if (d === 'routes') { debug.routes = !debug.routes; syncMapToggles(); }
     else if (d === 'ranges') { debug.ranges = !debug.ranges; syncMapToggles(); }
