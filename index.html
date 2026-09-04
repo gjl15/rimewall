@@ -801,7 +801,7 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
             <span class="race-card-copy"><span class="selection-kicker">YOUR ELEMENT — TAP TO CHANGE</span><strong id="selected-name">Ice</strong><span id="selected-desc">Slows enemies and buys your maze time.</span></span>
             <span class="race-card-caret">▾</span>
           </button>
-          <div class="selection-actions"><label class="lives-pick" for="mode-select">MODE <select id="mode-select"><option value="skirmish" selected>Waves vs rival</option><option value="classic">Classic Wars • sends only</option></select></label><label class="lives-pick" for="team-select">TEAM <select id="team-select"><option value="1" selected>1v1 • one batch</option><option value="2">2v2 • two batches</option><option value="3">3v3 • three batches</option></select></label><label class="lives-pick" for="lives-select">LIFEFORCE <select id="lives-select"><option value="25">25 • classic</option><option value="50">50 • veteran</option><option value="100" selected>100 • easy</option></select></label></div>
+          <div class="selection-actions"><label class="lives-pick" for="mode-select">MODE <select id="mode-select"><option value="skirmish" selected>Waves vs rival</option><option value="survival">Survival • creeps only, no rival</option><option value="classic">Classic Wars • sends only</option></select></label><label class="lives-pick" for="team-select">TEAM <select id="team-select"><option value="1" selected>1v1 • one batch</option><option value="2">2v2 • two batches</option><option value="3">3v3 • three batches</option></select></label><label class="lives-pick" for="lives-select">LIFEFORCE <select id="lives-select"><option value="25">25 • classic</option><option value="50">50 • veteran</option><option value="100" selected>100 • easy</option></select></label></div>
           <div class="setup-actions-row">
             <button id="start-button" class="primary-button">Enter the battlefield <span>→</span></button>
             <button id="settings-open" class="gear-button" title="Settings" aria-label="Settings">⚙</button>
@@ -1295,9 +1295,20 @@ function buildBaseTerrain() {
   // approach to the ship, so the middle is a real third lane (wider than the sides, as in the reference).
   for (let r = 38; r <= 45; r += 1) for (let c = 9; c <= 22; c += 1) baseTerrain[idx(r, c)] = T.FLOOR;
   for (let r = 3; r <= 10; r += 1) for (let c = 9; c <= 22; c += 1) baseTerrain[idx(r, c)] = T.FLOOR;
+  /* A MAZEABLE POCKET IN FRONT OF EACH SHIP. Rows 2 and 46 were solid cliff with
+     a two-cell hole punched in them, so the last thing a creep walked through
+     was a funnel you could not build in — the most valuable ground on the board
+     and it was off limits. Both rows are now open across the middle, giving a
+     pocket two rows deep and twelve wide right at the ship, and the gate mouth
+     itself is four cells rather than two so a wider maze still has a way out. */
+  for (const c of [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]) {
+    baseTerrain[idx(2, c)] = T.FLOOR; baseTerrain[idx(46, c)] = T.FLOOR;
+  }
   // Gates: the center river spawn and the two harbor exits stay walkable, never buildable.
-  [15, 16].forEach((c) => {
+  [14, 15, 16, 17].forEach((c) => {
     baseTerrain[idx(2, c)] = T.GATE; baseTerrain[idx(46, c)] = T.GATE;
+  });
+  [15, 16].forEach((c) => {
     for (let r = 23; r <= 25; r += 1) baseTerrain[idx(r, c)] = T.GATE;
   });
 }
@@ -1324,13 +1335,14 @@ Object.values(ROUTES).forEach((sides) => Object.values(sides).forEach((nodes) =>
 
 const PLAYER_HALF = 'south', ENEMY_HALF = 'north';
 function halfOfRow(r) { return r <= 24 ? 'north' : 'south'; }
-function isPlayerBuildRow(r) { return r >= 26 && r <= 45; }
+// row 46 is the new pocket at the ship; the cliff row is mazeable ground now
+function isPlayerBuildRow(r) { return r >= 26 && r <= 46; }
 
 function terrainAt(r, c) { return inBounds(r, c) ? terrain[idx(r, c)] : T.CLIFF; }
 function isWalkable(r, c) { const t = terrainAt(r, c); return t === T.FLOOR || t === T.GATE || t === T.HARBOR || t === T.RIVER; }
 function isBuildableCell(r, c, forHalf = PLAYER_HALF) {
   if (terrainAt(r, c) !== T.FLOOR || protectedCells.has(idx(r, c)) || towers.has(idx(r, c))) return false;
-  return forHalf === PLAYER_HALF ? isPlayerBuildRow(r) : (r >= 3 && r <= 22);
+  return forHalf === PLAYER_HALF ? isPlayerBuildRow(r) : (r >= 2 && r <= 22);   // row 2 mirrors the ship pocket
 }
 
 /* ---------------- Pathfinding (A*, 8-neighbor with diagonals, towers block) ----------------
@@ -1827,7 +1839,8 @@ function resetMatchState() {
   matchLeak = { west: 0, east: 0 };
   towers.clear(); towersVersion += 1;
   creeps.length = 0; projectiles.length = 0; effects.length = 0; pendingSpawns.length = 0;
-  matchMode = document.getElementById('mode-select')?.value === 'classic' ? 'classic' : 'skirmish';
+  const pickedMode = document.getElementById('mode-select')?.value;
+  matchMode = pickedMode === 'classic' ? 'classic' : (pickedMode === 'survival' ? 'survival' : 'skirmish');
   const lives = startingLives();
   player = { gold:START_GOLD, income:0, lives, kills:0, lumber:0, shrine:1, races:[selectedRace.id], lumberSpent:0, startLives:lives };
   const questGold = mp.active ? 0 : 25 * (ensureDaily().done.length || 0);
@@ -1931,7 +1944,10 @@ function queueWaveSpawns(waveDef) {
   const count = Math.round((waveDef.count || 6) * (waveDef.boss ? 1 : 1.3));   // ~30% more bodies
   const gap = (waveDef.role === 'swarm' ? .26 : .45) * (waveDef.boss ? 4 : 1); // arrive in overlapping packs, not a trickle
   const batches = defendersPerHalf();
-  (mp.active ? ['south'] : ['north', 'south']).forEach((half) => {
+  // survival has no rival, so spawning a north wave would just tick down a
+  // lifeforce bar nobody is playing — only the player's half gets creeps
+  const halves = (mp.active || matchMode === 'survival') ? ['south'] : ['north', 'south'];
+  halves.forEach((half) => {
     for (let batch = 0; batch < batches; batch += 1) {
       const stagger = batch * gap * .5;   // interleave the batches instead of stacking them on the same tick
       for (let i = 0; i < count; i += 1) {
@@ -2856,7 +2872,7 @@ function simulate(dt) {
   if (projectiles.length > 360) projectiles.splice(0, projectiles.length - 360);   // endless perf cap
   for (let i = effects.length - 1; i >= 0; i -= 1) if (effects[i].until <= simTime) effects.splice(i, 1);
   if (effects.length > 140) effects.splice(0, effects.length - 140);
-  if (!mp.active) updateEnemyAI(dt);
+  if (!mp.active && matchMode !== 'survival') updateEnemyAI(dt);   // survival: nobody on the north half
   mpTick(dt);
 }
 
@@ -3952,6 +3968,12 @@ function renderHud() {
   renderCommandSheet();
   renderUndoSlot();
   $('lives-label').textContent = player.lives;
+  /* Survival has no rival, so the RIVAL lifeforce readout is a number that can
+     never move. Hide the whole chip rather than show a permanent 100. */
+  const rivalChip = document.querySelector('.resource.enemy');
+  if (rivalChip) rivalChip.classList.toggle('hud-yield', matchMode === 'survival');
+  const rivalIncChip = document.querySelector('.resource.rival-income');
+  if (rivalIncChip) rivalIncChip.classList.toggle('hud-yield', matchMode === 'survival');
   $('enemy-lives-label').textContent = enemy.lives;
   const rivInc = $('rival-income-label'); if (rivInc) rivInc.textContent = mp.oppIncome != null ? hudSigned(BASE_INCOME + incomePayout(mp.oppIncome)) : '+?';
   enforceHudContract();   // R1-R3: re-fit the row against the values just written
@@ -4732,7 +4754,9 @@ function startBattle() {
   Coach.start();
   log(matchMode === 'classic'
     ? `Classic Wars vs the ${races.find((race) => race.id === enemy.raceId).name} rival: no neutral waves — build a maze, send attackers from the Shrine, and race their lifeforce to zero.`
-    : `Match started vs the ${races.find((race) => race.id === enemy.raceId).name} rival. First wave in ${Math.ceil(waveClock)}s — place starter towers near the gate.`);
+    : matchMode === 'survival'
+      ? `SURVIVAL — no rival, just the waves. First wave in ${Math.ceil(waveClock)}s. See how far you get.`
+      : `Match started vs the ${races.find((race) => race.id === enemy.raceId).name} rival. First wave in ${Math.ceil(waveClock)}s — place starter towers near the gate.`);
 }
 let canvasesReady = false;
 function setupCanvasesOnce() { if (!canvasesReady) { setupCanvases(); canvasesReady = true; } }
