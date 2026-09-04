@@ -710,11 +710,26 @@ body.mp-live .resource.rival-income { display:inline-flex; }
 .arena .map-zoom-controls #zoom-in-button, .arena .map-zoom-controls #zoom-out-button { display:none; }
 .arena .map-zoom-controls #zoom-label { min-width:0; padding:0 4px 0 10px; font-size:10px; }
 .arena .map-zoom-controls #zoom-reset-button { min-width:0; height:36px; padding:0 10px 0 6px; font-size:9px; }
-.arena #arena-log { left:64px; right:auto; bottom:auto; top:8px; transform:none; max-width:calc(100% - 64px - 104px); }
+.arena #arena-log { left:140px; right:auto; bottom:auto; top:8px; transform:none; max-width:calc(100% - 140px - 8px); }
+.arena .map-viewport.zoomed #arena-log { max-width:calc(100% - 140px - 100px); }
+/* The three map toggles were a 44px column down the board's left edge, hiding
+   the rival's edge lane. On a phone they are a 40px row across the top-left,
+   over the harbour and cliff rows, which nobody can build on. */
+.arena .map-toggles { left:6px; top:6px; flex-direction:row; gap:4px; }
+.arena .map-toggles button { width:40px; height:40px; font-size:15px; border-radius:9px; background:#9ce3d8d9; }
+/* The crest was 56px tall and set the whole HUD to 70px. 32px reads fine at
+   this size and gives the board the difference. */
+.arena .hud-brand .crest-mark { width:32px; height:32px; }
+.arena .battle-content { padding-top:52px; }
+@media (max-width:430px) { .arena .hud .hud-brand span { display:none; } }   /* crest only: the wordmark wrapped under the crest as "RIME…" and made the bar 68px tall */
+/* The wisp used to float at a fixed 158px, which on a phone is the middle of
+   the build cards. It docks to the BUILD handle row now, whatever height the
+   bars are (--cb-h is set by fitBoardToViewport). */
+.arena .wisp { right:58px; bottom:calc(var(--cb-h, 277px) - 48px); }
 .arena .resources { flex:0 0 auto; margin-left:auto; gap:6px; }
 .arena .resource.lumber { display:none; }                 /* lumber lives on the build bar */
 /* pin the wisp to a fixed on-screen corner in arena (was floating half off-screen) */
-.arena .wisp { position:fixed; right:12px; bottom:calc(158px + env(safe-area-inset-bottom)); }
+.arena .wisp { position:fixed; }   /* right/bottom: see the PHONE OVERLAYS block — it docks to the BUILD handle row */
 
 .summary-hook { margin:2px 0 10px; font:600 13px 'DM Mono',monospace; color:#ffd86b; text-align:center; }
 .summary-streak { margin:8px 0 0; font:600 11px 'DM Mono',monospace; color:#ff9f6e; text-align:center; }
@@ -4411,6 +4426,7 @@ function fitBoardToViewport() {
     const top = viewport.getBoundingClientRect().top;
     const bar = $('command-bar');
     const barH = bar && !bar.classList.contains('hidden') ? bar.offsetHeight : 0;
+    document.documentElement.style.setProperty('--cb-h', `${barH}px`);   // the wisp docks to the bar's top edge
     const room = Math.round(winH - top - barH - 10);
     if (room >= 220) viewport.style.height = `${room}px`;
     else viewport.style.height = '';
@@ -4729,6 +4745,7 @@ function startBattle() {
   applySavedSketchToTerrain();
   resetMatchState();
   battleRunning = true;
+  if (phoneAccordion()) { barBuildCollapsed = false; barSendCollapsed = true; }   // phones open one bar at a time; start on BUILD
   $('race-screen').classList.add('hidden');
   $('collab-screen').classList.add('hidden');
   $('drawpad-screen').classList.add('hidden');
@@ -5444,9 +5461,14 @@ function applyUiMode() {
 let sheetTab = 'sends', sheetKey = '';
 let barTab = 'build', barKey = '', barStructKey = '', autoSend = { on:false, last:null };
 let barBuildCollapsed = false, barSendCollapsed = false;
+/* On a phone the two bars stacked open cost the board 30% of its area, so one
+   is open at a time there: opening BUILD folds SEND and vice versa. A tall
+   screen keeps both. */
+const phoneAccordion = () => touchUI() && window.innerHeight < 900;
 /* one place that owns tray state, so the class and the a11y flag cannot drift */
 function setCbCollapsed(id, collapsed) {
   const sub = document.getElementById(id); if (!sub) return;
+  if (sub.classList.contains('collapsed') !== collapsed) setTimeout(fitBoardToViewport, 260);   // the bar changes height: regrow the board after the slide
   sub.classList.toggle('collapsed', collapsed);
   sub.querySelector('.cb-handle')?.setAttribute('aria-expanded', String(!collapsed));
 }
@@ -5467,7 +5489,7 @@ function renderCommandBar() {
   if (sig === barStructKey) { barRefreshAffordable(); return; }
   barStructKey = sig;
   setCbCollapsed('cb-build', barBuildCollapsed && !ghost);
-  setCbCollapsed('cb-send', barSendCollapsed);
+  setCbCollapsed('cb-send', barSendCollapsed || (!!ghost && phoneAccordion()));   // a staged tower opens BUILD; on a phone SEND folds meanwhile
   // ---- BUILD bar (or the ghost confirm while staging) ----
   if (ghost) {
     const def = towerDef(raceId, selectedTowerTier);
@@ -6008,9 +6030,10 @@ document.querySelectorAll('[data-pg]').forEach((b) => b.addEventListener('click'
   body.scrollBy({ left: (b.classList.contains('cb-next') ? 1 : -1) * body.clientWidth * .8, behavior:'smooth' });
 }));
 document.querySelectorAll('[data-cb]').forEach((b) => b.addEventListener('click', () => {
-  if (b.dataset.cb === 'build') barBuildCollapsed = !barBuildCollapsed; else barSendCollapsed = !barSendCollapsed;
+  if (b.dataset.cb === 'build') { barBuildCollapsed = !barBuildCollapsed; if (!barBuildCollapsed && phoneAccordion()) barSendCollapsed = true; }
+  else { barSendCollapsed = !barSendCollapsed; if (!barSendCollapsed && phoneAccordion()) barBuildCollapsed = true; }
   setCbCollapsed('cb-build', barBuildCollapsed && !ghost);
-  setCbCollapsed('cb-send', barSendCollapsed);
+  setCbCollapsed('cb-send', barSendCollapsed || (!!ghost && phoneAccordion()));
   setTimeout(fitBoardToViewport, 240);   // regrow the map after the slide
 }));
 function openSettings() {
