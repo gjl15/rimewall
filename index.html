@@ -191,6 +191,17 @@ body.reduce-motion .mp-spin { animation:none; border-top-color:#8ee89f55; }
 .test-button { min-height:40px; padding:10px 12px; border:1px solid #58698d; border-radius:8px; color:#c9d4ef; background:#1a2742; font:500 10px 'DM Mono',monospace; letter-spacing:.04em; text-transform:uppercase; }.test-button:hover { border-color:#77d6ff; color:#fff; background:#223657; }
 .live-dot,.log-dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:#8ee89f; box-shadow:0 0 10px #8ee89f; }
 .resources { gap:18px; }
+/* ---- CONFIRM: the one gate in front of anything that throws a match away ---- */
+.confirm-modal { position:fixed; inset:0; z-index:260; display:flex; align-items:center; justify-content:center; padding:18px; background:#060914e0; backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); }
+.confirm-modal.hidden { display:none; }
+.cf-card { width:min(92vw, 380px); padding:16px; border:1px solid #5c2a33; border-radius:16px; background:#140d11f8; box-shadow:0 18px 50px #000b; }
+.cf-card h3 { margin:0 0 7px; font-size:14px; color:#ffc6cf; }
+.cf-card p { margin:0; color:#c2b2b8; font-size:11px; line-height:1.6; }
+.cf-row { display:flex; gap:8px; margin-top:14px; }
+.cf-btn { flex:1; min-height:46px; border-radius:10px; font:600 12px 'DM Mono',monospace; letter-spacing:.06em; }
+.cf-no { border:1px solid #3c4a6e; background:#131b30; color:#e9edff; }
+.cf-yes { border:1px solid #ff5f6e; background:#3a1219; color:#ffc6cf; }
+.cf-btn:active { transform:scale(.97); }
 /* ---- PRE-MATCH LOBBY ---- */
 .lobby { position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center; padding:16px; background:#060914dd; backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); }
 .lobby.hidden { display:none; }
@@ -1047,6 +1058,7 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
              the status bar, with the whole-wall targeting switch beside them
              because that is where you look when a wave is landing. -->
         <div id="lobby" class="lobby hidden" aria-label="Match lobby"></div>
+        <div id="confirm-modal" class="confirm-modal hidden" role="dialog" aria-modal="true"></div>
         <div class="status-line" id="status-line">
           <div class="match-state"><span class="live-dot"></span><strong id="wave-label">WAVE 01</strong><span id="wave-threat" class="wave-threat"></span><span id="timer-label">00:30</span></div>
           <button id="sl-target" class="sl-chip" title="Targeting for ALL your towers — tap to switch first / last">🎯 <b id="sl-target-tag">FIRST</b></button>
@@ -5923,6 +5935,45 @@ function startBattle() {
    away. The lobby holds for LOBBY_SECONDS with the board paused behind it,
    shows both squads and every element in play, and lets you switch yours before
    a single coin is spent. Ready up to skip it. */
+/* ONE GATE IN FRONT OF EVERY EXIT. Leaving a match was a single unguarded tap
+   from three different places — Change race, the wisp radial's exit, and the
+   command sheet — and Restart wiped a live maze with no prompt at all. They all
+   funnel through here now, so there is exactly one place that can ever throw a
+   match away and it always asks first. A finished match never asks: there is
+   nothing left to lose. */
+function askConfirm(title, body, yesLabel, onYes) {
+  const box = $('confirm-modal');
+  if (!box) { onYes(); return; }
+  box.innerHTML = `<div class="cf-card">
+      <h3>${title}</h3><p>${body}</p>
+      <div class="cf-row">
+        <button id="cf-no" class="cf-btn cf-no">Stay</button>
+        <button id="cf-yes" class="cf-btn cf-yes">${yesLabel}</button>
+      </div></div>`;
+  box.classList.remove('hidden');
+  const close = () => { box.classList.add('hidden'); box.innerHTML = ''; };
+  $('cf-no').addEventListener('click', close);
+  $('cf-yes').addEventListener('click', () => { close(); onYes(); });
+  box.addEventListener('click', (e) => { if (e.target === box) close(); }, { once:true });
+}
+function matchAtRisk() { return battleRunning && !matchOver; }
+function leaveMatch() {
+  const go = () => {
+    if (mp.active) mpLeave();
+    window.clearInterval(lobbyTimer); lobbyTimer = null; lobbyLeft = 0;
+    $('lobby')?.classList.add('hidden');
+    battleRunning = false; matchOver = false;
+    closeCommandSheet(); closeWispMenus?.(); applyUiMode();
+    $('battle-screen').classList.add('hidden');
+    $('race-screen').classList.remove('hidden');
+  };
+  if (!matchAtRisk()) return go();
+  askConfirm('Leave this match?', `You are on wave ${wave} with ${towers.size ? [...towers.values()].filter(isMine).length : 0} towers standing. Your maze is lost and the match will not be recorded.`, 'Leave match', go);
+}
+function restartMatch() {
+  if (!matchAtRisk()) return startBattle();
+  askConfirm('Restart the match?', `Wave ${wave} and everything you have built is discarded, and a fresh match begins.`, 'Restart', startBattle);
+}
 let lobbyLeft = 0, lobbyTimer = null;
 function lobbyOpen() { return lobbyLeft > 0; }
 function openLobby() {
@@ -7167,11 +7218,7 @@ function renderCommandSheet() {
      confirmation. It closes the panel. Leaving a match is a separate, deliberate
      button that asks first. */
   $('sheet-exit').addEventListener('click', closeCommandSheet);
-  $('sheet-quit')?.addEventListener('click', () => {
-    if (battleRunning && !matchOver && !window.confirm('Leave this match? Your maze is lost.')) return;
-    closeCommandSheet();
-    $('back-button')?.click();
-  });
+  $('sheet-quit')?.addEventListener('click', () => { closeCommandSheet(); leaveMatch(); });
   $('sheet-boxsel').addEventListener('click', () => {
     selectMode = selectMode === 'box' ? null : 'box';
     if (selectMode) { closeCommandSheet(); log('Box select armed — drag a rectangle over your towers. It stays armed until it catches some.'); }
@@ -7230,8 +7277,8 @@ function renderWispPanel(mode) {
     else if (d === 'box' || d === 'lasso') { selectMode = selectMode === d ? null : d; if (selectMode) { closeWispMenus(); log(`${d==='box'?'Box':'Lasso'} armed — drag over your towers.`); return; } }
     else if (d === 'pause') { toggleBattlePause(); }
     else if (d === 'pushwave') { pushWaveForTesting(); }
-    else if (d === 'restart') { closeWispMenus(); startBattle(); return; }
-    else if (d === 'exit') { closeWispMenus(); $('back-button')?.click(); return; }
+    else if (d === 'restart') { closeWispMenus(); restartMatch(); return; }
+    else if (d === 'exit') { closeWispMenus(); leaveMatch(); return; }
     renderWispPanel(wispTab === 'learn' ? 'tools' : wispTab);
   }));
   // inspect wiring (entity taps)
@@ -7345,16 +7392,10 @@ $('collab-export-button').addEventListener('click', () => {
 });
 $('drawpad-battle-button')?.addEventListener('click', () => openDrawpad('battle-screen'));
 $('drawpad-back-button').addEventListener('click', closeDrawpad);
-$('back-button').addEventListener('click', () => {
-  if (mp.active) mpLeave();
-  battleRunning = false; matchOver = false;
-  closeCommandSheet(); applyUiMode();
-  $('battle-screen').classList.add('hidden');
-  $('race-screen').classList.remove('hidden');
-});
+$('back-button').addEventListener('click', leaveMatch);
 $('push-wave-button').addEventListener('click', pushWaveForTesting);
 $('pause-button').addEventListener('click', toggleBattlePause);
-$('restart-button').addEventListener('click', startBattle);
+$('restart-button').addEventListener('click', restartMatch);
 $('build-mode-button').addEventListener('click', () => log('Tap any open tile on your half (south of the river) to place the selected tower.'));
 ['routes', 'ranges', 'ref'].forEach((key) => {
   $(`dbg-${key}`).addEventListener('change', (event) => { debug[key] = event.target.checked; });
