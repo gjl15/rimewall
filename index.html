@@ -191,6 +191,16 @@ body.reduce-motion .mp-spin { animation:none; border-top-color:#8ee89f55; }
 .test-button { min-height:40px; padding:10px 12px; border:1px solid #58698d; border-radius:8px; color:#c9d4ef; background:#1a2742; font:500 10px 'DM Mono',monospace; letter-spacing:.04em; text-transform:uppercase; }.test-button:hover { border-color:#77d6ff; color:#fff; background:#223657; }
 .live-dot,.log-dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:#8ee89f; box-shadow:0 0 10px #8ee89f; }
 .resources { gap:18px; }
+/* ---- STATUS LINE: wave, threat, clock and targeting, under the top bar ---- */
+.status-line { display:flex; align-items:center; gap:10px; margin:7px 0 0; padding:7px 12px; border:1px solid #202c48; border-radius:10px; background:#0b1020e8; }
+.status-line .match-state { flex:1; min-width:0; gap:9px; }
+.sl-chip { flex:0 0 auto; display:flex; align-items:center; gap:5px; min-height:32px; padding:5px 10px; border:1px solid #3c4a6e; border-radius:8px; background:#131b30; color:#cfd8ee; font:600 10px 'DM Mono',monospace; letter-spacing:.06em; }
+.sl-chip b { color:#ffd86b; }
+.sl-chip:active { transform:scale(.95); }
+/* in the arena the bar is fixed, so the line has to clear it and stay reachable */
+.arena .status-line { position:fixed; left:8px; right:8px; z-index:169; margin:0; padding:5px 10px; border-radius:9px; background:#0b1020f2; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); }
+.arena .status-line .match-state { font-size:11px; }
+.arena .sl-chip { min-height:30px; padding:4px 9px; font-size:9px; }
 .resource { display:flex; gap:7px; align-items:center; font:500 13px 'DM Mono',monospace; font-variant-numeric:tabular-nums; }
 .resource.gold em { font-size:16px; font-weight:700; }
 .resource b { font-size:11px; }
@@ -260,7 +270,10 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
 @keyframes wisp-bob { 50% { transform:translateY(-3px) rotate(12deg); } }
 @media (prefers-reduced-motion: reduce) { .wisp span { animation:none; } }
 /* opens from the top so it never covers your build half at the bottom */
-.command-sheet { position:fixed; left:50%; top:max(74px, calc(env(safe-area-inset-top) + 66px)); transform:translateX(-50%); z-index:170; width:min(96vw, 560px); max-height:52vh; overflow-y:auto; padding:10px 10px 12px; border:1px solid #34497a; border-radius:16px; background:#0d1424f5; box-shadow:0 12px 40px #000a; transition:opacity .15s; }
+/* 52vh clipped the bolt rack below the fold on a tech tower — the upgrade chips
+   and the rack could not both be on screen. 62vh, and JS drops the top edge
+   below the new status line. */
+.command-sheet { position:fixed; left:50%; top:max(74px, calc(env(safe-area-inset-top) + 66px)); transform:translateX(-50%); z-index:170; width:min(96vw, 560px); max-height:62vh; overflow-y:auto; padding:10px 10px 12px; border:1px solid #34497a; border-radius:16px; background:#0d1424f5; box-shadow:0 12px 40px #000a; transition:opacity .15s; }
 .command-sheet.ghost { opacity:.35; }
 .sheet-bar { display:flex; gap:6px; margin-bottom:8px; }
 .sheet-tab { flex:1; min-height:40px; padding:8px; border:1px solid #2e3b5c; border-radius:9px; background:#131b30; color:#a5afd0; font-size:12px; }
@@ -857,7 +870,7 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
             <span class="race-card-copy"><span class="selection-kicker">YOUR ELEMENT — TAP TO CHANGE</span><strong id="selected-name">Ice</strong><span id="selected-desc">Slows enemies and buys your maze time.</span></span>
             <span class="race-card-caret">▾</span>
           </button>
-          <div class="selection-actions"><label class="lives-pick" for="mode-select">MODE <select id="mode-select"><option value="skirmish" selected>Waves vs rival</option><option value="survival">Survival • creeps only, no rival</option><option value="classic">Classic Wars • sends only</option></select></label><label class="lives-pick" for="team-select">TEAM <select id="team-select"><option value="1" selected>1v1 • one batch</option><option value="2">2v2 • two batches</option><option value="3">3v3 • three batches</option></select></label><label class="lives-pick" for="ai-select">RIVAL <select id="ai-select"><option value="relaxed">Relaxed • learning the ropes</option><option value="normal" selected>Normal</option><option value="hard">Hard • funded rival</option><option value="brutal">Brutal • it out-earns you</option></select></label><label class="lives-pick" for="lives-select">LIFEFORCE <select id="lives-select"><option value="25">25 • classic</option><option value="50">50 • veteran</option><option value="100" selected>100 • easy</option></select></label></div>
+          <div class="selection-actions"><label class="lives-pick" for="mode-select">MODE <select id="mode-select"><option value="skirmish" selected>Waves vs rival</option><option value="survival">Survival • creeps only, no rival</option><option value="classic">Classic Wars • sends only</option></select></label><label class="lives-pick" for="team-select">TEAM <select id="team-select"><option value="1" selected>1v1 • one batch</option><option value="2">2v2 • two batches</option><option value="3">3v3 • three batches</option></select></label><label class="lives-pick" for="ai-select">RIVAL <select id="ai-select"><option value="relaxed">Relaxed • learning the ropes</option><option value="normal">Standard • a poor rival</option><option value="hard" selected>Hard • funded, recommended</option><option value="brutal">Brutal • it out-earns you</option></select></label><label class="lives-pick" for="lives-select">LIFEFORCE <select id="lives-select"><option value="25">25 • classic</option><option value="50">50 • veteran</option><option value="100" selected>100 • easy</option></select></label></div>
           <div class="setup-actions-row">
             <button id="start-button" class="primary-button">Enter the battlefield <span>→</span></button>
             <button id="settings-open" class="gear-button" title="Settings" aria-label="Settings">⚙</button>
@@ -986,7 +999,6 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
       <section id="battle-screen" class="screen battle-screen hidden">
         <header class="hud">
           <div class="hud-brand"><svg class="crest-mark crest-sm" viewBox="0 0 48 48" width="22" height="22" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="crestG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bfeaff"/><stop offset="1" stop-color="#4aa3e0"/></linearGradient></defs><path d="M24 2 L42 11 V26 C42 37 34 44 24 46 C14 44 6 37 6 26 V11 Z" fill="#0d1f3a" stroke="url(#crestG)" stroke-width="2"/><g stroke="url(#crestG)" stroke-width="2.4" stroke-linecap="round"><path d="M24 12 V34 M14.5 18 L33.5 28 M33.5 18 L14.5 28"/></g><g stroke="#eafcff" stroke-width="1.3" stroke-linecap="round" opacity=".9"><path d="M24 15 l-2.4 2.6 M24 15 l2.4 2.6 M24 31 l-2.4 -2.6 M24 31 l2.4 -2.6"/></g></svg><span>RIMEWALL</span></div>
-          <div class="match-state"><span class="live-dot"></span><strong id="wave-label">WAVE 01</strong><span id="wave-threat" class="wave-threat"></span><span id="timer-label">00:30</span></div>
           <button id="push-wave-button" class="test-button" title="Testing shortcut: immediately start the next wave">Push wave</button>
           <button id="pause-button" class="test-button" aria-pressed="false">Pause</button>
           <button id="restart-button" class="test-button">Restart</button>
@@ -1001,6 +1013,14 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
             <span class="resource enemy" title="Rival lifeforce"><b id="rival-name-label">RIVAL</b><em id="enemy-lives-label">100</em></span>
           </div>
         </header>
+        <!-- The wave, the threat and the clock used to compete with the brand and
+             six resource chips for one cramped row. They get their own line under
+             the status bar, with the whole-wall targeting switch beside them
+             because that is where you look when a wave is landing. -->
+        <div class="status-line" id="status-line">
+          <div class="match-state"><span class="live-dot"></span><strong id="wave-label">WAVE 01</strong><span id="wave-threat" class="wave-threat"></span><span id="timer-label">00:30</span></div>
+          <button id="sl-target" class="sl-chip" title="Targeting for ALL your towers — tap to switch first / last">🎯 <b id="sl-target-tag">FIRST</b></button>
+        </div>
 
         <div class="battle-content">
           <div class="battle-main">
@@ -1459,9 +1479,15 @@ function buildBaseTerrain() {
   }
   // the ships themselves stay harbour so the berth still reads as water
   [15, 16].forEach((c) => { baseTerrain[idx(48, c)] = T.HARBOR; baseTerrain[idx(0, c)] = T.HARBOR; });
-  // Gates: the center river spawn and the two harbor exits stay walkable, never buildable.
+  /* Gates: the center river spawn and the two harbour exits stay walkable, never
+     buildable. The harbour gate used to sit at the FRONT of the notch (row 46
+     south, row 2 north) — the only way in — so the pocket's whole mouth was
+     spoken for and there was nothing to maze through on the way to it. It sits
+     one row deeper now, directly above the berth, which leaves the notch mouth
+     (row 46, all seven cells) free to build on. Same seventeen buildable cells;
+     they are just in front of the gate instead of behind it. */
   [15, 16].forEach((c) => {
-    baseTerrain[idx(2, c)] = T.GATE; baseTerrain[idx(46, c)] = T.GATE;
+    baseTerrain[idx(1, c)] = T.GATE; baseTerrain[idx(47, c)] = T.GATE;
   });
   [15, 16].forEach((c) => {
     for (let r = 23; r <= 25; r += 1) baseTerrain[idx(r, c)] = T.GATE;
@@ -1475,8 +1501,8 @@ terrain.set(baseTerrain);
    arrow) — then flag 1 (river corner), flag 2 (outer turn), flag 3 (return
    toward the middle), the final gate, and the ship. Flags are nodes 1–3. */
 const ROUTES = {
-  north:{ west:[{r:23,c:2},{r:7,c:4},{r:5,c:15},{r:2,c:15},{r:0,c:15}], east:[{r:23,c:29},{r:7,c:27},{r:5,c:15},{r:2,c:16},{r:0,c:16}] },
-  south:{ west:[{r:25,c:2},{r:41,c:4},{r:43,c:15},{r:46,c:15},{r:48,c:15}], east:[{r:25,c:29},{r:41,c:27},{r:43,c:15},{r:46,c:16},{r:48,c:16}] }
+  north:{ west:[{r:23,c:2},{r:7,c:4},{r:5,c:15},{r:1,c:15},{r:0,c:15}], east:[{r:23,c:29},{r:7,c:27},{r:5,c:15},{r:1,c:16},{r:0,c:16}] },
+  south:{ west:[{r:25,c:2},{r:41,c:4},{r:43,c:15},{r:47,c:15},{r:48,c:15}], east:[{r:25,c:29},{r:41,c:27},{r:43,c:15},{r:47,c:16},{r:48,c:16}] }
 };
 // Node 0 = river edge (creeps still sweep the full river), nodes 1-2 are the only FLAGS —
 // lane-bottom + a SHARED middle-base cell (both lanes cross the same center square, so it
@@ -2917,6 +2943,7 @@ function allyPurse(tower) {
 function updateAlly(ally, dt) {
   if (!battleRunning || matchOver) return;
   ally.buildClock -= dt; ally.sendClock -= dt;
+  ally.upgradeClock = (ally.upgradeClock || 0) - dt;
   const list = towerListFor(ally.raceId);
   let maxTier = Math.min(5, matchMode === 'classic' ? Math.floor(simTime / 80) : Math.floor(wave / 3.4));
   const pbTier = ally.playbook?.tierByWave?.[Math.min(45, wave)];
@@ -2930,7 +2957,7 @@ function updateAlly(ally, dt) {
       if ((ally.towersBuilt || 0) < aiBreadthTarget()) tier = 0;
       else while (tier > 0 && list[tier].cost > ally.gold * .5) tier -= 1;
       const def = towerDef(ally.raceId, tier);
-      const reserve = (ally.towersBuilt || 0) >= 6 ? 100 : 0;
+      const reserve = (ally.towersBuilt || 0) >= 6 ? AI_BUILD_RESERVE : 0;
       if (ally.gold - reserve >= def.cost) {
         const spot = spots[ally.spotIndex];
         const t = makeTower(spot.r, spot.c, ally.raceId, tier, ally.half === PLAYER_HALF ? 'player' : 'enemy');
@@ -2948,7 +2975,8 @@ function updateAlly(ally, dt) {
     } else {
       allyUpgrade(ally, list, maxTier);
     }
-    if ((ally.towersBuilt || 0) >= aiBreadthTarget()) allyUpgrade(ally, list, maxTier);
+    // widen and heighten together, on the rival's own upgrade cadence
+    if (ally.gold - AI_BUILD_RESERVE > 90 && ally.upgradeClock <= 0) { ally.upgradeClock = AI_UPGRADE_PERIOD; allyUpgrade(ally, list, maxTier); }
   }
   const wantShrine = 1 + Math.min(2, Math.floor(wave / 7));
   if (ally.shrine < wantShrine) {
@@ -3090,9 +3118,16 @@ function aiBreadthTarget() {
   return Math.min(64, 16 + wave * 3);
 }
 function enemySpots() { return enemy && enemy.spots ? enemy.spots : aiSpots('centre'); }
+/* Upgrades run on their OWN clock, not on the build tick and not behind a
+   breadth gate. Behind the gate the rival never crossed its own target and left
+   219g unspent with 44 of 47 towers still tier 0. Ungated on the build tick it
+   swung the other way and spent everything on height — six towers at wave 12.
+   One upgrade every few seconds keeps the wall growing sideways AND upward. */
+const AI_UPGRADE_PERIOD = 5.5, AI_BUILD_RESERVE = 120;
 function updateEnemyAI(dt) {
   enemy.buildClock -= dt;
   enemy.sendClock -= dt;
+  enemy.upgradeClock = (enemy.upgradeClock || 0) - dt;
   // in classic mode there are no waves, so the AI's ambition scales with time instead
   /* AMBITION. The formula is the floor; if the playbook has watched you reach a
      higher tier by this wave, the rival aims there instead. It never aims LOWER
@@ -3130,7 +3165,7 @@ function updateEnemyAI(dt) {
          needed 130g for its first 10g tower on a 30g start and starved: one
          tower in the first 300s. */
       const builtCount = enemy.towersBuilt || 0;
-      const buildBudget = enemy.gold - (builtCount >= 6 ? 120 : 0);
+      const buildBudget = enemy.gold - (builtCount >= 6 ? AI_BUILD_RESERVE : 0);
       if (buildBudget >= def.cost) {
         addTower(makeTower(spot.r, spot.c, enemy.raceId, buyTier, 'enemy'));
         // roll back anything that would seal its own lane: a blocked creep stops
@@ -3147,12 +3182,23 @@ function updateEnemyAI(dt) {
     } else {
       aiUpgradeSomething(list, maxTierNow);
     }
-    /* Height, once the wall is wide enough FOR THIS WAVE. The old version waited
-       for gold above a flat float, which its own build-and-send cadence never
-       let it reach. aiUpgradeSomething sells the weakest tower to help fund the
-       replacement, so it does not need a war chest to act — only a wall that has
-       stopped needing to grow sideways. */
-    if ((enemy.towersBuilt || 0) >= aiBreadthTarget()) {
+    /* WIDEN AND HEIGHTEN IN THE SAME TICK. Gating upgrades behind the breadth
+       target left the rival racing a line it never crossed: measured at wave 12
+       a tech rival held 47 towers against a target of 52, sat on 219 UNSPENT
+       gold, and had upgraded exactly 3 of 47 towers off tier 0 — it kept
+       widening forever and the wall stayed made of the cheapest tower in the
+       game. Tech shows it worst because its tier-0 costs 8g, so it lays towers
+       faster than the target rises and never gets ahead of it.
+       Upgrading is in-place now, so height no longer costs a cell and there is
+       no reason for the two to compete. Build a tower, then spend what is still
+       spare on making one taller. */
+    /* Above the BUILD RESERVE, not above zero. At a flat 90g the threshold sat
+       BELOW the 120g the build tick holds back, so every coin between 90 and 128
+       went to height while widening was still blocked — the wall collapsed to
+       six towers by wave 12. Building gets first call on the purse; upgrades
+       spend what is genuinely spare. */
+    if (enemy.gold - AI_BUILD_RESERVE > 90 && (enemy.upgradeClock || 0) <= 0) {
+      enemy.upgradeClock = AI_UPGRADE_PERIOD;
       aiUpgradeSomething(list, maxTierNow);
     }
   }
@@ -3261,11 +3307,16 @@ function launchNextWave() {
    better maze changed nothing (median death wave 12 -> 10/12, inside noise)
    because it cannot afford the towers to lay one. Spending differently is not
    the lever; having more to spend is.
-   Normal is 1.0 — exactly today's behaviour, so the default changes nothing. */
+   HARD IS THE DEFAULT, deliberately. "Standard" is 1.0x — the historical
+   economy — and at 1.0x the rival reaches wave 12 with 47 of 51 towers still
+   tier 0 and 224g it cannot find a use for. That is the rival that kept getting
+   reported as broken. At 1.7x the same code builds 143 towers by wave 30 with a
+   real spread up to tier 4. The AI logic is identical; only the purse differs.
+   Standard is kept for anyone who wants the old, poor opponent. */
 const RIVAL_DIFFICULTY = { relaxed:.7, normal:1, hard:1.7, brutal:2.6 };
 function rivalGoldMult() {
   const pick = document.getElementById('ai-select')?.value;
-  return RIVAL_DIFFICULTY[pick] ?? RIVAL_DIFFICULTY.normal;
+  return RIVAL_DIFFICULTY[pick] ?? RIVAL_DIFFICULTY.hard;
 }
 function payIncome() {
   const paid = BASE_INCOME + incomePayout(player.income);
@@ -4675,8 +4726,10 @@ function overlayItem(cls, r, c, html, dataAttr = '') {
 }
 function buildOverlay() {
   let html = '';
-  html += overlayItem('ov-ship', 1, 15.5, '⛵<small>NORTH SHIP</small>');
-  html += overlayItem('ov-ship ov-ship-player', 47, 15.5, `⛵<small id="player-ship-label">YOUR SHIP</small>`);
+  // the markers sat one row shy of their own berths, so both ships read as
+  // floating at the mouth of the notch instead of docked at the bottom of it
+  html += overlayItem('ov-ship', 0, 15.5, '⛵<small>NORTH SHIP</small>');
+  html += overlayItem('ov-ship ov-ship-player', 48, 15.5, `⛵<small id="player-ship-label">YOUR SHIP</small>`);
   html += overlayItem('ov-gate', 24.5, 15.5, '✹<small>CREEP GATE</small>');
   html += overlayItem('ov-shrine', 12.5, 15.5, '✦<small>NORTH SHRINE</small>');
   html += overlayItem('ov-shrine', 35.5, 15.5, '✦<small>SOUTH SHRINE</small>');
@@ -5304,6 +5357,24 @@ function fitBoardToViewport() {
   const viewport = $('map-viewport');
   const frame = $('map-frame');
   if (!viewport || !frame) return false;
+  /* The arena HUD is position:fixed, so the status line under it has to be
+     placed from the HUD's MEASURED height — a static padding goes wrong the
+     moment the bar wraps or the font metrics differ. */
+  if (document.body.classList.contains('arena')) {
+    const bar = $('hud-bar') || document.querySelector('.hud');
+    const line = $('status-line');
+    if (bar && line) {
+      const barH = bar.offsetHeight;
+      line.style.top = `${barH + 3}px`;
+      const content = document.querySelector('.battle-content');
+      if (content) content.style.paddingTop = `${barH + line.offsetHeight + 9}px`;
+      const sheet = $('command-sheet');
+      if (sheet) sheet.style.top = `${barH + line.offsetHeight + 10}px`;
+    }
+  } else {
+    const line = $('status-line'); if (line) line.style.top = '';
+    const content = document.querySelector('.battle-content'); if (content) content.style.paddingTop = '';
+  }
   {
     // border contract: the viewport bottom edge always clears the window AND the command bar.
     // visualViewport, not innerHeight — iOS's collapsing URL bar makes innerHeight lie tall,
@@ -6960,6 +7031,20 @@ function setupWisp() {
   });
   const endDrag = () => {
     if (!drag) return;
+    /* DOUBLE-TAP THE WISP = RESET EVERYTHING. The wisp is the one control that
+       is always on screen and always under your thumb, which makes it the right
+       panic button when a zoom or a panel has you stuck. */
+    if (!drag.moved) {
+      const now = performance.now();
+      if (now - (wisp._lastTapAt || 0) < 400) {
+        wisp._lastTapAt = 0;
+        drag = null;
+        resetEverything('View reset — zoom, pan and panels cleared.');
+        if (navigator.vibrate) navigator.vibrate(18);
+        return;
+      }
+      wisp._lastTapAt = now;
+    }
     if (wisp.classList.contains('wisp-docked')) { closeCommandSheet(); drag = null; return; }
     if (drag.moved) { profile.wispPos = { x:wisp.offsetLeft, y:wisp.offsetTop }; saveProfile(); }
     else if (document.body.classList.contains('arena')) {
@@ -7081,6 +7166,9 @@ function syncMapToggles() {
     tag.textContent = globalPriority === 'first' ? '1st' : globalPriority === 'last' ? 'last' : globalPriority.slice(0, 4);
     tgt.classList.toggle('on', globalPriority !== 'first');
   }
+  // the same switch on the status line, where it is actually in your eyeline
+  const slTag = $('sl-target-tag');
+  if (slTag) slTag.textContent = globalPriority.toUpperCase();
   $('mt-routes')?.classList.toggle('on', debug.routes);
   const insp = $('mt-inspect');
   if (insp) { const on = inspectPanelOpen(); insp.classList.toggle('on', on); insp.setAttribute('aria-pressed', String(on)); }
@@ -7094,6 +7182,7 @@ $('mt-routes')?.addEventListener('click', () => { debug.routes = !debug.routes; 
 $('mt-ranges')?.addEventListener('click', () => { debug.ranges = !debug.ranges; syncMapToggles(); });
 // the whole-wall targeting switch: first <-> last, the only two you flip mid-wave
 $('mt-target')?.addEventListener('click', () => applyGlobalPriority(globalPriority === 'first' ? 'last' : 'first'));
+$('sl-target')?.addEventListener('click', () => applyGlobalPriority(globalPriority === 'first' ? 'last' : 'first'));
 /* Inspect used to be reachable only by tapping an entity, which competes with
    the scaffold double-tap. This is the direct way in. */
 $('mt-inspect')?.addEventListener('click', () => {
