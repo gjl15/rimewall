@@ -282,6 +282,21 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
 .bolt-chip:active { transform:scale(.94); }
 .bolt-note { margin-top:6px; color:#8995b4; font-size:9px; line-height:1.5; }
 /* what's new — the player-facing changelog on the home screen */
+/* who is holding each half */
+.team-roster { margin-top:14px; border:1px solid #233150; border-radius:12px; background:#0d1424; padding:11px 12px; }
+.team-roster:empty { display:none; }
+.ts-head { display:flex; align-items:center; gap:9px; }
+.ts-tag { padding:3px 6px; border-radius:5px; background:#ffd86b22; color:#ffd86b; font:600 8px 'DM Mono',monospace; letter-spacing:.13em; }
+.ts-head strong { font-size:12px; }
+.ts-head small { color:#8995b4; font:500 9px 'DM Mono',monospace; }
+.ts-row { display:flex; align-items:center; gap:9px; margin-top:8px; }
+.ts-row b { flex:0 0 68px; color:#8995b4; font:600 9px 'DM Mono',monospace; letter-spacing:.06em; }
+.ts-seats { display:flex; flex-wrap:wrap; gap:5px; }
+.ts-seat { padding:3px 7px; border:1px solid #2e3b5c; border-radius:6px; font:600 9px 'DM Mono',monospace; }
+.ts-you { border-color:#77d6ff; color:#bfeaff; background:#77d6ff18; }
+.ts-ai { border-color:#3c4a6e; color:#9fb0d2; }
+.ts-foe { border-color:#ff8a9a; color:#ffc6cf; background:#ff8a9a16; }
+.ts-note { margin-top:9px; color:#7c88a8; font-size:10px; line-height:1.5; }
 .whats-new { margin-top:14px; border:1px solid #233150; border-radius:12px; background:#0d1424; overflow:hidden; }
 .wn-head { display:flex; align-items:center; gap:9px; width:100%; padding:11px 12px; border:0; background:transparent; color:inherit; text-align:left; }
 .wn-tag { flex:0 0 auto; padding:3px 6px; border-radius:5px; background:#77d6ff22; color:#77d6ff; font:600 8px 'DM Mono',monospace; letter-spacing:.13em; }
@@ -857,6 +872,7 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
 
         <div id="profile-strip" class="profile-strip"></div>
         <div id="daily-quests" class="daily-quests"></div>
+        <div id="team-roster" class="team-roster"></div>
         <div id="whats-new" class="whats-new"></div>
 
         <div class="mp-panel">
@@ -2018,6 +2034,11 @@ function resetMatchState() {
     if (pb) log(`The rival has studied ${pb.games} of your ${races.find((r) => r.id === rivalRace)?.name || rivalRace} games and is trying your maze against you.`);
   }
   wave = 0; waveClock = FIRST_WAVE_DELAY; incomeClock = INCOME_PERIOD; simTime = 0; battlePaused = false; matchOver = false;
+  spawnAllies();
+  if (allies.length) {
+    const mine = allies.filter((a) => a.half === PLAYER_HALF);
+    if (mine.length) log(`Allies on your half: ${mine.map((a) => `${a.name} (${races.find((r) => r.id === a.raceId)?.name})`).join(', ')} — they build and send from their own gold.`);
+  }
   if (!mp.active) log(`Rival opening: ${opening === 'centre' ? 'CENTRE — massing on the flag both your lanes cross' : 'SIDES — a cluster on each lane flag'}.`);
   selectedTowerKey = null; selectedGroupKeys = [];
   refreshRouteDebug();
@@ -2362,14 +2383,21 @@ function applyDamage(creep, amount, tower, isDot = false, opts) {
   if (!isDot && dmg >= 60) pushFx({ kind:'num', x:creep.x, y:creep.y - .4, text:String(Math.round(dmg)), until:simTime + .7 });
   if (creep.hp <= 0) {
     creep.hp = 0;
+    /* An ally's kill pays the ALLY, not the human on its half. Otherwise a
+       teammate is a pure gift: free towers whose bounties land in your purse. */
+    const purse = allyPurse(tower) || (creep.half === PLAYER_HALF ? player : enemy);
     const owner = creep.half === PLAYER_HALF ? player : enemy;
-    if (!creep.sent) { owner.gold += creep.bounty * BOUNTY_MULT; }
-    else { owner.gold += creep.bounty; }   // send kill: bounty = its income value
+    if (!creep.sent) { purse.gold += creep.bounty * BOUNTY_MULT; }
+    else { purse.gold += creep.bounty; }   // send kill: bounty = its income value
     if (creep.half === PLAYER_HALF) {
       const paid = creep.sent ? creep.bounty : creep.bounty * BOUNTY_MULT;
-      if (paid >= 1) pushFx({ kind:'num', x:creep.x, y:creep.y - .7, text:`+${Math.round(paid)}g`, until:simTime + .9, color:'#ffd86b' });
-      if (creep.sent) questEvent('send_slayer');
-      SFX.play('coin');
+      // only YOUR kills show gold and chime — an ally's bounty is not yours
+      if (purse === player) {
+        if (paid >= 1) pushFx({ kind:'num', x:creep.x, y:creep.y - .7, text:`+${Math.round(paid)}g`, until:simTime + .9, color:'#ffd86b' });
+        if (creep.sent) questEvent('send_slayer');
+        SFX.play('coin');
+      }
+      // the wave board must retire the creep however it died, or the board desyncs
       waveBoardRetire(creep, false);
     }
     if (creep.half === PLAYER_HALF) player.kills += 1;
@@ -2829,6 +2857,132 @@ function updateProjectile(projectile, dt) {
    on the south half (weave both corridors, then weave the open band), mirrored
    onto the north half across row 48, and ordered nearest-the-ship first so every
    prefix the AI can afford is already a working maze. */
+/* ---------------- AI TEAMMATES ----------------
+   Team size used to scale ONE thing: the number of creep batches. Picking 3v3
+   tripled the load on a half that still had exactly one defender, which is not
+   a team game, it is a handicap. Every slot a human does not fill is now taken
+   by an ally that builds and sends from its own purse, so 3v3 works with two
+   people — or with one.
+   An ally is a small rival: same build ladder, same send ladder, same playbook,
+   just pointed at the other end of the board. It funds itself, so it never
+   spends gold you earned, and its kills pay it rather than you. */
+function mazeOrderSouth() {
+  const south = [];
+  for (const [c0, c1] of [[1, 10], [21, 30]]) { let b = 0;
+    for (let r = 27; r <= 36; r += 2) { const gapLeft = b % 2 === 0; b += 1;
+      for (let c = c0; c <= c1; c += 1) { if (gapLeft ? c === c0 : c === c1) continue; south.push({ r, c }); } } }
+  let n = 0;
+  for (let r = 38; r <= 45; r += 2) { const gapWest = n % 2 === 0; n += 1;
+    for (let c = 1; c <= 30; c += 1) { if (gapWest ? c <= 2 : c >= 29) continue; south.push({ r, c }); } }
+  return south;
+}
+const ALLY_NAMES = ['Vex', 'Coil', 'Marrow', 'Tine', 'Halcyon', 'Bramble'];
+let allies = [];
+function makeAlly(half, seat, raceId) {
+  const strategy = seat % 2 === 0 ? 'centre' : 'sides';
+  const near = (cell, marks) => Math.min(...marks.map((m) => Math.hypot(cell.r - m.r, cell.c - m.c)));
+  const marks = strategy === 'sides' ? laneFlagCells(half) : [sharedFlagCell(half)];
+  const cells = mazeOrderSouth().map(({ r, c }) => (half === PLAYER_HALF ? { r, c } : { r:(ROWS - 1) - r, c }));
+  /* Seats start from OPPOSITE ends of the same queue, so two allies on one half
+     do not both walk the same order and fight over the same cells. */
+  const ordered = cells.sort((a, b) => near(a, marks) - near(b, marks));
+  return { half, seat, raceId, name:ALLY_NAMES[(seat + (half === PLAYER_HALF ? 0 : 3)) % ALLY_NAMES.length],
+    gold:START_GOLD, income:0, lumber:0, shrine:1, spotIndex:0, towersBuilt:0,
+    buildClock:2 + seat * .6, sendClock:26 + seat * 5, spots:ordered, plan:strategy,
+    playbook:playbookFor(raceId) };
+}
+function spawnAllies() {
+  allies = [];
+  const seats = defendersPerHalf() - 1;   // seat 0 on each half is the human / the rival proper
+  if (seats <= 0) return;
+  for (let i = 0; i < seats; i += 1) {
+    const mine = allySeatRace(PLAYER_HALF, i);
+    if (mine) allies.push(makeAlly(PLAYER_HALF, i, mine));
+    if (matchMode !== 'survival') {
+      const theirs = allySeatRace(ENEMY_HALF, i);
+      if (theirs) allies.push(makeAlly(ENEMY_HALF, i, theirs));
+    }
+  }
+}
+/* Which element an ally seat plays. In multiplayer a seat a human has taken
+   returns null — that person is the defender, not a bot. */
+function allySeatRace(half, seat) {
+  if (mp.active && half === PLAYER_HALF && seat < (mp.humanSeats || 1) - 1) return null;
+  return races[Math.floor(rng() * races.length)].id;
+}
+function allyPurse(tower) {
+  if (!tower || tower.allySeat == null) return null;
+  return allies.find((a) => a.half === tower.allyHalf && a.seat === tower.allySeat) || null;
+}
+function updateAlly(ally, dt) {
+  if (!battleRunning || matchOver) return;
+  ally.buildClock -= dt; ally.sendClock -= dt;
+  const list = towerListFor(ally.raceId);
+  let maxTier = Math.min(5, matchMode === 'classic' ? Math.floor(simTime / 80) : Math.floor(wave / 3.4));
+  const pbTier = ally.playbook?.tierByWave?.[Math.min(45, wave)];
+  if (pbTier != null) maxTier = Math.min(5, Math.max(maxTier, pbTier));
+  if (ally.buildClock <= 0) {
+    ally.buildClock = 1.9;
+    const spots = ally.spots;
+    while (ally.spotIndex < spots.length && !isBuildableCell(spots[ally.spotIndex].r, spots[ally.spotIndex].c, ally.half)) ally.spotIndex += 1;
+    if (ally.spotIndex < spots.length) {
+      let tier = maxTier;
+      if ((ally.towersBuilt || 0) < aiBreadthTarget()) tier = 0;
+      else while (tier > 0 && list[tier].cost > ally.gold * .5) tier -= 1;
+      const def = towerDef(ally.raceId, tier);
+      const reserve = (ally.towersBuilt || 0) >= 6 ? 100 : 0;
+      if (ally.gold - reserve >= def.cost) {
+        const spot = spots[ally.spotIndex];
+        const t = makeTower(spot.r, spot.c, ally.raceId, tier, ally.half === PLAYER_HALF ? 'player' : 'enemy');
+        t.allyHalf = ally.half; t.allySeat = ally.seat;
+        addTower(t);
+        // never let an ally seal its own side's lanes — a blocked creep eats the wall
+        const lanes = ally.half === PLAYER_HALF ? 'south' : 'north';
+        if (routeLength(lanes, 'west') == null || routeLength(lanes, 'east') == null) {
+          removeTower(idx(spot.r, spot.c));
+        } else {
+          ally.gold -= def.cost; ally.towersBuilt = (ally.towersBuilt || 0) + 1;
+        }
+        ally.spotIndex += 1;
+      }
+    } else {
+      allyUpgrade(ally, list, maxTier);
+    }
+    if ((ally.towersBuilt || 0) >= aiBreadthTarget()) allyUpgrade(ally, list, maxTier);
+  }
+  const wantShrine = 1 + Math.min(2, Math.floor(wave / 7));
+  if (ally.shrine < wantShrine) {
+    if (ally.lumber >= 1) { ally.lumber -= 1; ally.shrine += 1; }
+    else if (ally.gold >= LUMBER_PRICE) { ally.gold -= LUMBER_PRICE; ally.lumber += 1; }
+  }
+  if (wave >= 2 && ally.sendClock <= 0) {
+    ally.sendClock = 24;
+    const unlocked = SENDS.filter((s) => ally.shrine >= s.shrine).sort((a, b) => a.cost / a.income - b.cost / b.income);
+    const reserve = 70 + 35 * Math.min(6, Math.floor(wave / 4));
+    for (let n = 0; n < 4; n += 1) {
+      const pick = unlocked.find((s) => ally.gold - reserve >= s.cost);
+      if (!pick) break;
+      ally.gold -= pick.cost; ally.income += pick.income;
+      // an ally sends at the OTHER half, exactly as its side's human does
+      const target = ally.half === PLAYER_HALF ? ENEMY_HALF : PLAYER_HALF;
+      spawnCreep(sendCreepDef(pick), target, 'west', true);
+      spawnCreep(sendCreepDef(pick), target, 'east', true);
+    }
+  }
+}
+function allyUpgrade(ally, list, maxTier) {
+  const mine = [...towers.values()].filter((t) => t.allyHalf === ally.half && t.allySeat === ally.seat && !underConstruction(t));
+  if (!mine.length) return;
+  const ceiling = Math.min(maxTier, list.length - 2);
+  const weakest = mine.filter((t) => t.tier < ceiling).sort((a, b) => a.tier - b.tier)[0];
+  if (!weakest) return;
+  const next = list[weakest.tier + 1];
+  if (!next || ally.gold < next.cost) return;
+  ally.gold -= next.cost;
+  weakest.tier += 1; weakest.invested += next.cost;
+  weakest.blockHp = weakest.blockMaxHp = 4 + weakest.tier;
+  towersVersion += 1;
+}
 function aiSpots(strategy) {
   const south = [];
   for (const [c0, c1] of [[1, 10], [21, 30]]) { let b = 0;
@@ -3117,6 +3271,11 @@ function payIncome() {
   const paid = BASE_INCOME + incomePayout(player.income);
   player.gold += paid;
   enemy.gold += (BASE_INCOME + incomePayout(enemy.income)) * rivalGoldMult();
+  // allies fund themselves — an ally never spends gold its human teammate earned
+  allies.forEach((a) => {
+    const mult = a.half === PLAYER_HALF ? 1 : rivalGoldMult();
+    a.gold += (BASE_INCOME + incomePayout(a.income)) * mult;
+  });
   pushFx({ kind:'num', x:15.9, y:25.2, text:`+${paid}`, until:simTime + 1.1, color:'#f5d36d' });
 }
 function endMatch(result) {
@@ -3495,6 +3654,7 @@ function simulate(dt) {
   for (let i = effects.length - 1; i >= 0; i -= 1) if (effects[i].until <= simTime) effects.splice(i, 1);
   if (effects.length > 140) effects.splice(0, effects.length - 140);
   if (!mp.active && matchMode !== 'survival') updateEnemyAI(dt);   // survival: nobody on the north half
+  for (let i = 0; i < allies.length; i += 1) updateAlly(allies[i], dt);
   mpTick(dt);
 }
 
@@ -5842,6 +6002,7 @@ function renderRaceCards() {
   // was hard-coded "9 ELEMENTS" and went stale the moment Beam landed
   if (count) count.textContent = `${races.length} ELEMENTS`;
   renderProfileStrip();
+  renderTeamRoster();
   renderWhatsNew();
 }
 function renderDailyQuests() {
@@ -6468,6 +6629,25 @@ const RELEASE_NOTES = [
     'Gravity effects are frequent enough to actually see.'
   ] }
 ];
+/* The squad the team selector actually produces. Picking 3v3 used to triple the
+   creeps against a half with one defender on it and say nothing about that;
+   this shows exactly who is holding each side. */
+function renderTeamRoster() {
+  const box = $('team-roster');
+  if (!box) return;
+  const n = Math.max(1, Math.min(3, Number(document.getElementById('team-select')?.value) || 1));
+  if (n === 1) { box.innerHTML = ''; return; }
+  const mpOn = mp.active;
+  const seat = (label, kind) => `<span class="ts-seat ts-${kind}">${label}</span>`;
+  const mine = [seat(mpOn ? 'You' : 'You', 'you')];
+  const theirs = [seat(mpOn ? 'Opponent' : 'Rival', 'foe')];
+  for (let i = 1; i < n; i += 1) { mine.push(seat(`${ALLY_NAMES[(i - 1) % ALLY_NAMES.length]} · AI`, 'ai')); theirs.push(seat(`${ALLY_NAMES[(i + 2) % ALLY_NAMES.length]} · AI`, 'ai')); }
+  box.innerHTML = `
+    <div class="ts-head"><span class="ts-tag">SQUADS</span><strong>${n}v${n}</strong><small>${n} creep batches a side</small></div>
+    <div class="ts-row"><b>Your half</b><div class="ts-seats">${mine.join('')}</div></div>
+    <div class="ts-row"><b>Their half</b><div class="ts-seats">${theirs.join('')}</div></div>
+    <p class="ts-note">Every seat a person does not fill is an AI that builds and sends from its <em>own</em> gold — it never spends yours, and its kills pay it, not you. Two people can run a full 3v3.</p>`;
+}
 function renderWhatsNew() {
   const box = $('whats-new');
   if (!box) return;
@@ -7026,6 +7206,7 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) window.add
 window.addEventListener('beforeunload', () => { if (mp.transport) mpSend({ t:'bye' }); });
 setupMapZoom();
 setupPanicReset();
+document.getElementById('team-select')?.addEventListener('change', renderTeamRoster);
 renderRaceCards();
 resetMatchState();
 requestAnimationFrame((now) => { lastFrame = now; requestAnimationFrame(frame); });
