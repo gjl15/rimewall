@@ -256,6 +256,15 @@ h2 span { color:#7583a6; }
 .sheet-chip small { font-size:9px; color:#9fb0d2; }
 .sheet-chip b { color:#f5d36d; font:600 9px 'DM Mono',monospace; }
 .sheet-chip b i { font-style:normal; color:#8ee89f; margin-left:3px; }
+/* bolt mods — tech line + any race's Laser Cannon */
+.bolt-rack { margin-top:9px; padding:8px; border:1px solid #2a3654; border-radius:10px; background:#0d1424; }
+.bolt-row { display:flex; gap:5px; margin-top:6px; }
+.bolt-chip { flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; min-height:46px; padding:5px 3px; border:1.5px solid #2e3b5c; border-radius:9px; background:#131b30; color:#cfd8ee; }
+.bolt-chip span { font-size:15px; line-height:1.1; color:var(--bolt); }
+.bolt-chip small { font-size:8px; letter-spacing:.04em; }
+.bolt-chip.on { border-color:var(--bolt); background:color-mix(in srgb, var(--bolt) 16%, #131b30); color:#f2f6ff; box-shadow:inset 0 0 0 1px var(--bolt); }
+.bolt-chip:active { transform:scale(.94); }
+.bolt-note { margin-top:6px; color:#8995b4; font-size:9px; line-height:1.5; }
 /* amber = diminishing returns have trimmed this send below its ladder number */
 .sheet-chip b i.inc-cut, .send-card small.inc-cut { color:#f0b45c; }
 .sheet-chip.on { border-color:#77d6ff; box-shadow:inset 0 0 0 1px #77d6ff; }
@@ -1243,10 +1252,55 @@ function towerDef(raceId, tier) {
 /* Level upgrades: +15% damage and +0.25 range per level (max +3).
    Tier upgrades: pay the price difference to turn a tower into the next one. */
 const MAX_LEVEL = 3;
+/* ---------------- BOLT MODS (tech line + every race's Laser Cannon) ----------------
+   Tech is the toolbox race: bolt throwers with raw numbers and no element of
+   their own, which is exactly why it kept measuring bottom of the table — every
+   other race carries a passive on top of its damage and tech carried none.
+   A bolt mod buys ONE borrowed element per tower. One at a time (swapping pays
+   again, so it is a real choice, not a checklist), and it SURVIVES a tier
+   upgrade, so investing in a bolt early is never stranded by teching up. */
+const BOLT_MODS = [
+  { id:'ice',    name:'Ice bolt',      glyph:'❄', color:'#77d6ff' },
+  { id:'fire',   name:'Fire bolt',     glyph:'✷', color:'#ff875f' },
+  { id:'toxic',  name:'Toxic bolt',    glyph:'☣', color:'#9ce37d' },
+  { id:'pierce', name:'Piercing bolt', glyph:'➤', color:'#ffd86b' }
+];
+const BOLT = {
+  iceSlow:30, iceDur:1.5,
+  fireBurnPct:.20, fireBurnDur:3,
+  toxicSlow:60, toxicDur:1.5, toxicDotPct:.10, toxicDotDur:4,
+  pierceRange:.10, pierceRate:.10, pierceFlat:.10
+};
+const BOLT_BY_ID = Object.fromEntries(BOLT_MODS.map((m) => [m.id, m]));
+const BOLT_BLURB = {
+  ice:    `Every hit slows ${BOLT.iceSlow}% for ${BOLT.iceDur}s.`,
+  fire:   `Ignites for an extra ${Math.round(BOLT.fireBurnPct * 100)}% of the hit as burn damage over ${BOLT.fireBurnDur}s.`,
+  toxic:  `Slows ${BOLT.toxicSlow}% and leaves a ${Math.round(BOLT.toxicDotPct * 100)}% venom that can never land the killing blow.`,
+  pierce: `+${Math.round(BOLT.pierceRange * 100)}% range and fire rate, plus ${Math.round(BOLT.pierceFlat * 100)}% damage that ignores armour and the class matrix — identical against every armour type. Non-lethal, and it does not stack.`
+};
+/* Tech's whole line, and the Laser Cannon whatever race bought it (it is the
+   last entry of every race's list). */
+function boltEligible(tower) {
+  if (!tower) return false;   // owner-agnostic: the rival fits bolts too
+  return tower.raceId === 'tech' || tower.tier >= towerListFor(tower.raceId).length - 1;
+}
+/* Priced at 40% of the tier, floor 10g. At 60% with a 15g floor the search
+   never bought one at any wave: a bolt on an 8g Bolt Turret cost nearly twice
+   the tower for a fraction of its damage, so another turret always won. Bolts
+   are what you buy when you are out of CELLS rather than out of gold — which is
+   the whole late game — so they have to undercut a level upgrade, not a tower. */
+function boltCost(tower) { return Math.max(10, Math.round(towerDef(tower.raceId, tower.tier).cost * .4)); }
+function boltOf(tower) { return tower && tower.bolt ? BOLT_BY_ID[tower.bolt] : null; }
 function towerLiveStats(tower) {
   const def = towerDef(tower.raceId, tower.tier);
   const level = tower.level || 0;
-  return { ...def, dmg:Math.round(def.dmg * (1 + .15 * level)), range:def.range + .25 * level };
+  const stats = { ...def, dmg:Math.round(def.dmg * (1 + .15 * level)), range:def.range + .25 * level };
+  if (tower.bolt) {
+    stats.bolt = tower.bolt;
+    // piercing is the only bolt that touches the tower's own numbers
+    if (tower.bolt === 'pierce') { stats.range *= 1 + BOLT.pierceRange; stats.cd = stats.cd / (1 + BOLT.pierceRate); }
+  }
+  return stats;
 }
 function towerLevelCost(tower) { return Math.max(5, Math.ceil(towerDef(tower.raceId, tower.tier).cost * .4 * ((tower.level || 0) + 1))); }
 function towerTierUp(tower) {
@@ -1916,9 +1970,26 @@ function resetMatchState() {
 
 /* Trade the weakest tower on the board up to the best tier the purse allows.
    Selling and rebuilding keeps the maze shape identical — only its damage moves. */
+/* The rival fits bolts too, or a tech/laser rival would field the one line in
+   the game with no passive at all. It buys the cheapest slot first and spreads
+   the four kinds rather than stacking one, which is roughly what a competent
+   player does with them. */
+function aiFitBolt() {
+  const fits = [...towers.values()].filter((t) => t.owner === 'enemy' && !t.bolt && boltEligible(t) && !underConstruction(t));
+  if (!fits.length) return false;
+  const target = fits.sort((a, b) => boltCost(a) - boltCost(b))[0];
+  const cost = boltCost(target);
+  if (enemy.gold < cost) return false;
+  const counts = {};
+  towers.forEach((t) => { if (t.owner === 'enemy' && t.bolt) counts[t.bolt] = (counts[t.bolt] || 0) + 1; });
+  const pick = BOLT_MODS.slice().sort((a, b) => (counts[a.id] || 0) - (counts[b.id] || 0))[0];
+  enemy.gold -= cost; target.invested += cost; target.bolt = pick.id;
+  return true;
+}
 function aiUpgradeSomething(list, maxTierNow) {
   const mine = [...towers.values()].filter((tower) => tower.owner === 'enemy');
   if (!mine.length) return;
+  if (aiFitBolt()) return;   // a bolt is the cheapest real power spike available
   const weakest = mine.sort((a, b) => a.tier - b.tier)[0];
   let buyTier = Math.min(maxTierNow, list.length - 2);
   while (buyTier > weakest.tier && list[buyTier].cost > enemy.gold + towerSellValue(weakest)) buyTier -= 1;
@@ -2045,18 +2116,23 @@ function nearestBlockingTower(creep) {
   return candidates[0] || null;
 }
 
-function pushDot(creep, dps, dur, tag) {
+function pushDot(creep, dps, dur, tag, nonLethal) {
   if (!creep.dots) creep.dots = [];
-  creep.dots.push({ dps, until:simTime + dur, tag });
+  creep.dots.push({ dps, until:simTime + dur, tag, nonLethal:!!nonLethal });
   if (creep.dots.length > TRAIT.dotCap) creep.dots.shift();
 }
 function updateCreep(creep, dt) {
   const now = simTime;
   // stacking damage-over-time (poison stacks + fire ignite) — bypasses armor, still hits shield
   if (creep.dots && creep.dots.length) {
-    let dps = 0;
-    for (let i = creep.dots.length - 1; i >= 0; i -= 1) { if (creep.dots[i].until <= now) creep.dots.splice(i, 1); else dps += creep.dots[i].dps; }
+    let dps = 0, nonLethalDps = 0;
+    for (let i = creep.dots.length - 1; i >= 0; i -= 1) {
+      const d = creep.dots[i];
+      if (d.until <= now) creep.dots.splice(i, 1);
+      else if (d.nonLethal) nonLethalDps += d.dps; else dps += d.dps;
+    }
     if (dps) applyDamage(creep, dps * dt, null, true);
+    if (nonLethalDps) applyDamage(creep, nonLethalDps * dt, null, true, { nonLethal:true });
   }
   if (creep.venom > 0) {
     if (now >= creep.venomUntil) creep.venom = 0;   // nothing has poisoned it for a while
@@ -2183,6 +2259,9 @@ function applyDamage(creep, amount, tower, isDot = false, opts) {
       dmg *= 1 - armorReduction(effectiveArmor);
     }
   }
+  // NON-LETHAL: chips a creep down but can never land the killing blow, so it
+  // never steals a bounty or a kill credit from the tower that earned it.
+  if (opts && opts.nonLethal) dmg = Math.min(dmg, Math.max(0, creep.hp - 1));
   creep.hp -= dmg;
   if (!isDot) creep.hitAt = simTime;
   if (!isDot && dmg >= 60) pushFx({ kind:'num', x:creep.x, y:creep.y - .4, text:String(Math.round(dmg)), until:simTime + .7 });
@@ -2263,6 +2342,32 @@ function applyHitEffects(creep, tower, stats) {
   if (race === 'electricity' && rng() < TRAIT.elecStasis * tierPot(tower)) creep.stasisUntil = Math.max(creep.stasisUntil, simTime + TRAIT.elecStasisDur);
   if (special === 'pause' && !creep.boss) creep.stunUntil = simTime + 3.5;
   if (special === 'armorshred') creep.armorShred = Math.min(creep.armor, creep.armorShred + 5);
+  applyBoltEffects(creep, tower, stats);
+}
+/* The borrowed element a bolt mod bolts onto a tech tower or a Laser Cannon.
+   Deliberately weaker than the race that owns each effect: Ice's own frost
+   ramps to a far deeper slow and freezes regen, Fire's charge erupts in an AoE,
+   Poison's venom pool stacks without limit and can kill. A bolt buys the
+   flavour, not the race. */
+function applyBoltEffects(creep, tower, stats) {
+  const bolt = stats.bolt;
+  if (!bolt) return;
+  if (bolt === 'ice') {
+    creep.slowUntil = Math.max(creep.slowUntil, simTime + BOLT.iceDur);
+    creep.slowPct = Math.max(creep.slowPct || 0, BOLT.iceSlow);
+  } else if (bolt === 'fire') {
+    // "+20% additional burn damage": an extra fifth of the hit, paid out over 3s
+    pushDot(creep, stats.dmg * BOLT.fireBurnPct / BOLT.fireBurnDur, BOLT.fireBurnDur, 'boltfire');
+  } else if (bolt === 'toxic') {
+    creep.slowUntil = Math.max(creep.slowUntil, simTime + BOLT.toxicDur);
+    creep.slowPct = Math.max(creep.slowPct || 0, BOLT.toxicSlow);
+    pushDot(creep, stats.dmg * BOLT.toxicDotPct / BOLT.toxicDotDur, BOLT.toxicDotDur, 'bolttoxic', true);
+  } else if (bolt === 'pierce') {
+    /* isDot skips the armour value AND the class matrix, which is precisely
+       "deals the same to all armour types". Non-lethal so it never steals a
+       kill, and applied once per shot — it is a flat chip, not a stack. */
+    applyDamage(creep, stats.dmg * BOLT.pierceFlat, tower, true, { nonLethal:true });
+  }
 }
 function splashSpec(special) {
   if (special === 'smallsplash') return { radius:1.2, mult:.4 };
@@ -3207,6 +3312,15 @@ function drawTower(ctx, tower) {
   for (let i = 0; i < Math.min(6, tower.tier); i += 1) { ctx.fillRect(-half + 2 + i * 2.9, half - 3.5, 2.1, 2); }
   ctx.fillStyle = '#ffd86b';
   for (let i = 0; i < (tower.level || 0); i += 1) { ctx.fillRect(-half + 2 + i * 3.4, -half + 2, 2.4, 2); }
+  // bolt mod: a coloured pip in the top-right corner, so a fitted tower reads at a glance
+  const mod = boltOf(tower);
+  if (mod) {
+    ctx.save();
+    ctx.fillStyle = mod.color;
+    ctx.beginPath(); ctx.arc(half - 3, -half + 3.5, 2.6, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#05080f'; ctx.lineWidth = .9; ctx.stroke();
+    ctx.restore();
+  }
   // selection = rotating dashed element-colored reticle (reads without a permanent bright frame)
   if (selected) {
     /* The ring used to be drawn in the tower's OWN element colour, on a tile
@@ -4169,7 +4283,23 @@ function towerAction(kind) {
     group = ready;   // never upgrade a tower mid-construction; selling still refunds
   }
   if (!group.length) return;
-  if (kind === 'level') {
+  if (kind.startsWith('bolt:')) {
+    const id = kind.slice(5);
+    const mod = BOLT_BY_ID[id];
+    const eligible = group.filter((t) => boltEligible(t) && t.bolt !== id);
+    if (!mod) return;
+    if (!eligible.length) { log(`Bolt mods fit the tech line and any race's Laser Cannon${group.some((t) => t.bolt === id) ? ` — these already carry the ${mod.name}` : ''}.`); return; }
+    let done = 0, spent = 0, swapped = 0;
+    for (const t of eligible.sort((a, b) => boltCost(a) - boltCost(b))) {
+      const cost = boltCost(t);
+      if (player.gold < cost) break;
+      player.gold -= cost; t.invested += cost;
+      if (t.bolt) swapped += 1;
+      t.bolt = id; done += 1; spent += cost;
+    }
+    if (done) { SFX.play('build'); log(`${mod.glyph} ${mod.name} fitted to ${done} tower${done > 1 ? 's' : ''} for ${spent}g${swapped ? ` (${swapped} swapped off another bolt)` : ''}. ${BOLT_BLURB[id]}`); }
+    else log(`Not enough gold — the ${mod.name} costs ${boltCost(eligible[0])}g on that tower.`);
+  } else if (kind === 'level') {
     let done = 0;
     for (const t of group.sort((a, b) => towerLevelCost(a) - towerLevelCost(b))) {
       if (t.level >= MAX_LEVEL) continue;
@@ -4212,6 +4342,24 @@ function towerAction(kind) {
 function selectionTowers() {
   return selectedGroupKeys.map((key) => towers.get(key)).filter(Boolean);
 }
+/* The bolt rack, shared by the desktop detail panel and the mobile sheet. Shows
+   nothing at all for a selection no bolt can fit, so it never adds noise to the
+   eight races that do not use them. */
+function boltPanelHtml(group) {
+  const fits = group.filter(boltEligible);
+  if (!fits.length) return '';
+  const cost = fits.reduce((sum, t) => sum + boltCost(t), 0);
+  const current = boltOf(fits[0]);
+  const mixed = fits.some((t) => t.bolt !== fits[0].bolt);
+  return `<div class="bolt-rack">
+    <span class="panel-heading">BOLT MOD${fits.length > 1 ? ` • ${fits.length} TOWERS • ${cost}g` : ` • ${cost}g`}</span>
+    <div class="bolt-row">${BOLT_MODS.map((m) => {
+      const on = !mixed && current?.id === m.id;
+      return `<button class="bolt-chip ${on ? 'on' : ''}" data-bolt="${m.id}" style="--bolt:${m.color}" title="${m.name} — ${BOLT_BLURB[m.id]}"><span>${m.glyph}</span><small>${m.name.split(' ')[0]}</small></button>`;
+    }).join('')}</div>
+    <p class="bolt-note">${mixed ? 'Mixed bolts in this selection.' : current ? `${current.glyph} ${current.name} — ${BOLT_BLURB[current.id]}` : 'No bolt fitted. One per tower; it carries through tier upgrades.'}</p>
+  </div>`;
+}
 function renderTowerDetails() {
   const panel = $('tower-details');
   const tower = selectedTowerKey !== null ? towers.get(selectedTowerKey) : null;
@@ -4239,9 +4387,10 @@ function renderTowerDetails() {
       ${tierable.length ? (() => { const laserNext = towerTierUp(tower)?.next.name === 'Laser Cannon'; const blocked = player.gold < (many ? 1 : tierCostAll) || (laserNext && player.lumber < 1); return `<button id="td-tier" class="action-button td-tier" ${blocked ? 'disabled' : ''}>→ ${towerTierUp(tower)?.next.name || 'next tier'}${many ? ` all • ${tierCostAll}g` : ` ${tierCostAll}g`}${laserNext ? ' +1🪵' : ''}</button>`; })() : ''}
       <button id="td-priority" class="ghost-button">Target: ${tower.priority}</button>
       <button id="td-sell" class="ghost-button td-sell-danger">Sell${many ? ' all' : ''} ${sellAll}g${graceNote}</button>
-    </div>` : ''}`;
+    </div>${boltPanelHtml(group)}` : ''}`;
   $('td-close').addEventListener('click', () => { selectedTowerKey = null; selectedGroupKeys = []; renderTowerDetails(); });
   if (!isYours) return;
+  panel.querySelectorAll('[data-bolt]').forEach((b) => b.addEventListener('click', () => towerAction(`bolt:${b.dataset.bolt}`)));
   $('td-level').addEventListener('click', () => towerAction('level'));
   $('td-tier')?.addEventListener('click', () => towerAction('tier'));
   $('td-sell').addEventListener('click', () => towerAction('sell'));
@@ -5777,6 +5926,9 @@ function learnContent() {
     <div class="learn-list">${WAVES.map((w, i) => `<div class="learn-row"><span>${i+1}. ${w.name}</span><small>${Math.round((w.hp||0)*(w.boss?1:TRAIT.hpScaleNeutral*waveHpMult(i+1))*(w.role==='juggernaut'?2.4:1))} hp · ${(w.armor||0)+(w.boss?0:TRAIT.armorBonus)} armor · ${w.aClass}${w.air?' · air':''}${w.role&&w.role!=='standard'?' · '+w.role:''}</small></div>`).join('')}</div>
     <p class="sheet-heading">EVERY SEND — cost · income · hp · armor</p>
     <div class="learn-list">${SENDS.map((sd) => `<div class="learn-row"><span>${sd.name} <em>(L${sd.shrine})</em></span><small>${sd.cost}g +${sd.income} · ${sd.hp} hp · ${sd.armor||0} armor · ${sd.aClass||'?'}${sd.air?' · air':''}${sd.role&&sd.role!=='standard'?' · '+sd.role:''}</small></div>`).join('')}</div>
+    <p class="sheet-heading">BOLT MODS — tech line + any race's Laser Cannon</p>
+    <div class="learn-list">${BOLT_MODS.map((m) => `<div class="learn-row"><span style="color:${m.color}">${m.glyph} ${m.name}</span><small>${BOLT_BLURB[m.id]}</small></div>`).join('')}
+      <div class="learn-row"><span>Fitting</span><small>one bolt per tower, 60% of the tower's tier cost; it carries through tier upgrades, and swapping pays again</small></div></div>
     <p class="sheet-heading">RULES OF THUMB</p>
     <div class="learn-list">
       <div class="learn-row"><span>Chaos</span><small>Crystal and the Laser Cannon ignore armor entirely; Crystal also does +100% to shields</small></div>
@@ -5831,7 +5983,7 @@ function renderCommandSheet() {
           ${tierable.length ? `<button class="sheet-chip ${player.gold < 1 || (laserNext && player.lumber < 1) ? 'poor' : ''}" data-sheet-act="tier"><span>⏫</span><small>${towerTierUp(t0)?.next.name.split(' ')[0] || 'Tier'}</small><b>${tierCostAll}g${laserNext ? '+🪵' : ''}</b></button>` : ''}
           <button class="sheet-chip" data-sheet-act="priority"><span>🎯</span><small>Target</small><b>${t0.priority}</b></button>
           <button class="sheet-chip sell-chip" data-sheet-act="sell"><span>💰</span><small>Sell${many ? ' all' : ''}</small><b>${sellAll}g</b></button>
-        </div>`;
+        </div>${boltPanelHtml(sel)}`;
     }
   } else {
     body = learnContent();
@@ -5873,6 +6025,7 @@ function renderCommandSheet() {
     sheetKey = ''; renderCommandSheet();
   }));
   sheet.querySelectorAll('[data-sheet-act]').forEach((b) => b.addEventListener('click', () => towerAction(b.dataset.sheetAct)));
+  sheet.querySelectorAll('[data-bolt]').forEach((b) => b.addEventListener('click', () => { towerAction(`bolt:${b.dataset.bolt}`); sheetKey = ''; renderCommandSheet(); }));
   $('sheet-wager')?.addEventListener('click', proposeWager);
   $('sheet-exit').addEventListener('click', () => { closeCommandSheet(); $('back-button')?.click(); });
   $('sheet-boxsel').addEventListener('click', () => {
