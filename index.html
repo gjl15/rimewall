@@ -224,6 +224,13 @@ h2 span { color:#7583a6; }
 .map-toggles { position:absolute; left:12px; top:12px; z-index:30; display:flex; flex-direction:column; gap:6px; }
 .map-toggles button { width:44px; height:44px; padding:0; border:1px solid #17325a99; border-radius:10px; background:#9ce3d8ee; color:#17325a; font-size:17px; box-shadow:0 4px 12px #17325a33; }
 .map-toggles button.on { background:#ffd86b; border-color:#8a6a12; box-shadow:0 0 0 2px #ffd86b66, 0 4px 12px #17325a33; }
+/* a lane with no path — the loudest state this control can have */
+.map-toggles button.mt-alarm { background:#ff5f6e; border-color:#7a1420; color:#fff; animation:mt-alarm-pulse 1s ease-in-out infinite; }
+@keyframes mt-alarm-pulse { 0%,100% { box-shadow:0 0 0 0 #ff5f6e88, 0 4px 12px #17325a33; } 50% { box-shadow:0 0 0 6px #ff5f6e00, 0 4px 12px #17325a33; } }
+body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0 0 3px #ff5f6e88; }
+/* the targeting chip carries its current mode as a label */
+#mt-target { position:relative; }
+#mt-target i { position:absolute; right:2px; bottom:1px; font:700 7px 'DM Mono',monospace; font-style:normal; letter-spacing:.02em; }
 .wisp-undo { position:absolute; top:-14px; left:-14px; display:flex; align-items:center; justify-content:center; width:34px; height:34px; border:1.5px solid #ffd86b; border-radius:50%; background:#3a2a08; color:#ffd86b; font-size:13px; font-style:normal; box-shadow:0 0 10px #ffd86b99; animation:undo-pulse 1.1s ease-in-out infinite; }
 .wisp-undo.hidden { display:none; }
 .map-zoom-controls { position:absolute; right:12px; bottom:12px; z-index:30; display:flex; align-items:center; gap:8px; padding:5px; border:1px solid #17325a99; border-radius:10px; background:#9ce3d8ee; box-shadow:0 4px 12px #17325a33; }.map-zoom-controls button { min-width:44px; height:44px; padding:0 6px; border:0; border-radius:7px; color:#17325a; background:transparent; font:700 15px 'DM Mono',monospace; }.map-zoom-controls button:hover { background:#d8f6ef; }.map-zoom-controls span { min-width:37px; color:#17325a; font:700 8px 'DM Mono',monospace; text-align:center; }.map-zoom-controls button:last-child { min-width:44px; font-size:8px; text-transform:uppercase; }.zoom-hint { position:absolute; left:12px; bottom:15px; z-index:30; color:#17325a; font:700 8px 'DM Mono',monospace; letter-spacing:.08em; text-shadow:0 1px #d8f6ef; pointer-events:none; }
@@ -265,6 +272,20 @@ h2 span { color:#7583a6; }
 .bolt-chip.on { border-color:var(--bolt); background:color-mix(in srgb, var(--bolt) 16%, #131b30); color:#f2f6ff; box-shadow:inset 0 0 0 1px var(--bolt); }
 .bolt-chip:active { transform:scale(.94); }
 .bolt-note { margin-top:6px; color:#8995b4; font-size:9px; line-height:1.5; }
+/* what's new — the player-facing changelog on the home screen */
+.whats-new { margin-top:14px; border:1px solid #233150; border-radius:12px; background:#0d1424; overflow:hidden; }
+.wn-head { display:flex; align-items:center; gap:9px; width:100%; padding:11px 12px; border:0; background:transparent; color:inherit; text-align:left; }
+.wn-tag { flex:0 0 auto; padding:3px 6px; border-radius:5px; background:#77d6ff22; color:#77d6ff; font:600 8px 'DM Mono',monospace; letter-spacing:.13em; }
+.wn-head strong { flex:1; min-width:0; font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.wn-head small { flex:0 0 auto; color:#8995b4; font:500 9px 'DM Mono',monospace; }
+.wn-caret { flex:0 0 auto; color:#8995b4; font-size:10px; }
+.wn-body { padding:0 12px 12px; }
+.wn-rel { margin-top:9px; }
+.wn-rel b { display:block; color:#bcd2ff; font:600 9px 'DM Mono',monospace; letter-spacing:.06em; }
+.wn-rel ul { margin:5px 0 0; padding-left:16px; }
+.wn-rel li { margin-top:3px; color:#93a0be; font-size:10px; line-height:1.55; }
+.wn-foot { margin-top:11px; color:#6f7c9c; font-size:9px; }
+.wn-foot code { color:#8995b4; }
 /* amber = diminishing returns have trimmed this send below its ladder number */
 .sheet-chip b i.inc-cut, .send-card small.inc-cut { color:#f0b45c; }
 .sheet-chip.on { border-color:#77d6ff; box-shadow:inset 0 0 0 1px #77d6ff; }
@@ -820,13 +841,14 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
         </div>
 
         <div id="race-grid-wrap" class="race-grid-wrap">
-          <div class="rule-line"><span>SELECT YOUR RACE</span><i></i><small>9 ELEMENTS</small></div>
+          <div class="rule-line"><span>SELECT YOUR RACE</span><i></i><small id="race-count">— ELEMENTS</small></div>
           <div id="race-grid" class="race-grid" aria-label="Element roster"></div>
           <div id="race-detail" class="race-detail hidden"></div>
         </div>
 
         <div id="profile-strip" class="profile-strip"></div>
         <div id="daily-quests" class="daily-quests"></div>
+        <div id="whats-new" class="whats-new"></div>
 
         <div class="mp-panel">
           <div class="mp-head"><span class="selection-kicker">MULTIPLAYER • LIVE 1V1 • BETA</span><strong>Challenge a real commander.</strong><small class="mp-note">Best played with a friend — share the invite link when your room opens.</small></div>
@@ -974,7 +996,7 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
               </div>
               <div id="arena-log" class="arena-log" aria-live="polite"></div>
               <div id="action-ring" class="action-ring hidden"></div>
-              <div class="map-toggles" aria-label="Map indicators"><button id="mt-routes" title="Show creep routes">🧭</button><button id="mt-ranges" title="Show tower ranges">◎</button><button id="mt-inspect" title="Inspect — tap a tower or creep to read its stats" aria-pressed="false">🔍</button></div>
+              <div class="map-toggles" aria-label="Map indicators"><button id="mt-routes" title="Show creep routes">🧭</button><button id="mt-ranges" title="Show tower ranges">◎</button><button id="mt-inspect" title="Inspect — tap a tower or creep to read its stats" aria-pressed="false">🔍</button><button id="mt-target" title="Targeting for ALL your towers — tap to switch first / last">🎯<i id="mt-target-tag">1st</i></button></div>
               <div class="map-zoom-controls" aria-label="Map zoom controls"><button id="zoom-out-button" aria-label="Zoom out">−</button><span id="zoom-label">100%</span><button id="zoom-in-button" aria-label="Zoom in">+</button><button id="zoom-reset-button" aria-label="Reset map zoom">reset</button></div>
               <div class="zoom-hint">PINCH TO ZOOM • DRAG WHEN ZOOMED<span class="hotkey-hint"> • 1–9 SEND • Q–U TOWERS • ESC = UNDO • RIGHT-CLICK / HOLD = SELL</span></div>
             </div>
@@ -1963,6 +1985,7 @@ function resetMatchState() {
   // simTime restarts at 0, so a sell left over from the last match reads as
   // "-25s ago" and stays inside the undo window. Clear both undo records.
   lastSold = null; lastPlaced = null;
+  matchStats = newMatchStats(); goldWatch = START_GOLD; statsClock = 0;
   creeps.length = 0; projectiles.length = 0; effects.length = 0; pendingSpawns.length = 0;
   const pickedMode = document.getElementById('mode-select')?.value;
   matchMode = pickedMode === 'classic' ? 'classic' : (pickedMode === 'survival' ? 'survival' : 'skirmish');
@@ -2012,17 +2035,46 @@ function aiUpgradeSomething(list, maxTierNow) {
   addTower(makeTower(spot.r, spot.c, enemy.raceId, buyTier, 'enemy'));
 }
 const priorities = ['first', 'last', 'strong', 'weak', 'near'];
+/* GLOBAL TARGETING. Retargeting a wall one tower at a time is not a decision,
+   it is admin — and first/last is the one call you want to make for the whole
+   maze at once (hold the lead runner vs. mop up the stragglers). This is the
+   default for every tower you place AND the switch that retargets everything
+   already standing. Per-tower overrides still exist on the tower chip; they are
+   simply overwritten the next time you flip this.
+   Note first/last were ALREADY wave-agnostic: creepProgress is route progress,
+   so a leaker from wave 9 outranks a fresh wave-10 spawn as it should. */
+let globalPriority = 'first';
+function applyGlobalPriority(next) {
+  globalPriority = next;
+  let n = 0;
+  towers.forEach((t) => { if (t.owner === 'player') { t.priority = next; n += 1; } });
+  syncMapToggles();
+  renderTowerDetails(); sheetKey = ''; renderCommandSheet();
+  log(`Targeting: ${next.toUpperCase()} — applied to ${n} tower${n === 1 ? '' : 's'} and to everything you build next.`);
+}
 function makeTower(r, c, raceId, tier, owner) {
   const def = towerDef(raceId, tier);
   const buildTime = 1.2 + tier * .4;   // classic-style construction; canceling during it refunds fully
-  return { key:idx(r, c), r, c, raceId, tier, level:0, owner, cooldown:0, priority:'first', kills:0, invested:def.cost, placedAt:simTime, buildTime, buildUntil:simTime + buildTime, blockHp:4 + tier, blockMaxHp:4 + tier, underAttack:0 };
+  return { key:idx(r, c), r, c, raceId, tier, level:0, owner, cooldown:0, priority:owner === 'player' ? globalPriority : 'first', kills:0, invested:def.cost, placedAt:simTime, buildTime, buildUntil:simTime + buildTime, blockHp:4 + tier, blockMaxHp:4 + tier, underAttack:0 };
 }
 function addTower(tower) { towers.set(tower.key, tower); towersVersion += 1; refreshRouteDebug(); }
 function removeTower(key) { towers.delete(key); towersVersion += 1; if (selectedTowerKey === key) selectedTowerKey = null; selectedGroupKeys = selectedGroupKeys.filter((k) => k !== key); refreshRouteDebug(); }
 
+let routeBlocked = false;
 function refreshRouteDebug() {
   const sw = routeLength('south', 'west'), se = routeLength('south', 'east');
   cachedRouteText = `route S-W ${sw ?? 'BLOCKED'} • S-E ${se ?? 'BLOCKED'} cells`;
+  /* A sealed lane is legal — creeps chew through the wall instead — but it used
+     to be invisible until they were already eating your maze. The compass
+     indicator goes red the moment a lane has no path, and the towers doing the
+     blocking get marked on the board. */
+  const wasBlocked = routeBlocked;
+  routeBlocked = sw == null || se == null;
+  if (typeof syncMapToggles === 'function') syncMapToggles();
+  if (routeBlocked && !wasBlocked && typeof battleRunning !== 'undefined' && battleRunning) {
+    log(`⚠ ${sw == null && se == null ? 'BOTH LANES ARE' : (sw == null ? 'The WEST lane is' : 'The EAST lane is')} fully blocked — creeps will attack through your wall instead of walking it.`);
+    if (typeof showToast === 'function') showToast('<b>⚠ Lane sealed</b><span>Creeps will break through your towers. Leave a gap unless you meant this.</span>');
+  }
 }
 
 /* ---------------- Creeps ---------------- */
@@ -2205,6 +2257,7 @@ function updateCreep(creep, dt) {
     if (blocker) {
       if (creep.state !== 'attack') log(`${creep.name} is hard-blocked and attacking ${towerDef(blocker.raceId, blocker.tier).name} (${blocker.blockHp} hits left).`);
       creep.state = 'attack'; creep.blockTargetKey = blocker.key; creep.attackClock = .4;
+      blocker.blockingAt = simTime;   // drives the red blocking marker on the board
     }
     return;
   }
@@ -2233,7 +2286,7 @@ function resolveLeak(creep) {
   const owner = creep.half === PLAYER_HALF ? player : enemy;
   owner.lives = Math.max(0, owner.lives - creep.livesCost);
   pushFx({ kind:'leak', x:creep.x, y:creep.y, until:simTime + .6 });
-  if (creep.half === PLAYER_HALF) { waveBoardRetire(creep, true); SFX.play('leak'); }
+  if (creep.half === PLAYER_HALF) { waveBoardRetire(creep, true); SFX.play('leak'); recordLeak(); }
   if (creep.half === PLAYER_HALF) log(`${creep.name} reached your ship — that is a leak (−${creep.livesCost} ${creep.livesCost > 1 ? 'lives' : 'life'}).`);
   else if (creep.sent) log(`Your ${creep.name} broke through! Enemy loses ${creep.livesCost} ${creep.livesCost > 1 ? 'lives' : 'life'}.`);
   if (owner.lives <= 0) endMatch(creep.half === PLAYER_HALF ? 'defeat' : 'victory');
@@ -2949,6 +3002,7 @@ function endMatch(result) {
   if (result === 'victory') { banner.textContent = '★ VICTORY — THE ENEMY SHIP HAS FALLEN'; log('Victory! The rival force is out of lifeforce. Restart to run it back.'); }
   else { banner.textContent = '☠ DEFEAT — YOUR SHIP HAS FALLEN'; log('Your ship has fallen. Restart the match to test another maze.'); }
   if (mp.active) mpSend({ t:'over', result });
+  commitMatchStats(result);
   const earnedBefore = Object.keys(profile.achievements).length;
   profile.matches += 1;
   if (result === 'victory') {
@@ -3068,8 +3122,94 @@ async function shareMatchCard(result) {
   a.href = URL.createObjectURL(blob); a.download = 'rimewall-match.png'; a.click();
   URL.revokeObjectURL(a.href);
 }
+/* ---------------- MATCH LOG ----------------
+   Every match records itself, so the races can be audited from real games
+   instead of from a harness that only ever plays one greedy strategy. The
+   valuable column is leaksByWave: it says WHERE a race falls over, which is the
+   question a win/loss record cannot answer.
+   Gold flow is sampled from player.gold rather than hooked at each spend site —
+   one hook instead of a dozen, and it cannot drift out of step with a new one. */
+const MATCH_LOG_KEY = 'rimewall.matchlog.v1', MATCH_LOG_CAP = 120;
+let matchStats = null, goldWatch = 0, statsClock = 0;
+function newMatchStats() {
+  return { at:Date.now(), race:null, rival:null, mode:matchMode, team:1, result:null,
+    wave:0, secs:0, kills:0, livesLost:0, goldEarned:0, goldSpent:0, peakIncome:0,
+    sends:0, peakTowers:0, bolts:0, leaksByWave:{} };
+}
+function loadMatchLog() {
+  try { return JSON.parse(localStorage.getItem(MATCH_LOG_KEY) || '[]') || []; } catch (e) { return []; }
+}
+function saveMatchLog(list) {
+  try { localStorage.setItem(MATCH_LOG_KEY, JSON.stringify(list.slice(-MATCH_LOG_CAP))); } catch (e) { /* per-browser only */ }
+}
+function recordLeak() {
+  if (!matchStats) return;
+  matchStats.livesLost += 1;
+  matchStats.leaksByWave[wave] = (matchStats.leaksByWave[wave] || 0) + 1;
+}
+function tickMatchStats(dt) {
+  if (!matchStats || !player) return;
+  const d = player.gold - goldWatch;
+  if (d > 0) matchStats.goldEarned += d; else matchStats.goldSpent -= d;
+  goldWatch = player.gold;
+  statsClock -= dt;
+  if (statsClock > 0) return;
+  statsClock = 1;
+  matchStats.secs = Math.round(simTime);
+  matchStats.wave = wave;
+  matchStats.kills = player.kills;
+  matchStats.peakIncome = Math.max(matchStats.peakIncome, player.income);
+  let mine = 0, bolted = 0;
+  towers.forEach((t) => { if (t.owner === 'player') { mine += 1; if (t.bolt) bolted += 1; } });
+  matchStats.peakTowers = Math.max(matchStats.peakTowers, mine);
+  matchStats.bolts = bolted;
+}
+function commitMatchStats(result) {
+  if (!matchStats || !player) return;
+  tickMatchStats(0);
+  matchStats.result = result;
+  matchStats.race = selectedRace?.id || null;
+  matchStats.rival = mp.active ? 'human' : (enemy?.raceId || null);
+  matchStats.mode = matchMode;
+  matchStats.team = defendersPerHalf ? defendersPerHalf() : 1;
+  matchStats.livesLeft = player.lives;
+  const list = loadMatchLog();
+  list.push(matchStats);
+  saveMatchLog(list);
+}
+/* Per-race aggregate over the recorded games — the actual "audit the races" view. */
+function raceAudit(log) {
+  const by = {};
+  (log || loadMatchLog()).forEach((m) => {
+    if (!m.race) return;
+    const r = by[m.race] = by[m.race] || { race:m.race, n:0, wins:0, waveSum:0, bestWave:0,
+      leakSum:0, earnSum:0, spendSum:0, incomeSum:0, firstLeaks:[] };
+    r.n += 1;
+    if (m.result === 'victory') r.wins += 1;
+    r.waveSum += m.wave || 0;
+    r.bestWave = Math.max(r.bestWave, m.wave || 0);
+    r.leakSum += m.livesLost || 0;
+    r.earnSum += m.goldEarned || 0;
+    r.spendSum += m.goldSpent || 0;
+    r.incomeSum += m.peakIncome || 0;
+    const waves = Object.keys(m.leaksByWave || {}).map(Number).sort((a, b) => a - b);
+    if (waves.length) r.firstLeaks.push(waves[0]);
+  });
+  return Object.values(by).map((r) => ({
+    race: r.race, matches: r.n,
+    winPct: Math.round(r.wins / r.n * 100),
+    avgWave: +(r.waveSum / r.n).toFixed(1),
+    bestWave: r.bestWave,
+    avgLeaks: +(r.leakSum / r.n).toFixed(1),
+    // the number that actually locates a weakness: the wave a race first leaks on
+    firstLeak: r.firstLeaks.length ? +(r.firstLeaks.reduce((a, b) => a + b, 0) / r.firstLeaks.length).toFixed(1) : null,
+    avgSpend: Math.round(r.spendSum / r.n),
+    spendPct: r.earnSum ? Math.round(r.spendSum / r.earnSum * 100) : 0
+  })).sort((a, b) => b.avgWave - a.avgWave);
+}
 function simulate(dt) {
   simTime += dt;
+  tickMatchStats(dt);
   if (matchMode !== 'classic') {
     waveClock -= dt;
     if (waveClock <= 0) launchNextWave();
@@ -3370,6 +3510,19 @@ function drawTower(ctx, tower) {
   for (let i = 0; i < Math.min(6, tower.tier); i += 1) { ctx.fillRect(-half + 2 + i * 2.9, half - 3.5, 2.1, 2); }
   ctx.fillStyle = '#ffd86b';
   for (let i = 0; i < (tower.level || 0); i += 1) { ctx.fillRect(-half + 2 + i * 3.4, -half + 2, 2.4, 2); }
+  /* BLOCKING MARKER. This tower is what a creep is chewing on because the lane
+     has no path around it. Red pulse plus a warning glyph — the one thing you
+     want to see instantly, because it is both the cause and the fix. */
+  if (simTime - (tower.blockingAt || -99) < 1.2) {
+    ctx.save();
+    const pulse = .55 + .45 * Math.sin(simTime * 7);
+    ctx.strokeStyle = '#ff5f6e'; ctx.globalAlpha = pulse; ctx.lineWidth = 2.4;
+    ctx.beginPath(); ctx.arc(0, 0, half + 4, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 1; ctx.fillStyle = '#ff5f6e';
+    ctx.font = '700 9px "DM Mono", monospace'; ctx.textAlign = 'center';
+    ctx.fillText('⚠', 0, -half - 3);
+    ctx.restore();
+  }
   // bolt mod: a coloured pip in the top-right corner, so a fitted tower reads at a glance
   const mod = boltOf(tower);
   if (mod) {
@@ -5424,7 +5577,11 @@ function renderRaceCards() {
   }
   const focusCard = grid.querySelector('.race-card.previewed') || grid.querySelector('.race-card.selected');
   focusCard?.scrollIntoView({ inline:'center', block:'nearest', behavior:'smooth' });
+  const count = $('race-count');
+  // was hard-coded "9 ELEMENTS" and went stale the moment Beam landed
+  if (count) count.textContent = `${races.length} ELEMENTS`;
   renderProfileStrip();
+  renderWhatsNew();
 }
 function renderDailyQuests() {
   const box = $('daily-quests');
@@ -5989,6 +6146,87 @@ function openCommandSheet(tab) {
 }
 function closeCommandSheet() { $('command-sheet').classList.add('hidden'); }
 function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? profile.sheetOpacity : 95; }
+/* The Records tab: every match this browser has played, and the per-race audit
+   rolled up from them. "First leak" is the column that matters — the average
+   wave a race first loses a life on locates its weakness far better than a
+   win rate does. */
+/* ---- WHAT'S NEW ----
+   The player-facing half of CHANGELOG.md. Keep the newest entry at the top and
+   add one line per change a PLAYER would notice — the full engineering account
+   lives in CHANGELOG.md, this is the "what changed for me" version.
+   Bump RELEASE_TAG whenever you add an entry: the card auto-expands once per
+   new tag, then collapses and stays collapsed. */
+const RELEASE_TAG = '2026-09-05';
+const RELEASE_NOTES = [
+  { date:'2026-09-05', title:'Frost, bolts and a working undo', items:[
+    'Frost ramps 40% then +5% a hit — the 12th hit FREEZES a creep solid. Bosses get a deep slow instead.',
+    'Frostbite: 14% of Ice hits bite for bonus damage.',
+    'Hailslinger is now the Snowball Launcher — splash damage that frosts everything in the burst.',
+    'Bolt mods: fit Ice, Fire, Toxic or Piercing to any tech tower or Laser Cannon.',
+    'Selling is undoable for 12 seconds, and the undo pill lasts the full 8s refund window.',
+    'Double-tap anywhere off the board to reset a stuck zoom.',
+    'Send cards on mobile now show the income you actually get, not the ladder number.',
+    'New Records tab: every match is logged, with a per-race audit.'
+  ] },
+  { date:'2026-09-04', title:'Ship pocket and Survival', items:[
+    'A mazeable pocket at the ship, traced from the map export.',
+    'Survival mode — creeps only, no rival.',
+    'The rival now upgrades its towers instead of spamming tier 0 forever.'
+  ] },
+  { date:'2026-09-03', title:'Poison and gravity', items:[
+    'Poison: full bolt damage plus one venom pool every poison tower feeds.',
+    'Gravity effects are frequent enough to actually see.'
+  ] }
+];
+function renderWhatsNew() {
+  const box = $('whats-new');
+  if (!box) return;
+  const seen = profile.releaseSeen === RELEASE_TAG;
+  const open = box.dataset.open === '1' || !seen;
+  box.innerHTML = `
+    <button class="wn-head" id="wn-toggle" aria-expanded="${open}">
+      <span class="wn-tag">WHAT'S NEW</span>
+      <strong>${RELEASE_NOTES[0].title}</strong>
+      <small>${RELEASE_NOTES[0].date}${seen ? '' : ' • new'}</small>
+      <span class="wn-caret">${open ? '▴' : '▾'}</span>
+    </button>
+    ${open ? `<div class="wn-body">${RELEASE_NOTES.map((r) => `
+      <div class="wn-rel"><b>${r.date} — ${r.title}</b><ul>${r.items.map((i) => `<li>${i}</li>`).join('')}</ul></div>`).join('')}
+      <p class="wn-foot">Full engineering changelog: <code>CHANGELOG.md</code> in the repo.</p></div>` : ''}`;
+  $('wn-toggle').addEventListener('click', () => {
+    box.dataset.open = open ? '0' : '1';
+    if (!seen) { profile.releaseSeen = RELEASE_TAG; saveProfile(); }
+    renderWhatsNew();
+  });
+  if (!seen) box.dataset.open = '1';
+}
+function recordsContent() {
+  const log = loadMatchLog();
+  if (!log.length) {
+    return `<p class="sheet-heading">MATCH RECORDS</p>
+      <p class="sheet-hint">No matches recorded yet. Every match you finish is logged here — race, wave reached, gold earned and spent, and the wave you first leaked on. Play a few and the per-race audit below fills in.</p>`;
+  }
+  const audit = raceAudit(log);
+  const recent = log.slice(-12).reverse();
+  const fmt = (n) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(Math.round(n));
+  return `
+    <p class="sheet-heading">RACE AUDIT — ${log.length} recorded match${log.length > 1 ? 'es' : ''}</p>
+    <div class="learn-list">${audit.map((r) => {
+      const race = races.find((x) => x.id === r.race);
+      return `<div class="learn-row"><span style="color:${race?.color || '#fff'}">${race?.symbol || ''} ${race?.name || r.race}</span><small>${r.matches} played · ${r.winPct}% won · avg wave ${r.avgWave} (best ${r.bestWave}) · first leak w${r.firstLeak ?? '—'} · ${r.avgLeaks} lives/match · spent ${r.spendPct}% of ${fmt(r.avgSpend / (r.spendPct / 100 || 1))} earned</small></div>`;
+    }).join('')}</div>
+    <p class="sheet-hint">First leak is the wave a race first loses a life on — the clearest single signal of where it falls over. Spent % is how much of your earnings the wall actually absorbed; well under 100% means the wave curve is not pressuring you.</p>
+    <p class="sheet-heading">RECENT MATCHES</p>
+    <div class="learn-list">${recent.map((m) => {
+      const race = races.find((x) => x.id === m.race);
+      const when = new Date(m.at).toLocaleDateString(undefined, { month:'short', day:'numeric' });
+      return `<div class="learn-row"><span style="color:${race?.color || '#fff'}">${m.result === 'victory' ? '★' : '☠'} ${race?.name || m.race}</span><small>${when} · ${m.mode} ${m.team}v${m.team} vs ${m.rival || '?'} · wave ${m.wave} · ${m.kills} kills · ${m.livesLost} leaked · ${fmt(m.goldEarned)}g earned / ${fmt(m.goldSpent)}g spent · peak income ${fmt(m.peakIncome)}${m.bolts ? ` · ${m.bolts} bolts` : ''}</small></div>`;
+    }).join('')}</div>
+    <div class="sheet-grid sheet-actions">
+      <button class="sheet-chip" id="log-copy"><span>⧉</span><small>Copy JSON</small><b>share</b></button>
+      <button class="sheet-chip sell-chip" id="log-clear"><span>🗑</span><small>Clear log</small><b>${log.length}</b></button>
+    </div>`;
+}
 function learnContent() {
   const classWaves = {};
   WAVES.forEach((def, i) => {
@@ -6065,6 +6303,8 @@ function renderCommandSheet() {
           <button class="sheet-chip sell-chip" data-sheet-act="sell"><span>💰</span><small>Sell${many ? ' all' : ''}</small><b>${sellAll}g</b></button>
         </div>${boltPanelHtml(sel)}`;
     }
+  } else if (sheetTab === 'log') {
+    body = recordsContent();
   } else {
     body = learnContent();
   }
@@ -6075,6 +6315,7 @@ function renderCommandSheet() {
       <button class="sheet-tab tab-send ${sheetTab === 'sends' ? 'on' : ''}" data-sheet-tab="sends"><span class="ti">⚔</span><span class="tl">Send</span></button>
       <button class="sheet-tab tab-inspect ${sheetTab === 'tower' ? 'on' : ''}" data-sheet-tab="tower"><span class="ti">🛠</span><span class="tl">Inspect</span></button>
       <button class="sheet-tab tab-learn ${sheetTab === 'learn' ? 'on' : ''}" data-sheet-tab="learn"><span class="ti">🎓</span><span class="tl">Learn</span></button>
+      <button class="sheet-tab tab-log ${sheetTab === 'log' ? 'on' : ''}" data-sheet-tab="log"><span class="ti">📈</span><span class="tl">Records</span></button>
       <button id="sheet-close" class="sheet-tab tab-close" aria-label="Close"><span class="ti">✕</span><span class="tl">Close</span></button>
     </div>
     <div class="sheet-econ">
@@ -6106,6 +6347,17 @@ function renderCommandSheet() {
   }));
   sheet.querySelectorAll('[data-sheet-act]').forEach((b) => b.addEventListener('click', () => towerAction(b.dataset.sheetAct)));
   sheet.querySelectorAll('[data-bolt]').forEach((b) => b.addEventListener('click', () => { towerAction(`bolt:${b.dataset.bolt}`); sheetKey = ''; renderCommandSheet(); }));
+  $('log-copy')?.addEventListener('click', () => {
+    const payload = JSON.stringify({ exported:new Date().toISOString(), audit:raceAudit(), matches:loadMatchLog() }, null, 1);
+    navigator.clipboard?.writeText(payload)
+      .then(() => showToast('<b>Match log copied</b><span>Paste it anywhere to share the race audit.</span>'))
+      .catch(() => log('Clipboard blocked — the log is in localStorage under ' + MATCH_LOG_KEY));
+  });
+  $('log-clear')?.addEventListener('click', () => {
+    saveMatchLog([]);
+    sheetKey = ''; renderCommandSheet();
+    log('Match log cleared.');
+  });
   $('sheet-wager')?.addEventListener('click', proposeWager);
   $('sheet-exit').addEventListener('click', () => { closeCommandSheet(); $('back-button')?.click(); });
   $('sheet-boxsel').addEventListener('click', () => {
@@ -6330,6 +6582,16 @@ $('race-card')?.addEventListener('click', () => {
 });
 $('undo-slot')?.addEventListener('click', undoAction);
 function syncMapToggles() {
+  const routes = $('mt-routes');
+  if (routes) {
+    routes.classList.toggle('mt-alarm', !!routeBlocked);
+    routes.title = routeBlocked ? 'A LANE IS BLOCKED — creeps will attack through your wall' : 'Show creep routes';
+  }
+  const tgt = $('mt-target'), tag = $('mt-target-tag');
+  if (tgt && tag) {
+    tag.textContent = globalPriority === 'first' ? '1st' : globalPriority === 'last' ? 'last' : globalPriority.slice(0, 4);
+    tgt.classList.toggle('on', globalPriority !== 'first');
+  }
   $('mt-routes')?.classList.toggle('on', debug.routes);
   const insp = $('mt-inspect');
   if (insp) { const on = inspectPanelOpen(); insp.classList.toggle('on', on); insp.setAttribute('aria-pressed', String(on)); }
@@ -6341,6 +6603,8 @@ function syncMapToggles() {
 }
 $('mt-routes')?.addEventListener('click', () => { debug.routes = !debug.routes; syncMapToggles(); });
 $('mt-ranges')?.addEventListener('click', () => { debug.ranges = !debug.ranges; syncMapToggles(); });
+// the whole-wall targeting switch: first <-> last, the only two you flip mid-wave
+$('mt-target')?.addEventListener('click', () => applyGlobalPriority(globalPriority === 'first' ? 'last' : 'first'));
 /* Inspect used to be reachable only by tapping an entity, which competes with
    the scaffold double-tap. This is the direct way in. */
 $('mt-inspect')?.addEventListener('click', () => {
