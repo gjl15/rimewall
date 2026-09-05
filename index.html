@@ -1115,11 +1115,18 @@ const races = [
    groundOnly towers cannot target air waves. */
 const TOWERS = {
   ice:[
-    { name:'Frostflick', cost:10, dmg:8, cd:1.1, range:5.5, special:'slow', desc:'Frost bolts that slow the first target.' },
-    { name:'Snowball Launcher', cost:40, dmg:33, cd:1.0, range:5.9, special:'snowball', desc:'Lobbed snowballs burst on impact — splash damage that frosts everything caught in the blast.' },
+    /* ICE'S MIDDLE WAS A CLIFF. Measured gold-per-dps down the ladder read
+       1.38 / 1.21 / 1.14 / 8.89 / 6.08 / 0.97 against fire's flat ~1.00 and
+       crystal's 0.97. Teching from Whiteout Spire into Meltjet made a tower
+       EIGHT TIMES worse per gold, and you cannot reach the capstone without
+       passing through it — so the whole element read as garbage however well
+       its control worked. Tiers 3 and 4 are priced like towers now; the frost
+       rework already gives every Ice tower its control for free. */
+    { name:'Frostflick', cost:10, dmg:10, cd:1.0, range:5.5, special:'slow', desc:'Frost bolts that slow the first target.' },
+    { name:'Snowball Launcher', cost:40, dmg:38, cd:1.0, range:5.9, special:'snowball', desc:'Lobbed snowballs burst on impact — splash damage that frosts everything caught in the blast.' },
     { name:'Whiteout Spire', cost:100, dmg:105, cd:1.2, range:5.5, special:'slow', desc:'Freezing bursts on clustered creeps.' },
-    { name:'Meltjet', cost:200, dmg:90, cd:4.0, range:5.9, special:'pause', desc:'Locks a creep in place for a few seconds. Bosses resist.' },
-    { name:'Shatterfrost', cost:270, dmg:100, cd:2.25, range:5.5, special:'frostnova', desc:'Huge frost explosion that slows everything caught in it.' },
+    { name:'Meltjet', cost:200, dmg:210, cd:1.4, range:5.9, special:'deepfreeze', desc:'Supercooled jets drive frost in three times as fast — the quickest way to freeze something solid.' },
+    { name:'Shatterfrost', cost:270, dmg:290, cd:1.6, range:5.5, special:'frostnova', desc:'Huge frost explosion that freezes everything caught in it.' },
     { name:'Absolute Zero', cost:350, dmg:360, cd:1.0, range:6.1, special:'shatter', desc:'+50% against anything already slowed or frozen — and Ice slows everything.' }
   ],
   fire:[
@@ -1180,7 +1187,10 @@ const TOWERS = {
     { name:'Static Post', cost:10, dmg:6, cd:.6, range:4.7, special:'chain', desc:'Fast shocks that arc to a couple of nearby creeps — worth keeping all game.' },
     { name:'Stormcrown', cost:40, dmg:24, cd:.8, range:3.9, special:'overcharge', desc:'Every fourth bolt lands at double.' },
     { name:'Arc Weaver', cost:100, dmg:60, cd:2.0, range:4.0, special:'chain', desc:'Casts chain lightning through the wave.' },
-    { name:'Thunderspike', cost:200, dmg:0, cd:2.0, range:4.5, special:'thunder', desc:'Pulse chips every nearby creep toward 75% max HP, strips shields, may stun.' },
+    /* Was 200g for LITERALLY ZERO damage — the same mid-ladder dead rung that
+       made Ice read as garbage, one element over. Its pulse does the real work,
+       but a tower you must tech through has to be a tower. */
+    { name:'Thunderspike', cost:200, dmg:300, cd:1.9, range:4.5, special:'thunder', desc:'Pulse chips every nearby creep toward 75% max HP, strips shields, may stun.' },
     { name:'Coil Dynamo', cost:285, dmg:170, cd:.4, range:5.5, special:'skyhunter', airBonus:1.6, desc:'Relentless sparks; +60% vs air — the dedicated anti-air tower.' },
     { name:'Capacitor Bank', cost:350, dmg:165, cd:.5, range:5.1, special:'discharge', desc:'Banks a charge while idle: the first hit after a lull lands at 2.5x.' }
   ],
@@ -1245,7 +1255,7 @@ const TRAIT = {
      as a ramp. Bosses cannot be frozen solid; they take a deep slow instead. */
   frostBase:40, frostStep:5, frostMax:85,
   frostFreezeStacks:12, frostFreezeDur:1.2, frostFreezeImmune:3.5, frostBossSlow:80,
-  frostbiteChance:.14, frostbiteMult:.75,
+  frostbiteChance:.14, frostbiteMult:.75, deepFreezeStacks:3,
   /* POISON IS ITS BURN, not its bolt. It used to deal FULL listed damage and
      add a dot worth a further 24% — so the venom was a garnish on an ordinary
      damage tower, and the race had no identity beyond a 20% slow. Worse, its
@@ -1313,7 +1323,8 @@ function attackProfileText(raceId) {
 const specialBlurbs = {
   slow:'Hits slow the target 40% for 1.5s.', smallsplash:'Small splash for 40% nearby.', splash:'Splashes 50% in a wide ring.',
   meteor:'Falling blast; splashes 60% in a huge ring.', rocket:'Artillery blast; splashes 60% in a huge ring.',
-  machinegun:'Fires continuously.', pause:'Stops the target cold for 3.5s (bosses resist).', frostnova:'Big frost splash that slows everything hit.',
+  machinegun:'Fires continuously.', pause:'Stops the target cold for 3.5s (bosses resist).', frostnova:'Big frost splash that frosts everything hit.',
+  deepfreeze:'Drives 3 frost stacks a hit — freezes solid in 4 hits instead of 12.',
   crit:'25% chance to strike for double (all Stone towers).', chain:'Chain lightning jumps to 3 extra creeps.', thunder:'Pulse: chips toward 75% max HP, strips shields, may stun.',
   blackhole:'Gravity pulse: area damage, may slow or shove creeps back.', halve:'Halves the target’s current HP (bosses resist).', mind:'−30% of current HP (bosses resist).',
   paralyze:'Sets the target to 11 HP (bosses resist).', armorshred:'Strips 5 armor from the target.', ion:'+500 bonus damage while the target is above 500 HP.',
@@ -2461,9 +2472,10 @@ function applyDamage(creep, amount, tower, isDot = false, opts) {
    Every Ice tower and the frost nova splash route through here, so the ramp is
    shared across the whole wall — twelve hits from twelve different towers
    freeze a creep exactly as twelve from one do. */
-function applyFrost(creep, tower, stats) {
-  // FROSTBITE — the intermittent spike, chance per hit, damage that reads on screen
-  if (rng() < TRAIT.frostbiteChance) {
+function applyFrost(creep, tower, stats, extraStack) {
+  // extraStack: a repeat application from one hit (deepfreeze). It stacks frost
+  // but must NOT re-roll frostbite, or one Meltjet shot would bite three times.
+  if (!extraStack && rng() < TRAIT.frostbiteChance) {
     const bite = (stats?.dmg || 0) * TRAIT.frostbiteMult;
     if (bite > 0) {
       applyDamage(creep, bite, tower);
@@ -2501,8 +2513,10 @@ function applyFrost(creep, tower, stats) {
 function applyHitEffects(creep, tower, stats) {
   const special = stats.special, race = tower ? tower.raceId : null;
   // FROST — ramping slow that also freezes HP regen, and freezes solid at the top
-  if (race === 'ice' && (special === 'slow' || special === 'frostnova' || special === 'snowball' || special === 'shatter')) {
-    applyFrost(creep, tower, stats);
+  if (race === 'ice' && (special === 'slow' || special === 'frostnova' || special === 'snowball' || special === 'shatter' || special === 'deepfreeze')) {
+    // deepfreeze drives three stacks a hit: four hits freeze instead of twelve
+    const stacks = special === 'deepfreeze' ? TRAIT.deepFreezeStacks : 1;
+    for (let i = 0; i < stacks; i += 1) { applyFrost(creep, tower, stats, i > 0); if (creep.hp <= 0) break; }
   }
   // POISON — 3% stacking DoT + a gentle slow (weaker than frost)
   if (special === 'poison') {
