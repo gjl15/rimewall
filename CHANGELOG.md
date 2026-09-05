@@ -7,6 +7,46 @@ environment, so every entry here was live the moment it was pushed.
 
 ---
 
+## 2026-09-05 (later)
+
+### The rival learns your maze — and judges the lesson before trusting it
+Matches now record the strategy behind them: the maze you laid **in the order
+you laid it**, the tier you had reached by each wave, and when you bought sends.
+Flat number tuples, so a 202-tower match costs ~2.5KB.
+
+From those, a per-element **playbook** — the cells you favour, weighted toward
+the games that went best. Three games minimum before an element has one.
+
+**What the measurements said, and why the design changed twice.** Adopting a
+human's build order wholesale made the rival *worse* (ice's median death wave
+12 → 10). So it became a blend, with the hand-built flag-distance order as the
+spine. Re-measured with a funded rival: fire and tech unchanged, ice 47 → 26.
+Still worse. A human's order carries their mistakes as well as their skill, and
+the rival only affords the first stretch of it.
+
+So it no longer takes the lesson on faith. Each match records which plan it ran
+(centre / sides / learned) and how that plan did; the next match picks the plan
+with the better record, exploring 18% of the time. Seeded with a bad lesson it
+picks centre 87% of the time; with a good one it picks learned 87%.
+
+### Rival difficulty
+Gold turned out to be the only thing limiting the rival — tier 0–1 wall, ~43
+towers, ~200g peak purse. Multiplying its income moved median survival from
+wave 12 to past 47. **Relaxed 0.7× / Normal 1.0× / Hard 1.7× / Brutal 2.6×**,
+default Normal so nothing changes unless you choose it.
+
+### AI teammates — 3v3 with two people, or one
+Team size used to scale one thing: creep batches. 3v3 tripled the load on a half
+with a single defender and said nothing about it. Every seat a person does not
+fill is now an ally that **funds itself** — own income, own sends, own kills
+paying its own purse. Verified: allies laid 46–55 towers each and spent 0g of
+the player's gold, and never sealed a lane. Your ship fell at wave 7 with allies
+vs 4 without at 2v2.
+
+A squad roster on the home screen shows who is holding each half.
+
+---
+
 ## 2026-09-05
 
 ### Frost rebuilt: a real ramp, a real freeze, a snowball launcher
