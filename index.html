@@ -359,6 +359,8 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
 .sheet-hint { margin-top:8px !important; color:#7185a7; font-size:10px; }
 .sheet-econ { display:flex; align-items:center; gap:6px; margin-bottom:8px; }
 .econ-chip { display:flex; align-items:center; gap:5px; min-height:38px; padding:7px 10px; border:1px solid #4a4030; border-radius:9px; background:#1a1610; color:#e8cf9a; font-size:11px; }
+/* leaving the match is destructive; it should not look like the close button */
+.econ-quit { border-color:#5c2a33; background:#241318; color:#ff9faf; }
 .econ-chip i { font-style:normal; color:#a08654; font:500 9px 'DM Mono',monospace; }
 .econ-chip:disabled { opacity:.45; }
 .econ-max { border-color:#2e3b5c; color:#8590ae; background:#131b30; }
@@ -1199,7 +1201,12 @@ const TOWERS = {
     { name:'Venom Barb', cost:10, dmg:10, cd:1.25, range:7.8, special:'poison', desc:'Poison spikes slow and sicken.' },
     { name:'Blightspire', cost:50, dmg:38, cd:1.0, range:7.8, special:'poison', desc:'Steady venom over a long reach.' },
     { name:'Mirelobber', cost:150, dmg:130, cd:1.2, range:8.6, special:'poison', groundOnly:true, desc:'Flings sticky sludge far downrange. Ground only.' },
-    { name:'Toxin Creeper', cost:190, dmg:45, cd:1.3, range:6.5, special:'halve', desc:'Halves a creep’s current HP and poisons it. Bosses resist.' },
+    /* Was 45 dmg at 1.3s — 5.49 g/dps, the same mid-ladder dead rung Ice had.
+       Its card already PROMISED it poisoned; special 'halve' meant it never did,
+       because venom keyed on the special rather than the race. Venom is
+       race-keyed now, so the card is finally true, and the damage is priced
+       like a tower you have to tech through. */
+    { name:'Toxin Creeper', cost:190, dmg:190, cd:1.3, range:6.5, special:'halve', desc:'Halves a creep’s current HP and poisons it. Bosses resist.' },
     { name:'Carrion Totem', cost:230, dmg:305, cd:1.15, range:7.0, special:'poison', desc:'Grave rot in heavy doses.' },
     { name:'Miasma Vent', cost:390, dmg:545, cd:.9, range:7.8, special:'poison', desc:'Chokes lanes with lethal gas.' }
   ],
@@ -1301,16 +1308,24 @@ const TRAIT = {
      works the same creep — and at 8 the whole army was limited to what two
      towers could apply, which is a ceiling no other race has. */
   /* POISON: full bolt damage, plus a venom pool every poison tower feeds.
-     Each hit adds 3% of that tower's damage per second and refreshes the pool's
-     timer, so it never drops off while anything is still shooting. Two things
-     keep "unlimited stacks, refreshed on every hit" from running away:
+     THE 3% IS NOW 3% OF THE TARGET'S MAX HP, not 3% of the tower's damage.
+     Measured at equal gold on wave 24, poison's best tower dealt 27,437 total
+     against fire's 54,315 — half the field — and its venom was only 16% of its
+     own output, where fire's burn is 47% of fire's. A race whose whole identity
+     is the DoT had the DoT as a garnish, because 3% of a tower's damage is a
+     rounding error next to that same tower's bolt.
+     Against max HP it scales with the wave instead of with the tower, which is
+     what a poison stack is FOR: chip damage that stops mattering less as the
+     creeps get fatter. One stack delivers 3% of max HP spread over poisonDur.
+     Two things still keep "unlimited stacks, refreshed on every hit" in check:
        - the pool is ONE accumulating number per creep, not a list of stack
          objects, so thirty towers firing for a minute cost one field rather
          than eighteen hundred allocations on a phone;
        - the pool bleeds off at 1/poisonDur per second while it burns, so it
          settles at (incoming rate x duration) instead of climbing forever.
-     Twelve tier-1 towers settle near 55 dps of venom on top of their bolts. */
-  poisonStackPct:.03, poisonDur:4, poisonSlow:20, dotCap:30,
+     Bosses take a fraction, or a percentage DoT trivialises the health bar
+     that makes them bosses. */
+  poisonStackPct:.03, poisonDur:4, poisonSlow:20, dotCap:30, poisonBossMult:.35,
   fireIgnitePct:.15, fireEruptMult:.5, fireEruptRadius:1.9,
   earthSplashRadius:1.5, earthSplashMult:.65, earthStunDirect:.18, earthStunSplash:.1,
   stoneCritChance:.25, stoneCritMult:2,
@@ -2563,14 +2578,29 @@ function applyHitEffects(creep, tower, stats) {
     const stacks = special === 'deepfreeze' ? TRAIT.deepFreezeStacks : 1;
     for (let i = 0; i < stacks; i += 1) { applyFrost(creep, tower, stats, i > 0); if (creep.hp <= 0) break; }
   }
-  // POISON — 3% stacking DoT + a gentle slow (weaker than frost)
-  if (special === 'poison') {
+  /* POISON — a stacking DoT worth 3% of the target's max HP, plus a gentle slow.
+     Keyed on the RACE, not on special === 'poison'. That check left a hole you
+     had to tech straight through: Toxin Creeper at tier 3 carries special
+     'halve', so it applied no venom at all — the poison race stopped poisoning
+     in the middle of its own ladder. Fire and Ice already key on race; poison
+     was the odd one out, and that inconsistency was the bug. */
+  if (race === 'poison') {
     /* The venom walks through ARMOUR — that is the race's niche — but not
        through Poison's own armour-CLASS weakness. Damage-over-time ticks carry
        no tower, so applyDamage cannot look one up; bake the class multiplier in
        here instead, or the x0.5 into fortified silently stops applying. */
     const vs = (ATTACK_PROFILE[tower.raceId] || { vs:{} }).vs[creep.aClass] ?? 1;
-    creep.venom = (creep.venom || 0) + stats.dmg * TRAIT.poisonStackPct * vs;
+    const share = TRAIT.poisonStackPct * (creep.boss ? TRAIT.poisonBossMult : 1);
+    /* A TOWER CANNOT INJECT MORE VENOM THAN ITS OWN BOLT IS WORTH.
+       Straight 3%-of-max-HP made a 10g Venom Barb deliver exactly what a 390g
+       Miasma Vent does — it read 0.15 g/dps, the best number in the game, and
+       poison's optimal play became spamming the cheapest tower in the line.
+       Capping the chunk at the tower's own damage keeps the headline 3% true
+       for a real poison tower while a barb contributes a barb's worth. The cap
+       also self-corrects as waves fatten: it binds harder on weak towers and
+       not at all on the ones you actually teched into. */
+    const chunk = Math.min(creep.maxHp * share, stats.dmg);
+    creep.venom = (creep.venom || 0) + (chunk / TRAIT.poisonDur) * vs;
     creep.venomUntil = simTime + TRAIT.poisonDur;   // every hit refreshes the whole pool
     creep.slowUntil = Math.max(creep.slowUntil, simTime + 1.2); creep.slowPct = Math.max(creep.slowPct || 0, Math.round(TRAIT.poisonSlow * tierPot(tower)));
   }
@@ -4995,7 +5025,7 @@ function renderTowerList() {
     const def = towerDef(raceId, tier);
     const isLaser = def.name === 'Laser Cannon';
     return `<button class="tower-row ${tier === selectedTowerTier ? 'selected' : ''} ${isLaser ? 'laser-row' : ''}" data-tower="${tier}">
-      <span><strong>${def.name}</strong><small>${def.desc}</small><small class="tower-stats">${def.dmg} dmg • ${def.range.toFixed(1)} rng • ${def.cd.toFixed(2)}s • ${effectiveDps(def).toFixed(0)} dps${def.special === 'poison' ? ' (stacked)' : ''}${def.special ? ' • ' + def.special : ''}${def.groundOnly ? ' • NO AIR' : ''}</small><small class="tower-stats profile-line">${attackProfileText(raceId)}</small></span><b>${def.cost}g${isLaser ? ' +1🪵' : ''}</b></button>`;
+      <span><strong>${def.name}</strong><small>${def.desc}</small><small class="tower-stats">${def.dmg} dmg • ${def.range.toFixed(1)} rng • ${def.cd.toFixed(2)}s • ${effectiveDps(def).toFixed(0)} dps${def.raceId === 'poison' ? ' (venom)' : ''}${def.special ? ' • ' + def.special : ''}${def.groundOnly ? ' • NO AIR' : ''}</small><small class="tower-stats profile-line">${attackProfileText(raceId)}</small></span><b>${def.cost}g${isLaser ? ' +1🪵' : ''}</b></button>`;
   }).join('');
   document.querySelectorAll('[data-tower]').forEach((button) => button.addEventListener('click', () => {
     selectedTowerTier = Number(button.dataset.tower);
@@ -6716,11 +6746,17 @@ function barRefreshAffordable() {
 /* Poison's listed dmg/cd stopped being its damage the moment the bolt became
    35% and the burn became the rest. This is what it actually does once the
    stack is up, so the card is not quietly lying about a whole race. */
-function effectiveDps(def) {
+function effectiveDps(def, raceId) {
   const raw = def.dmg / def.cd;
-  if (def.special !== 'poison') return raw;
-  // one tower's own venom settles at (its hit rate x per-hit venom x duration)
-  return raw + (def.dmg * TRAIT.poisonStackPct / def.cd) * TRAIT.poisonDur;
+  /* Venom is keyed on the RACE now, so every poison tower carries it — the old
+     check on special === 'poison' skipped Toxin Creeper, the one rung whose card
+     already claimed to poison. The venom is a share of the TARGET'S max HP, not
+     of this tower's damage, so a listed number can only be a reference figure;
+     quote it against a mid-game creep rather than pretending it is fixed. */
+  if ((raceId || def.raceId) !== 'poison') return raw;
+  const refHp = 2400;   // roughly a wave-20 creep — the card quotes venom against one
+  const chunk = Math.min(refHp * TRAIT.poisonStackPct, def.dmg);   // same cap the hit applies
+  return raw + (chunk / TRAIT.poisonDur) / def.cd * TRAIT.poisonDur;
 }
 function towerStatLine(def) {
   const rate = effectiveDps(def).toFixed(0);
@@ -6949,7 +6985,7 @@ function learnContent() {
     <p class="sheet-heading">ARMOR BY WAVE — plan your build and time your sends</p>
     <div class="learn-list">${Object.entries(classWaves).map(([cls, waves]) => `<div class="learn-row"><span>${cls}</span><small>waves ${waves.join(', ')}</small></div>`).join('')}</div>
     <p class="sheet-heading">EVERY TOWER — dmg · dps · range · spell</p>
-    ${races.map((race) => `<div class="learn-block"><b style="color:${race.color}">${race.symbol} ${race.name}</b>${towerListFor(race.id).map((t) => `<div class="learn-row"><span>${t.name}</span><small>${t.cost}g · ${t.dmg} dmg · ${effectiveDps(t).toFixed(0)} dps${t.special === 'poison' ? ' (stacked)' : ''} · ${t.range} rng · ${(t.cost/effectiveDps(t)).toFixed(2)} g/dps${t.special?' · '+t.special:''}${t.groundOnly?' · <b style="color:#ff9faf">NO AIR</b>':''}</small></div>`).join('')}</div>`).join('')}
+    ${races.map((race) => `<div class="learn-block"><b style="color:${race.color}">${race.symbol} ${race.name}</b>${towerListFor(race.id).map((t) => `<div class="learn-row"><span>${t.name}</span><small>${t.cost}g · ${t.dmg} dmg · ${effectiveDps(t, race.id).toFixed(0)} dps${race.id === 'poison' ? ' (venom)' : ''} · ${t.range} rng · ${(t.cost/effectiveDps(t, race.id)).toFixed(2)} g/dps${t.special?' · '+t.special:''}${t.groundOnly?' · <b style="color:#ff9faf">NO AIR</b>':''}</small></div>`).join('')}</div>`).join('')}
     <p class="sheet-heading">EVERY WAVE — hp · armor · class · trait</p>
     <div class="learn-list">${WAVES.map((w, i) => `<div class="learn-row"><span>${i+1}. ${w.name}</span><small>${Math.round((w.hp||0)*(w.boss?1:TRAIT.hpScaleNeutral*waveHpMult(i+1))*(w.role==='juggernaut'?2.4:1))} hp · ${(w.armor||0)+(w.boss?0:TRAIT.armorBonus)} armor · ${w.aClass}${w.air?' · air':''}${w.role&&w.role!=='standard'?' · '+w.role:''}</small></div>`).join('')}</div>
     <p class="sheet-heading">EVERY SEND — cost · income · hp · armor</p>
@@ -7033,7 +7069,8 @@ function renderCommandSheet() {
       ${player.shrine < SHRINE_MAX ? `<button id="sheet-shrine" class="econ-chip" ${player.lumber < 1 ? 'disabled' : ''}>⛩ Shrine L${player.shrine} <i>upgrade • 1🪵</i></button>` : `<span class="econ-chip econ-max">⛩ Shrine MAX</span>`}
       <button id="sheet-boxsel" class="econ-chip ${selectMode === 'box' ? 'econ-on' : ''}">▭ <i>box</i></button>
       <button id="sheet-lasso" class="econ-chip ${selectMode === 'lasso' ? 'econ-on' : ''}">➰ <i>lasso</i></button>
-      <button id="sheet-exit" class="econ-chip">⏏ <i>exit</i></button>
+      <button id="sheet-exit" class="econ-chip">✕ <i>close</i></button>
+      <button id="sheet-quit" class="econ-chip econ-quit">⏏ <i>leave match</i></button>
       <label class="sheet-opacity" title="Slide left to see the board through this panel">◐<input id="sheet-opacity" type="range" min="25" max="100" value="${sheetOpacity()}" /></label>
     </div>${body}`;
   sheet.style.opacity = sheetOpacity() / 100;
@@ -7069,7 +7106,16 @@ function renderCommandSheet() {
     log('Match log cleared.');
   });
   $('sheet-wager')?.addEventListener('click', proposeWager);
-  $('sheet-exit').addEventListener('click', () => { closeCommandSheet(); $('back-button')?.click(); });
+  /* ⏏ used to close the sheet AND click Change race, quitting the match outright
+     — one tap on a panel you open constantly, and the match was gone with no
+     confirmation. It closes the panel. Leaving a match is a separate, deliberate
+     button that asks first. */
+  $('sheet-exit').addEventListener('click', closeCommandSheet);
+  $('sheet-quit')?.addEventListener('click', () => {
+    if (battleRunning && !matchOver && !window.confirm('Leave this match? Your maze is lost.')) return;
+    closeCommandSheet();
+    $('back-button')?.click();
+  });
   $('sheet-boxsel').addEventListener('click', () => {
     selectMode = selectMode === 'box' ? null : 'box';
     if (selectMode) { closeCommandSheet(); log('Box select armed — drag a rectangle over your towers. It stays armed until it catches some.'); }
