@@ -1049,7 +1049,7 @@ const races = [
 const TOWERS = {
   ice:[
     { name:'Frostflick', cost:10, dmg:8, cd:1.1, range:5.5, special:'slow', desc:'Frost bolts that slow the first target.' },
-    { name:'Hailslinger', cost:40, dmg:33, cd:1.0, range:5.5, special:'slow', desc:'Heavy snowballs chill whole lanes.' },
+    { name:'Snowball Launcher', cost:40, dmg:33, cd:1.0, range:5.9, special:'snowball', desc:'Lobbed snowballs burst on impact — splash damage that frosts everything caught in the blast.' },
     { name:'Whiteout Spire', cost:100, dmg:105, cd:1.2, range:5.5, special:'slow', desc:'Freezing bursts on clustered creeps.' },
     { name:'Meltjet', cost:200, dmg:90, cd:4.0, range:5.9, special:'pause', desc:'Locks a creep in place for a few seconds. Bosses resist.' },
     { name:'Shatterfrost', cost:270, dmg:100, cd:2.25, range:5.5, special:'frostnova', desc:'Huge frost explosion that slows everything caught in it.' },
@@ -1167,7 +1167,18 @@ const ATTACK_PROFILE = {
 /* Per-builder identity tunables (the rework). */
 const TRAIT = {
   hpScaleNeutral:2.0, hpScaleSend:1.35, armorBonus:2, hpLateRamp:1.04, hpLateFrom:13,
-  frostBase:50, frostMax:70, frostStep:1,
+  /* FROST. Was 50% base, +1% a stack, hard-capped at 70% — so the ramp did
+     almost nothing (thirty hits bought you twenty points) and Ice never got a
+     payoff for landing every shot. It now opens at 40% and climbs 5% a hit, so
+     the twelfth hit on the same creep FREEZES IT SOLID: a real halt, not a
+     slow. The freeze is short and clears the stacks, and the creep is immune
+     for a spell afterwards, so a big enough Ice wall cannot perma-lock a lane.
+     On top of that, every hit has a chance to FROSTBITE — a burst of bonus
+     damage that reads on screen, so the race has an intermittent spike as well
+     as a ramp. Bosses cannot be frozen solid; they take a deep slow instead. */
+  frostBase:40, frostStep:5, frostMax:85,
+  frostFreezeStacks:12, frostFreezeDur:1.2, frostFreezeImmune:3.5, frostBossSlow:80,
+  frostbiteChance:.14, frostbiteMult:.75,
   /* POISON IS ITS BURN, not its bolt. It used to deal FULL listed damage and
      add a dot worth a further 24% — so the venom was a garnish on an ordinary
      damage tower, and the race had no identity beyond a 20% slow. Worse, its
@@ -2034,7 +2045,7 @@ function spawnCreep(waveDef, half, side, sent = false) {
     bounty:Math.round((waveDef.bounty || 0) * (jugg ? 2.2 : 1) * (sent ? 1 : hpScale * .8 + .2)), livesCost:waveDef.lives || 1,
     x:spawn.c + .5, y:spawn.r + .5, cpIndex:0, path:null, pathStep:0, pathVersion:-1,
     state:'walk', blockTargetKey:null, attackClock:0,
-    slowUntil:0, slowPct:0, frostUntil:0, frostStacks:0, frostPct:0, stunUntil:0, stasisUntil:0,
+    slowUntil:0, slowPct:0, frostUntil:0, frostStacks:0, frostPct:0, frozenUntil:0, freezeImmuneUntil:0, stunUntil:0, stasisUntil:0,
     dots:[], venom:0, venomUntil:0, armorShred:0, shield:shieldMax, shieldMax, shieldHitAt:0, regen,
     fireCharge:0, pushUntil:0, healAura:role === 'warden', onDeath
   };
@@ -2146,7 +2157,7 @@ function updateCreep(creep, dt) {
   // shield refills after shieldRegenDelay seconds untouched (any damage, DoT included, resets it)
   if (creep.shieldMax && creep.shield < creep.shieldMax && now - creep.shieldHitAt >= TRAIT.shieldRegenDelay) creep.shield = creep.shieldMax;
   // HP regen — frozen by Frost slow and stuns, but NOT by Electricity stasis
-  const regenLocked = creep.frostUntil > now || creep.stunUntil > now;
+  const regenLocked = creep.frostUntil > now || creep.stunUntil > now || creep.frozenUntil > now;
   if (creep.regen && !regenLocked && creep.hp < creep.maxHp) creep.hp = Math.min(creep.maxHp, creep.hp + creep.maxHp * creep.regen * dt);
   // warden heals nearby friendly creeps a trickle
   if (creep.healAura && !regenLocked) creeps.forEach((o) => { if (o !== creep && o.hp > 0 && o.half === creep.half && o.hp < o.maxHp && Math.hypot(o.x - creep.x, o.y - creep.y) <= 3) o.hp = Math.min(o.maxHp, o.hp + o.maxHp * .008 * dt); });
@@ -2205,9 +2216,12 @@ function updateCreep(creep, dt) {
   }
 }
 function moveAlong(creep, node, dt) {
+  if (creep.frozenUntil > simTime) return;   // frozen solid — a real halt, not a slow
   const frostPct = creep.frostUntil > simTime ? (creep.frostPct || 0) : 0;
   const otherPct = creep.slowUntil > simTime ? (creep.slowPct || 0) : 0;
-  const speed = creep.spd * (1 - Math.min(80, Math.max(frostPct, otherPct)) / 100);
+  // ceiling raised 80 -> 92: the old cap sat below Ice's own ramp, so the top
+  // of the ramp bought nothing at all. A full halt is the freeze, above.
+  const speed = creep.spd * (1 - Math.min(92, Math.max(frostPct, otherPct)) / 100);
   const tx = node.c + .5, ty = node.r + .5;
   const dx = tx - creep.x, dy = ty - creep.y;
   const dist = Math.hypot(dx, dy) || 1;
@@ -2308,12 +2322,52 @@ function applyDamage(creep, amount, tower, isDot = false, opts) {
     }
   }
 }
+/* One frost application: the ramp, the freeze, and the frostbite proc.
+   Every Ice tower and the frost nova splash route through here, so the ramp is
+   shared across the whole wall — twelve hits from twelve different towers
+   freeze a creep exactly as twelve from one do. */
+function applyFrost(creep, tower, stats) {
+  // FROSTBITE — the intermittent spike, chance per hit, damage that reads on screen
+  if (rng() < TRAIT.frostbiteChance) {
+    const bite = (stats?.dmg || 0) * TRAIT.frostbiteMult;
+    if (bite > 0) {
+      applyDamage(creep, bite, tower);
+      pushFx({ kind:'num', x:creep.x, y:creep.y - .6, text:'❄' + Math.round(bite), until:simTime + .8, color:'#bfeaff', big:true });
+      pushFx({ kind:'impact', x:creep.x, y:creep.y, color:'#bfeaff', until:simTime + .3 });
+    }
+  }
+  if (creep.hp <= 0) return;
+  if (simTime < (creep.freezeImmuneUntil || 0)) return;   // just thawed — no re-stacking yet
+  creep.frostUntil = simTime + 1.6;
+  creep.frostStacks = (creep.frostStacks || 0) + 1;
+  if (creep.frostStacks >= TRAIT.frostFreezeStacks) {
+    creep.frostStacks = 0;
+    creep.freezeImmuneUntil = simTime + TRAIT.frostFreezeImmune;
+    if (creep.boss) {
+      // bosses shrug off a hard freeze; they get the deepest slow instead
+      creep.frostPct = TRAIT.frostBossSlow;
+      creep.frostUntil = simTime + TRAIT.frostFreezeDur;
+    } else {
+      creep.frozenUntil = simTime + TRAIT.frostFreezeDur;
+      creep.frostPct = 100;
+      creep.frostUntil = simTime + TRAIT.frostFreezeDur;
+    }
+    pushFx({ kind:'num', x:creep.x, y:creep.y - .7, text:creep.boss ? 'CHILLED' : 'FROZEN', until:simTime + .9, color:'#bfeaff', big:true });
+    pushFx({ kind:'pulse', x:creep.x, y:creep.y, radius:1.4, color:'#bfeaff', until:simTime + .5 });
+    return;
+  }
+  /* NO tierPot on the slow. Scaling it by tier meant a Frostflick opened at 22%
+     and stepped 2.7% — the spec numbers were only ever delivered by the top
+     tier, so the card lied to everyone below it. The ramp is now flat 40% +5%
+     a hit at every tier; higher tiers already pay off in damage and in the nova
+     and snowball splash carrying the ramp to a whole cluster at once. */
+  creep.frostPct = Math.min(TRAIT.frostMax, TRAIT.frostBase + (creep.frostStacks - 1) * TRAIT.frostStep);
+}
 function applyHitEffects(creep, tower, stats) {
   const special = stats.special, race = tower ? tower.raceId : null;
-  // FROST — ramping slow that also freezes HP regen
-  if (race === 'ice' && (special === 'slow' || special === 'frostnova')) {
-    creep.frostUntil = simTime + 1.6; creep.frostStacks = Math.min(30, (creep.frostStacks || 0) + 1);
-    creep.frostPct = Math.max(creep.frostPct || 0, Math.min(TRAIT.frostMax, TRAIT.frostBase + creep.frostStacks * TRAIT.frostStep) * tierPot(tower));
+  // FROST — ramping slow that also freezes HP regen, and freezes solid at the top
+  if (race === 'ice' && (special === 'slow' || special === 'frostnova' || special === 'snowball' || special === 'shatter')) {
+    applyFrost(creep, tower, stats);
   }
   // POISON — 3% stacking DoT + a gentle slow (weaker than frost)
   if (special === 'poison') {
@@ -2372,6 +2426,7 @@ function applyBoltEffects(creep, tower, stats) {
 function splashSpec(special) {
   if (special === 'smallsplash') return { radius:1.2, mult:.4 };
   if (special === 'splash' || special === 'frostnova') return { radius:1.8, mult:.5 };
+  if (special === 'snowball') return { radius:1.5, mult:.45 };   // early AoE: the burst, not the nova
   if (special === 'meteor' || special === 'rocket') return { radius:2.5, mult:.6 };
   return null;
 }
@@ -2419,7 +2474,8 @@ function resolveProjectileHit(projectile) {
       if (simTime - (tower.lastFireAt || -99) >= TRAIT.dischargeIdle) { dmg *= TRAIT.dischargeMult; crit = true; }
       tower.lastFireAt = simTime;
     }
-    if (stats.special === 'shatter' && (target.slowUntil > simTime || target.frostUntil > simTime)) dmg *= TRAIT.shatterMult;
+    // frozen counts as slowed — Absolute Zero's whole point is finishing what the wall froze
+    if (stats.special === 'shatter' && (target.slowUntil > simTime || target.frostUntil > simTime || target.frozenUntil > simTime)) dmg *= TRAIT.shatterMult;
     if (stats.special === 'entangle' && !target.boss) {
       target.stunUntil = Math.max(target.stunUntil, simTime + TRAIT.entangleDur);
       target.knockKind = 'root'; target.knockUntil = target.stunUntil;
@@ -2460,7 +2516,9 @@ function resolveProjectileHit(projectile) {
     creeps.forEach((other) => {
       if (other !== target && other.hp > 0 && other.half === projectile.half && Math.hypot(other.x - impactX, other.y - impactY) <= rad) {
         applyDamage(other, stats.dmg * mult, tower);
-        if (stats.special === 'frostnova' && tower.raceId === 'ice') { other.frostUntil = simTime + 1.6; other.frostStacks = Math.min(30, (other.frostStacks || 0) + 1); }
+        // the nova AND the snowball burst carry the full frost ramp to everything
+        // they touch, so a splash hit builds toward a freeze exactly like a direct one
+        if (tower && tower.raceId === 'ice' && (stats.special === 'frostnova' || stats.special === 'snowball')) applyFrost(other, tower, stats);
         if (isEarth && !other.boss && rng() < TRAIT.earthStunSplash * tierPot(tower)) other.stunUntil = Math.max(other.stunUntil, simTime + .1);
       }
     });
@@ -3464,7 +3522,29 @@ function drawCreep(ctx, creep) {
   }
   // status pips: DoT (green), frost (cyan ring), regen (mint +), stasis/stun (gold ✦)
   if ((creep.dots && creep.dots.length) || creep.venom > 0) { ctx.fillStyle = '#a7e36e'; ctx.beginPath(); ctx.arc(size, -size, 2.4, 0, Math.PI * 2); ctx.fill(); }
-  if (creep.frostUntil > simTime) { ctx.strokeStyle = '#bfeaff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0, 0, size + 2.5, 0, Math.PI * 2); ctx.stroke(); }
+  if (creep.frostUntil > simTime) {
+    // the ring thickens and brightens as the ramp climbs, so you can SEE a creep
+    // approaching its freeze rather than being surprised by it
+    const ramp = Math.min(1, (creep.frostStacks || 0) / TRAIT.frostFreezeStacks);
+    ctx.strokeStyle = '#bfeaff'; ctx.globalAlpha = .45 + ramp * .55; ctx.lineWidth = 1 + ramp * 1.6;
+    ctx.beginPath(); ctx.arc(0, 0, size + 2.5, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  if (creep.frozenUntil > simTime) {
+    // FROZEN SOLID — an ice shell with spikes, unmistakable at a glance
+    ctx.save();
+    ctx.fillStyle = '#bfeaff44'; ctx.strokeStyle = '#eaf8ff'; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(0, 0, size + 3.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.1;
+    for (let i = 0; i < 6; i += 1) {
+      const a = i * Math.PI / 3 + simTime * .4;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * (size + 1), Math.sin(a) * (size + 1));
+      ctx.lineTo(Math.cos(a) * (size + 6), Math.sin(a) * (size + 6));
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
   if (creep.regen && creep.hp < creep.maxHp && !(creep.frostUntil > simTime) && !(creep.stunUntil > simTime)) { ctx.fillStyle = '#8fe6b8'; ctx.font = '700 8px "DM Mono", monospace'; ctx.textAlign = 'center'; ctx.fillText('✚', -size - 3, -size + 1); }
   if (creep.stunUntil > simTime || creep.stasisUntil > simTime) {
     const knocked = creep.knockUntil > simTime ? creep.knockKind : null;
