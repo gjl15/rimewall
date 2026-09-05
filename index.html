@@ -1298,11 +1298,15 @@ function buildBaseTerrain() {
   /* A MAZEABLE POCKET IN FRONT OF EACH SHIP. Rows 2 and 46 were solid cliff with
      a two-cell hole punched in them, so the last thing a creep walked through
      was a funnel you could not build in — the most valuable ground on the board
-     and it was off limits. Both rows are now open across the middle, giving a
-     pocket two rows deep and twelve wide right at the ship, and the gate mouth
-     itself is four cells rather than two so a wider maze still has a way out. */
-  for (const c of [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]) {
+     and it was off limits.
+     The gate row is now open sixteen wide, and the harbour row BEHIND it opens
+     too on either side of the exit, so the pocket is genuinely two rows deep
+     rather than one row and a wall. The four cells directly behind the gate
+     mouth stay harbour: walkable, never buildable, so the run from the gate to
+     the ship can never be sealed no matter how the rest is packed. */
+  for (let c = 8; c <= 23; c += 1) {
     baseTerrain[idx(2, c)] = T.FLOOR; baseTerrain[idx(46, c)] = T.FLOOR;
+    if (c < 14 || c > 17) { baseTerrain[idx(1, c)] = T.FLOOR; baseTerrain[idx(47, c)] = T.FLOOR; }
   }
   // Gates: the center river spawn and the two harbor exits stay walkable, never buildable.
   [14, 15, 16, 17].forEach((c) => {
@@ -1335,14 +1339,15 @@ Object.values(ROUTES).forEach((sides) => Object.values(sides).forEach((nodes) =>
 
 const PLAYER_HALF = 'south', ENEMY_HALF = 'north';
 function halfOfRow(r) { return r <= 24 ? 'north' : 'south'; }
-// row 46 is the new pocket at the ship; the cliff row is mazeable ground now
-function isPlayerBuildRow(r) { return r >= 26 && r <= 46; }
+// rows 46-47 are the pocket at the ship; the old cliff and harbour rows are
+// mazeable ground now, except the protected run straight out of the gate
+function isPlayerBuildRow(r) { return r >= 26 && r <= 47; }
 
 function terrainAt(r, c) { return inBounds(r, c) ? terrain[idx(r, c)] : T.CLIFF; }
 function isWalkable(r, c) { const t = terrainAt(r, c); return t === T.FLOOR || t === T.GATE || t === T.HARBOR || t === T.RIVER; }
 function isBuildableCell(r, c, forHalf = PLAYER_HALF) {
   if (terrainAt(r, c) !== T.FLOOR || protectedCells.has(idx(r, c)) || towers.has(idx(r, c))) return false;
-  return forHalf === PLAYER_HALF ? isPlayerBuildRow(r) : (r >= 2 && r <= 22);   // row 2 mirrors the ship pocket
+  return forHalf === PLAYER_HALF ? isPlayerBuildRow(r) : (r >= 1 && r <= 22);   // rows 1-2 mirror the ship pocket
 }
 
 /* ---------------- Pathfinding (A*, 8-neighbor with diagonals, towers block) ----------------
