@@ -256,6 +256,8 @@ h2 span { color:#7583a6; }
 .sheet-chip small { font-size:9px; color:#9fb0d2; }
 .sheet-chip b { color:#f5d36d; font:600 9px 'DM Mono',monospace; }
 .sheet-chip b i { font-style:normal; color:#8ee89f; margin-left:3px; }
+/* amber = diminishing returns have trimmed this send below its ladder number */
+.sheet-chip b i.inc-cut, .send-card small.inc-cut { color:#f0b45c; }
 .sheet-chip.on { border-color:#77d6ff; box-shadow:inset 0 0 0 1px #77d6ff; }
 .sheet-chip.poor { opacity:.45; }
 .sheet-chip.locked { opacity:.3; }
@@ -1263,6 +1265,37 @@ const REFUND_GRACE = 8;
 function withinRefundGrace(tower) { return typeof simTime === 'number' && simTime - (tower.placedAt ?? -1e9) <= REFUND_GRACE; }
 function fullRefund(tower) { return underConstruction(tower) || withinRefundGrace(tower); }
 function towerSellValue(tower) { return fullRefund(tower) ? tower.invested : Math.round(tower.invested * .75); }
+/* SELLING IS THE ONE MOVE YOU COULD NOT TAKE BACK. The sell chip sits exactly
+   where the inspect chip sits and hold-to-sell fires from an ordinary press, so
+   a mis-sell costs 25% of a tower and reopens the maze mid-wave with no way
+   back. Keep the removed tower OBJECTS (not a recipe to rebuild them) so an
+   undo restores tier, level, kills, priority and build clock untouched. */
+const SELL_UNDO_WINDOW = 12;
+let lastSold = null;   // { list:[tower], refund, at, name }
+function recordSell(list, refund, name) {
+  lastSold = list.length ? { list:list.map((t) => ({ ...t })), refund, at:simTime, name } : null;
+}
+function sellUndoLive() {
+  if (!lastSold || !battleRunning || typeof simTime !== 'number') return false;
+  const age = simTime - lastSold.at;
+  if (age < 0 || age > SELL_UNDO_WINDOW) return false;   // negative = a record from a previous match
+  if (player.gold < lastSold.refund) return false;          // you already spent it
+  return lastSold.list.every((t) => !towers.has(t.key));    // you already rebuilt there
+}
+function undoSell() {
+  if (!sellUndoLive()) return false;
+  const { list, refund, name } = lastSold;
+  player.gold -= refund;
+  list.forEach((t) => towers.set(t.key, { ...t }));
+  towersVersion += 1; refreshRouteDebug();
+  lastSold = null;
+  const n = list.length;
+  log(`Restored ${n > 1 ? `${n} towers` : name} for ${refund}g. ${cachedRouteText}.`);
+  showToast(`<b>Sell undone</b><span>${n > 1 ? `${n} towers` : name} back on the board — ${refund}g returned</span>`);
+  if (navigator.vibrate) navigator.vibrate(18);
+  renderHud(); renderTowerDetails(); sheetKey = ''; renderCommandSheet();
+  return true;
+}
 
 /* ---------------- Authoritative map model (traced from assets/reference-map.png) ----------------
    32×49 cells. Horizontal navy river band through the middle with the creep gate at its center;
@@ -1673,6 +1706,19 @@ function incomePayoutExact(raw) {
   return r <= INCOME_SOFT ? r : INCOME_SOFT * Math.pow(r / INCOME_SOFT, INCOME_EXP);
 }
 function incomeGainText(n) { return n >= 10 || n === 0 ? String(Math.round(n)) : n.toFixed(1); }
+/* What a send ACTUALLY adds to your payout right now — the ladder number minus
+   what diminishing returns eat. Every surface that quotes a send must use this:
+   the mobile sheet used to print the raw ladder number while the HUD paid the
+   compressed one, so a 450-income Idol Bearer moved the readout by 185 and the
+   economy looked broken from the phone. One helper, so they cannot drift again. */
+function sendIncomeGain(send) {
+  if (!player) return send.income;
+  return incomePayoutExact(player.income + send.income) - incomePayoutExact(player.income);
+}
+function sendIncomeLabel(send) {
+  const gain = sendIncomeGain(send);
+  return { gain, text: `+${incomeGainText(gain)}`, cut: gain < send.income - .05 };
+}
 // late-wave HP multiplier: waves past hpLateFrom compound so the endgame can actually be lost
 function waveHpMult(n) { return Math.pow(TRAIT.hpLateRamp, Math.max(0, (n || 0) - TRAIT.hpLateFrom)); }
 function startingLives() { return Number(document.getElementById('lives-select')?.value) || 100; }
@@ -1849,6 +1895,9 @@ function resetMatchState() {
   pendingSeed = null; lastMatchSeed = matchSeed; seedRng(matchSeed);
   matchLeak = { west: 0, east: 0 };
   towers.clear(); towersVersion += 1;
+  // simTime restarts at 0, so a sell left over from the last match reads as
+  // "-25s ago" and stays inside the undo window. Clear both undo records.
+  lastSold = null; lastPlaced = null;
   creeps.length = 0; projectiles.length = 0; effects.length = 0; pendingSpawns.length = 0;
   const pickedMode = document.getElementById('mode-select')?.value;
   matchMode = pickedMode === 'classic' ? 'classic' : (pickedMode === 'survival' ? 'survival' : 'skirmish');
@@ -3878,31 +3927,55 @@ function renderQuickSend() {
   const bar = $('quick-send');
   if (!bar || !player) return;
   const usable = SENDS.filter((send) => player.shrine >= send.shrine);
-  const key = usable.map((send) => `${send.id}${player.gold >= send.cost ? 1 : 0}`).join(',');
+  // income is in the key: the tooltips quote a live payout gain, so they go stale without it
+  const key = usable.map((send) => `${send.id}${player.gold >= send.cost ? 1 : 0}`).join(',') + '|' + player.income;
   if (key === quickSendKey) return;
   quickSendKey = key;
-  bar.innerHTML = usable.map((send, i) => `
-    <button class="qs-chip ${player.gold < send.cost ? 'qs-poor' : ''}" data-qsend="${send.id}" title="${send.name} — ${send.cost}g, +${send.income} income [key ${i + 1}]">
-      <span>${send.air ? '🐉' : send.symbol}</span><b>${send.cost}</b></button>`).join('');
+  bar.innerHTML = usable.map((send, i) => { const inc = sendIncomeLabel(send); return `
+    <button class="qs-chip ${player.gold < send.cost ? 'qs-poor' : ''}" data-qsend="${send.id}" title="${send.name} — ${send.cost}g, ${inc.text} income${inc.cut ? ` (ladder +${send.income}, trimmed by diminishing returns)` : ''} [key ${i + 1}]">
+      <span>${send.air ? '🐉' : send.symbol}</span><b>${send.cost}</b></button>`; }).join('');
   bar.querySelectorAll('[data-qsend]').forEach((chip) => chip.addEventListener('click', (event) => {
     event.stopPropagation();
     document.querySelector(`[data-send="${chip.dataset.qsend}"]`)?.click();
   }));
 }
+/* Every undo entry point — the pill, the wisp badge, the command bar chip, ESC —
+   runs this, so they can never disagree about what "undo" currently means. */
+function undoAction() {
+  const t = lastPlaced ? towers.get(lastPlaced.key) : null;
+  if (t && t.owner === 'player' && fullRefund(t)) {
+    sellTowerAt({ r:lastPlaced.r, c:lastPlaced.c });
+    lastPlaced = null; lastSold = null;   // a cancelled build is not a sell to take back
+    renderUndoSlot();
+    return true;
+  }
+  lastPlaced = null;
+  const did = undoSell();
+  renderUndoSlot();
+  return did;
+}
 function renderUndoSlot() {
   const slot = $('undo-slot');
   if (!slot) return;
+  /* ONE PILL, BOTH DIRECTIONS. It used to arm only while a tower was literally
+     under construction — 1.2s for a tier-0 — while the full refund lasted 8s,
+     so the button went dead with the refund still owed. It now tracks
+     fullRefund(), and when there is no build to cancel it offers the last sell
+     back instead, which was previously not undoable at all. */
   const t = lastPlaced ? towers.get(lastPlaced.key) : null;
-  const live = Boolean(t && t.owner === 'player' && underConstruction(t));
+  const canCancel = Boolean(t && t.owner === 'player' && fullRefund(t));
+  const canUnsell = !canCancel && sellUndoLive();
+  const live = canCancel || canUnsell;
   slot.disabled = !live;
   slot.classList.toggle('undo-live', live);
-  slot.textContent = live ? `↩ CANCEL +${t.invested}g` : '↩ UNDO';
+  slot.textContent = canCancel ? `↩ CANCEL +${t.invested}g`
+    : canUnsell ? `↩ UNSELL −${lastSold.refund}g` : '↩ UNDO';
   $('wisp-undo')?.classList.toggle('hidden', !live);
-  if (live && !profile.tutorialUndoSeen) {
+  if (canCancel && !profile.tutorialUndoSeen) {
     profile.tutorialUndoSeen = true;
     saveProfile();
     slot.classList.add('spotlight');
-    showToast('<b>↩ Undo, the clean way</b><span>Towers take a moment to build — hit CANCEL during construction for a FULL refund.</span>');
+    showToast(`<b>↩ Undo, the clean way</b><span>Full refund for ${REFUND_GRACE}s after you place — and the pill takes a sell back too.</span>`);
     window.setTimeout(() => slot.classList.remove('spotlight'), 9000);
   }
 }
@@ -4123,10 +4196,13 @@ function towerAction(kind) {
   } else if (kind === 'sell') {
     let refund = 0;
     const n = group.length;
+    const soldName = towerLiveStats(group[0]).name;
+    const sold = group.map((t) => ({ ...t }));
     group.forEach((t) => { refund += towerSellValue(t); removeTower(t.key); }); SFX.play('sell');
+    recordSell(sold, refund, soldName);
     player.gold += refund;
     selectedGroupKeys = []; selectedTowerKey = null;
-    log(`${n > 1 ? `${n} towers` : 'Tower'} sold for ${refund}g. ${cachedRouteText}.`);
+    log(`${n > 1 ? `${n} towers` : 'Tower'} sold for ${refund}g — ↩ undo for ${SELL_UNDO_WINDOW}s. ${cachedRouteText}.`);
   } else if (kind === 'priority') {
     const next = priorities[(priorities.indexOf(group[0].priority) + 1) % priorities.length];
     group.forEach((t) => { t.priority = next; });
@@ -4189,7 +4265,9 @@ function renderSendPanel() {
     if (!battleRunning) return log('Start a match before sending.');
     if (player.shrine < send.shrine) return log(`${send.name} needs Shrine level ${send.shrine}.`);
     if (player.gold < send.cost) return log(`Not enough gold — ${send.name} costs ${send.cost}g.`);
+    const incWas = BASE_INCOME + incomePayout(player.income);
     player.gold -= send.cost; player.income += send.income; SFX.play('send'); Coach.notify('send'); track('send', { id: send.id });
+    const incNow = BASE_INCOME + incomePayout(player.income);
     // one purchase sends a unit down BOTH rival lanes (over the wire in PvP)
     if (mp.active) mpSend({ t:'send', id:send.id });
     else {
@@ -4198,7 +4276,8 @@ function renderSendPanel() {
     }
     if (player.income >= 300) award('income_300');
     if (send.air) { profile.dragonsSent += 1; if (profile.dragonsSent >= 10) award('dragon_rider'); saveProfile(); }
-    log(`${send.name} × 2 sent (west + east)${send.air ? ' — flying over the maze' : ''}. Send income is now +${player.income}.`);
+    // quote the PAYOUT, not the raw ladder total — the raw number contradicts the HUD above it
+    log(`${send.name} × 2 sent (west + east)${send.air ? ' — flying over the maze' : ''}. Income ${incWas} → ${incNow}g per ${INCOME_PERIOD}s.`);
     renderHud();
   }));
   refreshSendLocks();
@@ -4213,8 +4292,9 @@ function refreshSendLocks() {
     button.classList.toggle('send-locked', locked);
     // show what this send would actually ADD to the payout, not its raw ladder number:
     // above the soft cap the two diverge, and the card is where that decision is made
-    const gain = incomePayoutExact(player.income + send.income) - incomePayoutExact(player.income);
-    note.textContent = `+${incomeGainText(gain)} income${gain < send.income - .05 ? ` (of +${send.income})` : ''}${locked ? ` • Shrine L${send.shrine}` : ''}`;
+    const inc = sendIncomeLabel(send);
+    note.textContent = `${inc.text} income${inc.cut ? ` (of +${send.income})` : ''}${locked ? ` • Shrine L${send.shrine}` : ''}`;
+    note.classList.toggle('inc-cut', inc.cut);
   });
 }
 function renderBattleIdentity() {
@@ -4243,6 +4323,7 @@ function sellTowerAt(cell) {
   const name = towerLiveStats(tower).name;
   const refund = towerSellValue(tower);
   const full = fullRefund(tower);
+  recordSell([tower], refund, name);
   player.gold += refund;
   pushFx({ kind:'num', x:cell.c + .5, y:cell.r + .25, text:`+${refund}g`, until:simTime + .9, color:'#ffd86b' });
   removeTower(key);
@@ -4483,6 +4564,41 @@ function resetPageZoom() {
   meta.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover');
   window.requestAnimationFrame(() => { window.scrollTo(0, 0); meta.setAttribute('content', content); });
 }
+/* PANIC RESET. Everything that can leave you stuck — a Safari focus-zoom, a
+   half-panned map, a sheet or modal covering the board, a page scrolled off its
+   own top — undone in one call. The zoom-reset button ran only part of this and
+   sits inside the map, which is exactly what you cannot reach when stuck. */
+function resetEverything(reason) {
+  try { document.activeElement?.blur?.(); } catch (e) {}
+  closeCommandSheet?.();
+  closeWispMenus?.();
+  ghost = null; ghostChips = []; selectMode = null; marquee = null;
+  document.querySelectorAll('.settings-modal').forEach((m) => m.classList.add('hidden'));
+  camAnim = { z:1, x:0, y:0 };
+  resetMapZoom();
+  resetPageZoom();
+  window.scrollTo(0, 0);
+  fitBoardToViewport();
+  if (reason) log(reason);
+}
+/* DOUBLE-TAP ANYWHERE OFF THE BOARD = RESET. The map has had its own
+   double-tap-to-zoom for a while, but a page Safari has zoomed leaves you on
+   the CHROME — a menu bar, the settings sheet — where double-tap did nothing
+   and the only way out was the reset button you could no longer reach. */
+let lastChromeTap = 0;
+function setupPanicReset() {
+  document.addEventListener('pointerup', (event) => {
+    if (event.pointerType === 'mouse') return;
+    // the board runs its own double-tap (zoom, and select-all-alike); controls run theirs
+    if (event.target.closest?.('#map-viewport, button, a, input, select, textarea, label, .bar-content, .sheet-grid')) {
+      lastChromeTap = 0;
+      return;
+    }
+    const now = performance.now();
+    if (now - lastChromeTap < 400) { lastChromeTap = 0; resetEverything('View reset — zoom, pan and panels cleared.'); }
+    else lastChromeTap = now;
+  }, { passive:true });
+}
 function setupMapZoom() {
   const viewport = $('map-viewport');
   if (!viewport) return;
@@ -4649,7 +4765,7 @@ function setupMapZoom() {
   }, { passive:false });
   $('zoom-in-button').addEventListener('click', () => smoothZoomTo(camZoomNow() + .25));
   $('zoom-out-button').addEventListener('click', () => smoothZoomTo(camZoomNow() - .25));
-  $('zoom-reset-button').addEventListener('click', () => { camAnim = { z:1, x:0, y:0 }; resetPageZoom(); });
+  $('zoom-reset-button').addEventListener('click', () => resetEverything());   // reset means the whole page, not just the camera
   window.addEventListener('resize', fitBoardToViewport);
   window.visualViewport?.addEventListener('resize', fitBoardToViewport);
   window.visualViewport?.addEventListener('scroll', fitBoardToViewport);
@@ -5496,7 +5612,9 @@ function renderCommandBar() {
   } else if (!barBuildCollapsed) {
     // the grace window is 8s from placement now, but this chip still tested
     // underConstruction — so it vanished after 1.2s while the refund was still full
-    const undoChip = (lastT && fullRefund(lastT)) ? `<button id="bar-undo" class="bar-card toggle-on"><span>↩</span><small>UNDO</small><b>+${lastT.invested}g</b></button>` : '';
+    const undoChip = (lastT && fullRefund(lastT))
+      ? `<button id="bar-undo" class="bar-card toggle-on"><span>↩</span><small>UNDO</small><b>+${lastT.invested}g</b></button>`
+      : sellUndoLive() ? `<button id="bar-undo" class="bar-card toggle-on"><span>↩</span><small>UNSELL</small><b>−${lastSold.refund}g</b></button>` : '';
     const econ = `<button id="cb-lumber" class="bar-card ${player.gold < LUMBER_PRICE ? 'poor' : ''}"><span>🪵</span><small>Lumber</small><b>${LUMBER_PRICE}g</b></button>${player.shrine < SHRINE_MAX ? `<button id="cb-shrine" class="bar-card ${player.lumber < 1 ? 'poor' : ''}"><span>⛩</span><small>Shrine L${player.shrine}</small><b>1🪵</b></button>` : `<span class="bar-card locked"><span>⛩</span><small>Shrine</small><b>MAX</b></span>`}`;
     buildBody.innerHTML = undoChip + econ + towerListFor(raceId).map((def, tier) => `
       <button class="bar-card ${tier === selectedTowerTier ? 'on' : ''} ${player.gold < def.cost ? 'poor' : ''}" data-bar-tower="${tier}">
@@ -5504,7 +5622,7 @@ function renderCommandBar() {
     buildBody.querySelectorAll('[data-bar-tower]').forEach((c) => wireTowerCard(c));
     $('cb-lumber')?.addEventListener('click', () => { buyLumber(); renderCommandBar(); });
     $('cb-shrine')?.addEventListener('click', () => { upgradeShrine(); renderCommandBar(); });
-    $('bar-undo')?.addEventListener('click', () => { const t = lastPlaced ? towers.get(lastPlaced.key) : null; if (t && fullRefund(t)) sellTowerAt({ r:t.r, c:t.c }); lastPlaced = null; renderCommandBar(); });
+    $('bar-undo')?.addEventListener('click', () => { undoAction(); renderCommandBar(); });
   } else buildBody.innerHTML = '';
   // ---- SEND bar ----
   if (!barSendCollapsed) {
@@ -5689,10 +5807,10 @@ function renderCommandSheet() {
       : wager.tokens < 1 ? 'no proposals left this match'
       : wagerReady ? `both bank +${wagerBonus()}g if accepted` : `ready in ${Math.max(1, Math.ceil(wager.cooldownUntil - simTime))}s`;
     body = `${matchMode === 'classic' ? '' : `<button id="sheet-wager" class="wager-chip ${wagerReady ? '' : 'cooling'}"><span>⏩</span><b>Rush the wave</b><small>${wagerLine}</small><i>×${wager.tokens}</i></button>`}
-      <div class="sheet-grid">${SENDS.map((send) => `
-      <button class="sheet-chip ${player.shrine < send.shrine ? 'locked' : ''} ${player.gold < send.cost ? 'poor' : ''}" data-sheet-send="${send.id}">
-        <span>${send.air ? '🐉' : send.symbol}</span><small>${send.name.split(' ')[0]}</small><b>${send.cost}g<i>+${send.income}</i></b></button>`).join('')}</div>
-      <p class="sheet-hint">Sends run both rival lanes and raise your income. ${player.shrine < SHRINE_MAX ? 'Higher shrine levels unlock the elite tiers.' : 'Shrine is maxed.'}</p>`;
+      <div class="sheet-grid">${SENDS.map((send) => { const inc = sendIncomeLabel(send); return `
+      <button class="sheet-chip ${player.shrine < send.shrine ? 'locked' : ''} ${player.gold < send.cost ? 'poor' : ''}" data-sheet-send="${send.id}" title="${send.name} — ${send.cost}g, ladder +${send.income} income${inc.cut ? `, ${inc.text} after diminishing returns` : ''}">
+        <span>${send.air ? '🐉' : send.symbol}</span><small>${send.name.split(' ')[0]}</small><b>${send.cost}g<i class="${inc.cut ? 'inc-cut' : ''}">${inc.text}</i></b></button>`; }).join('')}</div>
+      <p class="sheet-hint">Sends run both rival lanes and raise your income. You are paid <b>${BASE_INCOME + incomePayout(player.income)}g</b> every ${INCOME_PERIOD}s; each chip shows what it would add to that.${player.income > INCOME_SOFT ? ` Past ${INCOME_SOFT} raw income the payout is compressed, so the amber figures are below their ladder value.` : ''} ${player.shrine < SHRINE_MAX ? 'Higher shrine levels unlock the elite tiers.' : 'Shrine is maxed.'}</p>`;
   } else if (sheetTab === 'tower') {
     const sel = selectionTowers().filter((t) => t.owner === 'player');
     if (!sel.length) { body = '<p class="sheet-hint">Tap one of your towers on the board — or use ▭ Box select — to inspect it here.</p>'; }
@@ -5809,7 +5927,7 @@ function renderWispPanel(mode) {
     if (d === 'settings') { closeWispMenus(); openSettings(); return; }
     if (d === 'zoomin') { smoothZoomTo(camZoomNow() + .3, { x:r.width/2, y:r.height/2 }); }
     else if (d === 'zoomout') { smoothZoomTo(camZoomNow() - .3, { x:r.width/2, y:r.height/2 }); }
-    else if (d === 'zoomreset') { camAnim = { z:1, x:0, y:0 }; }
+    else if (d === 'zoomreset') { resetEverything(); }
     else if (d === 'routes') { debug.routes = !debug.routes; syncMapToggles(); }
     else if (d === 'ranges') { debug.ranges = !debug.ranges; syncMapToggles(); }
     else if (d === 'box' || d === 'lasso') { selectMode = selectMode === d ? null : d; if (selectMode) { closeWispMenus(); log(`${d==='box'?'Box':'Lasso'} armed — drag over your towers.`); return; } }
@@ -5955,14 +6073,17 @@ document.addEventListener('keydown', (event) => {
   if (key === 'escape') {
     // layered escape: staged ghost → newest scaffold (full-refund undo) → sheet → selection
     if (ghost) { ghost = null; ghostChips = []; event.preventDefault(); return; }
-    const building = [...towers.values()].filter((t) => t.owner === 'player' && underConstruction(t)).sort((a, b) => (b.seq || 0) - (a.seq || 0) || b.placedAt - a.placedAt)[0];
+    // fullRefund, not underConstruction: the grace runs 8s past the build finishing
+    const building = [...towers.values()].filter((t) => t.owner === 'player' && fullRefund(t)).sort((a, b) => (b.seq || 0) - (a.seq || 0) || b.placedAt - a.placedAt)[0];
     if (building) {
       const refund = towerSellValue(building);
       sellTowerAt({ r:building.r, c:building.c });
-      log(`ESC — construction canceled, ${refund}g refunded in full. Keep building.`);
+      lastSold = null;
+      log(`ESC — build undone, ${refund}g refunded in full. Keep building.`);
       event.preventDefault();
       return;
     }
+    if (sellUndoLive()) { undoSell(); event.preventDefault(); return; }
     if (!$('command-sheet').classList.contains('hidden')) { closeCommandSheet(); event.preventDefault(); return; }
     selectedTowerKey = null; selectedGroupKeys = []; renderTowerDetails();
   }
@@ -5974,12 +6095,7 @@ $('race-card')?.addEventListener('click', () => {
   const open = wrap.classList.toggle('hidden');
   $('race-card').setAttribute('aria-expanded', String(!open));
 });
-$('undo-slot')?.addEventListener('click', () => {
-  const t = lastPlaced ? towers.get(lastPlaced.key) : null;
-  if (t && underConstruction(t)) sellTowerAt({ r:lastPlaced.r, c:lastPlaced.c });
-  lastPlaced = null;
-  renderUndoSlot();
-});
+$('undo-slot')?.addEventListener('click', undoAction);
 function syncMapToggles() {
   $('mt-routes')?.classList.toggle('on', debug.routes);
   const insp = $('mt-inspect');
@@ -6002,13 +6118,7 @@ function inspectPanelOpen() {
   const p = $('wisp-panel');
   return !!p && !p.classList.contains('hidden') && wispTab === 'inspect';
 }
-$('wisp-undo')?.addEventListener('click', (event) => {
-  event.stopPropagation();
-  const t = lastPlaced ? towers.get(lastPlaced.key) : null;
-  if (t && underConstruction(t)) sellTowerAt({ r:lastPlaced.r, c:lastPlaced.c });
-  lastPlaced = null;
-  renderUndoSlot();
-});
+$('wisp-undo')?.addEventListener('click', (event) => { event.stopPropagation(); undoAction(); });
 document.querySelectorAll('[data-bar-tab]').forEach((b) => b.addEventListener('click', () => { barTab = b.dataset.barTab; barStructKey = ''; renderCommandBar(); }));
 function pinBarToVisualViewport() {
   const bar = $('command-bar');
@@ -6115,6 +6225,7 @@ try { if (profile.devUnlockAll || /[?&]dev=1/.test(location.search)) document.bo
 if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 window.addEventListener('beforeunload', () => { if (mp.transport) mpSend({ t:'bye' }); });
 setupMapZoom();
+setupPanicReset();
 renderRaceCards();
 resetMatchState();
 requestAnimationFrame((now) => { lastFrame = now; requestAnimationFrame(frame); });
