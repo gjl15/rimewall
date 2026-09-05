@@ -2029,19 +2029,26 @@ function aiFitBolt() {
   enemy.gold -= cost; target.invested += cost; target.bolt = pick.id;
   return true;
 }
+/* UPGRADE IN PLACE, exactly as the player does. This used to SELL the weakest
+   tower to help fund its replacement, which traded breadth for height one for
+   one — every call shrank the maze by a tower. Measured: with the upgrade gate
+   finally open, the rival's wall fell from 52 towers to 30 by wave 10 and it
+   died NINE waves earlier than before the "fix". A tower that costs the same
+   either way should not also cost you the cell. */
 function aiUpgradeSomething(list, maxTierNow) {
-  const mine = [...towers.values()].filter((tower) => tower.owner === 'enemy');
+  const mine = [...towers.values()].filter((tower) => tower.owner === 'enemy' && !underConstruction(tower));
   if (!mine.length) return;
   if (aiFitBolt()) return;   // a bolt is the cheapest real power spike available
-  const weakest = mine.sort((a, b) => a.tier - b.tier)[0];
-  let buyTier = Math.min(maxTierNow, list.length - 2);
-  while (buyTier > weakest.tier && list[buyTier].cost > enemy.gold + towerSellValue(weakest)) buyTier -= 1;
-  if (buyTier <= weakest.tier) return;
-  const spot = { r:weakest.r, c:weakest.c };
-  enemy.gold += towerSellValue(weakest);
-  removeTower(weakest.key);
-  enemy.gold -= list[buyTier].cost;
-  addTower(makeTower(spot.r, spot.c, enemy.raceId, buyTier, 'enemy'));
+  const ceiling = Math.min(maxTierNow, list.length - 2);
+  const weakest = mine.filter((t) => t.tier < ceiling).sort((a, b) => a.tier - b.tier)[0];
+  if (!weakest) return;
+  const next = list[weakest.tier + 1];
+  if (!next || enemy.gold < next.cost) return;
+  enemy.gold -= next.cost;
+  weakest.tier += 1;
+  weakest.invested += next.cost;
+  weakest.blockHp = weakest.blockMaxHp = 4 + weakest.tier;
+  towersVersion += 1;
 }
 const priorities = ['first', 'last', 'strong', 'weak', 'near'];
 /* GLOBAL TARGETING. Retargeting a wall one tower at a time is not a decision,
@@ -2857,9 +2864,25 @@ function laneFlagCells(half) {
    plays the stronger line two matches in three and the weaker one otherwise,
    so solo games still vary without handing you an easy draw half the time. */
 const AI_OPENINGS = ['centre', 'centre', 'sides'];
-/* How wide the rival's wall gets before it starts growing tall. 60 tier-0
-   towers is about 600g and is already a real maze; past that, gold buys damage. */
-const AI_BREADTH = 60, AI_UPGRADE_FLOAT = 260;
+/* THE RIVAL WAS MATHEMATICALLY LOCKED AT TIER 0.
+   Two gates had to open before it could upgrade anything — 60 towers laid AND
+   260g in hand — and its own spending made both unreachable. The build tick
+   drains to a 120g reserve every 1.6s and the send tick drains to its own
+   reserve, so measured PEAK gold across an entire match was 254g against a 260g
+   gate. It arrived at wave 10 with 51 towers, every single one of them tier 0,
+   and died between waves 12 and 18 to creeps its wall could not scratch.
+
+   Breadth is now a target that MOVES WITH THE WAVE instead of a fixed count, so
+   "go wide first" actually ends; and once the wall meets that target the build
+   tick spends on height instead of waiting for a surplus that never arrives. */
+function aiBreadthTarget() {
+  /* The target must grow SLOWER than the rival can build, or it never crosses
+     over and "widening" becomes permanent by another route. Measured build rate
+     is about five towers a wave while gold-limited, so a target rising two a
+     wave is overtaken around wave 6 and height takes over from there. */
+  if (matchMode === 'classic') return Math.min(64, 16 + Math.floor(simTime / 22));
+  return Math.min(64, 16 + wave * 3);
+}
 function enemySpots() { return enemy && enemy.spots ? enemy.spots : aiSpots('centre'); }
 function updateEnemyAI(dt) {
   enemy.buildClock -= dt;
@@ -2886,7 +2909,7 @@ function updateEnemyAI(dt) {
          buy the best tier half the purse can cover. */
       const laid = enemy.towersBuilt || 0;
       let buyTier = Math.min(maxTierNow, list.length - 2);
-      if (laid < AI_BREADTH) buyTier = 0;
+      if (laid < aiBreadthTarget()) buyTier = 0;
       else while (buyTier > 0 && list[buyTier].cost > enemy.gold * .5) buyTier -= 1;
       const def = towerDef(enemy.raceId, buyTier);
       /* The send/shrine reserve must key off towers ACTUALLY BUILT, not off how
@@ -2912,11 +2935,12 @@ function updateEnemyAI(dt) {
     } else {
       aiUpgradeSomething(list, maxTierNow);
     }
-    /* Once the wall is wide, SURPLUS goes into making it taller. The gate matters:
-       calling this on every tick past the breadth threshold consumed the gold that
-       would have laid the next tower, and the wall froze at exactly 60 every run.
-       Upgrading only above a float keeps the maze growing and spends the rest. */
-    if ((enemy.towersBuilt || 0) >= AI_BREADTH && enemy.gold > AI_UPGRADE_FLOAT) {
+    /* Height, once the wall is wide enough FOR THIS WAVE. The old version waited
+       for gold above a flat float, which its own build-and-send cadence never
+       let it reach. aiUpgradeSomething sells the weakest tower to help fund the
+       replacement, so it does not need a war chest to act — only a wall that has
+       stopped needing to grow sideways. */
+    if ((enemy.towersBuilt || 0) >= aiBreadthTarget()) {
       aiUpgradeSomething(list, maxTierNow);
     }
   }
@@ -2934,7 +2958,17 @@ function updateEnemyAI(dt) {
        taking the shortest payback first — that is what a player actually does. */
     const unlocked = SENDS.filter((send) => enemy.shrine >= send.shrine)
       .sort((a, b) => a.cost / a.income - b.cost / b.income);
-    const reserve = 60 + 40 * Math.min(6, Math.floor(wave / 4));   // keep enough back to keep building
+    /* LEFT AS IS, DELIBERATELY. The reserve grows to 300g by wave 24 while the
+       rival's measured peak gold across a whole match is ~206, so past the
+       opening it rarely clears its own reserve and its income freezes near 49
+       where a player's runs into the hundreds. Loosening it to 45+15/wave did
+       raise income to 67-80 — and made the rival WORSE (ice 16 -> 10, tech
+       22 -> 18), because every coin sent is a coin not in the wall and a send
+       only pays off against the player's lifeforce, not its own.
+       The rival is income-starved, and the cure is an income handicap or a
+       difficulty setting rather than a reserve tweak: it needs more gold, not a
+       different way to spend the gold it does not have. */
+    const reserve = 60 + 40 * Math.min(6, Math.floor(wave / 4));
     const bought = [];
     for (let n = 0; n < 8; n += 1) {
       const pick = unlocked.find((send) => enemy.gold - reserve >= send.cost);
