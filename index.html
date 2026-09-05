@@ -1337,7 +1337,15 @@ const TRAIT = {
      Gravity Well the best damage in the game by an order of magnitude. The pulse
      stays (it is the race's identity) but it now falls off like splash and hits
      a bounded number of creeps, and only the lead creep gets the control kit. */
-  gravPulseMult:.4, gravPulseCap:5, gravKnockdown:.55, gravKnockup:.9, gravSlamMult:.8,
+  gravPulseMult:.4, gravPulseCap:5, gravKnockdown:.9, gravKnockup:1.3, gravSlamMult:.8,
+  /* WARP GOES THROUGH ARMOUR, a little. Gravity was the only race with no
+     armour-bypassing damage anywhere in its kit — Fire has ignite, Poison has
+     venom, Crystal is chaos, and every DoT skips armour by definition. Against
+     a fortified 20-armour juggernaut its matrix (0.70) and that armour (55%
+     reduction) stacked to leave 32% of the card: an Event Horizon reading 250
+     dps delivered 81. Piercing 8 armour is the difference between "bends
+     reality" and "bounces off plate". */
+  gravArmorPierce:8,
   /* These were tuned when EVERY gravity tower pulsed and every creep in the
      circle rolled the kit — the cooldowns existed to stop a lane being locked
      shut. Since then the pulse is earned at tier 2 and only the LEAD creep
@@ -1346,7 +1354,15 @@ const TRAIT = {
      tier 5 produced ZERO displacements a minute and tier 2 produced three.
      The per-creep cooldown is what actually prevents a chain-lock and it stays
      meaningful at 3s — a creep still covers about six cells between shoves. */
-  gravSlowChance:.35, gravSlowPct:30, gravPushChance:.07, gravPushCD:3, gravTowerPushCD:3.5,
+  /* STILL TOO RARE TO SEE. Measured across a whole wave with thirty towers:
+     knock uptime 0% at tier 0, 2% at tier 2, 3% at tier 4, 6% at tier 5. Gravity
+     is THE displacement race and its displacement was invisible — "I don't see
+     gravity working at all" is exactly what a 3% uptime looks like. The gate is
+     rolled once per hit or pulse, and a pulse only comes every 1.6s at the top
+     tier, so 35% of those was a handful of shoves a minute.
+     Doubled, and the knocks last long enough to read on screen. The per-creep
+     cooldown is still what prevents a chain-lock, and it is untouched. */
+  gravSlowChance:.7, gravSlowPct:30, gravPushChance:.07, gravPushCD:3, gravTowerPushCD:3.5,
   deathPayloadRadius:3.2, deathHealPct:.18, deathShieldPct:.25,
   snipeMult:1.4, focusStep:.08, dischargeIdle:2, dischargeMult:2.5, shatterMult:1.5,
   splinterMult:.35, entangleDur:1.6,
@@ -2108,7 +2124,7 @@ function resetMatchState() {
   /* Which plan the rival runs this match is decided by its own record with this
      element, not by whether a playbook happens to exist. */
   const plan = pickRivalPlan(rivalRace);
-  const shape = plan === 'learned' ? (aiLearnedSpots(rivalRace, opening) || aiSpots(opening)) : aiSpots(plan);
+  const shape = rivalSpots(rivalRace, plan, opening);
   enemy = { gold:START_GOLD, income:0, lives, lumber:0, shrine:1, raceId:rivalRace, spotIndex:0, towersBuilt:0,
     buildClock:2, sendClock:matchMode === 'classic' ? 14 : 24, opening:plan === 'learned' ? opening : plan,
     spots:shape, plan };
@@ -2192,11 +2208,21 @@ const priorities = ['first', 'last', 'strong', 'weak', 'near'];
 let globalPriority = 'first';
 function applyGlobalPriority(next) {
   globalPriority = next;
-  let n = 0;
-  towers.forEach((t) => { if (isMine(t)) { t.priority = next; n += 1; } });
+  /* THE GLOBAL SWITCH USED TO WIPE EVERY PER-TOWER CHOICE. Set a few towers to
+     STRONG or WEAK by hand, touch first/last once, and the lot silently reverted
+     — which reads exactly like "targeting is broken", because the setup you made
+     stopped existing without saying so. A tower you retargeted yourself is now
+     LOCKED and the global switch steps around it; cycling it back to FIRST
+     releases it. */
+  let n = 0, kept = 0;
+  towers.forEach((t) => {
+    if (!isMine(t)) return;
+    if (t.priorityLocked) { kept += 1; return; }
+    t.priority = next; n += 1;
+  });
   syncMapToggles();
   renderTowerDetails(); sheetKey = ''; renderCommandSheet();
-  log(`Targeting: ${next.toUpperCase()} — applied to ${n} tower${n === 1 ? '' : 's'} and to everything you build next.`);
+  log(`Targeting: ${next.toUpperCase()} — ${n} tower${n === 1 ? '' : 's'} and everything you build next.${kept ? ` ${kept} kept their own setting (cycle one back to FIRST to release it).` : ''}`);
 }
 function makeTower(r, c, raceId, tier, owner) {
   const def = towerDef(raceId, tier);
@@ -2468,7 +2494,9 @@ function applyDamage(creep, amount, tower, isDot = false, opts) {
     dmg *= profile.vs[creep.aClass] ?? 1;
     if (creep.air && stats.airBonus) dmg *= stats.airBonus;
     if (!isChaos(tower, stats)) {
-      const effectiveArmor = Math.max(0, creep.armor - creep.armorShred - (stats.armorPierce || 0));
+      // gravity warps through some plate — see gravArmorPierce
+      const pierce = (stats.armorPierce || 0) + (tower.raceId === 'gravity' ? TRAIT.gravArmorPierce : 0);
+      const effectiveArmor = Math.max(0, creep.armor - creep.armorShred - pierce);
       dmg *= 1 - armorReduction(effectiveArmor);
     }
   }
@@ -3000,6 +3028,32 @@ let allies = [];
    stay in it. The colours block up, and you keep the centre.
       1 ally  -> east corridor
       2 allies -> west and east corridors, you hold the middle */
+/* THE RIVAL HOLDS THE MIDDLE, exactly as you do. Allies were confined to a
+   corridor each but the rival itself was not confined at all — measured over a
+   3v3 it laid 19 towers west, 27 centre and 24 east, straight through both of
+   its own allies' bands. So the half still looked like confetti no matter how
+   tidy the allies were, and the one wall that was supposed to anchor the centre
+   was the one wall spread everywhere.
+   It takes the centre first and only spills outward once the centre is full, so
+   it can never stall for want of a cell. In a 1v1 there are no allies and the
+   whole half is its region, which is what it always was. */
+function rivalSpots(raceId, plan, opening) {
+  const base = plan === 'learned' ? (aiLearnedSpots(raceId, opening) || aiSpots(opening)) : aiSpots(plan);
+  if (defendersPerHalf() <= 1) return base;
+  /* Filtering the maze pattern for centre cells only yielded ~36 of them — the
+     hand-built weave barely crosses the middle — so the rival ran out and
+     spilled after forty towers, which still read as building everywhere.
+     Take EVERY buildable centre cell instead, nearest the shared flag first,
+     and keep the maze order behind it as overflow. */
+  const mark = sharedFlagCell(ENEMY_HALF);
+  const centre = [];
+  for (let r = 0; r <= 22; r += 1) {
+    for (let c = 11; c <= 20; c += 1) if (isBuildableCell(r, c, ENEMY_HALF)) centre.push({ r, c });
+  }
+  centre.sort((a, b) => Math.hypot(a.r - mark.r, a.c - mark.c) - Math.hypot(b.r - mark.r, b.c - mark.c));
+  const seen = new Set(centre.map((s) => s.r * 100 + s.c));
+  return centre.concat(base.filter((s) => !seen.has(s.r * 100 + s.c)));
+}
 function allyZone(seat, allySeats) {
   if (allySeats <= 1) return { c0:21, c1:30, label:'east' };
   return seat === 0 ? { c0:1, c1:10, label:'west' } : { c0:21, c1:30, label:'east' };
@@ -5141,7 +5195,9 @@ function towerAction(kind) {
     log(`${n > 1 ? `${n} towers` : 'Tower'} sold for ${refund}g — ↩ undo for ${SELL_UNDO_WINDOW}s. ${cachedRouteText}.`);
   } else if (kind === 'priority') {
     const next = priorities[(priorities.indexOf(group[0].priority) + 1) % priorities.length];
-    group.forEach((t) => { t.priority = next; });
+    // retargeting by hand LOCKS a tower against the global switch; FIRST releases it
+    group.forEach((t) => { t.priority = next; t.priorityLocked = next !== 'first'; });
+    log(`Targeting: ${next.toUpperCase()} on ${group.length} tower${group.length === 1 ? '' : 's'}${next === 'first' ? ' — back under the global switch.' : ' — held against the global switch.'}`);
   }
   renderHud(); renderTowerDetails(); sheetKey = ''; renderCommandSheet();
 }
