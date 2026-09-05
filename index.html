@@ -92,6 +92,15 @@ h1 span { color:var(--ice); }
 .mp-controls input:focus { border-color:#77d6ff; }
 .mp-status { min-height:16px; margin-top:10px !important; color:#8ee89f; font:500 11px 'DM Mono',monospace; }
 .mp-status b { color:#ffd86b; letter-spacing:.15em; }
+.mp-status em { color:#8995b4; font-style:normal; }
+/* lobby progress: a search that shows it is searching */
+.mp-spin { display:inline-block; width:9px; height:9px; margin-right:5px; border:1.5px solid #8ee89f55; border-top-color:#8ee89f; border-radius:50%; vertical-align:-1px; animation:mp-spin .8s linear infinite; }
+@keyframes mp-spin { to { transform:rotate(360deg); } }
+body.reduce-motion .mp-spin { animation:none; border-top-color:#8ee89f55; }
+.mp-bar { height:3px; margin-top:7px; border-radius:2px; background:#1b2540; overflow:hidden; }
+.mp-bar i { display:block; height:100%; background:#8ee89f; transition:width .4s linear; }
+.mp-hint { margin-top:7px; color:#7c88a8; font:400 10px/1.5 system-ui,sans-serif; letter-spacing:0; }
+.mp-hint b { color:#a5b3d4; letter-spacing:.06em; }
 @media (max-width:560px) { .mp-controls { flex-direction:column; } #mp-code { max-width:none; } }
 .profile-summary { width:100%; padding:11px 14px; border:1px solid #2b3859; border-radius:10px; background:#121a2eaa; color:#c5cde0; text-align:left; font:500 11px 'DM Mono',monospace; letter-spacing:.06em; }
 .achievements-list { display:grid; gap:6px; margin-top:8px; padding:12px; border:1px solid #2b3859; border-radius:12px; background:#0e1527; }
@@ -5741,9 +5750,31 @@ function mpStartHelloLoop() {
   const beat = () => {
     if (mp.started || !mp.transport) { window.clearInterval(mp.helloTimer); return; }
     tries += 1;
+    /* The search used to show one static line for its whole 26-second run, so a
+       lobby that was working looked identical to one that had hung. Show the
+       clock and a progress bar while it hunts, and offer a retry when it gives
+       up rather than dead-ending the player back at a blank panel. */
+    if (mp.role === 'guest' && !mp.config && tries <= 24) {
+      const secs = Math.round(tries * 1.1);
+      const pct = Math.min(100, Math.round(tries / 24 * 100));
+      mpStatus(`<span class="mp-spin"></span> Looking for the host of <b>${mp.code}</b>… <em>${secs}s</em>
+        <div class="mp-bar"><i style="width:${pct}%"></i></div>
+        <div class="mp-hint">The host must have the room open on this same site. Nothing to do — this finds them automatically.</div>`);
+    }
     if (tries > 24) {
       window.clearInterval(mp.helloTimer);
-      if (mp.role === 'guest' && !mp.config) { mpStatus(`No host found for <b>${mp.code}</b>. Check the code — the host's room must be open on the same site.`); mpLeave(); }
+      if (mp.role === 'guest' && !mp.config) {
+        /* mpLeave() ends with mpStatus('') — so setting the message first and
+           tearing down after silently blanked it. The old "No host found" line
+           was being erased the same way: the search just went quiet and left
+           the player staring at an empty panel with no idea what happened. */
+        const again = mp.code;
+        mpLeave();
+        mpStatus(`<b>No host answered on ${again}.</b>
+          <div class="mp-hint">Check the code, and make sure the host opened their room first — a room only exists while its host has the page open.</div>
+          <button id="mp-retry" class="mp-linkbtn">↻ Try ${again} again</button>`);
+        $('mp-retry')?.addEventListener('click', () => { const f = $('mp-code'); if (f) f.value = again; mpOpenRoom(true); });
+      }
       return;
     }
     try {
@@ -5776,7 +5807,9 @@ async function mpOpenRoom(join) {
       mpStartHelloLoop();
     } else {
       const link = mpInviteLink(code);
-      mpStatus(`Room <b>${code}</b> is open — <button id="mp-copy-link" class="mp-linkbtn">🔗 Copy invite link</button><div class="mp-link">${link}</div>`);
+      mpStatus(`<span class="mp-spin"></span> Room <b>${code}</b> is open — waiting for a commander to join.
+        <button id="mp-copy-link" class="mp-linkbtn">🔗 Copy invite link</button><div class="mp-link">${link}</div>
+        <div class="mp-hint">Keep this page open — the room only exists while you are here. Your opponent can also type the code <b>${code}</b> into Join.</div>`);
       $('mp-copy-link')?.addEventListener('click', async () => {
         try { await navigator.clipboard.writeText(link); $('mp-copy-link').textContent = '✓ Link copied — send it!'; }
         catch (e) { $('mp-copy-link').textContent = 'Copy failed — long-press the link below'; }
@@ -5790,7 +5823,9 @@ async function mpOpenRoom(join) {
     if (mp.transport) { try { mp.transport.close(); } catch (e) {} }
     mp.transport = mpMakeLocalTransport(code, mpOnMessage);
     if (join) mpStartHelloLoop();
-    mpStatus(`${join ? `Looking for the host of <b>${code}</b>` : `Room <b>${code}</b> open`} — <em>online relay unreachable, same-device mode only</em> (both windows on this computer).`);
+    // the fallback used to overwrite the invite link with nothing but an apology
+    mpStatus(`${join ? `<span class="mp-spin"></span> Looking for the host of <b>${code}</b>` : `Room <b>${code}</b> open`} — <em>online relay unreachable</em>
+      <div class="mp-hint">Same-device mode only: this works between two windows on <b>this</b> computer. Cross-device play needs the relay, which this network is blocking. Code: <b>${code}</b></div>`);
   };
   try {
     if (useSupabase) mp.transport = await mpMakeSupabaseTransport(code, mpOnMessage, onOpen);
@@ -5809,7 +5844,10 @@ function mpOnMessage(msg) {
     mp.oppName = cleanName(msg.name); mp.oppRace = msg.race;
     mpSend({ t:'config', name:mpPlayerName(), race:selectedRace.id, mode:mpModeNow(), lives:startingLives(), team:teamSizeSetting() });
     mp.transport?.presence?.('host', { t:'config', name:mpPlayerName(), race:selectedRace.id, mode:mpModeNow(), lives:startingLives(), team:teamSizeSetting(), ts:Date.now() });
-    mpStatus(`<b>${escapeHTML(mp.oppName)}</b> joined! Starting…`);
+    {
+      const orace = races.find((r) => r.id === mp.oppRace);
+      mpStatus(`<b>✓ ${escapeHTML(mp.oppName)} joined!</b>${orace ? ` Playing <span style="color:${orace.color}">${orace.symbol} ${orace.name}</span>.` : ''} Starting the match…`);
+    }
     mp.ready = true; mpSend({ t:'ready' });
     if (!mp.helloTimer || true) mpStartHelloLoop();   // keep re-offering config+ready until both start
     mpMaybeStart();
