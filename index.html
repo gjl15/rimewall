@@ -191,6 +191,33 @@ body.reduce-motion .mp-spin { animation:none; border-top-color:#8ee89f55; }
 .test-button { min-height:40px; padding:10px 12px; border:1px solid #58698d; border-radius:8px; color:#c9d4ef; background:#1a2742; font:500 10px 'DM Mono',monospace; letter-spacing:.04em; text-transform:uppercase; }.test-button:hover { border-color:#77d6ff; color:#fff; background:#223657; }
 .live-dot,.log-dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:#8ee89f; box-shadow:0 0 10px #8ee89f; }
 .resources { gap:18px; }
+/* ---- PRE-MATCH LOBBY ---- */
+.lobby { position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center; padding:16px; background:#060914dd; backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); }
+.lobby.hidden { display:none; }
+.lb-card { width:min(94vw, 520px); max-height:88vh; overflow-y:auto; padding:14px; border:1px solid #34497a; border-radius:16px; background:#0d1424f8; box-shadow:0 18px 50px #000b; }
+.lb-head { display:flex; align-items:center; gap:9px; }
+.lb-tag { padding:3px 7px; border-radius:5px; background:#77d6ff22; color:#77d6ff; font:600 8px 'DM Mono',monospace; letter-spacing:.14em; }
+.lb-head strong { flex:1; min-width:0; font-size:12px; }
+.lb-count { padding:3px 9px; border-radius:6px; background:#ffd86b1e; color:#ffd86b; font:700 13px 'DM Mono',monospace; }
+.lb-cols { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
+.lb-cols:has(.lb-col:only-child) { grid-template-columns:1fr; }
+.lb-col h4 { margin:0 0 6px; color:#8995b4; font:600 8px 'DM Mono',monospace; letter-spacing:.13em; text-transform:uppercase; }
+.lb-seat { display:flex; align-items:center; gap:7px; margin-bottom:5px; padding:6px 7px; border:1px solid #2a3654; border-left:3px solid var(--race); border-radius:8px; background:#111a30; }
+.lb-rune { color:var(--race); font-size:15px; line-height:1; }
+.lb-who { flex:1; min-width:0; display:flex; flex-direction:column; }
+.lb-who b { font-size:10px; }
+.lb-who small { color:#8995b4; font-size:8px; }
+.lb-bot { flex:0 0 auto; padding:2px 5px; border-radius:4px; background:#2a3654; color:#9fb0d2; font:600 7px 'DM Mono',monospace; font-style:normal; letter-spacing:.1em; }
+.lb-hint { margin-top:10px; color:#7c88a8; font-size:10px; line-height:1.5; }
+.lb-races { display:grid; grid-template-columns:repeat(5,1fr); gap:5px; margin-top:10px; }
+.lb-race { display:flex; flex-direction:column; align-items:center; gap:2px; min-height:48px; padding:6px 2px; border:1.5px solid #2e3b5c; border-radius:9px; background:#131b30; color:#9fb0d2; }
+.lb-race span { color:var(--race); font-size:16px; line-height:1; }
+.lb-race small { font-size:7px; letter-spacing:.02em; }
+.lb-race.on { border-color:var(--race); background:color-mix(in srgb, var(--race) 18%, #131b30); color:#f2f6ff; }
+.lb-race:active { transform:scale(.94); }
+.lb-ready { width:100%; margin-top:12px; min-height:44px; border:1px solid #77d6ff; border-radius:10px; background:#12314e; color:#eafcff; font:600 12px 'DM Mono',monospace; letter-spacing:.08em; }
+.lb-ready:active { transform:scale(.98); }
+@media (max-width:420px) { .lb-cols { grid-template-columns:1fr; } .lb-races { grid-template-columns:repeat(5,1fr); } }
 /* ---- STATUS LINE: wave, threat, clock and targeting, under the top bar ---- */
 .status-line { display:flex; align-items:center; gap:10px; margin:7px 0 0; padding:7px 12px; border:1px solid #202c48; border-radius:10px; background:#0b1020e8; }
 .status-line .match-state { flex:1; min-width:0; gap:9px; }
@@ -1017,6 +1044,7 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
              six resource chips for one cramped row. They get their own line under
              the status bar, with the whole-wall targeting switch beside them
              because that is where you look when a wave is landing. -->
+        <div id="lobby" class="lobby hidden" aria-label="Match lobby"></div>
         <div class="status-line" id="status-line">
           <div class="match-state"><span class="live-dot"></span><strong id="wave-label">WAVE 01</strong><span id="wave-threat" class="wave-threat"></span><span id="timer-label">00:30</span></div>
           <button id="sl-target" class="sl-chip" title="Targeting for ALL your towers — tap to switch first / last">🎯 <b id="sl-target-tag">FIRST</b></button>
@@ -1829,7 +1857,11 @@ const WAVE_PERIOD = 30;
    (base + everything your sends added). Lives are chosen tournament-style
    (25 classic / 50 / 100 easy). Bounties run ×2 because a solo defender
    covers both streams that a team shares in the source map. */
-const START_GOLD = 30, FIRST_WAVE_DELAY = 45;   // longer runway to build before wave 1; WAVE_PERIOD 30s after
+/* The 45s runway used to be the ONLY time you had before wave 1, and you spent
+   it squinting at a board wondering who you were even playing. It is a 20s
+   lobby (see your squad, change your element, ready up early) and then 30s of
+   build time, which is the same runway with the roster made visible. */
+const START_GOLD = 30, FIRST_WAVE_DELAY = 30, LOBBY_SECONDS = 20;
 const INCOME_PERIOD = 25, BASE_INCOME = 24;   // was 33 — balance audit: income was the flat snowball outpacing HP growth
 const BOUNTY_MULT = 1;   // was 2 — kill-gold was the fattest early faucet (defense out-damaged threat ~5.7x)
 /* INCOME HAS DIMINISHING RETURNS. Every send in the ladder pays for itself in
@@ -2120,6 +2152,19 @@ function aiUpgradeSomething(list, maxTierNow) {
   weakest.blockHp = weakest.blockMaxHp = 4 + weakest.tier;
   towersVersion += 1;
 }
+/* YOURS vs YOUR ALLY'S. An ally's towers sit on your half and are owner
+   'player' so they shoot your creeps and defend your ship — but they are not
+   yours to sell, upgrade, retarget or bolt. They were, which meant you could
+   cash out a teammate's wall (and pocket gold it paid for) with a long press.
+   Every control path asks this; counting and rendering still ask `owner`. */
+function isMine(tower) { return !!tower && tower.owner === 'player' && tower.allySeat == null; }
+/* An ally's tower is not yours and is not the rival's either — saying "Rival
+   tower" over a teammate's wall on your own half was simply wrong. */
+function towerOwnerLabel(tower) {
+  const a = allyPurse(tower);
+  if (a) return `${a.name}'s tower — your ally. Not yours to sell or upgrade.`;
+  return 'Rival tower';
+}
 const priorities = ['first', 'last', 'strong', 'weak', 'near'];
 /* GLOBAL TARGETING. Retargeting a wall one tower at a time is not a decision,
    it is admin — and first/last is the one call you want to make for the whole
@@ -2133,7 +2178,7 @@ let globalPriority = 'first';
 function applyGlobalPriority(next) {
   globalPriority = next;
   let n = 0;
-  towers.forEach((t) => { if (t.owner === 'player') { t.priority = next; n += 1; } });
+  towers.forEach((t) => { if (isMine(t)) { t.priority = next; n += 1; } });
   syncMapToggles();
   renderTowerDetails(); sheetKey = ''; renderCommandSheet();
   log(`Targeting: ${next.toUpperCase()} — applied to ${n} tower${n === 1 ? '' : 's'} and to everything you build next.`);
@@ -2918,17 +2963,29 @@ function mazeOrderSouth() {
 }
 const ALLY_NAMES = ['Vex', 'Coil', 'Marrow', 'Tine', 'Halcyon', 'Bramble'];
 let allies = [];
-function makeAlly(half, seat, raceId) {
-  const strategy = seat % 2 === 0 ? 'centre' : 'sides';
+/* EACH ALLY HOLDS ITS OWN GROUND. They used to share one queue over the whole
+   half, so three elements interleaved across the board and the wall looked like
+   confetti — you could not tell whose towers were whose, and nobody owned a
+   lane. Allies now take the flanks from the outside in, one corridor each, and
+   stay in it. The colours block up, and you keep the centre.
+      1 ally  -> east corridor
+      2 allies -> west and east corridors, you hold the middle */
+function allyZone(seat, allySeats) {
+  if (allySeats <= 1) return { c0:21, c1:30, label:'east' };
+  return seat === 0 ? { c0:1, c1:10, label:'west' } : { c0:21, c1:30, label:'east' };
+}
+function makeAlly(half, seat, raceId, allySeats) {
+  const zone = allyZone(seat, allySeats);
   const near = (cell, marks) => Math.min(...marks.map((m) => Math.hypot(cell.r - m.r, cell.c - m.c)));
-  const marks = strategy === 'sides' ? laneFlagCells(half) : [sharedFlagCell(half)];
-  const cells = mazeOrderSouth().map(({ r, c }) => (half === PLAYER_HALF ? { r, c } : { r:(ROWS - 1) - r, c }));
-  /* Seats start from OPPOSITE ends of the same queue, so two allies on one half
-     do not both walk the same order and fight over the same cells. */
+  const marks = [sharedFlagCell(half)];
+  const cells = mazeOrderSouth()
+    .filter(({ c }) => c >= zone.c0 && c <= zone.c1)
+    .map(({ r, c }) => (half === PLAYER_HALF ? { r, c } : { r:(ROWS - 1) - r, c }));
   const ordered = cells.sort((a, b) => near(a, marks) - near(b, marks));
-  return { half, seat, raceId, name:ALLY_NAMES[(seat + (half === PLAYER_HALF ? 0 : 3)) % ALLY_NAMES.length],
+  return { half, seat, raceId, zone,
+    name:ALLY_NAMES[(seat + (half === PLAYER_HALF ? 0 : 3)) % ALLY_NAMES.length],
     gold:START_GOLD, income:0, lumber:0, shrine:1, spotIndex:0, towersBuilt:0,
-    buildClock:2 + seat * .6, sendClock:26 + seat * 5, spots:ordered, plan:strategy,
+    buildClock:2 + seat * .6, sendClock:26 + seat * 5, spots:ordered, plan:zone.label,
     playbook:playbookFor(raceId) };
 }
 function spawnAllies() {
@@ -2937,10 +2994,10 @@ function spawnAllies() {
   if (seats <= 0) return;
   for (let i = 0; i < seats; i += 1) {
     const mine = allySeatRace(PLAYER_HALF, i);
-    if (mine) allies.push(makeAlly(PLAYER_HALF, i, mine));
+    if (mine) allies.push(makeAlly(PLAYER_HALF, i, mine, seats));
     if (matchMode !== 'survival') {
       const theirs = allySeatRace(ENEMY_HALF, i);
-      if (theirs) allies.push(makeAlly(ENEMY_HALF, i, theirs));
+      if (theirs) allies.push(makeAlly(ENEMY_HALF, i, theirs, seats));
     }
   }
 }
@@ -3535,7 +3592,7 @@ function tickMatchStats(dt) {
   matchStats.kills = player.kills;
   matchStats.peakIncome = Math.max(matchStats.peakIncome, player.income);
   let mine = 0, bolted = 0;
-  towers.forEach((t) => { if (t.owner === 'player') { mine += 1; if (t.bolt) bolted += 1; } });
+  towers.forEach((t) => { if (isMine(t)) { mine += 1; if (t.bolt) bolted += 1; } });
   matchStats.peakTowers = Math.max(matchStats.peakTowers, mine);
   matchStats.bolts = bolted;
 }
@@ -4529,7 +4586,7 @@ function drawDebug(ctx) {
   if (debug.ranges) {
     towers.forEach((tower) => {
       const stats = towerLiveStats(tower);
-      const mine = tower.owner === 'player';
+      const mine = isMine(tower);
       ctx.save();
       ctx.beginPath(); ctx.arc(tower.c * CELL + CELL / 2, tower.r * CELL + CELL / 2, stats.range * CELL, 0, Math.PI * 2);
       ctx.globalAlpha = mine ? .08 : .04; ctx.fillStyle = stats.color; ctx.fill();
@@ -4576,7 +4633,7 @@ function renderRing() {
   if (ghost && battleRunning) { mode = 'ghost'; cell = ghost; }
   else if (selectedGroupKeys.length === 1 && battleRunning) {
     tower = towers.get(selectedGroupKeys[0]);
-    if (tower && tower.owner === 'player') { mode = fullRefund(tower) ? 'construction' : 'built'; cell = tower; }
+    if (isMine(tower)) { mode = fullRefund(tower) ? 'construction' : 'built'; cell = tower; }
   }
   if (!mode) { ring.classList.add('hidden'); ring._sig = ''; return; }
   const cr = $('fx-canvas').getBoundingClientRect();
@@ -4672,7 +4729,7 @@ function renderFrame() {
       : tx >= Math.min(marquee.x0,marquee.x1) && tx <= Math.max(marquee.x0,marquee.x1) && ty >= Math.min(marquee.y0,marquee.y1) && ty <= Math.max(marquee.y0,marquee.y1);
     fxCtx.setLineDash([]); fxCtx.shadowBlur = 8; fxCtx.strokeStyle = '#ffd86b'; fxCtx.lineWidth = 2;
     const pr = 9 + Math.sin(simTime * 6) * 1.5;
-    towers.forEach((t) => { if (t.owner === 'player' && inside(t.c + .5, t.r + .5)) { fxCtx.beginPath(); fxCtx.arc((t.c + .5) * CELL, (t.r + .5) * CELL, pr, 0, Math.PI * 2); fxCtx.stroke(); } });
+    towers.forEach((t) => { if (isMine(t) && inside(t.c + .5, t.r + .5)) { fxCtx.beginPath(); fxCtx.arc((t.c + .5) * CELL, (t.r + .5) * CELL, pr, 0, Math.PI * 2); fxCtx.stroke(); } });
     fxCtx.restore();
   }
   // staged ghost: translucent tower + dashed range preview (ring handles confirm/cancel)
@@ -4776,7 +4833,7 @@ function renderQuickSend() {
    runs this, so they can never disagree about what "undo" currently means. */
 function undoAction() {
   const t = lastPlaced ? towers.get(lastPlaced.key) : null;
-  if (t && t.owner === 'player' && fullRefund(t)) {
+  if (isMine(t) && fullRefund(t)) {
     sellTowerAt({ r:lastPlaced.r, c:lastPlaced.c });
     lastPlaced = null; lastSold = null;   // a cancelled build is not a sell to take back
     renderUndoSlot();
@@ -4796,7 +4853,7 @@ function renderUndoSlot() {
      fullRefund(), and when there is no build to cancel it offers the last sell
      back instead, which was previously not undoable at all. */
   const t = lastPlaced ? towers.get(lastPlaced.key) : null;
-  const canCancel = Boolean(t && t.owner === 'player' && fullRefund(t));
+  const canCancel = Boolean(isMine(t) && fullRefund(t));
   const canUnsell = !canCancel && sellUndoLive();
   const live = canCancel || canUnsell;
   slot.disabled = !live;
@@ -4995,7 +5052,7 @@ function renderBuildExtras() {
   });
 }
 function towerAction(kind) {
-  let group = selectionTowers().filter((t) => t.owner === 'player');
+  let group = selectionTowers().filter(isMine);
   if (kind !== 'sell') {
     const ready = group.filter((t) => !underConstruction(t));
     if (!ready.length) { if (group.length) log('That tower is still being built — cancel it (double-tap / ESC) or wait.'); return; }
@@ -5086,7 +5143,7 @@ function renderTowerDetails() {
   const group = selectionTowers().filter((t) => t.owner === tower.owner);
   const many = group.length > 1;
   const stats = towerLiveStats(tower);
-  const isYours = tower.owner === 'player';
+  const isYours = isMine(tower);
   panel.classList.remove('hidden');
   const upgradable = group.filter((t) => t.level < MAX_LEVEL);
   const levelCostAll = upgradable.reduce((sum, t) => sum + towerLevelCost(t), 0);
@@ -5096,7 +5153,7 @@ function renderTowerDetails() {
   const graceNote = !many && fullRefund(tower) ? ' • undo, full refund' : many ? '' : ' • 75%';
   panel.innerHTML = `
     <div class="td-head"><span class="td-rune" style="--race:${stats.color}">${stats.symbol}</span>
-      <div><strong>${many ? `${group.length} × ` : ''}${stats.name}</strong><small>${isYours ? (many ? 'Batch selection — actions apply to all' : `Level ${(tower.level || 0) + 1} • ${tower.kills} kills`) : 'Rival tower'}</small></div>
+      <div><strong>${many ? `${group.length} × ` : ''}${stats.name}</strong><small>${isYours ? (many ? 'Batch selection — actions apply to all' : `Level ${(tower.level || 0) + 1} • ${tower.kills} kills`) : towerOwnerLabel(tower)}</small></div>
       <button id="td-close" class="ghost-button" aria-label="Close tower details">✕</button></div>
     <p class="td-desc">${many ? 'Double-tap selected every like tower.' : `${stats.desc} ${specialBlurbs[stats.special] || ''}`}</p>
     <div class="td-stats"><span>DMG <b>${stats.dmg}</b></span><span>RANGE <b>${stats.range.toFixed(1)}</b></span><span>RATE <b>${stats.cd.toFixed(2)}s</b></span></div>
@@ -5230,9 +5287,9 @@ function handleBoardTap(event) {
       else log(`Rival is building ${towerLiveStats(tower).name} (${towerLiveStats(tower).dmg} dmg, ${towerLiveStats(tower).range.toFixed(1)} rng).`);
       return;
     }
-    if (lastTapKey === key && now - lastTapAt < 420 && tower.owner === 'player') {
+    if (lastTapKey === key && now - lastTapAt < 420 && isMine(tower)) {
       // double-tap: select every like tower (same element and tier) for batch actions
-      selectedGroupKeys = [...towers.values()].filter((t) => t.owner === 'player' && t.raceId === tower.raceId && t.tier === tower.tier).map((t) => t.key);
+      selectedGroupKeys = [...towers.values()].filter((t) => isMine(t) && t.raceId === tower.raceId && t.tier === tower.tier).map((t) => t.key);
       log(`${selectedGroupKeys.length} × ${towerLiveStats(tower).name} selected — batch upgrade or sell from the panel.`);
     } else {
       selectedGroupKeys = [key];
@@ -5519,7 +5576,7 @@ function setupMapZoom() {
     window.clearTimeout(viewport._holdTimer);
     if (event.pointerType !== 'mouse' && battleRunning && activeMapPointers.size === 1) {
       const cell = cellFromEvent(event);
-      if (cell && towers.get(idx(cell.r, cell.c))?.owner === 'player') {
+      if (cell && isMine(towers.get(idx(cell.r, cell.c)))) {
         viewport._holdTimer = window.setTimeout(() => {
           if (tapCandidate && tapCandidate.id === event.pointerId) { sellTowerAt(cell); tapCandidate = null; }
         }, 650);
@@ -5586,11 +5643,11 @@ function setupMapZoom() {
           }
           return hit;
         };
-        picked = [...towers.values()].filter((t) => t.owner === 'player' && inside(t.c + .5, t.r + .5));
+        picked = [...towers.values()].filter((t) => isMine(t) && inside(t.c + .5, t.r + .5));
       } else if (marquee.mode === 'box') {
         const [xa, xb] = [Math.min(marquee.x0, marquee.x1), Math.max(marquee.x0, marquee.x1)];
         const [ya, yb] = [Math.min(marquee.y0, marquee.y1), Math.max(marquee.y0, marquee.y1)];
-        picked = [...towers.values()].filter((t) => t.owner === 'player' && t.c + .5 >= xa && t.c + .5 <= xb && t.r + .5 >= ya && t.r + .5 <= yb);
+        picked = [...towers.values()].filter((t) => isMine(t) && t.c + .5 >= xa && t.c + .5 <= xb && t.r + .5 >= ya && t.r + .5 <= yb);
       }
       marquee = null;
       if (picked.length) {
@@ -5772,6 +5829,85 @@ function startBattle() {
     : matchMode === 'survival'
       ? `SURVIVAL — no rival, just the waves. First wave in ${Math.ceil(waveClock)}s. See how far you get.`
       : `Match started vs the ${races.find((race) => race.id === enemy.raceId).name} rival. First wave in ${Math.ceil(waveClock)}s — place starter towers near the gate.`);
+  openLobby();
+}
+/* ---------------- PRE-MATCH LOBBY ----------------
+   You could not see who you were playing, or with. The match opened straight
+   onto a board and the only clue about your squad was a log line that scrolled
+   away. The lobby holds for LOBBY_SECONDS with the board paused behind it,
+   shows both squads and every element in play, and lets you switch yours before
+   a single coin is spent. Ready up to skip it. */
+let lobbyLeft = 0, lobbyTimer = null;
+function lobbyOpen() { return lobbyLeft > 0; }
+function openLobby() {
+  const box = $('lobby');
+  if (!box) return;
+  if (mp.active) return;                      // multiplayer has its own handshake
+  lobbyLeft = LOBBY_SECONDS;
+  battlePaused = true;
+  box.classList.remove('hidden');
+  renderLobby();
+  window.clearInterval(lobbyTimer);
+  lobbyTimer = window.setInterval(() => {
+    lobbyLeft -= 1;
+    if (lobbyLeft <= 0) closeLobby();
+    else renderLobby();
+  }, 1000);
+}
+function closeLobby() {
+  window.clearInterval(lobbyTimer); lobbyTimer = null;
+  lobbyLeft = 0;
+  $('lobby')?.classList.add('hidden');
+  battlePaused = false;
+  fitBoardToViewport();
+  log(`Match live. First wave in ${Math.ceil(waveClock)}s — build.`);
+}
+function lobbyPickRace(id) {
+  // nothing is built yet, so swapping the element is a straight substitution
+  if (!lobbyOpen()) return;
+  const race = races.find((r) => r.id === id);
+  if (!race || !raceUnlocked(id)) return;
+  selectedRace = race;
+  player.races = [id];
+  buildRaceIdx = 0; selectedTowerTier = 0;
+  renderBattleIdentity(); renderTowerList(); renderHud();
+  renderLobby();
+}
+function lobbySquad(half) {
+  const mates = allies.filter((a) => a.half === half)
+    .map((a) => ({ name:a.name, raceId:a.raceId, zone:a.zone?.label, bot:true }));
+  if (half === PLAYER_HALF) return [{ name:'You', raceId:selectedRace.id, zone:'centre', bot:false }, ...mates];
+  return [{ name:mp.active ? (mp.oppName || 'Opponent') : 'Rival', raceId:enemy.raceId, zone:'centre', bot:!mp.active }, ...mates];
+}
+function renderLobby() {
+  const box = $('lobby');
+  if (!box) return;
+  const seat = (s) => {
+    const r = races.find((x) => x.id === s.raceId) || races[0];
+    return `<div class="lb-seat" style="--race:${r.color}">
+      <span class="lb-rune">${r.symbol}</span>
+      <span class="lb-who"><b>${s.name}</b><small>${r.name}${s.zone && s.zone !== 'centre' ? ` · ${s.zone} flank` : s.bot ? '' : ' · you'}</small></span>
+      ${s.bot ? '<i class="lb-bot">AI</i>' : ''}</div>`;
+  };
+  box.innerHTML = `
+    <div class="lb-card">
+      <div class="lb-head">
+        <span class="lb-tag">LOBBY</span>
+        <strong>${defendersPerHalf()}v${defendersPerHalf()} · ${matchMode === 'classic' ? 'Classic Wars' : matchMode === 'survival' ? 'Survival' : 'Waves vs rival'}</strong>
+        <span class="lb-count">${lobbyLeft}s</span>
+      </div>
+      <div class="lb-cols">
+        <div class="lb-col"><h4>Your half</h4>${lobbySquad(PLAYER_HALF).map(seat).join('')}</div>
+        ${matchMode === 'survival' ? '' : `<div class="lb-col"><h4>Their half</h4>${lobbySquad(ENEMY_HALF).map(seat).join('')}</div>`}
+      </div>
+      <p class="lb-hint">Change your element while the clock runs — nothing is built yet. Allies hold the flanks; you hold the middle.</p>
+      <div class="lb-races">${races.filter((r) => raceUnlocked(r.id)).map((r) => `
+        <button class="lb-race ${r.id === selectedRace.id ? 'on' : ''}" data-lb-race="${r.id}" style="--race:${r.color}" title="${r.name} — ${r.trait}">
+          <span>${r.symbol}</span><small>${r.name}</small></button>`).join('')}</div>
+      <button id="lb-ready" class="lb-ready">Ready — start now</button>
+    </div>`;
+  box.querySelectorAll('[data-lb-race]').forEach((b) => b.addEventListener('click', () => lobbyPickRace(b.dataset.lbRace)));
+  $('lb-ready').addEventListener('click', closeLobby);
 }
 let canvasesReady = false;
 function setupCanvasesOnce() { if (!canvasesReady) { setupCanvases(); canvasesReady = true; } }
@@ -6856,7 +6992,7 @@ function renderCommandSheet() {
         <span>${send.air ? '🐉' : send.symbol}</span><small>${send.name.split(' ')[0]}</small><b>${send.cost}g<i class="${inc.cut ? 'inc-cut' : ''}">${inc.text}</i></b></button>`; }).join('')}</div>
       <p class="sheet-hint">Sends run both rival lanes and raise your income. You are paid <b>${BASE_INCOME + incomePayout(player.income)}g</b> every ${INCOME_PERIOD}s; each chip shows what it would add to that.${player.income > INCOME_SOFT ? ` Past ${INCOME_SOFT} raw income the payout is compressed, so the amber figures are below their ladder value.` : ''} ${player.shrine < SHRINE_MAX ? 'Higher shrine levels unlock the elite tiers.' : 'Shrine is maxed.'}</p>`;
   } else if (sheetTab === 'tower') {
-    const sel = selectionTowers().filter((t) => t.owner === 'player');
+    const sel = selectionTowers().filter(isMine);
     if (!sel.length) { body = '<p class="sheet-hint">Tap one of your towers on the board — or use ▭ Box select — to inspect it here.</p>'; }
     else {
       const t0 = sel[0];
@@ -7010,7 +7146,7 @@ function renderWispInspect() {
     const t = ie.ref, st = towerLiveStats(t), er = races.find(r=>r.id===t.raceId);
     return close + `<div class="wp-detail"><b><span class="wp-inspect-ico">${er?.symbol||'⛫'}</span>${st.name} <small>(rival building)</small></b><br>${st.dmg} dmg · ${(st.dmg/st.cd).toFixed(0)} dps · ${st.range.toFixed(1)} rng<br>${er?.name} · ${attackProfileText(t.raceId)}<br>${specialBlurbs[st.special]||st.desc||''}</div>`;
   }
-  const sel = selectionTowers().filter((t) => t.owner === 'player');
+  const sel = selectionTowers().filter(isMine);
   const t0 = sel[0], stats = t0 ? towerLiveStats(t0) : null;
   if (!t0) return close + `<div class="wp-detail">Tap any tower, creep, or rival tower to inspect it.</div>`;
   const up = towerTierUp(t0);
@@ -7147,7 +7283,7 @@ document.addEventListener('keydown', (event) => {
     // layered escape: staged ghost → newest scaffold (full-refund undo) → sheet → selection
     if (ghost) { ghost = null; ghostChips = []; event.preventDefault(); return; }
     // fullRefund, not underConstruction: the grace runs 8s past the build finishing
-    const building = [...towers.values()].filter((t) => t.owner === 'player' && fullRefund(t)).sort((a, b) => (b.seq || 0) - (a.seq || 0) || b.placedAt - a.placedAt)[0];
+    const building = [...towers.values()].filter((t) => isMine(t) && fullRefund(t)).sort((a, b) => (b.seq || 0) - (a.seq || 0) || b.placedAt - a.placedAt)[0];
     if (building) {
       const refund = towerSellValue(building);
       sellTowerAt({ r:building.r, c:building.c });
