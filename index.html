@@ -202,6 +202,7 @@ body.reduce-motion .mp-spin { animation:none; border-top-color:#8ee89f55; }
 .cf-no { border:1px solid #3c4a6e; background:#131b30; color:#e9edff; }
 .cf-yes { border:1px solid #ff5f6e; background:#3a1219; color:#ffc6cf; }
 .cf-btn:active { transform:scale(.97); }
+.cf-paste { width:100%; min-height:110px; margin-top:11px; padding:8px; border:1px solid #2e3b5c; border-radius:9px; background:#0a1120; color:#cfd8ee; font:400 11px ui-monospace,monospace; resize:vertical; }
 /* ---- PRE-MATCH LOBBY ---- */
 .lobby { position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center; padding:16px; background:#060914dd; backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); }
 .lobby.hidden { display:none; }
@@ -3664,8 +3665,68 @@ function logSend(sendId) {
   const i = SENDS.findIndex((s) => s.id === sendId);
   if (i >= 0) matchStats.sendLog.push([wave, i]);
 }
-function loadMatchLog() {
+/* ---------------- LEARNING FROM EVERY GAME, NOT JUST THIS BROWSER'S ----------
+   The match log is localStorage, so each device was an island: your rival
+   learned from you, Abdy's learned from Abdy, and neither ever saw the other's
+   games. There is no backend — MP_CONFIG is empty by default and the project is
+   a single static file on purpose — so games are pooled two ways instead:
+
+     SEED    a communal set shipped inside the file. Everyone who loads the page
+             inherits it, so a fresh install already has a rival worth playing.
+             Grown by exporting real logs and committing them here.
+     SHARED  logs imported on the device. Copy JSON on one phone, Import on
+             another, and both rivals learn from both players immediately with
+             nobody waiting on a deploy.
+
+   Learning reads all three. Your own records still display as your own. */
+const SHARED_LOG_KEY = 'rimewall.sharedlog.v1', SHARED_LOG_CAP = 400;
+const COMMUNAL_SEED = [];   // filled from real exports; see CHANGELOG
+function loadOwnLog() {
   try { return JSON.parse(localStorage.getItem(MATCH_LOG_KEY) || '[]') || []; } catch (e) { return []; }
+}
+function loadSharedLog() {
+  try { return JSON.parse(localStorage.getItem(SHARED_LOG_KEY) || '[]') || []; } catch (e) { return []; }
+}
+function saveSharedLog(list) {
+  try { localStorage.setItem(SHARED_LOG_KEY, JSON.stringify(list.slice(-SHARED_LOG_CAP))); } catch (e) { /* per-browser only */ }
+}
+function matchKey(m) { return `${m.at}|${m.race}|${m.wave}|${m.kills}`; }
+/* Everything the rival is allowed to learn from. Deduped, because the same
+   export pasted twice must not count a game twice and skew the weighting. */
+function loadMatchLog() {
+  const seen = new Set();
+  const out = [];
+  for (const src of [loadOwnLog(), loadSharedLog(), COMMUNAL_SEED]) {
+    for (const m of src) {
+      if (!m || !m.race) continue;
+      const k = matchKey(m);
+      if (seen.has(k)) continue;
+      seen.add(k); out.push(m);
+    }
+  }
+  return out;
+}
+/* Merge an exported log in. Returns how many games were actually new. */
+function importMatchLog(text) {
+  let parsed;
+  try { parsed = JSON.parse(text); } catch (e) { return { ok:false, why:'That is not valid JSON.' }; }
+  const incoming = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.matches) ? parsed.matches : null);
+  if (!incoming) return { ok:false, why:'No matches found — paste the whole Copy JSON output.' };
+  const mine = new Set(loadOwnLog().map(matchKey));
+  const shared = loadSharedLog();
+  const have = new Set(shared.map(matchKey));
+  let added = 0, skipped = 0;
+  for (const m of incoming) {
+    if (!m || !m.race || typeof m.wave !== 'number') { skipped += 1; continue; }
+    const k = matchKey(m);
+    if (mine.has(k) || have.has(k)) { skipped += 1; continue; }
+    have.add(k);
+    shared.push({ ...m, src:'shared' });
+    added += 1;
+  }
+  saveSharedLog(shared);
+  playbookStamp = -1;   // force every playbook to be re-derived
+  return { ok:true, added, skipped, total:loadMatchLog().length };
 }
 function saveMatchLog(list) {
   try { localStorage.setItem(MATCH_LOG_KEY, JSON.stringify(list.slice(-MATCH_LOG_CAP))); } catch (e) { /* per-browser only */ }
@@ -3704,7 +3765,9 @@ function commitMatchStats(result) {
   // how the rival's chosen plan actually did — this is what the next match reads
   matchStats.rivalPlan = enemy?.plan || null;
   matchStats.rivalLives = enemy?.lives ?? null;
-  const list = loadMatchLog();
+  // YOUR log, not the merged pool — appending to the pool would fold shared
+  // games into your own record and duplicate them on every subsequent match
+  const list = loadOwnLog();
   list.push(matchStats);
   saveMatchLog(list);
 }
@@ -7042,6 +7105,7 @@ function renderWhatsNew() {
 }
 function recordsContent() {
   const log = loadMatchLog();
+  const sharedCount = log.filter((m) => m.src === 'shared').length;
   if (!log.length) {
     return `<p class="sheet-heading">MATCH RECORDS</p>
       <p class="sheet-hint">No matches recorded yet. Every match you finish is logged here — race, wave reached, gold earned and spent, and the wave you first leaked on. Play a few and the per-race audit below fills in.</p>`;
@@ -7050,7 +7114,7 @@ function recordsContent() {
   const recent = log.slice(-12).reverse();
   const fmt = (n) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(Math.round(n));
   return `
-    <p class="sheet-heading">RACE AUDIT — ${log.length} recorded match${log.length > 1 ? 'es' : ''}</p>
+    <p class="sheet-heading">RACE AUDIT — ${log.length} match${log.length === 1 ? '' : 'es'} in the pool${sharedCount ? ` (${log.length - sharedCount} yours, ${sharedCount} shared)` : ''}</p>
     <div class="learn-list">${audit.map((r) => {
       const race = races.find((x) => x.id === r.race);
       return `<div class="learn-row"><span style="color:${race?.color || '#fff'}">${race?.symbol || ''} ${race?.name || r.race}</span><small>${r.matches} played · ${r.winPct}% won · avg wave ${r.avgWave} (best ${r.bestWave}) · first leak w${r.firstLeak ?? '—'} · ${r.avgLeaks} lives/match · spent ${r.spendPct}% of ${fmt(r.avgSpend / (r.spendPct / 100 || 1))} earned</small></div>`;
@@ -7068,6 +7132,7 @@ function recordsContent() {
         : `playbook ${pool}/${MIN_PLAYBOOK_GAMES} games`}${scores ? `<br>plans: ${scores}${best ? ` — <b>running ${best}</b>` : ''}` : ''}</small></div>`;
     }).join('')}</div>
     <p class="sheet-hint">The rival distils your maze — the cells you favour, in the order you lay them, mirrored onto its half and weighted toward the games that went best. But it does not take the lesson on faith: it records how each plan actually performs and runs whichever has the better record, so copying you has to earn its place. Needs ${MIN_PLAYBOOK_GAMES} games with an element before <em>learned</em> is even on the menu, and ${PLAN_MIN_TRIALS} tries per plan before it stops experimenting.</p>
+    <p class="sheet-hint"><b>Pool your games.</b> The log lives in this browser only — there is no server — so a rival learns from whoever plays on this device. Hit <b>Copy JSON</b> on one phone and <b>Import log</b> on another and both rivals learn from both of you. Imported games train the rival; your own records stay separate.</p>
     <p class="sheet-hint">First leak is the wave a race first loses a life on — the clearest single signal of where it falls over. Spent % is how much of your earnings the wall actually absorbed; well under 100% means the wave curve is not pressuring you.</p>
     <p class="sheet-heading">RECENT MATCHES</p>
     <div class="learn-list">${recent.map((m) => {
@@ -7077,7 +7142,8 @@ function recordsContent() {
     }).join('')}</div>
     <div class="sheet-grid sheet-actions">
       <button class="sheet-chip" id="log-copy"><span>⧉</span><small>Copy JSON</small><b>share</b></button>
-      <button class="sheet-chip sell-chip" id="log-clear"><span>🗑</span><small>Clear log</small><b>${log.length}</b></button>
+      <button class="sheet-chip" id="log-import"><span>⤵</span><small>Import log</small><b>pool</b></button>
+      <button class="sheet-chip sell-chip" id="log-clear"><span>🗑</span><small>Clear mine</small><b>${log.length - sharedCount}</b></button>
     </div>`;
 }
 function learnContent() {
@@ -7202,10 +7268,35 @@ function renderCommandSheet() {
   sheet.querySelectorAll('[data-sheet-act]').forEach((b) => b.addEventListener('click', () => towerAction(b.dataset.sheetAct)));
   sheet.querySelectorAll('[data-bolt]').forEach((b) => b.addEventListener('click', () => { towerAction(`bolt:${b.dataset.bolt}`); sheetKey = ''; renderCommandSheet(); }));
   $('log-copy')?.addEventListener('click', () => {
-    const payload = JSON.stringify({ exported:new Date().toISOString(), audit:raceAudit(), matches:loadMatchLog() }, null, 1);
+    // export YOUR games; re-exporting the pool would bounce shared logs around
+    const payload = JSON.stringify({ exported:new Date().toISOString(), audit:raceAudit(), matches:loadOwnLog() }, null, 1);
     navigator.clipboard?.writeText(payload)
       .then(() => showToast('<b>Match log copied</b><span>Paste it anywhere to share the race audit.</span>'))
       .catch(() => log('Clipboard blocked — the log is in localStorage under ' + MATCH_LOG_KEY));
+  });
+  /* Pooling by hand, because there is no backend to pool through: one player
+     hits Copy JSON, the other hits Import, and both rivals learn from both. */
+  $('log-import')?.addEventListener('click', () => {
+    const box = $('confirm-modal');
+    if (!box) return;
+    box.innerHTML = `<div class="cf-card" style="border-color:#34497a;background:#0d1424f8">
+        <h3 style="color:#bfeaff">Import a match log</h3>
+        <p>Paste another player's <b>Copy JSON</b> export. Their games join the pool your rival learns from — your own records stay separate.</p>
+        <textarea id="cf-paste" class="cf-paste" placeholder="Paste the JSON here"></textarea>
+        <div class="cf-row">
+          <button id="cf-no" class="cf-btn cf-no">Cancel</button>
+          <button id="cf-yes" class="cf-btn" style="border:1px solid #77d6ff;background:#12314e;color:#eafcff">Import</button>
+        </div></div>`;
+    box.classList.remove('hidden');
+    const close = () => { box.classList.add('hidden'); box.innerHTML = ''; };
+    $('cf-no').addEventListener('click', close);
+    $('cf-yes').addEventListener('click', () => {
+      const res = importMatchLog($('cf-paste').value || '');
+      close();
+      if (!res.ok) return showToast(`<b>Import failed</b><span>${res.why}</span>`);
+      showToast(`<b>Pooled ${res.added} game${res.added === 1 ? '' : 's'}</b><span>${res.skipped ? `${res.skipped} already known. ` : ''}The rival now learns from ${res.total}.</span>`);
+      sheetKey = ''; renderCommandSheet();
+    });
   });
   $('log-clear')?.addEventListener('click', () => {
     saveMatchLog([]);
