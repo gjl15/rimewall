@@ -842,7 +842,7 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
             <span class="race-card-copy"><span class="selection-kicker">YOUR ELEMENT — TAP TO CHANGE</span><strong id="selected-name">Ice</strong><span id="selected-desc">Slows enemies and buys your maze time.</span></span>
             <span class="race-card-caret">▾</span>
           </button>
-          <div class="selection-actions"><label class="lives-pick" for="mode-select">MODE <select id="mode-select"><option value="skirmish" selected>Waves vs rival</option><option value="survival">Survival • creeps only, no rival</option><option value="classic">Classic Wars • sends only</option></select></label><label class="lives-pick" for="team-select">TEAM <select id="team-select"><option value="1" selected>1v1 • one batch</option><option value="2">2v2 • two batches</option><option value="3">3v3 • three batches</option></select></label><label class="lives-pick" for="lives-select">LIFEFORCE <select id="lives-select"><option value="25">25 • classic</option><option value="50">50 • veteran</option><option value="100" selected>100 • easy</option></select></label></div>
+          <div class="selection-actions"><label class="lives-pick" for="mode-select">MODE <select id="mode-select"><option value="skirmish" selected>Waves vs rival</option><option value="survival">Survival • creeps only, no rival</option><option value="classic">Classic Wars • sends only</option></select></label><label class="lives-pick" for="team-select">TEAM <select id="team-select"><option value="1" selected>1v1 • one batch</option><option value="2">2v2 • two batches</option><option value="3">3v3 • three batches</option></select></label><label class="lives-pick" for="ai-select">RIVAL <select id="ai-select"><option value="relaxed">Relaxed • learning the ropes</option><option value="normal" selected>Normal</option><option value="hard">Hard • funded rival</option><option value="brutal">Brutal • it out-earns you</option></select></label><label class="lives-pick" for="lives-select">LIFEFORCE <select id="lives-select"><option value="25">25 • classic</option><option value="50">50 • veteran</option><option value="100" selected>100 • easy</option></select></label></div>
           <div class="setup-actions-row">
             <button id="start-button" class="primary-button">Enter the battlefield <span>→</span></button>
             <button id="settings-open" class="gear-button" title="Settings" aria-label="Settings">⚙</button>
@@ -2004,7 +2004,19 @@ function resetMatchState() {
   if (questGold) { player.gold += questGold; log(`🗒 Daily quest reward: +${questGold}g starting gold.`); }
   buildRaceIdx = 0;
   const opening = AI_OPENINGS[Math.floor(rng() * AI_OPENINGS.length)];
-  enemy = { gold:START_GOLD, income:0, lives, lumber:0, shrine:1, raceId:races[Math.floor(rng() * races.length)].id, spotIndex:0, towersBuilt:0, buildClock:2, sendClock:matchMode === 'classic' ? 14 : 24, opening, spots:aiSpots(opening) };
+  const rivalRace = races[Math.floor(rng() * races.length)].id;
+  /* Which plan the rival runs this match is decided by its own record with this
+     element, not by whether a playbook happens to exist. */
+  const plan = pickRivalPlan(rivalRace);
+  const shape = plan === 'learned' ? (aiLearnedSpots(rivalRace, opening) || aiSpots(opening)) : aiSpots(plan);
+  enemy = { gold:START_GOLD, income:0, lives, lumber:0, shrine:1, raceId:rivalRace, spotIndex:0, towersBuilt:0,
+    buildClock:2, sendClock:matchMode === 'classic' ? 14 : 24, opening:plan === 'learned' ? opening : plan,
+    spots:shape, plan };
+  if (plan === 'learned') {
+    const pb = playbookFor(rivalRace);
+    enemy.playbook = pb;
+    if (pb) log(`The rival has studied ${pb.games} of your ${races.find((r) => r.id === rivalRace)?.name || rivalRace} games and is trying your maze against you.`);
+  }
   wave = 0; waveClock = FIRST_WAVE_DELAY; incomeClock = INCOME_PERIOD; simTime = 0; battlePaused = false; matchOver = false;
   if (!mp.active) log(`Rival opening: ${opening === 'centre' ? 'CENTRE — massing on the flag both your lanes cross' : 'SIDES — a cluster on each lane flag'}.`);
   selectedTowerKey = null; selectedGroupKeys = [];
@@ -2846,6 +2858,46 @@ function aiSpots(strategy) {
   const marks = strategy === 'sides' ? laneFlagCells(ENEMY_HALF) : [sharedFlagCell(ENEMY_HALF)];
   return cells.sort((a, b) => near(a, marks) - near(b, marks));
 }
+/* LEARNED SPOTS. If the playbook has enough games for this element, the rival
+   lays YOUR maze rather than the hand-built one — mirrored onto its half, in
+   the order you laid it. The board is 49 rows and the two build zones are exact
+   reflections (yours 26-48, its 0-22), so r -> 48-r maps one to the other with
+   no distortion. Anything that does not survive the mirror as a legal cell is
+   dropped, and the hand-built maze fills in behind so the rival never runs out
+   of spots just because you only ever built forty towers. */
+function aiLearnedSpots(raceId, strategy) {
+  const pb = playbookFor(raceId);
+  if (!pb) return null;
+  /* BLEND, DO NOT REPLACE. Adopting a human's build ORDER wholesale made the
+     rival worse — measured, ice's median death moved 12 -> 10. The hand-built
+     order is not arbitrary: it grows outward from the one flag both lanes must
+     cross, which was itself measured (centre 140.7 leaks by wave 25 against
+     sides 209.0). A player's order carries their preferences AND their mistakes,
+     and the rival only ever affords the first forty-odd cells of it, so a bad
+     opening order is all it ever sees.
+     So the flag-distance principle stays the spine and the playbook bends it:
+     cells you favour move up the queue, cells you never touch drift down. The
+     rival learns WHERE you think value is without unlearning why the centre
+     matters. */
+  const base = aiSpots(strategy);
+  if (!base.length) return null;
+  const weight = new Map();
+  let maxW = 0;
+  pb.cells.forEach((e) => {
+    const mr = (ROWS - 1) - e.r;
+    weight.set(mr * 100 + e.c, e.weight);
+    if (e.weight > maxW) maxW = e.weight;
+  });
+  if (!maxW) return null;
+  const span = base.length;
+  const scored = base.map((cell, i) => {
+    const w = (weight.get(cell.r * 100 + cell.c) || 0) / maxW;   // 0..1
+    // a fully-favoured cell jumps up to a quarter of the queue; an unseen one is unmoved
+    return { cell, key:i - w * span * .25 };
+  });
+  scored.sort((a, b) => a.key - b.key);
+  return scored.map((s) => s.cell);
+}
 /* the one node both lanes of a half have in common — the middle flag */
 function sharedFlagCell(half) {
   const west = ROUTES[half].west, east = ROUTES[half].east;
@@ -2888,7 +2940,13 @@ function updateEnemyAI(dt) {
   enemy.buildClock -= dt;
   enemy.sendClock -= dt;
   // in classic mode there are no waves, so the AI's ambition scales with time instead
-  const maxTierNow = Math.min(5, matchMode === 'classic' ? Math.floor(simTime / 75) : Math.floor(wave / 3.2));
+  /* AMBITION. The formula is the floor; if the playbook has watched you reach a
+     higher tier by this wave, the rival aims there instead. It never aims LOWER
+     than the formula — learning should make it better, not talk it out of
+     upgrades because you happened to turtle on tier 0 in a few games. */
+  let maxTierNow = Math.min(5, matchMode === 'classic' ? Math.floor(simTime / 75) : Math.floor(wave / 3.2));
+  const pbTier = enemy.playbook?.tierByWave?.[Math.min(45, wave)];
+  if (pbTier != null) maxTierNow = Math.min(5, Math.max(maxTierNow, pbTier));
   if (enemy.buildClock <= 0) {
     enemy.buildClock = 1.6;
     const list = towerListFor(enemy.raceId);
@@ -2956,8 +3014,20 @@ function updateEnemyAI(dt) {
        most ONE per 20s however rich it got, so its income never compounded and
        it fell further behind every wave. Spend down to a build reserve instead,
        taking the shortest payback first — that is what a player actually does. */
+    /* WHICH send, learned. By payback alone the rival always bought the same
+       cheap rung; if the playbook has seen you favour a heavier send by this
+       wave, it reaches for that rung first and falls back down the ladder when
+       it cannot afford it. */
+    const wantIdx = enemy.playbook?.sendsByWave?.[Math.min(45, wave)]?.tier;
     const unlocked = SENDS.filter((send) => enemy.shrine >= send.shrine)
       .sort((a, b) => a.cost / a.income - b.cost / b.income);
+    if (wantIdx != null) {
+      const favoured = SENDS[wantIdx];
+      if (favoured && enemy.shrine >= favoured.shrine) {
+        const at = unlocked.indexOf(favoured);
+        if (at > 0) { unlocked.splice(at, 1); unlocked.unshift(favoured); }
+      }
+    }
     /* LEFT AS IS, DELIBERATELY. The reserve grows to 300g by wave 24 while the
        rival's measured peak gold across a whole match is ~206, so past the
        opening it rarely clears its own reserve and its income freezes near 49
@@ -3031,10 +3101,22 @@ function launchNextWave() {
   log(`Wave ${wave} — ${def.name}${def.air ? ' (AIR — flies over the maze!)' : ''} (${def.count} per side) entered the Creep Gate. Level pay +${levelPay}.`);
   renderHud();
 }
+/* RIVAL DIFFICULTY = the rival's income multiplier, because gold is the only
+   thing actually limiting it. Measured: its wall sits at tier 0-1 with ~43
+   towers and its peak gold across a whole match is around 200g. Teaching it a
+   better maze changed nothing (median death wave 12 -> 10/12, inside noise)
+   because it cannot afford the towers to lay one. Spending differently is not
+   the lever; having more to spend is.
+   Normal is 1.0 — exactly today's behaviour, so the default changes nothing. */
+const RIVAL_DIFFICULTY = { relaxed:.7, normal:1, hard:1.7, brutal:2.6 };
+function rivalGoldMult() {
+  const pick = document.getElementById('ai-select')?.value;
+  return RIVAL_DIFFICULTY[pick] ?? RIVAL_DIFFICULTY.normal;
+}
 function payIncome() {
   const paid = BASE_INCOME + incomePayout(player.income);
   player.gold += paid;
-  enemy.gold += BASE_INCOME + incomePayout(enemy.income);
+  enemy.gold += (BASE_INCOME + incomePayout(enemy.income)) * rivalGoldMult();
   pushFx({ kind:'num', x:15.9, y:25.2, text:`+${paid}`, until:simTime + 1.1, color:'#f5d36d' });
 }
 function endMatch(result) {
@@ -3174,10 +3256,36 @@ async function shareMatchCard(result) {
    one hook instead of a dozen, and it cannot drift out of step with a new one. */
 const MATCH_LOG_KEY = 'rimewall.matchlog.v1', MATCH_LOG_CAP = 120;
 let matchStats = null, goldWatch = 0, statsClock = 0;
+/* How much of a match we keep. The tuples are deliberately flat arrays of
+   numbers rather than objects — "[40,5,0,1]," is twelve characters, so a full
+   202-tower match costs about 2.5KB and a 120-match log stays well inside a
+   localStorage quota. Objects with keys would be four times that. */
+const LOG_BUILD_CAP = 260, LOG_EVENT_CAP = 400;
 function newMatchStats() {
   return { at:Date.now(), race:null, rival:null, mode:matchMode, team:1, result:null,
     wave:0, secs:0, kills:0, livesLost:0, goldEarned:0, goldSpent:0, peakIncome:0,
-    sends:0, peakTowers:0, bolts:0, leaksByWave:{} };
+    sends:0, peakTowers:0, bolts:0, leaksByWave:{},
+    /* THE PLAYBOOK SOURCE. build is the maze you actually laid, in the order you
+       laid it — order is the whole point, because "which cell first" is the
+       decision the rival most needs to copy. ups is how you spent on height,
+       sendLog is when you bought pressure. */
+    build:[],    // [r, c, tier, wave]
+    ups:[],      // [wave, tier] after a tier-up, or [wave, -1] for a level
+    sendLog:[]   // [wave, sendIndex]
+  };
+}
+function logBuild(r, c, tier) {
+  if (!matchStats || matchStats.build.length >= LOG_BUILD_CAP) return;
+  matchStats.build.push([r, c, tier, wave]);
+}
+function logUpgrade(tier) {
+  if (!matchStats || matchStats.ups.length >= LOG_EVENT_CAP) return;
+  matchStats.ups.push([wave, tier]);
+}
+function logSend(sendId) {
+  if (!matchStats || matchStats.sendLog.length >= LOG_EVENT_CAP) return;
+  const i = SENDS.findIndex((s) => s.id === sendId);
+  if (i >= 0) matchStats.sendLog.push([wave, i]);
 }
 function loadMatchLog() {
   try { return JSON.parse(localStorage.getItem(MATCH_LOG_KEY) || '[]') || []; } catch (e) { return []; }
@@ -3216,9 +3324,117 @@ function commitMatchStats(result) {
   matchStats.mode = matchMode;
   matchStats.team = defendersPerHalf ? defendersPerHalf() : 1;
   matchStats.livesLeft = player.lives;
+  // how the rival's chosen plan actually did — this is what the next match reads
+  matchStats.rivalPlan = enemy?.plan || null;
+  matchStats.rivalLives = enemy?.lives ?? null;
   const list = loadMatchLog();
   list.push(matchStats);
   saveMatchLog(list);
+}
+/* ---------------- THE PLAYBOOK ----------------
+   What the rival learns from watching you. For each element we keep the games
+   that went WELL and distil three things out of them:
+     cells  — the maze you laid, in the order you laid it. Order carries most of
+              the skill: "which cell first" is the decision worth copying.
+     tiers  — how tall you had gone by each wave, so the rival's ambition tracks
+              a real player's instead of a formula.
+     sends  — when you bought pressure, so it stops sitting on its gold.
+   Weighted by outcome, so a game you lost on wave 8 teaches almost nothing and
+   a wave-30 win teaches a lot. Below MIN_PLAYBOOK_GAMES it returns null and the
+   rival falls back to the hand-built maze — three matches is not a strategy. */
+const MIN_PLAYBOOK_GAMES = 3, PLAYBOOK_CACHE = {};
+let playbookStamp = -1;
+function matchScore(m) {
+  // reaching wave 30 beats winning on wave 8; leaks are the tiebreak
+  return (m.wave || 0) * 10 + (m.result === 'victory' ? 60 : 0) - (m.livesLost || 0) * .5;
+}
+function derivePlaybook(raceId, log) {
+  const games = (log || []).filter((m) => m.race === raceId && m.build && m.build.length >= 12);
+  if (games.length < MIN_PLAYBOOK_GAMES) return null;
+  const ranked = games.slice().sort((a, b) => matchScore(b) - matchScore(a));
+  // learn from the better half, never fewer than three games
+  const teachers = ranked.slice(0, Math.max(MIN_PLAYBOOK_GAMES, Math.ceil(ranked.length / 2)));
+  const best = matchScore(teachers[0]) || 1;
+  const cell = new Map();
+  const tierAt = [], sendAt = [];
+  teachers.forEach((m) => {
+    const w = Math.max(.15, matchScore(m) / best);   // a weak teacher still counts a little
+    m.build.forEach(([r, c, tier, wv], i) => {
+      const k = r * 100 + c;
+      const e = cell.get(k) || { r, c, w:0, order:0, tier:0 };
+      e.w += w; e.order += i * w; e.tier += (tier || 0) * w;
+      cell.set(k, e);
+    });
+    (m.ups || []).forEach(([wv, t]) => { if (t >= 0) { (tierAt[wv] = tierAt[wv] || []).push(t); } });
+    (m.sendLog || []).forEach(([wv, si]) => { (sendAt[wv] = sendAt[wv] || []).push(si); });
+  });
+  const cells = [...cell.values()]
+    .filter((e) => e.w >= .5)                       // a cell one weak game touched once is noise
+    .map((e) => ({ r:e.r, c:e.c, order:e.order / e.w, weight:e.w, tier:e.tier / e.w }))
+    .sort((a, b) => a.order - b.order);
+  if (cells.length < 12) return null;
+  // the tier you had REACHED by each wave, as a running maximum
+  const tierByWave = []; let run = 0;
+  for (let w = 0; w <= 45; w += 1) {
+    const seen = tierAt[w];
+    if (seen && seen.length) run = Math.max(run, Math.round(seen.reduce((a, b) => a + b, 0) / seen.length));
+    tierByWave[w] = run;
+  }
+  const sendsByWave = [];
+  for (let w = 0; w <= 45; w += 1) {
+    const seen = sendAt[w];
+    sendsByWave[w] = seen && seen.length
+      ? { count:seen.length / teachers.length, tier:Math.round(seen.reduce((a, b) => a + b, 0) / seen.length) }
+      : null;
+  }
+  return { raceId, games:teachers.length, pool:games.length, cells, tierByWave, sendsByWave,
+    bestWave:teachers[0].wave || 0, avgWave:+(teachers.reduce((s, m) => s + (m.wave || 0), 0) / teachers.length).toFixed(1) };
+}
+/* ---------------- THE RIVAL PICKS ITS OWN PLAN ----------------
+   Copying you is a HYPOTHESIS, not an improvement. Measured with a funded
+   rival and room to run: adopting a taught maze left fire and tech unchanged
+   and moved ice's median death from wave 47 to 26. A human's build order
+   carries their mistakes as well as their skill, and the rival only ever
+   affords the first stretch of it, so a weak opening is all it ever sees.
+
+   So it does not take the lesson on faith. Every match records which plan the
+   rival ran and how that plan did, and the next match picks the plan with the
+   best record for that element — trying each a few times first, and still
+   exploring occasionally so a plan that improves later can win its place back.
+   If copying you helps, it keeps copying you. If it does not, it reverts to the
+   hand-built maze on its own and nothing has to be tuned by hand. */
+const RIVAL_PLANS = ['centre', 'sides', 'learned'];
+const PLAN_MIN_TRIALS = 3, PLAN_EXPLORE = .18;
+function rivalPlanScore(m) {
+  // survived with lifeforce in hand beats dying late; both beat dying early
+  return (m.rivalLives || 0) + (m.wave || 0) * 2;
+}
+function rivalPlanRecord(raceId, log) {
+  const by = {};
+  RIVAL_PLANS.forEach((p) => { by[p] = { plan:p, n:0, sum:0 }; });
+  (log || []).forEach((m) => {
+    if (m.rival !== raceId || !by[m.rivalPlan]) return;
+    by[m.rivalPlan].n += 1;
+    by[m.rivalPlan].sum += rivalPlanScore(m);
+  });
+  RIVAL_PLANS.forEach((p) => { by[p].avg = by[p].n ? by[p].sum / by[p].n : null; });
+  return by;
+}
+function pickRivalPlan(raceId) {
+  const log = loadMatchLog();
+  const has = Boolean(playbookFor(raceId));
+  const pool = has ? RIVAL_PLANS : RIVAL_PLANS.filter((p) => p !== 'learned');
+  const rec = rivalPlanRecord(raceId, log);
+  const untried = pool.filter((p) => rec[p].n < PLAN_MIN_TRIALS);
+  if (untried.length) return untried[Math.floor(rng() * untried.length)];
+  if (rng() < PLAN_EXPLORE) return pool[Math.floor(rng() * pool.length)];
+  return pool.slice().sort((a, b) => rec[b].avg - rec[a].avg)[0];
+}
+function playbookFor(raceId) {
+  const log = loadMatchLog();
+  if (playbookStamp !== log.length) { for (const k of Object.keys(PLAYBOOK_CACHE)) delete PLAYBOOK_CACHE[k]; playbookStamp = log.length; }
+  if (!(raceId in PLAYBOOK_CACHE)) PLAYBOOK_CACHE[raceId] = derivePlaybook(raceId, log);
+  return PLAYBOOK_CACHE[raceId];
 }
 /* Per-race aggregate over the recorded games — the actual "audit the races" view. */
 function raceAudit(log) {
@@ -4581,7 +4797,7 @@ function towerAction(kind) {
       if (t.level >= MAX_LEVEL) continue;
       const cost = towerLevelCost(t);
       if (player.gold < cost) break;
-      player.gold -= cost; t.invested += cost; t.level += 1; done += 1;
+      player.gold -= cost; t.invested += cost; t.level += 1; done += 1; logUpgrade(-1);
     }
     if (done) log(`Upgraded ${done} tower${done > 1 ? 's' : ''} one level (+15% damage, +0.25 range).`);
   } else if (kind === 'tier') {
@@ -4596,7 +4812,7 @@ function towerAction(kind) {
       player.gold -= up.cost; t.invested = up.cost;   // old investment forfeit — the space premium
       t.tier += 1; t.level = 0;
       t.blockHp = t.blockMaxHp = 4 + t.tier;
-      done += 1;
+      done += 1; logUpgrade(t.tier);
     }
     if (done) log(`Upgraded ${done} tower${done > 1 ? 's' : ''} into the next tier.`);
   } else if (kind === 'sell') {
@@ -4692,6 +4908,7 @@ function renderSendPanel() {
     if (player.gold < send.cost) return log(`Not enough gold — ${send.name} costs ${send.cost}g.`);
     const incWas = BASE_INCOME + incomePayout(player.income);
     player.gold -= send.cost; player.income += send.income; SFX.play('send'); Coach.notify('send'); track('send', { id: send.id });
+    logSend(send.id); if (matchStats) matchStats.sends += 1;
     const incNow = BASE_INCOME + incomePayout(player.income);
     // one purchase sends a unit down BOTH rival lanes (over the wire in PvP)
     if (mp.active) mpSend({ t:'send', id:send.id });
@@ -4869,6 +5086,7 @@ function buildAt(cell) {
   const placed = makeTower(cell.r, cell.c, raceId, selectedTowerTier, 'player');
   placed.seq = ++buildSeq;
   addTower(placed);
+  logBuild(cell.r, cell.c, selectedTowerTier);   // feeds the playbook
   Coach.notify('build');
   lastPlaced = { key, r:cell.r, c:cell.c, at:simTime, name:def.name, cost:def.cost };
   if (!touchUI()) { selectedTowerKey = key; selectedGroupKeys = [selectedTowerKey]; chipAutoHideAt = performance.now() + 2600; }
@@ -6287,6 +6505,19 @@ function recordsContent() {
       const race = races.find((x) => x.id === r.race);
       return `<div class="learn-row"><span style="color:${race?.color || '#fff'}">${race?.symbol || ''} ${race?.name || r.race}</span><small>${r.matches} played · ${r.winPct}% won · avg wave ${r.avgWave} (best ${r.bestWave}) · first leak w${r.firstLeak ?? '—'} · ${r.avgLeaks} lives/match · spent ${r.spendPct}% of ${fmt(r.avgSpend / (r.spendPct / 100 || 1))} earned</small></div>`;
     }).join('')}</div>
+    <p class="sheet-heading">RIVAL PLAYBOOK — what it has learned from you</p>
+    <div class="learn-list">${races.map((race) => {
+      const pb = playbookFor(race.id);
+      const pool = log.filter((m) => m.race === race.id && m.build && m.build.length >= 12).length;
+      const rec = rivalPlanRecord(race.id, log);
+      const tried = RIVAL_PLANS.filter((p) => rec[p].n);
+      const best = tried.length ? tried.slice().sort((a, b) => rec[b].avg - rec[a].avg)[0] : null;
+      const scores = tried.map((p) => `${p} ${Math.round(rec[p].avg)}<i>×${rec[p].n}</i>`).join(' · ');
+      return `<div class="learn-row"><span style="color:${race.color}">${race.symbol} ${race.name}</span><small>${pb
+        ? `<b style="color:#8ee89f">PLAYBOOK</b> ${pb.cells.length} cells from your best ${pb.games} of ${pb.pool} games (avg wave ${pb.avgWave}) · peak tier ${Math.max(...pb.tierByWave)}`
+        : `playbook ${pool}/${MIN_PLAYBOOK_GAMES} games`}${scores ? `<br>plans: ${scores}${best ? ` — <b>running ${best}</b>` : ''}` : ''}</small></div>`;
+    }).join('')}</div>
+    <p class="sheet-hint">The rival distils your maze — the cells you favour, in the order you lay them, mirrored onto its half and weighted toward the games that went best. But it does not take the lesson on faith: it records how each plan actually performs and runs whichever has the better record, so copying you has to earn its place. Needs ${MIN_PLAYBOOK_GAMES} games with an element before <em>learned</em> is even on the menu, and ${PLAN_MIN_TRIALS} tries per plan before it stops experimenting.</p>
     <p class="sheet-hint">First leak is the wave a race first loses a life on — the clearest single signal of where it falls over. Spent % is how much of your earnings the wall actually absorbed; well under 100% means the wave curve is not pressuring you.</p>
     <p class="sheet-heading">RECENT MATCHES</p>
     <div class="learn-list">${recent.map((m) => {
