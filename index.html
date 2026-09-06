@@ -191,6 +191,16 @@ body.reduce-motion .mp-spin { animation:none; border-top-color:#8ee89f55; }
 .test-button { min-height:40px; padding:10px 12px; border:1px solid #58698d; border-radius:8px; color:#c9d4ef; background:#1a2742; font:500 10px 'DM Mono',monospace; letter-spacing:.04em; text-transform:uppercase; }.test-button:hover { border-color:#77d6ff; color:#fff; background:#223657; }
 .live-dot,.log-dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:#8ee89f; box-shadow:0 0 10px #8ee89f; }
 .resources { gap:18px; }
+/* ---- SQUAD INCOME: who on each half is actually earning ---- */
+.squad-income { position:fixed; right:6px; top:50%; transform:translateY(-50%); z-index:120; display:flex; flex-direction:column; gap:4px; pointer-events:none; }
+.squad-income:empty { display:none; }
+.si-row { display:flex; align-items:center; gap:5px; padding:3px 6px; border:1px solid #2a3654; border-left:3px solid var(--race); border-radius:7px; background:#0b1020d8; font:600 8px 'DM Mono',monospace; }
+.si-rune { color:var(--race); font-size:10px; line-height:1; }
+.si-name { color:#cfd8ee; max-width:52px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.si-gold { color:#8fe6b8; margin-left:auto; }
+.si-foe { opacity:.72; }
+.si-head { color:#6f7c9c; font:600 7px 'DM Mono',monospace; letter-spacing:.12em; padding-left:2px; }
+@media (max-width:420px) { .si-name { display:none; } .squad-income { right:3px; } }
 /* ---- CONFIRM: the one gate in front of anything that throws a match away ---- */
 .confirm-modal { position:fixed; inset:0; z-index:260; display:flex; align-items:center; justify-content:center; padding:18px; background:#060914e0; backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); }
 .confirm-modal.hidden { display:none; }
@@ -1060,6 +1070,7 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
              because that is where you look when a wave is landing. -->
         <div id="lobby" class="lobby hidden" aria-label="Match lobby"></div>
         <div id="confirm-modal" class="confirm-modal hidden" role="dialog" aria-modal="true"></div>
+        <div id="squad-income" class="squad-income" aria-label="Squad income"></div>
         <div class="status-line" id="status-line">
           <div class="match-state"><span class="live-dot"></span><strong id="wave-label">WAVE 01</strong><span id="wave-threat" class="wave-threat"></span><span id="timer-label">00:30</span></div>
           <button id="sl-target" class="sl-chip" title="Targeting for ALL your towers — tap to switch first / last">🎯 <b id="sl-target-tag">FIRST</b></button>
@@ -2383,9 +2394,19 @@ function updateCreep(creep, dt) {
     if (nonLethalDps) applyDamage(creep, nonLethalDps * dt, null, true, { nonLethal:true });
   }
   if (creep.venom > 0) {
-    if (now >= creep.venomUntil) creep.venom = 0;   // nothing has poisoned it for a while
+    if (now >= creep.venomUntil) { creep.venom = 0; creep.venomShown = 0; }   // nothing has poisoned it for a while
     else {
       applyDamage(creep, creep.venom * dt, null, true);
+      /* THE VENOM WAS INVISIBLE. It ticked every frame in fractions of a point,
+         far too small to draw, so the one thing Poison is named for left no
+         mark on screen at all — you could not tell it was working, or how much
+         of your damage it was. Bank the ticks and float a green number each time
+         a whole point of venom has landed, so the burn reads as a burn. */
+      creep.venomShown = (creep.venomShown || 0) + creep.venom * dt;
+      if (creep.venomShown >= Math.max(4, creep.maxHp * .004)) {
+        pushFx({ kind:'num', x:creep.x + (Math.random() - .5) * .3, y:creep.y - .35, text:`${Math.round(creep.venomShown)}`, until:simTime + .7, color:'#7ae06a' });
+        creep.venomShown = 0;
+      }
       // bleed off at 1/duration a second: unlimited stacking that still settles
       creep.venom = Math.max(0, creep.venom - creep.venom * (dt / TRAIT.poisonDur));
     }
@@ -2922,6 +2943,18 @@ function firePulse(tower, stats) {
 /* ---------------- Towers firing ---------------- */
 function creepProgress(creep) { return creep.cpIndex * 1000 + (creep.path ? creep.pathStep : 0); }
 function poisonStacks(creep) { return creep && creep.venom > 0 && simTime < creep.venomUntil ? Math.round(creep.venom) : 0; }
+/* The venom maths, spelled out on the creep you are looking at. Every poison
+   tower that hits this creep adds to ONE shared pool — additively, no cap — and
+   the pool burns down over poisonDur while every new hit refreshes it. */
+function venomReadout(creep) {
+  if (!creep || !(creep.venom > 0) || simTime >= creep.venomUntil) return '';
+  const perHit = Math.min(creep.maxHp * TRAIT.poisonStackPct * (creep.boss ? TRAIT.poisonBossMult : 1), 1e9);
+  const stacks = creep.venom * TRAIT.poisonDur / Math.max(1, perHit);
+  return `<br><span style="color:#7ae06a">☠ VENOM ${Math.round(creep.venom)} dps</span>
+    <small style="color:#8995b4"> — ≈${stacks.toFixed(1)} stacks · every poison tower feeds the same pool
+    · one hit adds ${Math.round(creep.boss ? TRAIT.poisonStackPct * TRAIT.poisonBossMult * 100 : TRAIT.poisonStackPct * 100)}% of max HP (${Math.round(perHit)}) over ${TRAIT.poisonDur}s${creep.boss ? ', boss resists' : ''}
+    · ${Math.round(creep.venom * TRAIT.poisonDur)} damage left in the pool</small>`;
+}
 function pickTarget(tower, stats) {
   const inRange = creeps.filter((creep) => creep.hp > 0 && halfOfRow(tower.r) === creep.half
     && !(stats.groundOnly && creep.air)
@@ -4375,6 +4408,11 @@ function drawCreep(ctx, creep) {
   }
   // status pips: DoT (green), frost (cyan ring), regen (mint +), stasis/stun (gold ✦)
   if ((creep.dots && creep.dots.length) || creep.venom > 0) { ctx.fillStyle = '#a7e36e'; ctx.beginPath(); ctx.arc(size, -size, 2.4, 0, Math.PI * 2); ctx.fill(); }
+  // live venom rate, so you can watch the pool build as more poison towers reach it
+  if (creep.venom > 0 && simTime < creep.venomUntil) {
+    ctx.fillStyle = '#7ae06a'; ctx.font = '700 7px "DM Mono", monospace'; ctx.textAlign = 'left';
+    ctx.fillText(`☠${Math.round(creep.venom)}`, size + 3, -size + 2);
+  }
   if (creep.frostUntil > simTime) {
     // the ring thickens and brightens as the ramp climbs, so you can SEE a creep
     // approaching its freeze rather than being surprised by it
@@ -4972,6 +5010,31 @@ function buildOverlay() {
 
 /* ---------------- HUD / panel ---------------- */
 let quickSendKey = '';
+/* Every earner in the match, colour-coded by their element. In a team game you
+   could see your own income and a single "+?" for the rival, so there was no way
+   to tell whether an ally was carrying the economy or coasting — or which side
+   was pulling ahead. Only shown when there is a squad to show. */
+function renderSquadIncome() {
+  const box = $('squad-income');
+  if (!box || !player) return;
+  if (!allies.length || !battleRunning) { box.innerHTML = ''; return; }
+  const row = (name, raceId, raw, foe) => {
+    const r = races.find((x) => x.id === raceId) || races[0];
+    return `<div class="si-row ${foe ? 'si-foe' : ''}" style="--race:${r.color}">
+      <span class="si-rune">${r.symbol}</span><span class="si-name">${name}</span>
+      <span class="si-gold">+${BASE_INCOME + incomePayout(raw)}</span></div>`;
+  };
+  const mine = allies.filter((a) => a.half === PLAYER_HALF);
+  const theirs = allies.filter((a) => a.half === ENEMY_HALF);
+  let html = '<div class="si-head">YOURS</div>' + row('You', selectedRace.id, player.income, false)
+    + mine.map((a) => row(a.name, a.raceId, a.income, false)).join('');
+  if (matchMode !== 'survival') {
+    html += '<div class="si-head">THEIRS</div>'
+      + row(mp.active ? (mp.oppName || 'Opponent') : 'Rival', enemy.raceId, mp.active ? (mp.oppIncome ?? 0) : enemy.income, true)
+      + theirs.map((a) => row(a.name, a.raceId, a.income, true)).join('');
+  }
+  box.innerHTML = html;
+}
 function renderQuickSend() {
   const bar = $('quick-send');
   if (!bar || !player) return;
@@ -5097,6 +5160,7 @@ function renderHud() {
   const shrineUpgrade = $('shrine-upgrade');
   if (shrineUpgrade) shrineUpgrade.disabled = player.lumber < 1;
   refreshSendLocks();
+  renderSquadIncome();
   renderQuickSend();
   renderCommandSheet();
   renderUndoSlot();
@@ -7374,13 +7438,19 @@ function renderWispPanel(mode) {
   }));
   // inspect wiring (entity taps)
   panel.querySelectorAll('[data-wp-act]').forEach((b) => b.addEventListener('click', () => { towerAction(b.dataset.wpAct); renderWispPanel('inspect'); }));
+  /* The bolt rack was only ever in the desktop panel and the command sheet —
+     never in the wisp inspect menu, which is the one you actually tap on a
+     phone. "I don't understand how to upgrade the units" was literally that:
+     the four sub-upgrades existed and had no button on the screen he was
+     looking at. */
+  panel.querySelectorAll('[data-bolt]').forEach((b) => b.addEventListener('click', () => { towerAction(`bolt:${b.dataset.bolt}`); renderWispPanel('inspect'); }));
 }
 function renderWispInspect() {
   const ie = inspectEntity;
   const close = `<div class="wp-head"><span>🛠 Inspect</span><button data-wp-do="close">✕</button></div>`;
   if (ie && ie.kind === 'creep' && ie.ref && ie.ref.hp > 0) {
     const c = ie.ref, tags = [c.air?'AIR':'', c.role&&c.role!=='standard'?c.role:'', c.regen?'regen':'', c.shieldMax?'shielded':''].filter(Boolean);
-    return close + `<div class="wp-detail"><b><span class="wp-inspect-ico">${c.sent?'⚔':'👾'}</span>${c.name}${c.sent?' (rival send)':''}</b><br>${Math.round(c.hp)}/${c.maxHp} HP${c.shieldMax?` · ${Math.round(c.shield)}/${c.shieldMax} shield`:''}<br>${c.armor} armor · ${c.aClass} · spd ${c.spd.toFixed(1)}<br>${tags.length?tags.join(' · '):'standard'} · worth ${Math.round((c.sent?c.bounty:c.bounty*BOUNTY_MULT))}g</div>`;
+    return close + `<div class="wp-detail"><b><span class="wp-inspect-ico">${c.sent?'⚔':'👾'}</span>${c.name}${c.sent?' (rival send)':''}</b><br>${Math.round(c.hp)}/${c.maxHp} HP${c.shieldMax?` · ${Math.round(c.shield)}/${c.shieldMax} shield`:''}<br>${c.armor} armor · ${c.aClass} · spd ${c.spd.toFixed(1)}<br>${tags.length?tags.join(' · '):'standard'} · worth ${Math.round((c.sent?c.bounty:c.bounty*BOUNTY_MULT))}g${venomReadout(c)}</div>`;
   }
   if (ie && ie.kind === 'enemy' && ie.ref) {
     const t = ie.ref, st = towerLiveStats(t), er = races.find(r=>r.id===t.raceId);
@@ -7396,7 +7466,7 @@ function renderWispInspect() {
       <button class="wp-act" data-wp-act="tier">⏫ Tier (${sel.filter((t)=>towerTierUp(t)).reduce((s,t)=>s+(towerTierUp(t)?.cost||0),0)}g)</button>
       <button class="wp-act" data-wp-act="priority">🎯 ${t0.priority}</button>
       <button class="wp-act" data-wp-act="sell">💰 Sell (+${sel.reduce((s,t)=>s+towerSellValue(t),0)}g)</button>
-    </div>`;
+    </div>${boltPanelHtml(sel)}`;
 }
 function setupWisp() {
   const wisp = $('wisp');
