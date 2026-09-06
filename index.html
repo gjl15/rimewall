@@ -2878,6 +2878,8 @@ function gravityImpulse(creep, tower, stats) {
   if (creep.boss || simTime < creep.pushUntil || simTime < (tower.pushClock || 0)) return;
   creep.pushUntil = simTime + TRAIT.gravPushCD;
   tower.pushClock = simTime + TRAIT.gravTowerPushCD;
+  // a burst at the moment of impulse, so the hit itself has a frame you can catch
+  pushFx({ kind:'pulse', x:creep.x, y:creep.y, radius:1.5, color:'#c9a4ff', until:simTime + .35 });
   const goals = creepGoals(creep);
   if (kind === 'down') {
     creep.stunUntil = Math.max(creep.stunUntil, simTime + TRAIT.gravKnockdown * pot);
@@ -4321,6 +4323,47 @@ function drawCreep(ctx, creep) {
     ctx.translate(0, -4);
   }
   if (creep.slowUntil > simTime) { ctx.fillStyle = '#77d6ff33'; ctx.beginPath(); ctx.arc(0, 0, size + 4, 0, Math.PI * 2); ctx.fill(); }
+  /* GRAVITY HAS TO MOVE THE BODY, NOT PRINT A GLYPH.
+     Measured: impulses fire 65-156 times a wave and land on EVERY creep in it
+     (10, 9, 8, 8, 8 ... across ten creeps) — the mechanic was never the problem.
+     All it drew was an 8px ▲ or ▼ for half a second, which on a phone at a
+     zoomed-out map is nothing. "I don't see gravity working at all" was exactly
+     right: it works and it does not read. A creep thrown up now LIFTS off its
+     shadow, one slammed down SQUASHES, and one shoved along drags a trail. */
+  let knockScaleX = 1, knockScaleY = 1;
+  if (creep.knockUntil > simTime) {
+    const k = creep.knockKind;
+    const left = creep.knockUntil - simTime;
+    const dur = Math.max(.2, k === 'up' ? TRAIT.gravKnockup : TRAIT.gravKnockdown);
+    const t = Math.max(0, Math.min(1, 1 - left / dur));      // 0 at impact -> 1 as it ends
+    if (k === 'up') {
+      const lift = Math.sin(t * Math.PI) * (size * 1.9);      // a real arc, up and back down
+      ctx.fillStyle = '#00000038';
+      ctx.beginPath(); ctx.ellipse(0, 4, size * (1 - .35 * Math.sin(t * Math.PI)), size * .32, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.translate(0, -lift);
+      knockScaleX = 1 + .18 * Math.sin(t * Math.PI); knockScaleY = knockScaleX;
+      ctx.strokeStyle = '#d9b8ff'; ctx.lineWidth = 1.4; ctx.globalAlpha = 1 - t;
+      ctx.beginPath(); ctx.arc(0, 0, size + 5 + t * 5, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+    } else if (k === 'down') {
+      const squash = Math.sin(t * Math.PI);
+      knockScaleY = 1 - .55 * squash; knockScaleX = 1 + .45 * squash;
+      ctx.translate(0, size * .5 * squash);
+      ctx.strokeStyle = '#c58fd8'; ctx.lineWidth = 1.6; ctx.globalAlpha = (1 - t) * .9;
+      ctx.beginPath(); ctx.ellipse(0, size * .8, size * (1.4 + t * 1.6), size * .3, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+    } else if (k === 'back' || k === 'forward') {
+      // a drag trail so a shove reads as a shove even when you blinked
+      const dir = k === 'back' ? 1 : -1;
+      for (let g = 1; g <= 3; g += 1) {
+        ctx.globalAlpha = (1 - t) * (.26 / g);
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.arc(dir * g * size * .8, 0, size * (1 - g * .16), 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+  if (knockScaleX !== 1 || knockScaleY !== 1) ctx.scale(knockScaleX, knockScaleY);
   ctx.fillStyle = '#251a2b'; ctx.strokeStyle = color; ctx.lineWidth = creep.role === 'boss' ? 2.4 : 1.4;
   const wob = Math.sin(simTime * 8 + creep.id * .7) * .8;   // little walk-cycle bob
   if (creep.role === 'runner') {
