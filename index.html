@@ -191,6 +191,36 @@ body.reduce-motion .mp-spin { animation:none; border-top-color:#8ee89f55; }
 .test-button { min-height:40px; padding:10px 12px; border:1px solid #58698d; border-radius:8px; color:#c9d4ef; background:#1a2742; font:500 10px 'DM Mono',monospace; letter-spacing:.04em; text-transform:uppercase; }.test-button:hover { border-color:#77d6ff; color:#fff; background:#223657; }
 .live-dot,.log-dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:#8ee89f; box-shadow:0 0 10px #8ee89f; }
 .resources { gap:18px; }
+/* ---- ARENA RAILS: every control off the board ----
+   Only in .arena (the touch match view). Desktop keeps its existing panels. */
+.arena-stage { display:block; }
+.rail { display:none; }
+.arena .arena-stage { display:flex; align-items:stretch; gap:6px; }
+.arena .arena-stage .map-viewport { flex:1 1 auto; min-width:0; }
+.arena .rail { display:flex; flex-direction:column; }
+.arena .rail-left { flex:0 0 58px; gap:6px; }
+.arena .rail-right { flex:0 0 0; width:0; overflow:hidden; transition:flex-basis .16s ease, width .16s ease; }
+.arena .rail-right.open { flex:0 0 116px; width:116px; }
+@media (min-width:520px) { .arena .rail-right.open { flex:0 0 150px; width:150px; } }
+.rl-btn { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-height:52px; padding:5px 3px; border:1px solid #2c4a7a; border-radius:11px; background:#111a30; color:#bcd2ff; }
+.rl-btn span { font-size:17px; line-height:1; }
+.rl-btn small { font-size:7px; letter-spacing:.1em; }
+.rl-btn.on { border-color:#77d6ff; background:#12314e; color:#eafcff; box-shadow:inset 0 0 0 1px #77d6ff; }
+.rl-btn:active { transform:scale(.94); }
+.rl-btn.rl-alarm { border-color:#ff5f6e; background:#2a1219; color:#ffc6cf; }
+.rl-btn i { font-style:normal; font:700 7px 'DM Mono',monospace; color:#ffd86b; }
+.rl-scroll { flex:1; overflow-y:auto; overflow-x:hidden; display:flex; flex-direction:column; gap:5px; padding:1px; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+.rl-scroll::-webkit-scrollbar { display:none; }
+.rl-head { position:sticky; top:0; z-index:2; padding:4px 5px; border-radius:7px; background:#0b1020f2; color:#8995b4; font:600 7px 'DM Mono',monospace; letter-spacing:.14em; }
+.rl-card { display:flex; flex-direction:column; gap:1px; padding:6px; border:1px solid #2a3654; border-left:3px solid var(--tint,#2a3654); border-radius:9px; background:#111a30; color:#e9edff; text-align:left; }
+.rl-card b { font:700 9px 'DM Mono',monospace; }
+.rl-card small { color:#8995b4; font-size:8px; line-height:1.35; }
+.rl-card .rl-cost { color:#f5d36d; font:700 9px 'DM Mono',monospace; }
+.rl-card.on { border-color:#77d6ff; box-shadow:inset 0 0 0 1px #77d6ff; }
+.arena .rl-card.poor { opacity:.42; }
+.rl-card:active { transform:scale(.97); }
+/* the bars, toggles and zoom widget the rails replace */
+.arena .command-bar, .arena .map-toggles, .arena .map-zoom-controls, .arena .zoom-hint, .arena .wisp { display:none !important; }
 /* ---- SQUAD INCOME: who on each half is actually earning ---- */
 .squad-income { position:fixed; right:6px; top:50%; transform:translateY(-50%); z-index:120; display:flex; flex-direction:column; gap:4px; pointer-events:none; }
 .squad-income:empty { display:none; }
@@ -1086,6 +1116,14 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
               <div class="title-actions"><button id="back-button" class="ghost-button">← Change race</button></div>
             </div>
 
+            <!-- ARENA RAILS. Every control used to sit ON the board — four toggles
+                 top-left, a zoom bar bottom-right, two stacked bars underneath, and
+                 a draggable wisp over the top. You could not place a tower near an
+                 edge without hitting one. The rails live OUTSIDE the map: categories
+                 on the left, the chosen category's options in a scrolling column on
+                 the right, and the board in between with nothing over it. -->
+            <div id="arena-stage" class="arena-stage">
+            <div id="rail-left" class="rail rail-left" aria-label="Command categories"></div>
             <div class="map-viewport" id="map-viewport" aria-label="Zoomable Rimewall map">
               <div class="map-frame" id="map-frame">
                 <canvas id="board-canvas" aria-hidden="true"></canvas>
@@ -1098,6 +1136,8 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
               <div class="map-toggles" aria-label="Map indicators"><button id="mt-routes" title="Show creep routes">🧭</button><button id="mt-ranges" title="Show tower ranges">◎</button><button id="mt-inspect" title="Inspect — tap a tower or creep to read its stats" aria-pressed="false">🔍</button><button id="mt-target" title="Targeting for ALL your towers — tap to switch first / last">🎯<i id="mt-target-tag">1st</i></button></div>
               <div class="map-zoom-controls" aria-label="Map zoom controls"><button id="zoom-out-button" aria-label="Zoom out">−</button><span id="zoom-label">100%</span><button id="zoom-in-button" aria-label="Zoom in">+</button><button id="zoom-reset-button" aria-label="Reset map zoom">reset</button></div>
               <div class="zoom-hint">PINCH TO ZOOM • DRAG WHEN ZOOMED<span class="hotkey-hint"> • 1–9 SEND • Q–U TOWERS • ESC = UNDO • RIGHT-CLICK / HOLD = SELL</span></div>
+            </div>
+            <div id="rail-right" class="rail rail-right" aria-label="Options"></div>
             </div>
 
             <div id="quick-send" class="quick-send" aria-label="Quick send bar"></div>
@@ -5078,6 +5118,117 @@ function renderSquadIncome() {
   }
   box.innerHTML = html;
 }
+/* ---------------- ARENA RAILS ----------------
+   Left rail = categories. Right rail = the chosen category's options, in a
+   column you scroll. Tapping the active category closes the drawer, so the
+   board can always be made full width in one tap. Nothing is ever drawn over
+   the map, which is the entire point. */
+let railTab = null;
+function railToggle(tab) { railTab = railTab === tab ? null : tab; renderRails(); }
+function renderRails() {
+  const left = $('rail-left'), right = $('rail-right');
+  if (!left || !right || !player) return;
+  if (!document.body.classList.contains('arena')) { left.innerHTML = ''; right.innerHTML = ''; right.classList.remove('open'); return; }
+  const t = towers.get(selectedTowerKey);
+  const cancel = lastPlaced ? towers.get(lastPlaced.key) : null;
+  const undoLive = (isMine(cancel) && fullRefund(cancel)) || sellUndoLive();
+  const cats = [
+    { id:'build',  ico:'⛫', label:'BUILD' },
+    { id:'send',   ico:'⚔', label:'SEND' },
+    { id:'tower',  ico:'🛠', label:'TOWER', badge:isMine(t) ? '1' : '' },
+    { id:'tools',  ico:'⚙', label:'TOOLS' }
+  ];
+  left.innerHTML = cats.map((c) => `<button class="rl-btn ${railTab === c.id ? 'on' : ''}" data-rail="${c.id}">
+      <span>${c.ico}</span><small>${c.label}</small>${c.badge ? `<i>${c.badge}</i>` : ''}</button>`).join('')
+    + `<button class="rl-btn ${undoLive ? 'on' : ''}" id="rl-undo"><span>↩</span><small>UNDO</small></button>`
+    + `<button class="rl-btn ${routeBlocked ? 'rl-alarm' : ''}" id="rl-reset"><span>${routeBlocked ? '⚠' : '⛶'}</span><small>${routeBlocked ? 'BLOCK' : 'RESET'}</small></button>`;
+  left.querySelectorAll('[data-rail]').forEach((b) => b.addEventListener('click', () => railToggle(b.dataset.rail)));
+  $('rl-undo').addEventListener('click', () => { undoAction(); renderRails(); });
+  $('rl-reset').addEventListener('click', () => { resetEverything('View reset.'); renderRails(); });
+
+  /* The drawer changes how wide the board is, so the board has to be re-fitted
+     — once on the next frame and once after the slide finishes, or it keeps the
+     old width and the map sits off-centre in its own viewport. */
+  const wasOpen = right.classList.contains('open');
+  right.classList.toggle('open', Boolean(railTab));
+  if (wasOpen !== Boolean(railTab)) {
+    requestAnimationFrame(fitBoardToViewport);
+    window.setTimeout(fitBoardToViewport, 190);
+  }
+  if (!railTab) { right.innerHTML = ''; return; }
+  right.innerHTML = `<div class="rl-scroll">${railBody(railTab)}</div>`;
+  right.querySelectorAll('[data-rail-tower]').forEach((b) => b.addEventListener('click', () => {
+    selectedTowerTier = Number(b.dataset.railTower);
+    selectedTowerKey = null; selectedGroupKeys = [];
+    renderTowerList(); renderRails();
+  }));
+  right.querySelectorAll('[data-rail-send]').forEach((b) => b.addEventListener('click', () => {
+    document.querySelector(`[data-send="${b.dataset.railSend}"]`)?.click(); renderRails();
+  }));
+  right.querySelectorAll('[data-rail-act]').forEach((b) => b.addEventListener('click', () => { towerAction(b.dataset.railAct); renderRails(); }));
+  right.querySelectorAll('[data-bolt]').forEach((b) => b.addEventListener('click', () => { towerAction(`bolt:${b.dataset.bolt}`); renderRails(); }));
+  right.querySelectorAll('[data-rail-tool]').forEach((b) => b.addEventListener('click', () => { railTool(b.dataset.railTool); renderRails(); }));
+}
+function railTool(id) {
+  if (id === 'box' || id === 'lasso') { selectMode = selectMode === id ? null : id; if (selectMode) log(`${id === 'box' ? 'Box' : 'Lasso'} armed — drag over your towers.`); }
+  else if (id === 'routes') debug.routes = !debug.routes;
+  else if (id === 'ranges') debug.ranges = !debug.ranges;
+  else if (id === 'target') applyGlobalPriority(globalPriority === 'first' ? 'last' : 'first');
+  else if (id === 'learn') { openCommandSheet('learn'); railTab = null; }
+  else if (id === 'records') { openCommandSheet('log'); railTab = null; }
+  else if (id === 'lumber') buyLumber();
+  else if (id === 'shrine') upgradeShrine();
+  else if (id === 'pause') toggleBattlePause();
+  syncMapToggles();
+}
+function railBody(tab) {
+  const card = (attr, tint, title, sub, cost, on, poor) =>
+    `<button class="rl-card ${on ? 'on' : ''} ${poor ? 'poor' : ''}" ${attr} style="--tint:${tint}">
+      <b>${title}</b>${cost ? `<span class="rl-cost">${cost}</span>` : ''}${sub ? `<small>${sub}</small>` : ''}</button>`;
+  if (tab === 'build') {
+    const raceId = currentBuildRaceId();
+    return `<div class="rl-head">BUILD — tap, then tap the board</div>` + towerListFor(raceId).map((def, tier) => {
+      const d = towerDef(raceId, tier);
+      const laser = d.name === 'Laser Cannon';
+      return card(`data-rail-tower="${tier}"`, d.color, d.name,
+        `${d.dmg} dmg · ${d.range.toFixed(1)} rng${d.groundOnly ? ' · NO AIR' : ''}`,
+        `${d.cost}g${laser ? '+🪵' : ''}`, tier === selectedTowerTier, player.gold < d.cost);
+    }).join('');
+  }
+  if (tab === 'send') {
+    return `<div class="rl-head">SEND — raises your income</div>` + SENDS.map((s) => {
+      const inc = sendIncomeLabel(s);
+      return card(`data-rail-send="${s.id}"`, '#ff8a9a', `${s.air ? '🐉 ' : ''}${s.name}`,
+        `${inc.text} income · ${s.hp} hp · ${s.aClass}`, `${s.cost}g`, false,
+        player.gold < s.cost || player.shrine < s.shrine);
+    }).join('');
+  }
+  if (tab === 'tower') {
+    const sel = selectionTowers().filter(isMine);
+    if (!sel.length) return `<div class="rl-head">TOWER</div><div class="rl-card"><small>Tap one of your towers on the board to upgrade, retarget or sell it.</small></div>`;
+    const t0 = sel[0], st = towerLiveStats(t0), many = sel.length > 1;
+    const up = towerTierUp(t0);
+    const lvl = sel.filter((x) => x.level < MAX_LEVEL).reduce((s, x) => s + towerLevelCost(x), 0);
+    return `<div class="rl-head">${many ? `${sel.length} × ` : ''}${st.name}</div>`
+      + card('data-rail-act="level"', '#8fe6b8', '⬆ Level', `+15% dmg`, lvl ? `${lvl}g` : 'MAX', false, !lvl || player.gold < lvl)
+      + (up ? card('data-rail-act="tier"', '#77d6ff', `⏫ ${up.next.name}`, `${up.next.dmg} dmg`, `${sel.filter(towerTierUp).reduce((s, x) => s + (towerTierUp(x)?.cost || 0), 0)}g`, false, false) : '')
+      + card('data-rail-act="priority"', '#ffd86b', `🎯 ${t0.priority}${t0.priorityLocked ? ' •' : ''}`, 'cycle targeting', '', false, false)
+      + card('data-rail-act="sell"', '#ff9faf', '💰 Sell', fullRefund(t0) ? 'full refund' : '75%', `+${sel.reduce((s, x) => s + towerSellValue(x), 0)}g`, false, false)
+      + boltPanelHtml(sel);
+  }
+  const on = (v) => v ? 'on' : '';
+  return `<div class="rl-head">TOOLS</div>`
+    + card('data-rail-tool="target"', '#ffd86b', `🎯 ${globalPriority.toUpperCase()}`, 'all your towers', '', false, false)
+    + card('data-rail-tool="ranges"', '#77d6ff', '◎ Ranges', debug.ranges ? 'showing' : 'hidden', '', debug.ranges, false)
+    + card('data-rail-tool="routes"', '#8fe6b8', '🧭 Routes', debug.routes ? 'showing' : 'hidden', '', debug.routes, false)
+    + card('data-rail-tool="box"', '#bcd2ff', '▭ Box select', selectMode === 'box' ? 'armed' : '', '', selectMode === 'box', false)
+    + card('data-rail-tool="lasso"', '#bcd2ff', '➰ Lasso', selectMode === 'lasso' ? 'armed' : '', '', selectMode === 'lasso', false)
+    + card('data-rail-tool="lumber"', '#c9a06a', '🪵 Lumber', `you have ${player.lumber}`, `${LUMBER_PRICE}g`, false, player.gold < LUMBER_PRICE)
+    + (player.shrine < SHRINE_MAX ? card('data-rail-tool="shrine"', '#d9b8ff', `⛩ Shrine L${player.shrine}`, 'unlocks bigger sends', '1🪵', false, player.lumber < 1) : '')
+    + card('data-rail-tool="pause"', '#a5afd0', battlePaused ? '▶ Resume' : '⏸ Pause', '', '', battlePaused, false)
+    + card('data-rail-tool="learn"', '#9fb0d2', '🎓 Learn', 'towers, waves, sends', '', false, false)
+    + card('data-rail-tool="records"', '#9fb0d2', '📈 Records', 'race audit & playbook', '', false, false);
+}
 function renderQuickSend() {
   const bar = $('quick-send');
   if (!bar || !player) return;
@@ -5204,6 +5355,7 @@ function renderHud() {
   if (shrineUpgrade) shrineUpgrade.disabled = player.lumber < 1;
   refreshSendLocks();
   renderSquadIncome();
+  renderRails();
   renderQuickSend();
   renderCommandSheet();
   renderUndoSlot();
