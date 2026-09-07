@@ -1521,6 +1521,10 @@ const TRAIT = {
      along it takes compared with the mark. .55 is a little over half a cell, so
      a line of creeps in one lane is caught and the next lane over is not. */
   beamLineR:.55, beamLineMult:.45,
+  /* What a ground blast does to a flier caught in it. 1 was the old behaviour
+     (air no different from ground); 0 made an air flock unanswerable for the
+     splash half of the roster. See the note at the splash loop. */
+  splashAirMult:.45,
   fireIgnitePct:.15, fireEruptMult:.5, fireEruptRadius:1.9,
   earthSplashRadius:1.5, earthSplashMult:.65, earthStunDirect:.18, earthStunSplash:.1,
   stoneCritChance:.25, stoneCritMult:2,
@@ -3391,14 +3395,18 @@ function resolveProjectileHit(projectile) {
     const rad = splash.radius * (isEarth ? TRAIT.earthSplashRadius : 1);
     const mult = isEarth ? Math.max(splash.mult, TRAIT.earthSplashMult) : splash.mult;
     creeps.forEach((other) => {
-      /* A BLAST ON THE GROUND DOES NOT REACH A FLIER. Splash used to catch air
-         units like anything else, which quietly made every splash element a
-         competent anti-air answer and left the towers built for the job with
-         nothing to be better at. Air is now immune to splash — the Coil Dynamo
-         excepted, because arcing upward is the entire point of it. */
-      if (other.air && stats.special !== 'skyhunter') return;
       if (other !== target && other.hp > 0 && other.half === projectile.half && Math.hypot(other.x - impactX, other.y - impactY) <= rad) {
-        applyDamage(other, stats.dmg * mult, tower);
+        /* A BLAST REACHES A FLIER, BUT BADLY. Splash used to catch air exactly
+           like ground, which made every splash element a competent anti-air
+           answer and left the towers built for the job nothing to be better at.
+           Cutting it to zero went too far the other way: an air flock became a
+           wall for half the roster rather than a problem to solve. A fraction
+           keeps the specialists worth buying while leaving everyone a way to
+           chip at a flock. The Coil Dynamo is exempt — arcing upward is the
+           entire point of it — and groundOnly towers still cannot fire at air
+           at all, which is a different rule and stays. */
+        const airCut = (other.air && stats.special !== 'skyhunter') ? TRAIT.splashAirMult : 1;
+        applyDamage(other, stats.dmg * mult * airCut, tower);
         // the nova AND the snowball burst carry the full frost ramp to everything
         // they touch, so a splash hit builds toward a freeze exactly like a direct one
         if (tower && tower.raceId === 'ice' && (stats.special === 'frostnova' || stats.special === 'snowball')) applyFrost(other, tower, stats);
