@@ -41,7 +41,18 @@ const only = (process.argv[3] || '').split(',').filter(Boolean);
           wide:Math.round(wide), gpd:+(t.cost / Math.max(1, wide)).toFixed(2), range:t.range, special:t.special };
       });
       const best = tiers.slice().sort((a, b) => a.gpd - b.gpd)[0];
-      const avgGpd = +(tiers.reduce((s, t) => s + t.gpd, 0) / tiers.length).toFixed(2);
+      /* A CONTROL RUNG IS NOT A DAMAGE RUNG. Earth's Bramble Speck does 4 dps
+         for 170g and Stone's Petrifier 10 dps for 350g, because you buy them to
+         entangle and paralyze — the hold IS the product. Averaging their
+         gold-per-dps into a damage score put Earth at 7.06 and Stone at 6.15
+         against Fire's 0.58 and made the table read as a 15x race gap. Scored
+         on their damage ladders alone: Earth 0.33 (the BEST in the game, not the
+         worst), Stone 0.70, and the true spread is about 5x.
+         For bodies-per-shot measured rather than modelled, see crowd.js — the
+         reach() table above is an estimate and does not know every special. */
+      const CONTROL = ['entangle', 'paralyze', 'pause', 'stasis'];
+      const dmgTiers = tiers.filter((t) => !CONTROL.includes(t.special));
+      const avgGpd = +(dmgTiers.reduce((s, t) => s + t.gpd, 0) / dmgTiers.length).toFixed(2);
       const avgRange = +(tiers.reduce((s, t) => s + t.range, 0) / tiers.length).toFixed(1);
       return { race:r.name, avgVs:+avgVs.toFixed(2), avgGpd, avgRange, best:best.name, bestGpd:best.gpd,
         effGpd:+(avgGpd / avgVs).toFixed(2), tiers };
