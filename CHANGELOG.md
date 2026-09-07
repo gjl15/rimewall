@@ -7,6 +7,44 @@ environment, so every entry here was live the moment it was pushed.
 
 ---
 
+## 2026-09-07
+
+### The new sidebars gave the board back, and three-quarters of your taps
+The rails moved every control off the map, which was right — but the way they
+were built took the board apart. Four separate faults, each measured:
+
+- **Three out of four taps on a rail button did nothing.** `renderHud()` runs
+  every 200ms and rewrote both rails' `innerHTML` from scratch each time. A
+  phone tap lasts 80–150ms, so a good share of presses had their button
+  destroyed and recreated between finger-down and finger-up — and a browser
+  fires no click at all when that happens. Measured with a realistic 130ms
+  press: **BUILD opened 4 times out of 16.** The rails are now diffed and only
+  rewritten when the markup actually changed, and their handlers are delegated
+  to the containers so no rebuild can leave a dead button. **16 out of 16.**
+- **The drawer was cutting the board to 172px.** It was a flex sibling, so
+  opening it shrank the map — and because the board is width-limited on a
+  phone, losing width loses height too. It now overlays the map's right edge
+  and closes itself the moment you pick a tower, so the board is one fixed
+  width for the whole match. The left rail went 58px → 46px as well: **292px
+  of board → 307px, and no longer 172px while a drawer is open.**
+- **A zoomed camera lurched whenever the viewport resized.** `frameBase` (the
+  unzoomed board rect) was recomputed while the pan offsets were left in the
+  old coordinate space. Panned into a corner at 2.6× and opening a drawer moved
+  the view **9.3 cells**. A refit now remembers which part of the board is under
+  the middle of the screen and puts it back: **0.00 cells.** Same fix covers
+  rotation, the keyboard, and iOS collapsing its URL bar.
+- **One-finger pan overshot.** The drag itself tracked the finger exactly, but
+  the momentum after it was enormous: friction of `.98` per frame glided for
+  **3.6 seconds**, and the gate to trigger it was so low that a deliberate 48px
+  drag coasted a further **153px**. So the cell you had lined up was never the
+  cell under your finger when you tapped. A flick now has to be a real flick
+  (850 px/s, up from 250), it settles in 0.7s instead of 3.6, and putting a
+  finger down stops the board on the spot.
+
+Building by tapping the board is verified placing at 1×, 1.8× and 2.6×.
+
+---
+
 ## 2026-09-05 (later)
 
 ### The rival learns your maze — and judges the lesson before trusting it

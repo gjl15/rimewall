@@ -195,16 +195,23 @@ body.reduce-motion .mp-spin { animation:none; border-top-color:#8ee89f55; }
    Only in .arena (the touch match view). Desktop keeps its existing panels. */
 .arena-stage { display:block; }
 .rail { display:none; }
-.arena .arena-stage { display:flex; align-items:stretch; gap:6px; }
+.arena .arena-stage { position:relative; display:flex; align-items:stretch; gap:5px; }
 .arena .arena-stage .map-viewport { flex:1 1 auto; min-width:0; }
 .arena .rail { display:flex; flex-direction:column; }
-.arena .rail-left { flex:0 0 58px; gap:6px; }
-.arena .rail-right { flex:0 0 0; width:0; overflow:hidden; transition:flex-basis .16s ease, width .16s ease; }
-.arena .rail-right.open { flex:0 0 116px; width:116px; }
-@media (min-width:520px) { .arena .rail-right.open { flex:0 0 150px; width:150px; } }
-.rl-btn { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-height:52px; padding:5px 3px; border:1px solid #2c4a7a; border-radius:11px; background:#111a30; color:#bcd2ff; }
-.rl-btn span { font-size:17px; line-height:1; }
-.rl-btn small { font-size:7px; letter-spacing:.1em; }
+.arena .rail-left { flex:0 0 46px; gap:5px; }
+/* The options drawer OVERLAYS the map's right edge instead of taking layout
+   width. It used to be a flex child, which meant every open/close resized the
+   viewport — and a resize recomputes frameBase while the pan offsets stay in
+   the old coordinate space, so the camera lurched every time you opened a
+   drawer while zoomed. Overlaying keeps the board one fixed width for the whole
+   match: no refit, no lurch, and the board never shrinks to 170px while you are
+   trying to tap a cell. It closes itself the moment you pick something. */
+.arena .rail-right { position:absolute; right:0; top:0; bottom:0; z-index:70; width:0; padding:0; overflow:hidden; border-radius:10px; transition:width .14s ease; }
+.arena .rail-right.open { width:128px; padding:3px; background:#080d1ae8; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); box-shadow:-10px 0 26px #0007; }
+@media (min-width:520px) { .arena .rail-right.open { width:158px; } }
+.rl-btn { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-height:48px; padding:4px 2px; border:1px solid #2c4a7a; border-radius:10px; background:#111a30; color:#bcd2ff; }
+.rl-btn span { font-size:16px; line-height:1; }
+.rl-btn small { font-size:7px; letter-spacing:.06em; }
 .rl-btn.on { border-color:#77d6ff; background:#12314e; color:#eafcff; box-shadow:inset 0 0 0 1px #77d6ff; }
 .rl-btn:active { transform:scale(.94); }
 .rl-btn.rl-alarm { border-color:#ff5f6e; background:#2a1219; color:#ffc6cf; }
@@ -5120,15 +5127,33 @@ function renderSquadIncome() {
 }
 /* ---------------- ARENA RAILS ----------------
    Left rail = categories. Right rail = the chosen category's options, in a
-   column you scroll. Tapping the active category closes the drawer, so the
-   board can always be made full width in one tap. Nothing is ever drawn over
-   the map, which is the entire point. */
+   column you scroll, overlaid on the map's right edge. Tapping the active
+   category closes the drawer, and picking a tower to build closes it for you,
+   so the board is clear whenever you are actually placing.
+
+   Two things this render is careful about, both learned the hard way:
+
+   1. renderHud() runs it every 200ms. Rewriting innerHTML on a live rail
+      destroys the button you are pressing between pointerdown and pointerup,
+      and the browser then fires no click at all — roughly half of all taps on
+      a phone vanished. The markup is diffed against the last write and the DOM
+      is only touched when it actually changed, and the handlers are delegated
+      to the containers so a rebuild never leaves a dead button behind.
+   2. The drawer must not change the board's width (see the CSS note). */
 let railTab = null;
+let railLeftHtml = null, railRightHtml = null, railBound = false;
 function railToggle(tab) { railTab = railTab === tab ? null : tab; renderRails(); }
+function railClose() { if (railTab) { railTab = null; renderRails(); } }
 function renderRails() {
   const left = $('rail-left'), right = $('rail-right');
   if (!left || !right || !player) return;
-  if (!document.body.classList.contains('arena')) { left.innerHTML = ''; right.innerHTML = ''; right.classList.remove('open'); return; }
+  if (!document.body.classList.contains('arena')) {
+    if (railLeftHtml !== '') { left.innerHTML = ''; railLeftHtml = ''; }
+    if (railRightHtml !== '') { right.innerHTML = ''; railRightHtml = ''; }
+    right.classList.remove('open');
+    return;
+  }
+  if (!railBound) { bindRails(left, right); railBound = true; }
   const t = towers.get(selectedTowerKey);
   const cancel = lastPlaced ? towers.get(lastPlaced.key) : null;
   const undoLive = (isMine(cancel) && fullRefund(cancel)) || sellUndoLive();
@@ -5138,36 +5163,46 @@ function renderRails() {
     { id:'tower',  ico:'🛠', label:'TOWER', badge:isMine(t) ? '1' : '' },
     { id:'tools',  ico:'⚙', label:'TOOLS' }
   ];
-  left.innerHTML = cats.map((c) => `<button class="rl-btn ${railTab === c.id ? 'on' : ''}" data-rail="${c.id}">
+  const leftHtml = cats.map((c) => `<button class="rl-btn ${railTab === c.id ? 'on' : ''}" data-rail="${c.id}">
       <span>${c.ico}</span><small>${c.label}</small>${c.badge ? `<i>${c.badge}</i>` : ''}</button>`).join('')
-    + `<button class="rl-btn ${undoLive ? 'on' : ''}" id="rl-undo"><span>↩</span><small>UNDO</small></button>`
-    + `<button class="rl-btn ${routeBlocked ? 'rl-alarm' : ''}" id="rl-reset"><span>${routeBlocked ? '⚠' : '⛶'}</span><small>${routeBlocked ? 'BLOCK' : 'RESET'}</small></button>`;
-  left.querySelectorAll('[data-rail]').forEach((b) => b.addEventListener('click', () => railToggle(b.dataset.rail)));
-  $('rl-undo').addEventListener('click', () => { undoAction(); renderRails(); });
-  $('rl-reset').addEventListener('click', () => { resetEverything('View reset.'); renderRails(); });
+    + `<button class="rl-btn ${undoLive ? 'on' : ''}" data-rail-undo="1"><span>↩</span><small>UNDO</small></button>`
+    + `<button class="rl-btn ${routeBlocked ? 'rl-alarm' : ''}" data-rail-reset="1"><span>${routeBlocked ? '⚠' : '⛶'}</span><small>${routeBlocked ? 'BLOCK' : 'RESET'}</small></button>`;
+  if (leftHtml !== railLeftHtml) { left.innerHTML = leftHtml; railLeftHtml = leftHtml; }
 
-  /* The drawer changes how wide the board is, so the board has to be re-fitted
-     — once on the next frame and once after the slide finishes, or it keeps the
-     old width and the map sits off-centre in its own viewport. */
-  const wasOpen = right.classList.contains('open');
   right.classList.toggle('open', Boolean(railTab));
-  if (wasOpen !== Boolean(railTab)) {
-    requestAnimationFrame(fitBoardToViewport);
-    window.setTimeout(fitBoardToViewport, 190);
+  const rightHtml = railTab ? `<div class="rl-scroll">${railBody(railTab)}</div>` : '';
+  if (rightHtml !== railRightHtml) {
+    /* keep the reader where they were in a long list across a silent rebuild */
+    const scrolled = right.querySelector('.rl-scroll')?.scrollTop || 0;
+    right.innerHTML = rightHtml;
+    railRightHtml = rightHtml;
+    if (scrolled) { const s = right.querySelector('.rl-scroll'); if (s) s.scrollTop = scrolled; }
   }
-  if (!railTab) { right.innerHTML = ''; return; }
-  right.innerHTML = `<div class="rl-scroll">${railBody(railTab)}</div>`;
-  right.querySelectorAll('[data-rail-tower]').forEach((b) => b.addEventListener('click', () => {
-    selectedTowerTier = Number(b.dataset.railTower);
-    selectedTowerKey = null; selectedGroupKeys = [];
-    renderTowerList(); renderRails();
-  }));
-  right.querySelectorAll('[data-rail-send]').forEach((b) => b.addEventListener('click', () => {
-    document.querySelector(`[data-send="${b.dataset.railSend}"]`)?.click(); renderRails();
-  }));
-  right.querySelectorAll('[data-rail-act]').forEach((b) => b.addEventListener('click', () => { towerAction(b.dataset.railAct); renderRails(); }));
-  right.querySelectorAll('[data-bolt]').forEach((b) => b.addEventListener('click', () => { towerAction(`bolt:${b.dataset.bolt}`); renderRails(); }));
-  right.querySelectorAll('[data-rail-tool]').forEach((b) => b.addEventListener('click', () => { railTool(b.dataset.railTool); renderRails(); }));
+}
+/* One delegated listener per rail, bound once for the life of the page. */
+function bindRails(left, right) {
+  left.addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.rail) return railToggle(b.dataset.rail);
+    if (b.dataset.railUndo) { undoAction(); return renderRails(); }
+    if (b.dataset.railReset) { resetEverything('View reset.'); return renderRails(); }
+  });
+  right.addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    const d = b.dataset;
+    if (d.railTower !== undefined) {
+      selectedTowerTier = Number(d.railTower);
+      selectedTowerKey = null; selectedGroupKeys = [];
+      renderTowerList();
+      railTab = null;   // clear the board — the next tap places it
+      log(`${towerDef(currentBuildRaceId(), selectedTowerTier).name} armed — tap the board to place it.`);
+    } else if (d.railSend !== undefined) {
+      document.querySelector(`[data-send="${d.railSend}"]`)?.click();
+    } else if (d.railAct !== undefined) towerAction(d.railAct);
+    else if (d.bolt !== undefined) towerAction(`bolt:${d.bolt}`);
+    else if (d.railTool !== undefined) railTool(d.railTool);
+    renderRails();
+  });
 }
 function railTool(id) {
   if (id === 'box' || id === 'lasso') { selectMode = selectMode === id ? null : id; if (selectMode) log(`${id === 'box' ? 'Box' : 'Lasso'} armed — drag over your towers.`); }
@@ -5719,7 +5754,7 @@ function handleBoardTap(event) {
     chipAutoHideAt = 0;
     inspectEntity = { kind:'tower' };
     renderTowerDetails();
-    if (touchUI() && document.body.classList.contains('arena')) { wispTab = 'inspect'; renderWispPanel('inspect'); }
+    if (touchUI() && document.body.classList.contains('arena')) { wispTab = 'inspect'; renderWispPanel('inspect'); railTab = 'tower'; renderRails(); }
     return;
   }
   // not on a tower — a creep tapped directly gets inspected (works on sends, bosses, rivals)
@@ -5738,6 +5773,7 @@ function handleBoardTap(event) {
   }
   lastTapKey = null;
   selectedTowerKey = null; selectedGroupKeys = []; renderTowerDetails();
+  railClose();   // tapping bare board means you are placing — get the drawer out of the way
   if (matchOver) return;
   const t = terrainAt(cell.r, cell.c);
   if (ghost && (t !== T.FLOOR || !isPlayerBuildRow(cell.r))) { ghost = null; ghostChips = []; }
@@ -5880,6 +5916,19 @@ function fitBoardToViewport() {
   }
   const vw = viewport.clientWidth, vh = viewport.clientHeight;
   if (vw < 60 || vh < 60) return false;   // layout not settled yet — the frame loop retries
+  /* Remember WHICH PART OF THE BOARD is under the middle of the screen before
+     the geometry moves. frameBase is the unzoomed board rect; the pan offsets
+     are measured from it. Recomputing one without the other leaves the offsets
+     in a coordinate space that no longer exists, which is exactly what made a
+     zoomed camera lurch on every rotation, keyboard, URL-bar collapse or drawer
+     toggle. Anchor is normalised 0..1 board coords, so it survives any resize. */
+  let anchor = null;
+  if (frameBase.width > 10 && lastFitW > 0 && mapZoomScale > 1.001) {
+    anchor = {
+      u:(lastFitW / 2 - frameBase.left - mapOffsetX) / (frameBase.width * mapZoomScale),
+      v:(lastFitH / 2 - frameBase.top - mapOffsetY) / (frameBase.height * mapZoomScale)
+    };
+  }
   lastFitW = vw; lastFitH = vh;
   const scale = Math.min(vw / BOARD_W, vh / BOARD_H);
   frameBase = { width:BOARD_W * scale, height:BOARD_H * scale, left:(vw - BOARD_W * scale) / 2, top:(vh - BOARD_H * scale) / 2 };
@@ -5887,6 +5936,11 @@ function fitBoardToViewport() {
   frame.style.height = `${frameBase.height}px`;
   frame.style.left = `${frameBase.left}px`;
   frame.style.top = `${frameBase.top}px`;
+  if (anchor && Number.isFinite(anchor.u) && Number.isFinite(anchor.v)) {
+    mapOffsetX = vw / 2 - frameBase.left - anchor.u * frameBase.width * mapZoomScale;
+    mapOffsetY = vh / 2 - frameBase.top - anchor.v * frameBase.height * mapZoomScale;
+    if (camAnim) camAnim = null;   // a live glide would drag the camera straight back off-anchor
+  }
   applyMapTransform();
   return true;
 }
@@ -5990,7 +6044,8 @@ function setupMapZoom() {
     }
     activeMapPointers.set(event.pointerId, { x:event.clientX, y:event.clientY });
     try { viewport.setPointerCapture(event.pointerId); } catch (error) { /* capture is best-effort */ }
-    camAnim = null; lastMapTouchAt = performance.now();
+    camAnim = null; flingV = null;   // a finger on the glass stops the board on the spot, not a frame later
+    lastMapTouchAt = performance.now();
     tapCandidate = { x:event.clientX, y:event.clientY, id:event.pointerId };
     // touch: press-and-hold a tower to sell it
     window.clearTimeout(viewport._holdTimer);
@@ -6085,8 +6140,13 @@ function setupMapZoom() {
     window.clearTimeout(viewport._holdTimer);
     if (tapCandidate && tapCandidate.id === event.pointerId) handleBoardTap(event);
     tapCandidate = null;
-    if (panStart && lastPanSample && performance.now() - lastPanSample.t < 90 && Math.hypot(lastPanSample.vx, lastPanSample.vy) > .25) {
-      flingV = { x:lastPanSample.vx, y:lastPanSample.vy };   // momentum carry after a fast pan
+    /* Momentum, but only for an actual flick. At the old 0.25 px/ms gate a
+       deliberate 48px drag coasted a further 153px — three times the distance
+       you moved your finger — so the cell you then tapped was never the cell you
+       had lined up. A flick is ~850 px/s and up; anything slower is someone
+       positioning the board and must stop dead where they let go. */
+    if (panStart && lastPanSample && performance.now() - lastPanSample.t < 90 && Math.hypot(lastPanSample.vx, lastPanSample.vy) > .85) {
+      flingV = { x:lastPanSample.vx, y:lastPanSample.vy };
     }
     lastPanSample = null;
     activeMapPointers.delete(event.pointerId);
@@ -6178,7 +6238,7 @@ function frameBody(now) {
       const beforeX = mapOffsetX, beforeY = mapOffsetY;
       mapOffsetX += flingV.x * dt * 1000;
       mapOffsetY += flingV.y * dt * 1000;
-      const fr = Math.pow(.98, dt * 1000 / 16);
+      const fr = Math.pow(.90, dt * 1000 / 16);   // .98 glided for ~3.6s; a map you are building on has to settle in well under one
       flingV.x *= fr; flingV.y *= fr;
       applyMapTransform();
       if ((Math.abs(flingV.x) < .01 && Math.abs(flingV.y) < .01) || (beforeX === mapOffsetX && beforeY === mapOffsetY)) flingV = null;
