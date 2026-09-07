@@ -391,6 +391,7 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
 .laser-row { border-color:#ff5f8f66 !important; }
 .profile-line { color:#8ba7c9 !important; }
 .td-sell-danger { color:#ff9faf !important; border-color:#5a2f3a !important; }
+.td-sell-armed { border-color:#ff6b81 !important; background:#3a1420 !important; color:#ffd0d8 !important; }
 .quick-send { display:flex; justify-content:center; gap:5px; margin-top:10px; overflow-x:auto; padding:6px; border:1px solid #233150; border-radius:12px; background:#0d1424; scrollbar-width:thin; }
 .quick-send:empty { display:none; }
 .touch-ui .quick-send { display:none; }   /* the wisp's command sheet replaces it on touch */
@@ -475,6 +476,14 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
 .learn-row span { flex:0 0 118px; font:600 10px 'DM Mono',monospace; }
 .learn-row small { color:#93a0be; font-size:10px; line-height:1.45; }
 .sheet-detail { margin-top:8px; padding:8px 10px; border:1px solid #2b3859; border-radius:9px; background:#10182b; color:#c5cde0; font-size:11px; line-height:1.5; }
+/* one line above the actions, so the action row keeps a fixed offset */
+.sheet-title { overflow:hidden; padding:2px 2px 6px; color:#dbe4fa; font-size:11px; white-space:nowrap; text-overflow:ellipsis; }
+/* the four tower actions keep a fixed row height, so an upgraded tower's longer
+   name cannot re-wrap a chip and shift the row below it */
+.sheet-actions { grid-auto-rows:64px; }
+.sheet-actions .sheet-chip { overflow:hidden; height:64px; min-height:0; }
+.sheet-actions .sheet-chip small { overflow:hidden; max-width:100%; white-space:nowrap; text-overflow:ellipsis; }
+.sheet-chip.sell-chip.armed { border-color:#ff6b81; background:#3a1420; color:#ffd0d8; }
 .sheet-detail em { color:#8ba7c9; font-style:normal; font:500 9px 'DM Mono',monospace; }
 .debug-bar select { padding:4px 6px; border:1px solid #2e3b5c; border-radius:6px; background:#10172a; color:#a5afd0; font:500 9px 'DM Mono',monospace; }
 .econ-on { border-color:#77d6ff !important; color:#bfeaff !important; box-shadow:inset 0 0 0 1px #77d6ff66; }
@@ -542,8 +551,13 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
    available, so the row COLLAPSED when it went away and Sell slid up into the
    space Upgrade had been occupying. A fixed 2x2 grid cannot shift, and Sell
    sits diagonally opposite Upgrade — the furthest apart two cells can be. */
-.td-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
-.td-actions button { width:auto; min-height:50px; margin:0; padding:9px 8px; font-size:11px; line-height:1.25; }.send-card > div { flex:1; }.send-card strong,.send-card small { display:block; }.send-card strong { font-size:10px; }.send-card small { margin-top:3px; color:#8995b4; font-size:9px; }.send-card b { color:#f5d36d; font:10px 'DM Mono',monospace; }.send-icon { display:grid; place-items:center; width:28px; height:28px; border-radius:7px; color:#ff9faf; background:#ff8a9a16; }.hint-box { margin-top:22px; padding:12px; border-left:2px solid #77d6ff; background:#0c1526; }.hint-box span { color:#77d6ff; font:500 9px 'DM Mono',monospace; letter-spacing:.13em; }.hint-box p { margin-top:7px; color:#93a0be; font-size:10px; line-height:1.5; }
+/* Rows are a FIXED height, not a minimum. With min-height the tier button's
+   label rewraps when a tower is upgraded — "→ Whiteout Spire 100g" is not the
+   same number of lines as the next name along — so row one changed height and
+   took row two, Sell included, 9px up the screen with it. Measured; it is the
+   last few pixels of the same bug that sold a base. */
+.td-actions { display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:52px; gap:8px; margin-top:8px; }
+.td-actions button { display:flex; align-items:center; justify-content:center; overflow:hidden; width:auto; height:52px; min-height:0; margin:0; padding:6px 8px; font-size:11px; line-height:1.2; text-align:center; }.send-card > div { flex:1; }.send-card strong,.send-card small { display:block; }.send-card strong { font-size:10px; }.send-card small { margin-top:3px; color:#8995b4; font-size:9px; }.send-card b { color:#f5d36d; font:10px 'DM Mono',monospace; }.send-icon { display:grid; place-items:center; width:28px; height:28px; border-radius:7px; color:#ff9faf; background:#ff8a9a16; }.hint-box { margin-top:22px; padding:12px; border-left:2px solid #77d6ff; background:#0c1526; }.hint-box span { color:#77d6ff; font:500 9px 'DM Mono',monospace; letter-spacing:.13em; }.hint-box p { margin-top:7px; color:#93a0be; font-size:10px; line-height:1.5; }
 .income-callout { margin:0 0 10px; padding:9px; border:1px solid #385848; border-radius:8px; background:#12271f; }.income-callout strong,.income-callout span { display:block; }.income-callout strong { color:#9de4b5; font-size:10px; }.income-callout span { margin-top:3px; color:#779d89; font-size:9px; line-height:1.35; }
 @media (max-width:900px) { .race-grid { grid-template-columns:repeat(2,1fr); }.battle-content { grid-template-columns:1fr; }.battle-main { min-width:0; }.map-viewport { height:600px; } }
 @media (max-width:560px) { .app-shell { padding:16px max(14px, env(safe-area-inset-left)) max(24px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-right)); }.brand-row { margin-bottom:16px; align-items:flex-start; } h1 { font-size:34px; } .lede { display:none; } .setup-bar .selection-actions { flex-wrap:wrap; }.version-pill { font-size:8px; padding:8px; }.race-grid { gap:8px; }.race-card { min-height:126px; padding:14px; }.race-symbol { margin-bottom:12px; }.race-card strong { font-size:14px; }.selection-bar { align-items:flex-start; flex-direction:column; }.primary-button { width:100%; }
@@ -764,8 +778,12 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
    guesswork on a phone. Sizes and contrast lifted across the panel. */
 .wisp-panel .wp-detail { margin-top:9px; padding:11px; border:1px solid #34497a; border-radius:10px; background:#0b1a34; font:500 12.5px/1.55 'DM Mono',monospace; color:#dfe9ff; }
 .wisp-panel .wp-detail b { color:#fff; font-size:14px; } .wisp-panel .wp-detail i { font-style:normal; color:#8fe6b8; }
-.wisp-panel .wp-actions { display:grid; grid-template-columns:repeat(2,1fr); gap:7px; margin-top:9px; }
-.wisp-panel .wp-act { min-height:48px; padding:9px; border:1px solid #2c4a7a; border-radius:9px; background:#111a30; color:#fff; font:700 12px 'DM Mono',monospace; }
+.wisp-panel .wp-actions { display:grid; grid-template-columns:repeat(2,1fr); grid-auto-rows:50px; gap:7px; margin-top:9px; }
+.wisp-panel .wp-act { display:flex; align-items:center; justify-content:center; overflow:hidden; height:50px; padding:6px 8px; border:1px solid #2c4a7a; border-radius:9px; background:#111a30; color:#fff; font:700 12px 'DM Mono',monospace; text-align:center; }
+/* one line, always — a title that wraps moves the buttons under it */
+.wisp-panel .wp-title { overflow:hidden; margin-top:2px; color:#dbe4fa; font:12px 'DM Mono',monospace; white-space:nowrap; text-overflow:ellipsis; }
+.wisp-panel .wp-sell { border-color:#5a2f3a; color:#ff9faf; }
+.wisp-panel .wp-sell.armed { border-color:#ff6b81; background:#3a1420; color:#ffd0d8; }
 /* slim send rail = the command-bar in arena when not staging a ghost */
 .command-bar.rail .bar-top { display:none; }
 .command-bar.rail .bar-content { min-height:56px; }
@@ -1299,8 +1317,12 @@ const TOWERS = {
        passing through it — so the whole element read as garbage however well
        its control worked. Tiers 3 and 4 are priced like towers now; the frost
        rework already gives every Ice tower its control for free. */
+    /* Frost is walled by fortified at 0.55, and its cheap rungs had no reason
+       to exist beside the expensive ones. Snowball Launcher is that reason: a
+       40g answer to plate. Anti-air is deliberately NOT Ice's — that belongs to
+       Tech and the Coil, so the roles stay distinct. */
     { name:'Frostflick', cost:10, dmg:10, cd:1.0, range:5.5, special:'slow', desc:'Frost bolts that slow the first target.' },
-    { name:'Snowball Launcher', cost:40, dmg:38, cd:1.0, range:5.9, special:'snowball', desc:'Lobbed snowballs burst on impact — splash damage that frosts everything caught in the blast.' },
+    { name:'Snowball Launcher', cost:40, dmg:38, cd:1.0, range:5.9, special:'snowball', vs:{ fortified:1.6 }, desc:'Lobbed snowballs burst on impact — splash damage that frosts everything caught in the blast, and cracks fortified plate.' },
     { name:'Whiteout Spire', cost:100, dmg:105, cd:1.2, range:5.5, special:'slow', desc:'Freezing bursts on clustered creeps.' },
     { name:'Meltjet', cost:200, dmg:210, cd:1.4, range:5.9, special:'deepfreeze', desc:'Supercooled jets drive frost in three times as fast — the quickest way to freeze something solid.' },
     { name:'Shatterfrost', cost:270, dmg:290, cd:1.6, range:5.5, special:'frostnova', desc:'Huge frost explosion that freezes everything caught in it.' },
@@ -1329,9 +1351,15 @@ const TOWERS = {
     { name:'Bramble Speck', cost:170, dmg:20, cd:5.0, range:9.5, special:'entangle', desc:'Long reach, barely any damage: roots its target for 1.6s and goes for BOSSES first.' }
   ],
   tech:[
-    { name:'Bolt Turret', cost:8, dmg:6, cd:1.7, range:12.5, special:'pierce', armorPierce:4, desc:'Cheap long-range arrows that ignore 4 armor — a keeper for chipping armored runners.' },
-    { name:'Longshot Nest', cost:25, dmg:21, cd:1.75, range:13.0, special:'snipe', desc:'+40% against whichever creep is furthest along the route.' },
-    { name:'Rocket Rack', cost:85, dmg:100, cd:2.2, range:15, special:'rocket', groundOnly:true, desc:'Long-range rockets with splash. Ground only.' },
+    /* TECH IS THE ANTI-AIR ELEMENT. Now that a ground blast no longer reaches a
+       flier, somebody has to, and Pierce's long guns are the ones that track:
+       these two shoot up, and they are cheap enough to be the answer you buy
+       when the air wave is announced rather than a tier you had to plan for.
+       Rocket Rack stays ground-only — a rocket volley into a blast radius is
+       exactly the thing that should not hit a flier. */
+    { name:'Bolt Turret', cost:8, dmg:6, cd:1.7, range:12.5, special:'pierce', armorPierce:4, airBonus:1.5, desc:'Cheap long-range arrows that ignore 4 armor, and track a flier for +50% — a keeper for chipping armored runners.' },
+    { name:'Longshot Nest', cost:25, dmg:21, cd:1.75, range:13.0, special:'snipe', airBonus:1.5, desc:'+40% against whichever creep is furthest along the route, +50% against anything airborne.' },
+    { name:'Rocket Rack', cost:85, dmg:100, cd:2.2, range:15, special:'rocket', groundOnly:true, vs:{ fortified:1.9, heavy:1.5 }, desc:'Long-range rockets with splash, built to crack plate: Pierce is weak into fortified, this rung is not. Ground only.' },
     { name:'Ion Array', cost:145, dmg:300, cd:3.0, range:15, special:'ion', desc:'Ion beam; +500 bonus damage to healthy targets.' },
     { name:'Seeker Launcher', cost:215, dmg:760, cd:4.5, range:17, special:'rocket', desc:'Cruise missiles with an enormous blast.' },
     { name:'Doomsday Silo', cost:265, dmg:860, cd:7.0, range:17, special:'rocket', desc:'Slow reload. City-block splash radius.' }
@@ -1364,7 +1392,11 @@ const TOWERS = {
     { name:'Miasma Vent', cost:390, dmg:545, cd:.9, range:7.8, special:'meteor', desc:'Chokes a wide stretch of lane with lethal gas.' }
   ],
   stone:[
-    { name:'Cairn', cost:10, dmg:14, cd:1.07, range:3.9, special:'crit', desc:'Cheap stones that can hit double.' },
+    /* Crush answers plate better than anything and gets shredded by cheap fast
+       swarms at 0.65 into light. Its own cheapest rung covers that: Cairn is
+       what you lay when the runners come, so the element has a floor instead of
+       a hole. */
+    { name:'Cairn', cost:10, dmg:14, cd:1.07, range:3.9, special:'crit', vs:{ light:1.55 }, desc:'Cheap stones that can hit double, and land hard on lightly-armored runners.' },
     { name:'Boulder Maw', cost:40, dmg:43, cd:1.1, range:4.2, special:'crit', desc:'Heavy rocks for narrow turns.' },
     /* STONE'S ONE AREA RUNG. Measured, it was the only element in the game with
        essentially no crowd damage at all: one rung in six touched a second body,
@@ -1538,13 +1570,23 @@ const TRAIT = {
 function pointInPoly(x, y, poly) { let hit = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { if ((poly[i].y > y) !== (poly[j].y > y) && x < (poly[j].x - poly[i].x) * (y - poly[i].y) / (poly[j].y - poly[i].y) + poly[i].x) hit = !hit; } return hit; }
 function tierPot(tower) { return Math.min(1, .55 + .09 * (tower.tier || 0)); }
 function isChaos(tower, stats) { return !!(ATTACK_PROFILE[tower.raceId] && ATTACK_PROFILE[tower.raceId].chaos) || tower.raceId === 'crystal' || stats.special === 'laser'; }
-function attackProfileText(raceId) {
+function attackProfileText(raceId, def) {
   const p = ATTACK_PROFILE[raceId];
   if (!p) return '';
-  if (p.chaos) return 'Chaos: ignores armor entirely (armor class still applies)';
+  const own = [];
+  /* A rung that carries its own multipliers has to SAY so on the card, or the
+     whole point of buying it — covering what your element cannot handle — is
+     invisible until you do the arithmetic in a fight. */
+  if (def) {
+    Object.entries(def.vs || {}).forEach(([cls, m]) => own.push(`${m >= 1 ? '+' : '−'}${cls} ×${m}`));
+    if (def.airBonus && def.airBonus > 1) own.push(`+air ×${def.airBonus}`);
+    if (def.groundOnly) own.push('ground only');
+  }
+  const tail = own.length ? ` · this tower: ${own.join(' ')}` : '';
+  if (p.chaos) return 'Chaos: ignores armor entirely (armor class still applies)' + tail;
   const parts = Object.entries(p.vs).map(([cls, m]) => `${m >= 1.15 ? '+' : m <= .55 ? '−−' : '−'}${cls}`);
   if (p.air && p.air > 1) parts.push('+air');
-  return `${p.label}: ${parts.join(' ')}`;
+  return `${p.label}: ${parts.join(' ')}${tail}`;
 }
 /* WHAT A SPECIAL DOES, WITH THE ODDS AND THE RATE SPELLED OUT.
    The old table was a dozen hand-written sentences, and Gene was right that you
@@ -1695,6 +1737,12 @@ function towerSellValue(tower) { return fullRefund(tower) ? tower.invested : Mat
    undo restores tier, level, kills, priority and build clock untouched. */
 const SELL_UNDO_WINDOW = 12;
 let lastSold = null;   // { list:[tower], refund, at, name }
+/* Arming state for a multi-tower sell. Keyed by the exact selection, so
+   changing what is selected cancels the arm rather than carrying a confirmation
+   over onto a different set of towers. */
+const SELL_CONFIRM_WINDOW = 4;
+let pendingSell = null;   // { sig, at }
+function selectionSig(group) { return group.map((t) => t.key).sort((a, b) => a - b).join(','); }
 function recordSell(list, refund, name) {
   lastSold = list.length ? { list:list.map((t) => ({ ...t })), refund, at:simTime, name } : null;
 }
@@ -3055,6 +3103,12 @@ function applyDamage(creep, amount, tower, isDot = false, opts) {
        ignores the ARMOUR VALUE. Every race, Crystal included, answers to the
        armour-class matrix, so every race has something it does not want to meet. */
     dmg *= profile.vs[creep.aClass] ?? 1;
+    /* A RUNG CAN ANSWER WHAT ITS ELEMENT CANNOT. On top of the race matrix, an
+       individual tower may carry its own class multipliers — so a cheap early
+       rung can be the thing you buy specifically to cover your element's blind
+       spot, rather than every element being handed the same splash until they
+       all play alike. Pierce hits fortified at 0.4; its Rocket Rack does not. */
+    if (stats.vs && stats.vs[creep.aClass]) dmg *= stats.vs[creep.aClass];
     if (creep.air && stats.airBonus) dmg *= stats.airBonus;
     if (!isChaos(tower, stats)) {
       // gravity warps through some plate — see gravArmorPierce
@@ -3244,6 +3298,10 @@ function splashSpec(special) {
   if (special === 'splash' || special === 'frostnova') return { radius:1.8, mult:.5 };
   if (special === 'snowball') return { radius:1.5, mult:.45 };   // early AoE: the burst, not the nova
   if (special === 'meteor' || special === 'rocket') return { radius:2.5, mult:.6 };
+  /* The Coil's arc is the one blast that goes up. It is the dedicated anti-air
+     tower and now it splashes like one — a modest radius, and the only splash
+     in the game that air units are not immune to. */
+  if (special === 'skyhunter') return { radius:1.4, mult:.5 };
   return null;
 }
 function resolveProjectileHit(projectile) {
@@ -3333,6 +3391,12 @@ function resolveProjectileHit(projectile) {
     const rad = splash.radius * (isEarth ? TRAIT.earthSplashRadius : 1);
     const mult = isEarth ? Math.max(splash.mult, TRAIT.earthSplashMult) : splash.mult;
     creeps.forEach((other) => {
+      /* A BLAST ON THE GROUND DOES NOT REACH A FLIER. Splash used to catch air
+         units like anything else, which quietly made every splash element a
+         competent anti-air answer and left the towers built for the job with
+         nothing to be better at. Air is now immune to splash — the Coil Dynamo
+         excepted, because arcing upward is the entire point of it. */
+      if (other.air && stats.special !== 'skyhunter') return;
       if (other !== target && other.hp > 0 && other.half === projectile.half && Math.hypot(other.x - impactX, other.y - impactY) <= rad) {
         applyDamage(other, stats.dmg * mult, tower);
         // the nova AND the snowball burst carry the full frost ramp to everything
@@ -6329,7 +6393,7 @@ function renderTowerList() {
     const def = towerDef(raceId, tier);
     const isLaser = def.name === 'Laser Cannon';
     return `<button class="tower-row ${tier === selectedTowerTier ? 'selected' : ''} ${isLaser ? 'laser-row' : ''}" data-tower="${tier}">
-      <span><strong>${def.name}</strong><small>${def.desc}</small><small class="tower-stats">${def.dmg} dmg • ${def.range.toFixed(1)} range • ${def.cd.toFixed(2)}s • ${effectiveDps(def).toFixed(0)} dps${def.raceId === 'poison' ? ' (venom)' : ''}${def.special ? ' • ' + def.special : ''}${def.groundOnly ? ' • NO AIR' : ''}</small><small class="tower-stats profile-line">${attackProfileText(raceId)}</small></span><b>${def.cost}g${isLaser ? ' +1🪵' : ''}</b></button>`;
+      <span><strong>${def.name}</strong><small>${def.desc}</small><small class="tower-stats">${def.dmg} dmg • ${def.range.toFixed(1)} range • ${def.cd.toFixed(2)}s • ${effectiveDps(def).toFixed(0)} dps${def.raceId === 'poison' ? ' (venom)' : ''}${def.special ? ' • ' + def.special : ''}${def.groundOnly ? ' • NO AIR' : ''}</small><small class="tower-stats profile-line">${attackProfileText(raceId, def)}</small></span><b>${def.cost}g${isLaser ? ' +1🪵' : ''}</b></button>`;
   }).join('');
   document.querySelectorAll('[data-tower]').forEach((button) => button.addEventListener('click', () => {
     selectedTowerTier = Number(button.dataset.tower);
@@ -6452,6 +6516,24 @@ function towerAction(kind) {
       if (short) showToast(`<b>Tiered up ${done} of ${tierWanted}</b><span>${restCost}g more finishes the batch</span>`);
     }
   } else if (kind === 'sell') {
+    /* SELLING A BATCH ASKS FIRST. Gene sold an entire base in one press: with a
+       batch selected he was tapping to upgrade, a panel reflowed under his
+       finger, and the tap landed on Sell instead. One mis-tap must never be
+       able to delete a base — the undo pill is a 12s window he never saw,
+       which is not a safety net, it is a race.
+       One tower still sells on a single press: that one has the full-refund
+       grace behind it. More than one arms, and says so. */
+    if (group.length > 1 && !(pendingSell && pendingSell.sig === selectionSig(group) && simTime - pendingSell.at < SELL_CONFIRM_WINDOW)) {
+      pendingSell = { sig:selectionSig(group), at:simTime };
+      const worth = group.reduce((s, t) => s + towerSellValue(t), 0);
+      log(`Sell ${group.length} towers for ${worth}g? Press sell again within ${SELL_CONFIRM_WINDOW}s to confirm.`);
+      showToast(`<b>Sell ${group.length} towers?</b><span>Press sell again to confirm • +${worth}g</span>`);
+      if (navigator.vibrate) navigator.vibrate(30);
+      renderTowerDetails(); sheetKey = ''; renderCommandSheet();
+      if (touchUI()) renderWispPanel('inspect');
+      return;
+    }
+    pendingSell = null;
     let refund = 0;
     const n = group.length;
     const soldName = towerLiveStats(group[0]).name;
@@ -6505,6 +6587,8 @@ function renderTowerDetails() {
   const tierCostAll = tierable.reduce((sum, t) => sum + towerTierUp(t).cost, 0);
   const sellAll = group.reduce((sum, t) => sum + towerSellValue(t), 0);
   const graceNote = !many && fullRefund(tower) ? ' • undo, full refund' : many ? '' : ' • 75%';
+  const sellArmed = many && pendingSell && pendingSell.sig === selectionSig(group) && simTime - pendingSell.at < SELL_CONFIRM_WINDOW;
+  const sellLabel = sellArmed ? `⚠ Confirm — sell all ${group.length}` : `Sell${many ? ' all' : ''} ${sellAll}g${graceNote}`;
   const laserNext = towerTierUp(tower)?.next.name === 'Laser Cannon';
   const tierBlocked = !tierable.length || player.gold < (many ? 1 : tierCostAll) || (laserNext && player.lumber < 1);
   const levelBlocked = !upgradable.length || player.gold < (many ? 1 : levelCostAll);
@@ -6527,7 +6611,8 @@ function renderTowerDetails() {
     setBtn('td-level', levelBlocked, !upgradable.length ? 'Max level' : many ? `Upgrade all • ${levelCostAll}g` : `Upgrade level ${levelCostAll}g`);
     setBtn('td-tier', tierBlocked, !tierable.length ? 'Max tier'
       : `→ ${towerTierUp(tower)?.next.name || 'next tier'}${many ? ` all • ${tierCostAll}g` : ` ${tierCostAll}g`}${laserNext ? ' +1🪵' : ''}`);
-    setBtn('td-sell', false, `Sell${many ? ' all' : ''} ${sellAll}g${graceNote}`);
+    setBtn('td-sell', false, sellLabel);
+    $('td-sell')?.classList.toggle('td-sell-armed', !!sellArmed);
     return;
   }
   panel._sig = sig; panel._built = true;
@@ -6535,15 +6620,23 @@ function renderTowerDetails() {
     <div class="td-head"><span class="td-rune" style="--race:${stats.color}">${stats.symbol}</span>
       <div><strong>${many ? `${group.length} × ` : ''}${stats.name}</strong><small>${isYours ? (many ? 'Batch selection — actions apply to all' : `Level ${(tower.level || 0) + 1} • ${tower.kills} kills`) : towerOwnerLabel(tower)}</small></div>
       <button id="td-close" class="ghost-button" aria-label="Close tower details">✕</button></div>
-    <p class="td-desc">${many ? 'Double-tap selected every like tower.' : `${stats.desc} ${specialBlurbs[stats.special] || ''}`}</p>
-    <div class="td-stats"><span>DMG <b>${stats.dmg}</b></span><span>RANGE <b>${stats.range.toFixed(1)}</b></span><span>RATE <b>${stats.cd.toFixed(2)}s</b></span></div>
-    <p class="td-desc profile-line">${attackProfileText(tower.raceId)}</p>
+    ${/* THE ACTIONS SIT DIRECTLY UNDER THE HEAD, ABOVE EVERY VARIABLE-HEIGHT
+          BLOCK. The description, the stat row and the attack-profile line all
+          change when a tower is upgraded, and any of them re-wrapping moves the
+          buttons below by a row. Measured twice: first the tier label, then the
+          profile line once per-tower strengths were added to it. Anything that
+          can reflow now lives underneath the buttons, where it cannot push
+          them. */''}
     ${isYours ? `<div class="td-actions">
       <button id="td-level" class="action-button" ${levelBlocked ? 'disabled' : ''}>${!upgradable.length ? 'Max level' : many ? `Upgrade all • ${levelCostAll}g` : `Upgrade level ${levelCostAll}g`}</button>
       <button id="td-tier" class="action-button td-tier" ${tierBlocked ? 'disabled' : ''}>${!tierable.length ? 'Max tier' : `→ ${towerTierUp(tower)?.next.name || 'next tier'}${many ? ` all • ${tierCostAll}g` : ` ${tierCostAll}g`}${laserNext ? ' +1🪵' : ''}`}</button>
       <button id="td-priority" class="ghost-button">Target: ${tower.priority}</button>
-      <button id="td-sell" class="ghost-button td-sell-danger">Sell${many ? ' all' : ''} ${sellAll}g${graceNote}</button>
-    </div>${boltPanelHtml(group)}` : ''}`;
+      <button id="td-sell" class="ghost-button td-sell-danger ${sellArmed ? 'td-sell-armed' : ''}">${sellLabel}</button>
+    </div>` : ''}
+    <p class="td-desc">${many ? 'Double-tap selected every like tower.' : `${stats.desc} ${specialBlurbs[stats.special] || ''}`}</p>
+    <div class="td-stats"><span>DMG <b>${stats.dmg}</b></span><span>RANGE <b>${stats.range.toFixed(1)}</b></span><span>RATE <b>${stats.cd.toFixed(2)}s</b></span></div>
+    <p class="td-desc profile-line">${attackProfileText(tower.raceId, stats)}</p>
+    ${isYours ? boltPanelHtml(group) : ''}`;
   $('td-close').addEventListener('click', () => { selectedTowerKey = null; selectedGroupKeys = []; renderTowerDetails(); });
   if (!isYours) return;
   panel.querySelectorAll('[data-bolt]').forEach((b) => b.addEventListener('click', () => towerAction(`bolt:${b.dataset.bolt}`)));
@@ -9295,7 +9388,7 @@ function renderCommandSheet() {
     body = `<div class="sheet-grid">${towerListFor(raceId).map((def, tier) => `
       <button class="sheet-chip ${tier === selectedTowerTier ? 'on' : ''} ${player.gold < def.cost ? 'poor' : ''}" data-sheet-tower="${tier}">
         <span>${towerDef(raceId, tier).symbol}</span><small>${def.name.split(' ')[0]}</small><b>${def.cost}g</b></button>`).join('')}</div>
-      <div class="sheet-detail"><strong>${sel.name}</strong> — ${sel.desc} ${specialBlurbs[sel.special] || ''}<br><em>${sel.dmg} dmg • ${sel.range.toFixed(1)} range • ${sel.cd.toFixed(2)}s • ${attackProfileText(raceId)}</em></div>
+      <div class="sheet-detail"><strong>${sel.name}</strong> — ${sel.desc} ${specialBlurbs[sel.special] || ''}<br><em>${sel.dmg} dmg • ${sel.range.toFixed(1)} range • ${sel.cd.toFixed(2)}s • ${attackProfileText(raceId, sel)}</em></div>
       <p class="sheet-hint">Tap the board to place. Hold a placed tower to sell; the undo pill refunds fully for 3s.</p>`;
   } else if (sheetTab === 'sends') {
     const wagerReady = wager.tokens > 0 && simTime >= wager.cooldownUntil && !wager.pending;
@@ -9321,7 +9414,7 @@ function renderCommandSheet() {
       const sellAll = sel.reduce((sum, t) => sum + towerSellValue(t), 0);
       const laserNext = towerTierUp(t0)?.next.name === 'Laser Cannon';
       body = `
-        <div class="sheet-detail"><strong>${many ? `${sel.length} × ` : ''}${stats.name}</strong>${many ? ' — batch selection' : ` — Level ${(t0.level || 0) + 1} • ${t0.kills} kills`}<br>${stats.desc} ${specialBlurbs[stats.special] || ''}<br><em>${stats.dmg} dmg • ${stats.range.toFixed(1)} range • ${stats.cd.toFixed(2)}s • ${attackProfileText(t0.raceId)}</em></div>
+        <div class="sheet-title"><strong>${many ? `${sel.length} × ` : ''}${stats.name}</strong>${many ? ' — batch selection' : ` — Level ${(t0.level || 0) + 1}`}</div>
         <div class="sheet-grid sheet-actions">
           <button class="sheet-chip ${!upgradable.length || player.gold < 1 ? 'poor' : ''}" data-sheet-act="level"><span>⬆</span><small>Level${many ? ' all' : ''}</small><b>${upgradable.length ? `${levelCostAll}g` : 'MAX'}</b></button>
           ${/* always present, greyed when there is nothing to buy — a chip that
@@ -9329,8 +9422,14 @@ function renderCommandSheet() {
                 the same trap the side panel had */''}
           <button class="sheet-chip ${!tierable.length || player.gold < 1 || (laserNext && player.lumber < 1) ? 'poor' : ''}" data-sheet-act="tier"><span>⏫</span><small>${!tierable.length ? 'Max' : (towerTierUp(t0)?.next.name.split(' ')[0] || 'Tier')}</small><b>${!tierable.length ? '—' : `${tierCostAll}g${laserNext ? '+🪵' : ''}`}</b></button>
           <button class="sheet-chip" data-sheet-act="priority"><span>🎯</span><small>Target</small><b>${t0.priority}</b></button>
-          <button class="sheet-chip sell-chip" data-sheet-act="sell"><span>💰</span><small>Sell${many ? ' all' : ''}</small><b>${sellAll}g</b></button>
-        </div>${boltPanelHtml(sel)}`;
+          ${(() => { const armed = many && pendingSell && pendingSell.sig === selectionSig(sel) && simTime - pendingSell.at < SELL_CONFIRM_WINDOW;
+            return `<button class="sheet-chip sell-chip ${armed ? 'armed' : ''}" data-sheet-act="sell"><span>${armed ? '⚠' : '💰'}</span><small>${armed ? 'Confirm' : `Sell${many ? ' all' : ''}`}</small><b>${armed ? sel.length + ' towers' : sellAll + 'g'}</b></button>`; })()}
+        </div>
+        ${/* the prose goes BELOW the buttons. Its height changes with every tier
+              upgrade — new name, new description, new blurb — and anything above
+              the action row moves that row while a finger is coming down on it.
+              That is how a batch upgrade turned into a batch sell. */''}
+        <div class="sheet-detail">${stats.desc} ${specialBlurbs[stats.special] || ''}<br><em>${stats.dmg} dmg • ${stats.range.toFixed(1)} range • ${stats.cd.toFixed(2)}s • ${attackProfileText(t0.raceId, stats)}</em>${many ? '' : ` • ${t0.kills} kills`}</div>${boltPanelHtml(sel)}`;
     }
   } else if (sheetTab === 'log') {
     body = recordsContent();
@@ -9531,13 +9630,26 @@ function renderWispInspect() {
   const t0 = sel[0], stats = t0 ? towerLiveStats(t0) : null;
   if (!t0) return close + `<div class="wp-detail">Tap any tower, creep, or rival tower to inspect it.</div>`;
   const up = towerTierUp(t0);
-  return close + `<div class="wp-detail"><b>${sel.length>1?sel.length+'× ':''}${stats.name}${t0.level?(' +'+t0.level):''}</b><br>${stats.dmg} dmg · ${(stats.dmg/stats.cd).toFixed(0)} dps · ${stats.range.toFixed(1)} range<br>${attackProfileText(t0.raceId)}<br>${specialBlurbs[stats.special]||stats.desc||''}${up?`<br><i>→ ${up.next.name}: ${up.next.dmg} dmg · ${up.next.range} range (full ${up.cost}g)</i>`:'<br><i>max tier</i>'}</div>
+  /* THE BUTTONS GO ABOVE THE PROSE, AND THIS IS WHY.
+     They used to sit under wp-detail — a block whose height depends on the
+     tower's description, its special blurb and its next-tier line. Every action
+     re-renders this panel, and a tier upgrade changes all three at once, so the
+     grid SLID while a finger was coming down on it. Tap Tier repeatedly to walk
+     a batch up and one of those taps lands on Sell, one row below. That is how
+     an entire base got sold in a single press.
+     Above the prose, the grid sits at a fixed offset from the header and cannot
+     move, whatever the text underneath does. The one-line title keeps its own
+     height fixed for the same reason. */
+  const sellWorth = sel.reduce((s, t) => s + towerSellValue(t), 0);
+  const armed = pendingSell && pendingSell.sig === selectionSig(sel) && simTime - pendingSell.at < SELL_CONFIRM_WINDOW;
+  return close + `<div class="wp-title"><b>${sel.length>1?sel.length+'× ':''}${stats.name}${t0.level?(' +'+t0.level):''}</b> · ${stats.dmg} dmg · ${stats.range.toFixed(1)} range</div>
     <div class="wp-actions">
       <button class="wp-act" data-wp-act="level">⬆ Level (${sel.filter((t)=>t.level<MAX_LEVEL).reduce((s,t)=>s+towerLevelCost(t),0)||'MAX'}g)</button>
       <button class="wp-act" data-wp-act="tier">⏫ Tier (${sel.filter((t)=>towerTierUp(t)).reduce((s,t)=>s+(towerTierUp(t)?.cost||0),0)}g)</button>
       <button class="wp-act" data-wp-act="priority">🎯 ${t0.priority}</button>
-      <button class="wp-act" data-wp-act="sell">💰 Sell (+${sel.reduce((s,t)=>s+towerSellValue(t),0)}g)</button>
-    </div>${boltPanelHtml(sel)}`;
+      <button class="wp-act wp-sell ${armed ? 'armed' : ''}" data-wp-act="sell">${armed ? `⚠ Confirm sell ${sel.length}` : `💰 Sell (+${sellWorth}g)`}</button>
+    </div>
+    <div class="wp-detail">${(stats.dmg/stats.cd).toFixed(0)} dps · ${attackProfileText(t0.raceId, stats)}<br>${specialBlurbs[stats.special]||stats.desc||''}${up?`<br><i>→ ${up.next.name}: ${up.next.dmg} dmg · ${up.next.range} range (full ${up.cost}g)</i>`:'<br><i>max tier</i>'}</div>${boltPanelHtml(sel)}`;
 }
 function setupWisp() {
   const wisp = $('wisp');

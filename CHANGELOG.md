@@ -7,6 +7,92 @@ environment, so every entry here was live the moment it was pushed.
 
 ---
 
+## 2026-09-10 — a mis-tap can no longer delete a base, and splash stops reaching the sky
+
+### The base that got sold
+
+*"Ive sold an entire base when selected all instead of upgrading all of them."*
+
+Two separate faults, and the first one is mine from the previous pass — I fixed
+the side panel and left the two surfaces a phone actually uses.
+
+**The buttons moved.** Both the wisp inspect panel and the command sheet put
+their four actions *underneath* a block of prose whose height depends on the
+tower: its description, its special blurb, its next-tier line. Every action
+re-renders that panel, and a tier upgrade rewrites all three at once. Tap Tier
+repeatedly to walk a batch up the ladder and one of those taps lands a row
+lower, on Sell. Measured on the laptop side panel: after one batch upgrade the
+sell button moved 9px, because the tier button's label re-wrapped and changed
+its row height.
+
+Every tower surface now puts its actions **above** anything that can reflow, on
+**fixed-height grid rows**. Three surfaces, one rule: nothing that changes size
+sits above a button.
+
+**And selling a batch now asks.** One tower still sells on a single press — that
+one has the full-refund grace behind it. More than one arms instead, says how
+many and what they are worth, and waits 4s for a second press. The undo pill
+existed the whole time and is a 12-second race a person in a fight will lose;
+that is not a safety net. A mis-tap must not be able to delete a base, and now
+it cannot.
+
+`tools/harness/sellguard.js` checks both halves on both layouts: that no button
+moves across a batch upgrade, and that one press of Sell with eight towers
+selected sells nothing.
+
+    PHONE    buttons that MOVED under the finger: none
+             one press of Sell with 8 selected: 9 -> 9 towers (armed)
+    LAPTOP   buttons that MOVED under the finger: none
+             one press of Sell with 8 selected: 9 -> 9 towers (armed)
+
+### Splash does not reach a flier any more
+
+*"For air it's my understanding splash is only against land units, except coil
+from electricity which was splash vs air, and tech is good vs air too."*
+
+Splash was hitting air like anything else — no check at all. That quietly made
+every splash element a competent anti-air answer and left the towers built for
+the job with nothing to be better at. Air is immune to splash now, with one
+exception: **Coil Dynamo**, which already carried `airBonus 1.6` and the label
+"the dedicated anti-air tower", and now actually splashes — a 1.4-cell arc, the
+only blast in the game that goes up.
+
+**Tech is the anti-air element.** Bolt Turret (8g) and Longshot Nest (25g) both
+take +50% against anything airborne: cheap enough to be what you buy when the
+air wave is announced, rather than a tier you had to plan for. Rocket Rack stays
+ground-only, because a rocket volley into a blast radius is exactly the thing
+that should not hit a flier.
+
+### Lower rungs answer what their element cannot
+
+*"The lower tiers can be balanced by strength against certain armor types or
+units such as fortified or air should be the fix."*
+
+Better than handing everyone splash until they all play alike. A tower can now
+carry its **own** class multipliers on top of its race matrix, so a cheap early
+rung is the thing you buy to cover your element's blind spot:
+
+| rung | cost | element's problem | what the rung does |
+|---|---|---|---|
+| Stone · Cairn | 10g | Crush is 0.65 into light — swarms shred it | **+light ×1.55** |
+| Ice · Snowball Launcher | 40g | Frost is 0.55 into fortified | **+fortified ×1.6** |
+| Tech · Rocket Rack | 85g | Pierce is 0.4 into fortified, 0.6 into heavy | **+fortified ×1.9, +heavy ×1.5** |
+
+Every card shows it — `attackProfileText` prints the race matrix and then
+"this tower: +fortified ×1.9", so the reason to buy the rung is on the rung.
+
+---
+
+**Measured:** the ten-race regression is unchanged at a median of wave 12.5,
+which is expected — that bot barely reaches these rungs and meets few fliers
+before it dies. These changes are situational by design, and the tier list
+cannot see them either: it measures one tower against nine grounded wave-one
+creeps, so anti-air and anti-plate specialties are invisible to it. Judging
+these needs a fight with air and fortified in it, which is a person's job.
+
+
+---
+
 ## 2026-09-09 (night) — Poison and Beam get an answer to a crowd, and a tap clears the board
 
 ### The two elements that could only ever hit one creep
