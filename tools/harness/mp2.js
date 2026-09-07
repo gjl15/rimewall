@@ -196,7 +196,15 @@ const boot = async (page, name) => {
   const inspect = await guest.evaluate(() => {
     mpSetViewSeat('south:0');
     // an Ice tier-2 at (5,60) and a creep beside it, in the sender's own frame
-    mp.snap = { towers:[[60, 5, races.findIndex((r) => r.id === 'ice'), 2]], creeps:[[6, 61, 0, 0.5, 0, 1]] };
+    /* A full-width row: an Ice tier-2 at level 1 with a bolt, mid-build, under
+       attack, firing a beam; and a frozen shielded creep being knocked upward.
+       If any of that survives the round trip, all of it does. */
+    mp.snap = {
+      towers:[[60, 5, races.findIndex((r) => r.id === 'ice'), 2, 4242, 1, 2, 0.8, 2.0, 0.5, 3, 0, 8, 62]],
+      creeps:[[6, 61, 0, 640, 1280, 1 | 2 | 4 | 8 | 16,
+        UNIT_DEFS.findIndex((d) => d.name === 'Prowler'), 77,
+        1.2, 0.9, 7, 0.4, 0.3, 0, 0.6, 1, 0.5, 400, 33, 2.5]]
+    };
     rebuildMirrorEntities();
     const t = mirrorTowers[0], c = mirrorCreeps[0];
     const hit = mirrorHit(t.c + .5, t.r + .5);
@@ -209,10 +217,27 @@ const boot = async (page, name) => {
       hitKind:hit && hit.kind,
       cardName:(card.match(/<b><span class="wp-inspect-ico">[^<]*<\/span>([^<]*)</) || [])[1],
       realName:towerLiveStats(t).name,
+      // everything the wide row was added for
+      tower:{ level:t.level, bolt:t.bolt, key:t.key, beam:!!t.beamTo, building:t.buildUntil > simTime, shaking:t.underAttack > simTime, block:`${t.blockHp}/${t.blockMaxHp}` },
+      creep:{ name:c.name, hp:`${c.hp}/${c.maxHp}`, armor:c.armor, cls:c.aClass, air:c.air, sent:c.sent, boss:c.boss,
+        regen:c.regen, burning:c.dots.length > 0, frozen:c.frozenUntil > simTime, chilled:c.frostUntil > simTime,
+        stacks:c.frostStacks, knock:c.knockKind, shield:`${Math.round(c.shield)}/${c.shieldMax}`, venom:c.venom, id:c.id },
+      creepCard:renderWispInspect.call(null) && (() => { inspectEntity = { kind:'mirror-creep', ref:c }; const s = renderWispInspect(); inspectEntity = hit; return /(\d+)\/(\d+) HP/.test(s); })(),
       drew:(() => { try { const cv = document.createElement('canvas'); cv.width = cv.height = 400; drawTower(cv.getContext('2d'), t); drawCreep(cv.getContext('2d'), c); return 'ok'; } catch (e) { return 'THREW: ' + e.message; } })(),
     };
   });
   console.log('mirror entities + inspect:', JSON.stringify(inspect, null, 1));
+  // what the wider row costs on a public relay at 3.3 messages a second
+  const bytes = await host.evaluate(() => {
+    const fake = { towers:[], creeps:[] };
+    // a realistic late game: settled towers and mostly unafflicted creeps, run
+    // through the same trim the real encoder uses
+    for (let i = 0; i < 90; i += 1) fake.towers.push(trim([60, 5, 0, 3, 1234 + i, 0, 0, 0, 0, 0, 0, 0, 0, 0]));
+    for (let i = 0; i < 70; i += 1) fake.creeps.push(trim([6.5, 61.2, 0, 640, 1280, 3, 5, i, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]));
+    const n = JSON.stringify({ t:'snap', sid:'x', seat:'south:0', ...fake, fx:[] }).length;
+    return { bytes:n, perSec:Math.round(n * 3.33) };
+  });
+  console.log(`wire cost at 90 towers + 70 creeps: ${bytes.bytes} bytes a snapshot, ~${(bytes.perSec / 1024).toFixed(1)} KB/s`);
   console.log('  positions right:', JSON.stringify(inspect.towerAt) === JSON.stringify(inspect.expectAt)
     && JSON.stringify(inspect.creepAt) === JSON.stringify(inspect.expectCreep),
     '| tap inspects the right tower:', inspect.cardName === inspect.realName,

@@ -7,6 +7,50 @@ environment, so every entry here was live the moment it was pushed.
 
 ---
 
+## 2026-09-08 — every field, and the numbers that were lying
+
+### The whole tower and creep, not just its position
+*"Put them all."*
+
+The snapshot carried four numbers for a tower and six for a creep — enough to
+place a shape and nothing else. So a watched tower never fired its beam, never
+shook while creeps chewed it, never showed its build scaffold; a watched creep
+never froze, never got slammed, never carried a shield. Every field the two
+renderers actually read now travels: level, bolt, build progress, under-attack,
+block damage, the live beam target and his own tower key (so the motif jitter is
+identical to what he sees); and for creeps, real hit points, armour, class,
+speed, slow, frost and stacks, frozen, stun, stasis, knock and its direction,
+shield, venom, regen, burning, boss.
+
+**Clocks were the one thing that could not be sent raw.** Every animation is
+written as `until > simTime`, and two clients' `simTime` differ — so durations
+go over as *seconds remaining* and are rebased on arrival. Send them raw and
+every effect is either permanently on or permanently expired.
+
+**What it costs.** Widening the rows took a heavy late game (90 towers, 70
+creeps) from 7.5KB a snapshot to 24 KB/s, which is too much for a public relay.
+Two changes brought it back: the rarely-set fields moved to the end of each row
+and trailing zeroes are trimmed, so a settled tower travels as five numbers
+instead of fourteen; and the tower list is sent only when it actually changes,
+since towers move only when somebody builds. Measured: **3.5KB a snapshot,
+~11.5 KB/s at the worst case, and a fraction of that in a normal one.**
+
+### The tooltips were lying, and it was my fault
+*"Tool tips for creeps were not updated."*
+
+`CREEP_HP_SCALE` was applied at spawn and nowhere else, so every health number
+the game showed you was about half of what actually walked out of the gate — a
+wave banner reading 38 HP against a creep with 76. Send cards were worse: they
+printed the raw ladder value, ignoring both the scale and the growth a send
+accrues during a Classic match.
+
+There is a harness for it now (`tools/harness/tips.js`) which spawns the creep
+each card describes and compares. Every row matches, including the World Titan
+at 32,904 — that one needed the display to round in the same *order* the spawn
+does, or the biggest rungs disagreed with themselves by a point.
+
+---
+
 ## 2026-09-07 (night, latest) — his board, drawn properly, and tappable
 
 *"I want to be able to see his cool tower effects and I still can't see what his
