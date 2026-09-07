@@ -7,6 +7,66 @@ environment, so every entry here was live the moment it was pushed.
 
 ---
 
+## 2026-09-08 (evening) — a cooldown on the chance-based holds, and cards you can read
+
+### No wall can hold a creep still any more
+*"Maybe some of these % based skills should have low cooldowns on how often they
+can proc, to balance."* Right, and here is the number. Several specials fire on
+a percentage and stop a creep dead — Electricity's stasis, Earth's stun — and
+**only Gravity's had a cooldown.** With 26 tier-5 towers against one creep over
+45 seconds, the share of time it could not move at all:
+
+| element | held, before | held, after | slowed |
+|---|---|---|---|
+| Electricity | **27.6%** | 8.9% | 0% |
+| Earth | **21.8%** | 11.8% | 0% |
+| Gravity | 11.7% | 12.7% | 22.9% |
+| Ice | 8.2% | 8.2% | 10.7% |
+
+Gravity, the only one that was capped, held a creep *least* — a fair part of why
+it felt weak beside the others. A creep is now immune to a **new** chance-based
+hold for 0.5s after the last one ends (`TRAIT.holdCD`). Deterministic holds you
+paid for and aimed — pause, paralyze, entangle — are **not** gated, because
+those are the entire point of their tower.
+
+The ten-race regression is unmoved (median death wave 12.5, every race
+identical), which is the ideal outcome: it removed a degenerate lock without
+changing who wins. Caveat worth stating: the regression bot is a crude proxy and
+may simply not exploit stasis the way a person would.
+
+### Gravity shoves once, and shoves properly
+*"Gravity should push it back in the direction of the last checkpoint 2-5
+squares, and maybe only once per creep."* It moved 1.5 cells **and** reset the
+creep's checkpoint so the flag had to be crossed again — a far larger effect
+than it looked, and one a wall could apply repeatedly until a creep never
+arrived. The distance is the effect now: 2 to 5 cells, once in a creep's life,
+and a blocked roll pays out as the slow.
+
+### You can see what you are buying
+*"I find it hard to see the details of each tower before build; there should be
+clearly defined percent chance skills on what they do and how often."*
+
+The pre-build card was one cramped line then whatever sentence the blurb table
+held. It is a labelled grid now: damage per shot, firing rate as shots a second
+**and** as a cooldown, damage per second, range in cells, gold per point of dps,
+and whether it can hit air — then the armour matrix, then the special with its
+odds and its rate.
+
+The descriptions were worse than vague. Half said "may stun" or "fires
+continuously" with no number. The numbers present had been typed by hand and had
+drifted from the tunables. **Two keys did not match the special they described**
+(`pierce4` against `pierce`, `airbonus` against `skyhunter`) so those towers
+showed nothing at all. And **fifteen specials had no entry whatsoever**,
+including every Gravity tier, poison, beam, snipe, focus, resonate, overcharge,
+discharge, shatter, splinter and entangle. Every line is generated from the live
+`TRAIT` values now, so it cannot drift, and all 31 are covered.
+
+### "rng" meant range
+It collides with the random number generator every player has heard of. Every
+surface says **range** now.
+
+---
+
 ## 2026-09-08 (later) — the leak, the light show, and gravity's wasted procs
 
 ### Everything leaked in a room, and it was a counting bug

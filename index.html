@@ -1464,6 +1464,7 @@ const TRAIT = {
   fireIgnitePct:.15, fireEruptMult:.5, fireEruptRadius:1.9,
   earthSplashRadius:1.5, earthSplashMult:.65, earthStunDirect:.18, earthStunSplash:.1,
   stoneCritChance:.25, stoneCritMult:2,
+  holdCD:0.5,   // a creep is immune to a NEW chance-based hold for this long after the last one ends
   elecStasis:.15, elecStasisDur:.3,
   thunderFloor:.75, thunderCap:.25,
   crystalShieldMult:2,
@@ -2744,6 +2745,35 @@ function nearestBlockingTower(creep) {
   return candidates[0] || null;
 }
 
+/* ONE CREEP CANNOT BE HELD STILL FOREVER.
+   Several specials fire on a percentage and stop a creep dead — Electricity's
+   stasis, Earth's stun — and only Gravity's displacement had a cooldown. With
+   enough towers the others chain, and a creep that never moves is not a
+   defence, it is a lock: it removes the game rather than deciding it.
+
+   Measured before this, with 26 tier-5 towers against one creep over 45s, as
+   the share of time it could not move at all:
+
+     Electricity 27.6%   Earth 21.8%   Gravity 11.7%   Ice 8.2%
+
+   Gravity, the only one that was capped, held a creep least — a fair part of
+   why it felt weak beside the others. A creep is now immune to a NEW
+   chance-based hold until TRAIT.holdCD after the last one ends. Deterministic
+   holds you paid for and aimed — pause, paralyze, entangle — are NOT gated:
+   those are the entire point of their tower. */
+function tryHold(creep, until) {
+  if (!creep || creep.boss) return false;
+  if (simTime < (creep.holdGate || 0)) return false;
+  creep.stunUntil = Math.max(creep.stunUntil || 0, until);
+  creep.holdGate = Math.max(creep.stunUntil, creep.stasisUntil || 0) + TRAIT.holdCD;
+  return true;
+}
+function tryStasis(creep, until) {
+  if (!creep || simTime < (creep.holdGate || 0)) return false;
+  creep.stasisUntil = Math.max(creep.stasisUntil || 0, until);
+  creep.holdGate = Math.max(creep.stasisUntil, creep.stunUntil || 0) + TRAIT.holdCD;
+  return true;
+}
 function pushDot(creep, dps, dur, tag, nonLethal) {
   if (!creep.dots) creep.dots = [];
   creep.dots.push({ dps, until:simTime + dur, tag, nonLethal:!!nonLethal });
@@ -3060,7 +3090,7 @@ function applyHitEffects(creep, tower, stats) {
     }
   }
   // ELECTRICITY — brief stasis (movement stops, regen continues)
-  if (race === 'electricity' && rng() < TRAIT.elecStasis * tierPot(tower)) creep.stasisUntil = Math.max(creep.stasisUntil, simTime + TRAIT.elecStasisDur);
+  if (race === 'electricity' && rng() < TRAIT.elecStasis * tierPot(tower)) tryStasis(creep, simTime + TRAIT.elecStasisDur);
   if (special === 'pause' && !creep.boss) creep.stunUntil = simTime + 3.5;
   if (special === 'armorshred') creep.armorShred = Math.min(creep.armor, creep.armorShred + 5);
   applyBoltEffects(creep, tower, stats);
@@ -3165,7 +3195,7 @@ function resolveProjectileHit(projectile) {
     if (crit) pushFx({ kind:'num', x:target.x, y:target.y - .6, text:`${Math.round(dmg)}!`, until:simTime + .9, color:'#ffc93d', big:true });
     applyHitEffects(target, tower, stats);
     // EARTH — chance to stun the direct target (stun freezes HP regen)
-    if (isEarth && !target.boss && rng() < TRAIT.earthStunDirect * tierPot(tower)) { target.stunUntil = Math.max(target.stunUntil, simTime + .5); pushFx({ kind:'num', x:target.x, y:target.y - .6, text:'✦', until:simTime + .6, color:'#ffd86b' }); }
+    if (isEarth && !target.boss && rng() < TRAIT.earthStunDirect * tierPot(tower)) { tryHold(target, simTime + .5); pushFx({ kind:'num', x:target.x, y:target.y - .6, text:'✦', until:simTime + .6, color:'#ffd86b' }); }
   }
   if (stats.special === 'splinter' && target) {
     // one shard peels off into a neighbour
@@ -3189,7 +3219,7 @@ function resolveProjectileHit(projectile) {
         // the nova AND the snowball burst carry the full frost ramp to everything
         // they touch, so a splash hit builds toward a freeze exactly like a direct one
         if (tower && tower.raceId === 'ice' && (stats.special === 'frostnova' || stats.special === 'snowball')) applyFrost(other, tower, stats);
-        if (isEarth && !other.boss && rng() < TRAIT.earthStunSplash * tierPot(tower)) other.stunUntil = Math.max(other.stunUntil, simTime + .1);
+        if (isEarth && !other.boss && rng() < TRAIT.earthStunSplash * tierPot(tower)) tryHold(other, simTime + .1);
       }
     });
   }
@@ -3335,7 +3365,7 @@ function firePulse(tower, stats) {
   eligible.forEach((creep, rank) => {
     if (stats.special === 'thunder') {
       creep.shield = 0; creep.shieldHitAt = simTime;                       // strip shields
-      if (rng() < TRAIT.elecStasis * tierPot(tower)) creep.stasisUntil = Math.max(creep.stasisUntil, simTime + TRAIT.elecStasisDur);
+      if (rng() < TRAIT.elecStasis * tierPot(tower)) tryStasis(creep, simTime + TRAIT.elecStasisDur);
       const floor = creep.maxHp * TRAIT.thunderFloor;                       // chip down to 75% max, ≤25% max per pulse
       if (creep.hp > floor) creep.hp -= Math.min(creep.hp - floor, creep.maxHp * TRAIT.thunderCap);
     } else if (isGravity) {
