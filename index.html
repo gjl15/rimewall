@@ -8122,7 +8122,7 @@ function mpBroadcastRoster() {
   if (mp.role !== 'host') return;
   const payload = { t:'roster', roster:mpRosterWire(), mode:mpModeNow(), lives:startingLives(), ts:Date.now() };
   mpSend(payload);
-  mp.transport?.presence?.('host', payload);
+  mpPresence('host', payload);
   if (lobbyOpen()) renderLobby();
 }
 
@@ -8261,7 +8261,7 @@ async function mpOpenRoom(join) {
   const onOpen = () => {
     if (join) {
       mpStatus(`Looking for the host of <b>${code}</b>…`);
-      mp.transport?.presence?.('guest', { t:'hello', name:mpPlayerName(), race:selectedRace.id, ts:Date.now() });
+      mpPresence('guest', { t:'hello', name:mpPlayerName(), race:selectedRace.id, ts:Date.now() });
       mpStartHelloLoop();
     } else {
       const link = mpInviteLink(code);
@@ -8273,7 +8273,7 @@ async function mpOpenRoom(join) {
         catch (e) { $('mp-copy-link').textContent = 'Copy failed — long-press the link below'; }
       });
       // retained host beacon: a guest that subscribes at ANY later time instantly receives this — kills the discovery race
-      mp.transport?.presence?.('host', { t:'config', name:mpPlayerName(), race:selectedRace.id, mode:mpModeNow(), lives:startingLives(), team:teamSizeSetting(), ts:Date.now() });
+      mpPresence('host', { t:'config', name:mpPlayerName(), race:selectedRace.id, mode:mpModeNow(), lives:startingLives(), team:teamSizeSetting(), ts:Date.now() });
     }
   };
   const fallbackLocal = () => {
@@ -8292,7 +8292,25 @@ async function mpOpenRoom(join) {
     fallbackLocal();
   }
 }
-function mpSend(msg) { if (mp.transport) mp.transport.send(msg); }
+/* EVERY MESSAGE SAYS WHO SENT IT, AND THAT IS STAMPED HERE.
+   The whole team protocol keys off the sender: mpOnMessage resolves a peer with
+   `msg.__from || msg.sid`, and only the MQTT transport adds __from. So over the
+   BroadcastChannel fallback — which is what runs whenever the relay is blocked —
+   a guest's `hello` arrived with NO identity, mpPeer(undefined) returned null,
+   the host skipped seating it, and no roster ever went out.
+
+   The guest then kept its initial default of south:0, which is the HOST's seat
+   key, and published its board, its lives and its sends under it. The host filed
+   them under its own seat and watched an empty one. Two people in a room could
+   not see each other at all: no towers, no sends, no projectiles.
+
+   Stamping centrally means a call site can never forget again. */
+function mpStamp(msg) {
+  if (!msg || typeof msg !== 'object') return msg;
+  return msg.sid ? msg : { ...msg, sid:mp.sid };
+}
+function mpSend(msg) { if (mp.transport) mp.transport.send(mpStamp(msg)); }
+function mpPresence(kind, msg) { mp.transport?.presence?.(kind, msg ? mpStamp(msg) : msg); }
 function mpOnMessage(msg) {
   if (!msg || !msg.t) return;
   mp.lastRecv = performance.now(); if (mp.dropped) { mp.dropped = false; showToast('<b>🔌 Opponent reconnected</b>'); }
@@ -8317,7 +8335,7 @@ function mpOnMessage(msg) {
       mpBroadcastRoster();
     }
     mpSend({ t:'config', name:mpPlayerName(), race:selectedRace.id, mode:mpModeNow(), lives:startingLives(), team:teamSizeSetting() });
-    mp.transport?.presence?.('host', { t:'config', name:mpPlayerName(), race:selectedRace.id, mode:mpModeNow(), lives:startingLives(), team:teamSizeSetting(), ts:Date.now() });
+    mpPresence('host', { t:'config', name:mpPlayerName(), race:selectedRace.id, mode:mpModeNow(), lives:startingLives(), team:teamSizeSetting(), ts:Date.now() });
     {
       const orace = races.find((r) => r.id === mp.oppRace);
       mpStatus(`<b>✓ ${escapeHTML(mp.oppName)} joined!</b>${orace ? ` Playing <span style="color:${orace.color}">${orace.symbol} ${orace.name}</span>.` : ''} Starting the match…`);
