@@ -2007,11 +2007,15 @@ const WAVE_PERIOD = 30;
    lobby (see your squad, change your element, ready up early) and then 30s of
    build time, which is the same runway with the roster made visible. */
 /* ECONOMY SCALE. A maze only bites when you can finish a row of it, and a row is
-   as long as the board is wide. On the old 32-wide board a comb row cost ~30
-   towers; on a 101-wide one it costs ~99, so the same purse buys a wall with
-   holes in it and the creeps stroll through. ECON_SCALE keeps the gold curve in
-   proportion to the ground it has to cover, measured against the old board. */
-const ECON_SCALE = Number(window.__ECON_SCALE__ ?? 1);
+   as long as the board is wide, so a wider board needs a bigger purse to hold
+   the same wall. The exponent is fitted to ONE measured point, not derived: at
+   51 columns the ten-race median death wave came out 20 at x1, 26 at x1.5 and
+   42 at x2, against 41 on the old 32-wide board — and (51/32)^1.5 = 2.01.
+   Between width (x1.6) and area (x2.5) is about where it should sit, since you
+   never have to fill a board, only wall a route across it. Treat it as a
+   starting point for any future resize, and re-measure. */
+const REFERENCE_COLS = 32;   // the board every number in this file was tuned against
+const ECON_SCALE = Number(window.__ECON_SCALE__ ?? Math.pow(COLS / REFERENCE_COLS, 1.5));
 const START_GOLD = Math.round(30 * ECON_SCALE), FIRST_WAVE_DELAY = 30, LOBBY_SECONDS = 20;
 const INCOME_PERIOD = 25, BASE_INCOME = Math.round(24 * ECON_SCALE);   // was 33 — balance audit: income was the flat snowball outpacing HP growth
 const BOUNTY_MULT = 1;   // was 2 — kill-gold was the fattest early faucet (defense out-damaged threat ~5.7x)
@@ -3161,7 +3165,14 @@ function updateProjectile(projectile, dt) {
    building in the middle of a cliff. */
 const LANE_WEST = [1, PILLAR_C0 - 1], LANE_EAST = [PILLAR_C1 + 1, COLS - 2];
 const BAND_R0 = S_PILLAR_R1 + 1, BAND_R1 = S_GATE_R - 1;   // the open band, 100..122
+let mazeOrderCache = null;
 function mazeOrderSouth() {
+  /* Memoised: the comb comes from terrain and the bare route (solved with towers
+     ignored), neither of which moves during a match — but enemySpots() falls
+     back to rebuilding it inside a 1.6s build tick, and the route solve alone is
+     eight A* calls. Computing it once per load costs nothing; computing it on a
+     tick would have quietly put ~28ms into every rival build. */
+  if (mazeOrderCache) return mazeOrderCache.map((c) => ({ r:c.r, c:c.c }));
   const south = [];
   /* THE BAND IN FRONT OF THE DOOR COMES FIRST, from the door outward. It used to
      come last, after both side lanes — which was harmless on the old board where
@@ -3183,7 +3194,49 @@ function mazeOrderSouth() {
   for (const [c0, c1] of [LANE_WEST, LANE_EAST]) { let b = 0;
     for (let r = S_PILLAR_R1 - 1; r >= S_PILLAR_R0 + 2; r -= 2) { const gapLeft = b % 2 === 0; b += 1;
       for (let c = c0; c <= c1; c += 1) { if (gapLeft ? c === c0 : c === c1) continue; south.push({ r, c }); } } }
-  return south;
+  mazeOrderCache = sortByRouteProximity(south);
+  return mazeOrderCache.map((c) => ({ r:c.r, c:c.c }));
+}
+/* KEEP THE COMB, BUT WALK IT FROM THE ROUTE OUTWARD.
+   The comb pattern is what turns a wall into a maze, so it stays — but the ORDER
+   it is laid in decided whether short-range races could play at all. Lanes on
+   the old board were 10 cells wide against a 5.5 range, so any tower in a lane
+   covered it and order barely mattered. Widen the lanes and that stops being
+   true: Stone opens at range 3.9 and Earth at 3.2, and laying the comb in raw
+   row order put most of their towers out of reach of anything walking. Stone
+   leaked from wave 2 and died at wave 8 no matter how much gold it was given —
+   the wall was real, it simply could not touch the creeps.
+   Sorting by distance to the route creeps actually take fixes it for every race
+   at once, and costs one BFS-free path solve on an empty board per match. */
+function sortByRouteProximity(cells) {
+  const path = [];
+  for (const side of ['west', 'east']) {
+    const nodes = [SPAWNS[PLAYER_HALF][side], ...ROUTES[PLAYER_HALF][side]];
+    for (let i = 0; i < nodes.length - 1; i += 1) {
+      const leg = findPath(nodes[i], nodes[i + 1], null, true);   // ignore towers: the bare route
+      if (leg) for (const cell of leg) path.push(cell);
+    }
+  }
+  if (!path.length) return cells;
+  /* a coarse distance field beats measuring every cell against every path cell —
+     the naive version is O(cells x path) and ran to millions of hypots */
+  const far = 1e6, dist = new Float32Array(COLS * ROWS).fill(far);
+  const queue = [];
+  for (const cell of path) { const k = idx(cell.r, cell.c); if (dist[k] > 0) { dist[k] = 0; queue.push(k); } }
+  for (let head = 0; head < queue.length; head += 1) {
+    const k = queue[head], r = (k / COLS) | 0, c = k % COLS, d = dist[k] + 1;
+    for (let dr = -1; dr <= 1; dr += 1) for (let dc = -1; dc <= 1; dc += 1) {
+      if (!dr && !dc) continue;
+      const nr = r + dr, nc = c + dc;
+      if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue;
+      const nk = idx(nr, nc);
+      if (dist[nk] > d) { dist[nk] = d; queue.push(nk); }
+    }
+  }
+  return cells
+    .map((cell, i) => ({ cell, i, d: dist[idx(cell.r, cell.c)] }))
+    .sort((a, b) => (a.d - b.d) || (a.i - b.i))   // ties keep the comb's own order, so the weave survives
+    .map((x) => x.cell);
 }
 const ALLY_NAMES = ['Vex', 'Coil', 'Marrow', 'Tine', 'Halcyon', 'Bramble'];
 let allies = [];

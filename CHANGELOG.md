@@ -7,6 +7,75 @@ environment, so every entry here was live the moment it was pushed.
 
 ---
 
+## 2026-09-07 (later)
+
+### A bigger board — 51 × 73, and the door is now a hole in the world's edge
+The map is 51 columns by 34 rows of ground per side, up from 32 × 23. Two and a
+half times the ground, with a proportional massif in the middle, both lanes
+converging on a wide open band, and the exit moved to the very edge of the
+board: the last two rows are solid rock with a three-cell mouth cut through them
+on the centre column, and the creeps walk straight into it.
+
+**Every map coordinate now derives from three constants** — `COLS`,
+`HALF_ROWS`, `RIVER_ROWS`. There used to be about twenty literal row and column
+ranges scattered through terrain, routing, rendering, the rival's build zones,
+the ally zones and the multiplayer mirror, which is why the board had never been
+resized in the first place. `CELL` derives too, so the canvas backing store
+stays around 4M pixels at any width (and still resolves to the original 24 at 32
+columns).
+
+**Two things broke on the bigger board, and neither was the obvious one.**
+
+- **Short-range races stopped working entirely.** Stone opens at range 3.9 and
+  Earth at 3.2. The old lanes were 10 cells wide, so any tower in a lane covered
+  it and the order you laid the comb in barely mattered. Widen the lanes and
+  that stops being true: laying the comb in raw row order put most of Stone's
+  wall out of reach of anything walking. It leaked from **wave 2** and died at
+  **wave 8 no matter how much gold it was given** — the wall was real, it just
+  could not touch the creeps. The comb is now walked from the creep route
+  outward, which fixed every race at once: Stone 8 → 27.
+- **The purse was sized for the old board.** A maze only bites when you can
+  finish a row of it, and a row is as long as the board is wide. Gold now scales
+  as `(COLS / 32) ^ 1.5` — fitted to one measured point, not derived: at 51
+  columns the ten-race median death wave came out 20 at ×1, 26 at ×1.5 and 42 at
+  ×2, and `(51/32)^1.5 = 2.01`.
+
+Result: median death wave **46** against the old board's 41, and nothing below
+27 where the old board's worst race managed 16. Every race is playable.
+
+### Why not 101 × 60
+That was the ask, and it was built and measured before being turned down. It
+fails three independent budgets:
+
+| board | cells | cell @1× | A\* | sim/step | repaint | comb row |
+|---|---|---|---|---|---|---|
+| 32 × 51 (old) | 1,632 | 9.7px | 1.02ms | 0.39ms | 1.9ms | 29 |
+| **51 × 73 (now)** | **3,723** | **5.9px** | **3.46ms** | **0.42ms** | **3.4ms** | **48** |
+| 101 × 125 | 12,625 | 3.1px | 21.9ms | 3.80ms | 48.3ms | 98 |
+
+- **You could not see it.** 101 columns across a 311px phone is a 3.1px cell —
+  smaller than the old board's cell at *maximum* zoom.
+- **You could not play it.** A tower placement invalidates every creep's path
+  and each one re-runs A\*: ~30 creeps × 22ms is a **660ms freeze on every
+  build**, on a desktop.
+- **It was not a game.** A 98-tower comb row against a 29-tower one dropped the
+  median death wave from 41 to 11.
+
+What actually gates a wider board is the per-creep A\*, not the canvas and not
+the screen. A flow field — one BFS per goal, then O(1) per creep — is the thing
+that would unlock it.
+
+### Zoom that fits the board it is on
+The ceiling was a flat 3×, chosen when the board was 32 wide. It derives from
+the board now, so a cell can always reach a thumb-sized ~26px on the narrowest
+phone: 5× here, and a match opens at 3.1× framing your own ground rather than at
+a whole-board overview you cannot build on. Landmark labels counter-scale with
+the camera, so "SOUTH SHRINE" no longer renders five times life size.
+
+Verified placing a tower by tapping the board at 1×, 1.8×, 2.6×, 3.5× and 5×.
+
+---
+
 ## 2026-09-07
 
 ### The new sidebars gave the board back, and three-quarters of your taps
