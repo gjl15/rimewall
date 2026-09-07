@@ -9,6 +9,25 @@ environment, so every entry here was live the moment it was pushed.
 
 ## 2026-09-07 (evening) — teams, a real lobby, and a scoreboard
 
+### Watch any board in the room, including the computers'
+There is one place to show another board — the top half of your own screen —
+and the drawing code read a single `mp.snap`, which held whichever client sent
+a picture most recently. A team-mate's snapshots arrived and were stored and
+then never drawn, because nothing said which board you wanted. And the
+computers' board was never published at all: it exists only on the host, so an
+AI side was invisible to everyone, the host included.
+
+A strip above the wave bar now lists every seat in the room in its lane colour
+with its lifeforce. Tap one to put that board up top. Your own chip is a label
+rather than a choice. The host publishes the bots' board too, flipped into
+south-half coordinates first — snapshots travel in the sender's own frame, and
+without the flip a bot board arrives upside down.
+
+The rival chip also used to be named after whoever said hello, which in a team
+room is your own team-mate: the HUD read "GENE 200" for the enemy side while
+Gene was on my team. It names the other side now.
+
+
 ### Two people can play on one team
 The multiplayer protocol carried exactly one opponent, in scalars: `oppName`,
 `oppRace`, `oppLives`, `oppIncome` and a single snapshot. A third client's
