@@ -315,9 +315,12 @@ h2 span { color:#7583a6; }
 .ov-gate small { color:#ffe9a5; font-size:6.5px; }
 .ov-shrine { text-align:center; color:#d9c2ff; font-size:12px; text-shadow:0 1px 3px #14372f; }
 .ov-shrine small { color:#cbb3f2; font-size:6.5px; }
-.ov-spot { text-align:center; color:#17325a; opacity:.85; }
-.ov-spot small { color:#285879; }
-.ov-spot-you { color:#0d3a56; }
+/* the lane name is drawn in its own lane colour, over a dark plate so it stays
+   legible on the pale ground; --lane is set per label in buildOverlay */
+.ov-spot { text-align:center; opacity:.95; padding:3px 7px; border-radius:7px;
+  color:var(--lane, #17325a); background:#0b1424cc; border:1px solid color-mix(in srgb, var(--lane, #17325a) 55%, transparent); }
+.ov-spot small { color:color-mix(in srgb, var(--lane, #285879) 70%, #dfe9ff); }
+.ov-spot-you { box-shadow:0 0 0 1px color-mix(in srgb, var(--lane, #0d3a56) 30%, transparent); }
 .ov-force { transform:translate(0,-50%); color:#17325a; opacity:.8; letter-spacing:.14em; }
 .ov-force-north { color:#241f66; }
 .wave-banner { position:absolute; top:46%; left:50%; z-index:14; display:flex; flex-direction:column; align-items:center; gap:1px; max-width:94%; padding:6px 14px; border:1px solid #ffd86b99; border-radius:12px; color:#ffe9a5; background:#0d1424f0; box-shadow:0 4px 16px #000a; font:500 10px 'DM Mono',monospace; letter-spacing:.04em; transform:translate(-50%,-50%); text-align:center; pointer-events:none; }
@@ -838,6 +841,8 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 
 /* income toggle + rival income */
 .resource.income { color:#8fe6b8; }               /* your income: always shown */
+.income-eta { margin-left:4px; font-style:normal; font-size:9px; opacity:.62; font-variant-numeric:tabular-nums; }
+.income-eta.due { opacity:1; color:#ffd86b; }
 .resource.rival-income { color:#ff9faf; display:none; }   /* rival income: only in a live match */
 body.mp-live .resource.rival-income { display:inline-flex; }
 .resource.hidden { display:none; }
@@ -1099,7 +1104,7 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
           <div class="resources">
             <span class="resource gold"><b>◆</b><em id="gold-label">30</em></span>
             <span class="resource lumber" title="Lumber — buys shrine upgrades, a second element, or a Laser Cannon"><b>🪵</b><em id="lumber-label">0</em></span>
-            <span class="resource income" title="Your send income per tick"><b>↗</b><em id="income-label">+33</em></span><span class="resource rival-income" title="Ally / rival income"><b>↗R</b><em id="rival-income-label">+0</em></span>
+            <span class="resource income" title="Gold you are paid on each income tick, and the seconds until the next one"><b>↗</b><em id="income-label">+24</em><i id="income-eta" class="income-eta">25s</i></span><span class="resource rival-income" title="Ally / rival income"><b>↗R</b><em id="rival-income-label">+0</em></span>
             <span class="resource lives" title="Your lifeforce"><b>♥ YOU</b><em id="lives-label">100</em></span>
             <span class="vs-mark">⚔</span>
             <span class="resource enemy" title="Rival lifeforce"><b id="rival-name-label">RIVAL</b><em id="enemy-lives-label">100</em></span>
@@ -1665,6 +1670,16 @@ terrain.set(baseTerrain);
    arrow) — then flag 1 (river corner), flag 2 (outer turn), flag 3 (return
    toward the middle), the final gate, and the ship. Flags are nodes 1–3. */
 const LANE_W_C = 4, LANE_E_C = COLS - 5;                     // the outer lane each side runs down
+/* The colour of each lane, and later of each SEAT that holds it. These names
+   were already painted on the board as overlay labels (RED/BLUE/TEAL north,
+   PURPLE/YELLOW/ORANGE south) but were wired to nothing, so a route, a seat and
+   a label that all mean "the west lane" shared no colour. Order is
+   [west, middle, east]; a half with one defender uses the middle. */
+const LANE_COLORS = {
+  north:[{ id:'red', name:'Red', color:'#ff6b6b' }, { id:'blue', name:'Blue', color:'#6ba8ff' }, { id:'teal', name:'Teal', color:'#54d6c4' }],
+  south:[{ id:'purple', name:'Purple', color:'#b07cff' }, { id:'yellow', name:'Yellow', color:'#ffd86b' }, { id:'orange', name:'Orange', color:'#ff9f4d' }]
+};
+const laneColor = (half, side) => LANE_COLORS[half][side === 'west' ? 0 : 2].color;
 const S_TURN_R = S_PILLAR_R1 + 6, N_TURN_R = N_PILLAR_R0 - 6;   // where the lane turns back inward
 const S_MID_R = S_DOOR_R - 8, N_MID_R = N_DOOR_R + 8;           // the shared middle flag, in the open band
 const ROUTES = {
@@ -2236,10 +2251,13 @@ const effects = [];                // transient visual effects on the fx canvas
 const pendingSpawns = [];
 let player, enemy, wave, waveClock, battleRunning = false, battlePaused = false, matchOver = false;
 let simTime = 0, lastFrame = 0, creepSerial = 0;
-const debug = { routes:false, ranges:false, ref:false };
+// routes ON by default: this is a maze game and where the creeps walk is the
+// single most important thing on the board. It was a toggle buried in Tools.
+const debug = { routes:true, ranges:false, ref:false };
 let cachedRouteText = '';
 
 let incomeClock = INCOME_PERIOD, waypointFxClock = 2;
+let levelPayDue = 0;   // wave-rollover gold waits for the next income tick, so gold arrives on one clock
 // Seeded PRNG (mulberry32) for the SIMULATION only — same seed => same crits/stuns/enemy pick,
 // which unlocks a reproducible daily gauntlet, same-seed rematch, and async ghosts. Visual-only
 // randomness (FX particles, SFX, tower shake, skybolt flicker) intentionally stays on Math.random.
@@ -2282,7 +2300,7 @@ function resetMatchState() {
     enemy.playbook = pb;
     if (pb) log(`The rival has studied ${pb.games} of your ${races.find((r) => r.id === rivalRace)?.name || rivalRace} games and is trying your maze against you.`);
   }
-  wave = 0; waveClock = FIRST_WAVE_DELAY; incomeClock = INCOME_PERIOD; simTime = 0; battlePaused = false; matchOver = false;
+  wave = 0; waveClock = FIRST_WAVE_DELAY; incomeClock = INCOME_PERIOD; levelPayDue = 0; simTime = 0; battlePaused = false; matchOver = false;
   spawnAllies();
   if (allies.length) {
     const mine = allies.filter((a) => a.half === PLAYER_HALF);
@@ -3695,8 +3713,10 @@ function launchNextWave() {
   wave += 1;
   // the source map's per-level defender payout, alongside the Wars income clock
   const levelPay = 6 + Math.round(1.5 * Math.min(wave, 30));   // was 10 + 2*wave — level-pay compounded the snowball
-  player.gold += levelPay;
-  enemy.gold += levelPay;
+  /* Banked, not paid here. Two faucets on two different clocks is why the gold
+     counter reads as wrong: the HUD promises a payout every 25s and then gold
+     also jumps at every wave rollover. Same total, one clock. */
+  levelPayDue += levelPay;
   if (wave >= 15) award('wave_15');
   if (wave === 11 && player.lives === player.startLives) award('perfect_10');
   questEvent('reach_12', wave, true);
@@ -3705,7 +3725,7 @@ function launchNextWave() {
   const def = waveDefFor(wave);
   queueWaveSpawns(def);
   waveClock = WAVE_PERIOD;
-  log(`Wave ${wave} — ${def.name}${def.air ? ' (AIR — flies over the maze!)' : ''} (${def.count} per side) entered the Creep Gate. Level pay +${levelPay}.`);
+  log(`Wave ${wave} — ${def.name}${def.air ? ' (AIR — flies over the maze!)' : ''} (${def.count} per side) entered the Creep Gate. Level pay +${levelPay} with the next income.`);
   renderHud();
 }
 /* RIVAL DIFFICULTY = the rival's income multiplier, because gold is the only
@@ -3726,15 +3746,19 @@ function rivalGoldMult() {
   return RIVAL_DIFFICULTY[pick] ?? RIVAL_DIFFICULTY.hard;
 }
 function payIncome() {
-  const paid = BASE_INCOME + incomePayout(player.income);
+  const due = levelPayDue; levelPayDue = 0;   // wave pay rides this tick
+  const paid = BASE_INCOME + incomePayout(player.income) + due;
   player.gold += paid;
-  enemy.gold += (BASE_INCOME + incomePayout(enemy.income)) * rivalGoldMult();
+  enemy.gold += (BASE_INCOME + incomePayout(enemy.income)) * rivalGoldMult() + due;
   // allies fund themselves — an ally never spends gold its human teammate earned
   allies.forEach((a) => {
     const mult = a.half === PLAYER_HALF ? 1 : rivalGoldMult();
-    a.gold += (BASE_INCOME + incomePayout(a.income)) * mult;
+    a.gold += (BASE_INCOME + incomePayout(a.income)) * mult + due;
   });
-  pushFx({ kind:'num', x:15.9, y:25.2, text:`+${paid}`, until:simTime + 1.1, color:'#f5d36d' });
+  // float it over YOUR door. This was x:15.9,y:25.2 — the middle of the old
+  // 32x49 board — which on the current board lands in the rival's half, so the
+  // one signal that says "income just paid" appeared nowhere near the player.
+  pushFx({ kind:'num', x:DOOR_C + .5, y:S_GATE_R - 1.5, text:`+${paid}`, until:simTime + 1.4, color:'#f5d36d', big:true });
 }
 function endMatch(result) {
   if (matchOver) return;
@@ -5012,21 +5036,49 @@ function drawDebug(ctx) {
   if (debug.ref && referenceMapImage.complete && referenceMapImage.naturalWidth) {
     ctx.save(); ctx.globalAlpha = .42; ctx.drawImage(referenceMapImage, 0, 0, BOARD_W, BOARD_H); ctx.restore();
   }
+  /* ROUTES. Both lanes of a half used to be drawn in one colour, on top of each
+     other where they share the run into the door, with no direction — so what
+     you saw was a single dashed loop around the board and no way to tell which
+     creeps went where. Each lane now carries its own map colour, the two are
+     nudged apart on the axis they share, and arrowheads point the way the
+     creeps actually walk. */
   if (debug.routes) {
-    ['west', 'east'].forEach((side) => ['north', 'south'].forEach((half) => {
+    ['north', 'south'].forEach((half) => ['west', 'east'].forEach((side) => {
       const nodes = [SPAWNS[half][side], ...ROUTES[half][side]];
-      ctx.save(); ctx.strokeStyle = half === PLAYER_HALF ? '#ffd86b' : '#c48cff'; ctx.globalAlpha = .85; ctx.lineWidth = 2; ctx.setLineDash([7, 5]);
-      ctx.beginPath();
-      let started = false;
+      const pts = [];
       for (let i = 0; i < nodes.length - 1; i += 1) {
         const segment = findPath(nodes[i], nodes[i + 1]);
-        if (!segment) continue;
-        segment.forEach((cell) => {
-          const x = cell.c * CELL + CELL / 2, y = cell.r * CELL + CELL / 2;
-          if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
-        });
+        if (segment) segment.forEach((cell) => pts.push(cell));
       }
-      ctx.stroke(); ctx.restore();
+      if (pts.length < 2) return;
+      const nudge = (side === 'west' ? -1 : 1) * Math.max(1.5, CELL * .16);
+      const xy = (cell, i) => {
+        // offset along whichever axis the two lanes share at this point: they
+        // run side by side down the edges and again along the run to the door
+        const prev = pts[Math.max(0, i - 1)], next = pts[Math.min(pts.length - 1, i + 1)];
+        const horizontal = Math.abs(next.c - prev.c) >= Math.abs(next.r - prev.r);
+        return {
+          x:cell.c * CELL + CELL / 2 + (horizontal ? 0 : nudge),
+          y:cell.r * CELL + CELL / 2 + (horizontal ? nudge : 0)
+        };
+      };
+      const color = laneColor(half, side);
+      ctx.save();
+      ctx.strokeStyle = color; ctx.globalAlpha = half === PLAYER_HALF ? .95 : .6;
+      ctx.lineWidth = 2.4; ctx.lineJoin = 'round'; ctx.setLineDash([7, 5]);
+      ctx.beginPath();
+      pts.forEach((cell, i) => { const p = xy(cell, i); if (!i) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); });
+      ctx.stroke();
+      // direction: an arrowhead every ~9 cells, pointing the way they travel
+      ctx.setLineDash([]); ctx.fillStyle = color;
+      for (let i = 4; i < pts.length - 2; i += 9) {
+        const a = xy(pts[i], i), b = xy(pts[i + 2], i + 2);
+        const ang = Math.atan2(b.y - a.y, b.x - a.x), s = Math.max(3.5, CELL * .34);
+        ctx.save(); ctx.translate(a.x, a.y); ctx.rotate(ang);
+        ctx.beginPath(); ctx.moveTo(s, 0); ctx.lineTo(-s * .7, -s * .62); ctx.lineTo(-s * .7, s * .62); ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
+      ctx.restore();
     }));
   }
   if (debug.ranges) {
@@ -5238,8 +5290,13 @@ function renderFrame() {
 
 /* ---------------- Overlay landmarks (DOM labels positioned in board %) ---------------- */
 function pct(x, total) { return `${(x / total * 100).toFixed(2)}%`; }
-function overlayItem(cls, r, c, html, dataAttr = '') {
-  return `<div class="ov ${cls}" ${dataAttr} style="left:${pct((c) * CELL, BOARD_W)};top:${pct((r) * CELL, BOARD_H)}">${html}</div>`;
+function overlayItem(cls, r, c, html, extra = '') {
+  // `extra` used to be a bare data attribute; it now also carries style hooks
+  // (the lane colour), so anything appended must be a full attribute string.
+  const m = /style="([^"]*)"/.exec(extra);
+  const own = m ? m[1] + ';' : '';
+  const rest = m ? extra.replace(m[0], '') : extra;
+  return `<div class="ov ${cls}" ${rest} style="${own}left:${pct((c) * CELL, BOARD_W)};top:${pct((r) * CELL, BOARD_H)}">${html}</div>`;
 }
 function buildOverlay() {
   let html = '';
@@ -5253,8 +5310,16 @@ function buildOverlay() {
   html += overlayItem('ov-shrine', (SHRINE_R0 + SHRINE_R1) / 2, midC, '✦<small>SOUTH SHRINE</small>');
   const laneW = (LANE_WEST[0] + LANE_WEST[1]) / 2, laneE = (LANE_EAST[0] + LANE_EAST[1]) / 2;
   const nLane = (ROWS - 1) - (S_PILLAR_R0 + S_PILLAR_R1) / 2, sLane = (S_PILLAR_R0 + S_PILLAR_R1) / 2;
-  [['RED', nLane, laneW], ['BLUE', N_MID_R, midC], ['TEAL', nLane, laneE]].forEach(([name, r, c]) => { html += overlayItem('ov-spot', r, c, `${name}<small>${name === 'BLUE' ? 'MID' : 'EDGE'} • RIVAL</small>`); });
-  [['PURPLE', sLane, laneW], ['YELLOW', S_MID_R, midC], ['ORANGE', sLane, laneE]].forEach(([name, r, c]) => { html += overlayItem('ov-spot ov-spot-you', r, c, `${name}<small>${name === 'YELLOW' ? 'MID' : 'EDGE'}</small>`); });
+  /* The lane names are painted in their own colour now, so a label, the dashed
+     route beside it and (once seats exist) the player holding that lane all
+     read as the same thing. They used to be two fixed navies. */
+  const laneRows = { north:[nLane, N_MID_R, nLane], south:[sLane, S_MID_R, sLane] };
+  const laneCols = [laneW, midC, laneE];
+  ['north', 'south'].forEach((half) => LANE_COLORS[half].forEach((lane, i) => {
+    const sub = i === 1 ? 'MID' : 'EDGE';
+    html += overlayItem(`ov-spot${half === PLAYER_HALF ? ' ov-spot-you' : ''}`, laneRows[half][i], laneCols[i],
+      `${lane.name.toUpperCase()}<small>${sub}${half === PLAYER_HALF ? '' : ' • RIVAL'}</small>`, `style="--lane:${lane.color}"`);
+  }));
   html += overlayItem('ov-force ov-force-north', NORTH_TOP + 3, 2, mp.active && mp.oppName ? `NORTH FORCE • ${mp.oppName.toUpperCase()}` : 'NORTH FORCE • RIVAL');
   html += overlayItem('ov-force', SOUTH_BOT - 3, 2, 'SOUTH FORCE • YOU');
   $('board-overlay').innerHTML = html;
@@ -5542,6 +5607,16 @@ function hudContractReport() {
 function renderHud() {
   $('gold-label').textContent = hudNum(player.gold);
   $('income-label').textContent = hudSigned(BASE_INCOME + incomePayout(player.income));   // what you are actually paid, after diminishing returns
+  /* The countdown to the next payout. Only Classic ever showed it (it borrows
+     #timer-label, which Skirmish needs for the wave clock), so in Skirmish gold
+     simply jumped by an unexplained amount every 25 seconds and read as laggy.
+     It sits on the income chip now, in every mode. */
+  const incomeEta = $('income-eta');
+  if (incomeEta) {
+    const left = Math.max(0, Math.ceil(incomeClock));
+    incomeEta.textContent = `${left}s`;
+    incomeEta.classList.toggle('due', left <= 3);
+  }
   $('lumber-label').textContent = player.lumber;
   // keep economy buttons in step with live gold/lumber
   const buyLumber = $('buy-lumber');
@@ -6889,23 +6964,32 @@ function renderRaceDetail() {
       <div class="vs-row"><i>Signature</i>${sig.map((t) => `<span class="vs-chip">${t.name} • ${t.cost}g</span>`).join('')}</div>
       ${locked ? `<p class="detail-locked">🔒 ${unlockHint(race.id)}</p>` : ''}
       <button id="race-confirm" class="race-confirm" ${locked ? 'disabled' : ''} style="--race:${race.color}">
-        ${locked ? 'Locked' : `Fight as ${race.name} ${race.symbol}`}
+        ${locked ? 'Locked' : `${race.symbol} ${race.name} chosen — close`}
       </button>
     </div>`;
   box.classList.remove('hidden');
+  // The tap already committed the race (see commitRace); this only folds the
+  // roster away. It used to be the commit step, which meant a tap that looked
+  // like a choice was really just a preview.
   $('race-confirm').addEventListener('click', () => {
     if (locked) return;
-    selectedRace = race;
-    $('selected-name').textContent = selectedRace.name;
-    $('selected-desc').textContent = selectedRace.desc;
-    const cardSymbol = $('race-card-symbol');
-    if (cardSymbol) { cardSymbol.textContent = selectedRace.symbol; cardSymbol.style.color = selectedRace.color; }
     $('race-grid-wrap')?.classList.add('hidden');
     $('race-card')?.setAttribute('aria-expanded', 'false');
     box.classList.add('hidden');
     previewRaceId = null;
     renderRaceCards();
   });
+}
+/* One tap picks the element. Tapping a card used to only PREVIEW it — you had
+   to find "Fight as Fire" underneath and press that too, so people walked into
+   the lobby as whatever they had picked last time. */
+function commitRace(race) {
+  if (!race || !raceUnlocked(race.id)) return;
+  selectedRace = race;
+  const name = $('selected-name'); if (name) name.textContent = race.name;
+  const desc = $('selected-desc'); if (desc) desc.textContent = race.desc;
+  const cardSymbol = $('race-card-symbol');
+  if (cardSymbol) { cardSymbol.textContent = race.symbol; cardSymbol.style.color = race.color; }
 }
 function renderRaceCards() {
   if (!raceUnlocked(selectedRace.id)) selectedRace = races.find((race) => raceUnlocked(race.id)) || races[0];
@@ -6917,7 +7001,8 @@ function renderRaceCards() {
     </button>`;
   }).join('');
   document.querySelectorAll('[data-race]').forEach((button) => button.addEventListener('click', () => {
-    previewRaceId = button.dataset.race;   // fighter-select: tap previews the dossier, confirm commits
+    previewRaceId = button.dataset.race;   // one tap: commit the element AND show its dossier
+    commitRace(races.find((r) => r.id === previewRaceId));
     renderRaceCards();
     renderRaceDetail();
     $('race-detail')?.scrollIntoView({ block:'nearest', behavior:'smooth' });
@@ -7298,7 +7383,10 @@ function drawOpponentMirror(ctx) {
     const role = roleKeys[roleIdx] || 'standard';
     const style = roleStyle[role];
     const color = sent ? '#ffd86b' : roleColors[role] || '#ff9faf';
-    const mx = (32 - x) * CELL, my = (49 - y) * CELL;
+    // mirror a CONTINUOUS coordinate: cell c spans [c,c+1), so c+.5 maps to
+    // COLS-(c+.5). These were the literals 32 and 49 — the old board's size —
+    // so on the 51x73 board every mirrored creep drew in the wrong place.
+    const mx = (COLS - x) * CELL, my = (ROWS - y) * CELL;
     ctx.save();
     ctx.translate(mx, my);
     if (air) { ctx.fillStyle = '#00000030'; ctx.beginPath(); ctx.ellipse(2, 6, style.size * .9, style.size * .38, 0, 0, Math.PI * 2); ctx.fill(); ctx.translate(0, -4); }
