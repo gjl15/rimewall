@@ -535,9 +535,15 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
 .td-desc { margin-top:9px !important; color:#93a0be; font-size:10px; line-height:1.5; }
 .td-stats { display:flex; gap:12px; margin-top:9px; color:#7185a7; font:500 9px 'DM Mono',monospace; letter-spacing:.05em; }
 .td-stats b { color:#e9edff; }
-.td-actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
-.td-actions .action-button { flex:1 1 100%; margin-top:6px; padding:10px; }
-.td-actions .ghost-button { flex:1; }.send-card > div { flex:1; }.send-card strong,.send-card small { display:block; }.send-card strong { font-size:10px; }.send-card small { margin-top:3px; color:#8995b4; font-size:9px; }.send-card b { color:#f5d36d; font:10px 'DM Mono',monospace; }.send-icon { display:grid; place-items:center; width:28px; height:28px; border-radius:7px; color:#ff9faf; background:#ff8a9a16; }.hint-box { margin-top:22px; padding:12px; border-left:2px solid #77d6ff; background:#0c1526; }.hint-box span { color:#77d6ff; font:500 9px 'DM Mono',monospace; letter-spacing:.13em; }.hint-box p { margin-top:7px; color:#93a0be; font-size:10px; line-height:1.5; }
+/* FOUR EVEN CELLS, ALWAYS THE SAME FOUR. This was a wrap-flex where the two
+   upgrades took a full row each and Target/Sell shared the last one — measured
+   35px tall and 246 wide against 52 and 120, which is the "buttons seem
+   misaligned" report. Worse, the tier button was only rendered when a tier was
+   available, so the row COLLAPSED when it went away and Sell slid up into the
+   space Upgrade had been occupying. A fixed 2x2 grid cannot shift, and Sell
+   sits diagonally opposite Upgrade — the furthest apart two cells can be. */
+.td-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+.td-actions button { width:auto; min-height:50px; margin:0; padding:9px 8px; font-size:11px; line-height:1.25; }.send-card > div { flex:1; }.send-card strong,.send-card small { display:block; }.send-card strong { font-size:10px; }.send-card small { margin-top:3px; color:#8995b4; font-size:9px; }.send-card b { color:#f5d36d; font:10px 'DM Mono',monospace; }.send-icon { display:grid; place-items:center; width:28px; height:28px; border-radius:7px; color:#ff9faf; background:#ff8a9a16; }.hint-box { margin-top:22px; padding:12px; border-left:2px solid #77d6ff; background:#0c1526; }.hint-box span { color:#77d6ff; font:500 9px 'DM Mono',monospace; letter-spacing:.13em; }.hint-box p { margin-top:7px; color:#93a0be; font-size:10px; line-height:1.5; }
 .income-callout { margin:0 0 10px; padding:9px; border:1px solid #385848; border-radius:8px; background:#12271f; }.income-callout strong,.income-callout span { display:block; }.income-callout strong { color:#9de4b5; font-size:10px; }.income-callout span { margin-top:3px; color:#779d89; font-size:9px; line-height:1.35; }
 @media (max-width:900px) { .race-grid { grid-template-columns:repeat(2,1fr); }.battle-content { grid-template-columns:1fr; }.battle-main { min-width:0; }.map-viewport { height:600px; } }
 @media (max-width:560px) { .app-shell { padding:16px max(14px, env(safe-area-inset-left)) max(24px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-right)); }.brand-row { margin-bottom:16px; align-items:flex-start; } h1 { font-size:34px; } .lede { display:none; } .setup-bar .selection-actions { flex-wrap:wrap; }.version-pill { font-size:8px; padding:8px; }.race-grid { gap:8px; }.race-card { min-height:126px; padding:14px; }.race-symbol { margin-bottom:12px; }.race-card strong { font-size:14px; }.selection-bar { align-items:flex-start; flex-direction:column; }.primary-button { width:100%; }
@@ -701,6 +707,8 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
 .ring-btn { position:absolute; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0; width:46px; height:46px; margin:-23px 0 0 -23px; border-radius:50%; border:2px solid var(--rc,#77d6ff); background:#0d1424f2; color:var(--rc,#77d6ff); font-size:15px; pointer-events:auto; box-shadow:0 4px 14px #000a; }
 .ring-btn i { font:700 7px 'DM Mono',monospace; font-style:normal; letter-spacing:.04em; }
 .ring-btn:active { transform:scale(.92); }
+/* a thumb is not a mouse pointer: bigger targets and a wider ring on touch */
+@media (pointer:coarse) { .ring-btn { width:56px; height:56px; margin:-28px 0 0 -28px; font-size:17px; } .ring-btn i { font-size:8px; } }
 .ring-label { position:absolute; transform:translate(-50%,-50%); padding:2px 8px; border-radius:99px; background:#0d1424e8; color:#ffd86b; font:700 9px 'DM Mono',monospace; white-space:nowrap; pointer-events:none; }
 
 /* the board border is the camera contract boundary: board never leaves it, UI never enters it */
@@ -1352,7 +1360,13 @@ const TOWERS = {
   stone:[
     { name:'Cairn', cost:10, dmg:14, cd:1.07, range:3.9, special:'crit', desc:'Cheap stones that can hit double.' },
     { name:'Boulder Maw', cost:40, dmg:43, cd:1.1, range:4.2, special:'crit', desc:'Heavy rocks for narrow turns.' },
-    { name:'Monolith', cost:100, dmg:170, cd:1.2, range:4.0, special:'crit', desc:'Crushing stone waves up close.' },
+    /* STONE'S ONE AREA RUNG. Measured, it was the only element in the game with
+       essentially no crowd damage at all: one rung in six touched a second body,
+       and that rung was the 350g Petrifier reaching two. Every other element
+       answers a group by 100g. Monolith is where it goes — the description
+       already promised "crushing stone waves", it was just doing it to one
+       creep. Crit stays the identity on T0, T1 and T4. */
+    { name:'Monolith', cost:100, dmg:170, cd:1.2, range:4.0, special:'splash', desc:'Crushing stone waves break over the creeps in front of it.' },
     { name:'Runestone Seer', cost:200, dmg:350, cd:1.1, range:3.9, special:'armorshred', desc:'Faerie fire strips armor for every tower.' },
     { name:'Quakebreaker', cost:285, dmg:420, cd:.95, range:4.2, special:'crit', desc:'The only stone tower with real range.' },
     { name:'Petrifier', cost:350, dmg:60, cd:6.0, range:4.2, special:'paralyze', desc:'Drops a creep to 11 HP, then crits it. Bosses resist.' }
@@ -1477,7 +1491,10 @@ const TRAIT = {
      Gravity Well the best damage in the game by an order of magnitude. The pulse
      stays (it is the race's identity) but it now falls off like splash and hits
      a bounded number of creeps, and only the lead creep gets the control kit. */
-  gravPulseMult:.4, gravPulseCap:5, gravKnockdown:.9, gravKnockup:1.3, gravSlamMult:.8,
+  /* gravPulseCap 5 -> 8: a gravity pulse reached six bodies where a splash
+     tower reached nine, so even after it unlocked it was the narrowest area
+     damage in the game. Eight plus the lead matches the splash races. */
+  gravPulseMult:.4, gravPulseCap:8, gravKnockdown:.9, gravKnockup:1.3, gravSlamMult:.8,
   /* WARP GOES THROUGH ARMOUR, a little. Gravity was the only race with no
      armour-bypassing damage anywhere in its kit — Fire has ignite, Poison has
      venom, Crystal is chaos, and every DoT skips armour by definition. Against
@@ -2286,7 +2303,17 @@ deriveEconomy();   // WAVE_PRESSURE has to exist first, so the seeding happens h
    pure builder's 4,147g, and simply bought a maxed maze. Paying income^0.62
    above a soft cap keeps sending clearly the stronger line (2.2x at wave 40,
    not 6.2x) without letting it decide the match on its own. */
-const INCOME_SOFT = 200, INCOME_EXP = .75;
+/* INCOME NOW PAYS WHAT IT SAYS. Gene: "income should not be reduced as time
+   goes on either." Above 200 income every payout was compressed by ^0.75, so a
+   number you had spent thousands of gold building kept quietly under-paying,
+   and the further into a match you got the wider the gap between the ladder and
+   the bank. Exponent 1 makes the formula below an identity — the soft cap is
+   still here, and moving this one number back to .75 restores the old curve.
+   The trade is real and is why the compression existed: uncapped, sending beat
+   a pure builder's wall by about 6x at wave 40 rather than 3.4x. If sends now
+   run away, the lever is creep HP or send prices, not a hidden haircut on a
+   number the HUD is quoting to you. */
+const INCOME_SOFT = 200, INCOME_EXP = 1;
 function incomePayout(raw) {
   const r = Math.max(0, raw || 0);
   return r <= INCOME_SOFT ? Math.round(r) : Math.round(INCOME_SOFT * Math.pow(r / INCOME_SOFT, INCOME_EXP));
@@ -3341,7 +3368,14 @@ const GRAV_BACK_LIMIT = 1;        // how many times one creep can be shoved back
 const GRAV_BACK_CELLS = [2, 5];   // how far that shove carries it, in board cells
 const GRAV_SPECIALS = {
   warp:      { pulse:false, w:{ slow:100 } },
-  gravslam:  { pulse:false, w:{ slow:35, down:65 } },
+  /* GRAVITY'S AREA ANSWER NOW STARTS AT 50g, NOT 150g. Measured: Fire touches
+     nine creeps from a 10g tower, Gravity touched one until Psi Emitter at
+     150g — fifteen times the price for its first answer to a group — and it
+     tied for the worst death wave in the ten-race regression while measuring
+     3rd best value per gold. That gap between "good on paper" and "dies early"
+     was the whole contradiction. gravslam pulses now, which makes Gravity's
+     Pull the rung where the element starts working. */
+  gravslam:  { pulse:true,  w:{ slow:35, down:65 } },
   warppulse: { pulse:true,  w:{ slow:55, down:30, back:15 } },
   repulse:   { pulse:true,  w:{ slow:25, back:55, down:20 } },
   liftoff:   { pulse:true,  w:{ slow:25, up:55, down:20 } },
@@ -5624,7 +5658,13 @@ function ringAction(act) {
 function renderRing() {
   const ring = $('action-ring');
   if (!ring) return;
-  if (touchUI()) { ring.classList.add('hidden'); ring._sig = ''; return; }   // touch: actions live in the bar
+  /* THE RING IS FOR PHONES TOO. It used to return here on touch, on the
+     reasoning that "actions live in the bar" — but the bar is a different
+     screen's worth of scrolling away from the tower you just tapped, so on a
+     phone the four actions were nowhere near the thing they act on. The ring
+     puts them AROUND the tower at fixed angles, which is what a thumb wants,
+     and it is the one surface here with a stable signature guard so it does not
+     rebuild under the finger. */
   let mode = null, cell = null, tower = null;
   if (ghost && battleRunning) { mode = 'ghost'; cell = ghost; }
   else if (selectedGroupKeys.length === 1 && battleRunning) {
@@ -5634,7 +5674,7 @@ function renderRing() {
   if (!mode) { ring.classList.add('hidden'); ring._sig = ''; return; }
   const cr = $('fx-canvas').getBoundingClientRect();
   const vr = $('map-viewport').getBoundingClientRect();
-  const RAD = 56, pad = 28;
+  const RAD = touchUI() ? 68 : 56, pad = 28;   // wider on touch so a 56px thumb target clears the tower and its neighbours
   let x = cr.left - vr.left + (cell.c + .5) / COLS * cr.width;
   let y = cr.top - vr.top + (cell.r + .5) / ROWS * cr.height;
   x = Math.min(vr.width - pad - RAD, Math.max(pad + RAD, x));
@@ -6336,14 +6376,25 @@ function towerAction(kind) {
     if (done) { SFX.play('build'); log(`${mod.glyph} ${mod.name} fitted to ${done} tower${done > 1 ? 's' : ''} for ${spent}g${swapped ? ` (${swapped} swapped off another bolt)` : ''}. ${BOLT_BLURB[id]}`); }
     else log(`Not enough gold — the ${mod.name} costs ${boltCost(eligible[0])}g on that tower.`);
   } else if (kind === 'level') {
-    let done = 0;
+    /* SAY WHAT THE GOLD BOUGHT. It always upgraded as many as you could afford,
+       cheapest first, and then reported only the number it managed — so
+       "Upgraded 7 towers" after selecting 20 read as a bug rather than as the
+       purse running out. Name the shortfall and what would clear it. */
+    let done = 0, spent = 0;
+    const wanted = group.filter((t) => t.level < MAX_LEVEL).length;
     for (const t of group.sort((a, b) => towerLevelCost(a) - towerLevelCost(b))) {
       if (t.level >= MAX_LEVEL) continue;
       const cost = towerLevelCost(t);
       if (player.gold < cost) break;
-      player.gold -= cost; t.invested += cost; t.level += 1; done += 1; logUpgrade(-1);
+      player.gold -= cost; t.invested += cost; t.level += 1; done += 1; spent += cost; logUpgrade(-1);
     }
-    if (done) log(`Upgraded ${done} tower${done > 1 ? 's' : ''} one level (+15% damage, +0.25 range).`);
+    const restCost = group.filter((t) => t.level < MAX_LEVEL).reduce((s, t) => s + towerLevelCost(t), 0);
+    if (done) {
+      const short = wanted - done;
+      log(`Upgraded ${done}${short ? ` of ${wanted}` : ''} tower${done > 1 ? 's' : ''} one level for ${spent}g (+15% damage, +0.25 range).`
+        + (short ? ` ${short} left — ${restCost}g short of the rest.` : ''));
+      if (short) showToast(`<b>Upgraded ${done} of ${wanted}</b><span>${restCost}g more finishes the batch</span>`);
+    } else if (wanted) log(`Not enough gold — the cheapest of those ${wanted} costs ${restCost && Math.min(...group.filter((t) => t.level < MAX_LEVEL).map(towerLevelCost))}g.`);
   } else if (kind === 'tier') {
     let done = 0;
     for (const t of group.sort((a, b) => (towerTierUp(a)?.cost ?? 1e9) - (towerTierUp(b)?.cost ?? 1e9))) {
@@ -6358,7 +6409,14 @@ function towerAction(kind) {
       t.blockHp = t.blockMaxHp = 4 + t.tier;
       done += 1; logUpgrade(t.tier);
     }
-    if (done) log(`Upgraded ${done} tower${done > 1 ? 's' : ''} into the next tier.`);
+    const tierWanted = group.filter((t) => towerTierUp(t)).length;
+    if (done) {
+      const short = tierWanted - done;
+      const restCost = group.filter((t) => towerTierUp(t)).reduce((s, t) => s + (towerTierUp(t)?.cost || 0), 0);
+      log(`Upgraded ${done}${short ? ` of ${tierWanted}` : ''} tower${done > 1 ? 's' : ''} into the next tier.`
+        + (short ? ` ${short} left — ${restCost}g short of the rest.` : ''));
+      if (short) showToast(`<b>Tiered up ${done} of ${tierWanted}</b><span>${restCost}g more finishes the batch</span>`);
+    }
   } else if (kind === 'sell') {
     let refund = 0;
     const n = group.length;
@@ -6401,7 +6459,7 @@ function boltPanelHtml(group) {
 function renderTowerDetails() {
   const panel = $('tower-details');
   const tower = selectedTowerKey !== null ? towers.get(selectedTowerKey) : null;
-  if (!tower) { panel.classList.add('hidden'); return; }
+  if (!tower) { panel.classList.add('hidden'); panel._built = false; panel._sig = ''; return; }
   const group = selectionTowers().filter((t) => t.owner === tower.owner);
   const many = group.length > 1;
   const stats = towerLiveStats(tower);
@@ -6413,6 +6471,32 @@ function renderTowerDetails() {
   const tierCostAll = tierable.reduce((sum, t) => sum + towerTierUp(t).cost, 0);
   const sellAll = group.reduce((sum, t) => sum + towerSellValue(t), 0);
   const graceNote = !many && fullRefund(tower) ? ' • undo, full refund' : many ? '' : ' • 75%';
+  const laserNext = towerTierUp(tower)?.next.name === 'Laser Cannon';
+  const tierBlocked = !tierable.length || player.gold < (many ? 1 : tierCostAll) || (laserNext && player.lumber < 1);
+  const levelBlocked = !upgradable.length || player.gold < (many ? 1 : levelCostAll);
+
+  /* REBUILDING THIS PANEL FIVE TIMES A SECOND IS WHY UPGRADE SOLD YOUR TOWER.
+     The frame loop calls renderTowerDetails() every 0.2s while a tower is
+     selected, and this function used to assign innerHTML unconditionally — so
+     every button was destroyed and rebuilt under the finger between pressing
+     and releasing. Measured: the Sell node did not survive 1.2s of ticking on
+     either layout. Press Upgrade, have the row rebuilt mid-press, release onto
+     whatever now occupies that spot.
+     So separate STRUCTURE from STATE. Rebuild the markup only when something
+     structural changed; when only gold moved, patch the labels and the disabled
+     flags on the buttons that are already there. renderCommandSheet has done
+     this for a while — the same guard, arrived at the same way. */
+  const sig = [tower.key, group.map((t) => t.key).join(','), tower.level, tower.tier, tower.priority,
+    tower.raceId, isYours, upgradable.length, tierable.length].join('|');
+  if (panel._sig === sig && panel._built) {
+    const setBtn = (id, off, text) => { const b = $(id); if (!b) return; b.disabled = !!off; if (text != null && b.textContent !== text) b.textContent = text; };
+    setBtn('td-level', levelBlocked, !upgradable.length ? 'Max level' : many ? `Upgrade all • ${levelCostAll}g` : `Upgrade level ${levelCostAll}g`);
+    setBtn('td-tier', tierBlocked, !tierable.length ? 'Max tier'
+      : `→ ${towerTierUp(tower)?.next.name || 'next tier'}${many ? ` all • ${tierCostAll}g` : ` ${tierCostAll}g`}${laserNext ? ' +1🪵' : ''}`);
+    setBtn('td-sell', false, `Sell${many ? ' all' : ''} ${sellAll}g${graceNote}`);
+    return;
+  }
+  panel._sig = sig; panel._built = true;
   panel.innerHTML = `
     <div class="td-head"><span class="td-rune" style="--race:${stats.color}">${stats.symbol}</span>
       <div><strong>${many ? `${group.length} × ` : ''}${stats.name}</strong><small>${isYours ? (many ? 'Batch selection — actions apply to all' : `Level ${(tower.level || 0) + 1} • ${tower.kills} kills`) : towerOwnerLabel(tower)}</small></div>
@@ -6421,8 +6505,8 @@ function renderTowerDetails() {
     <div class="td-stats"><span>DMG <b>${stats.dmg}</b></span><span>RANGE <b>${stats.range.toFixed(1)}</b></span><span>RATE <b>${stats.cd.toFixed(2)}s</b></span></div>
     <p class="td-desc profile-line">${attackProfileText(tower.raceId)}</p>
     ${isYours ? `<div class="td-actions">
-      <button id="td-level" class="action-button" ${!upgradable.length || player.gold < (many ? 1 : levelCostAll) ? 'disabled' : ''}>${!upgradable.length ? 'Max level' : many ? `Upgrade all • ${levelCostAll}g` : `Upgrade level ${levelCostAll}g`}</button>
-      ${tierable.length ? (() => { const laserNext = towerTierUp(tower)?.next.name === 'Laser Cannon'; const blocked = player.gold < (many ? 1 : tierCostAll) || (laserNext && player.lumber < 1); return `<button id="td-tier" class="action-button td-tier" ${blocked ? 'disabled' : ''}>→ ${towerTierUp(tower)?.next.name || 'next tier'}${many ? ` all • ${tierCostAll}g` : ` ${tierCostAll}g`}${laserNext ? ' +1🪵' : ''}</button>`; })() : ''}
+      <button id="td-level" class="action-button" ${levelBlocked ? 'disabled' : ''}>${!upgradable.length ? 'Max level' : many ? `Upgrade all • ${levelCostAll}g` : `Upgrade level ${levelCostAll}g`}</button>
+      <button id="td-tier" class="action-button td-tier" ${tierBlocked ? 'disabled' : ''}>${!tierable.length ? 'Max tier' : `→ ${towerTierUp(tower)?.next.name || 'next tier'}${many ? ` all • ${tierCostAll}g` : ` ${tierCostAll}g`}${laserNext ? ' +1🪵' : ''}`}</button>
       <button id="td-priority" class="ghost-button">Target: ${tower.priority}</button>
       <button id="td-sell" class="ghost-button td-sell-danger">Sell${many ? ' all' : ''} ${sellAll}g${graceNote}</button>
     </div>${boltPanelHtml(group)}` : ''}`;
@@ -6912,8 +6996,21 @@ function setupMapZoom() {
     if (event.pointerType !== 'mouse' && battleRunning && activeMapPointers.size === 1) {
       const cell = cellFromEvent(event);
       if (cell && isMine(towers.get(idx(cell.r, cell.c)))) {
+        /* A HOLD OPENS THE RING; IT NO LONGER SELLS ON ITS OWN. Resting a
+           thumb on your own tower for 0.65s used to sell it outright, with
+           nothing but a 3s undo between you and a lost tower — and a tap held a
+           moment too long is not a decision. Select it and put the ring up
+           instead: sell is still one press away, on a labelled button, next to
+           the other three actions. */
         viewport._holdTimer = window.setTimeout(() => {
-          if (tapCandidate && tapCandidate.id === event.pointerId) { sellTowerAt(cell); tapCandidate = null; }
+          if (!(tapCandidate && tapCandidate.id === event.pointerId)) return;
+          tapCandidate = null;
+          const key = idx(cell.r, cell.c);
+          if (!towers.has(key)) return;
+          selectedTowerKey = key; selectedGroupKeys = [key];
+          inspectEntity = { kind:'tower' };
+          if (navigator.vibrate) navigator.vibrate(15);
+          renderTowerDetails(); renderRing();
         }, 650);
       }
     }
@@ -9175,7 +9272,10 @@ function renderCommandSheet() {
         <div class="sheet-detail"><strong>${many ? `${sel.length} × ` : ''}${stats.name}</strong>${many ? ' — batch selection' : ` — Level ${(t0.level || 0) + 1} • ${t0.kills} kills`}<br>${stats.desc} ${specialBlurbs[stats.special] || ''}<br><em>${stats.dmg} dmg • ${stats.range.toFixed(1)} range • ${stats.cd.toFixed(2)}s • ${attackProfileText(t0.raceId)}</em></div>
         <div class="sheet-grid sheet-actions">
           <button class="sheet-chip ${!upgradable.length || player.gold < 1 ? 'poor' : ''}" data-sheet-act="level"><span>⬆</span><small>Level${many ? ' all' : ''}</small><b>${upgradable.length ? `${levelCostAll}g` : 'MAX'}</b></button>
-          ${tierable.length ? `<button class="sheet-chip ${player.gold < 1 || (laserNext && player.lumber < 1) ? 'poor' : ''}" data-sheet-act="tier"><span>⏫</span><small>${towerTierUp(t0)?.next.name.split(' ')[0] || 'Tier'}</small><b>${tierCostAll}g${laserNext ? '+🪵' : ''}</b></button>` : ''}
+          ${/* always present, greyed when there is nothing to buy — a chip that
+                vanishes shuffles Sell into the space Tier just left, which is
+                the same trap the side panel had */''}
+          <button class="sheet-chip ${!tierable.length || player.gold < 1 || (laserNext && player.lumber < 1) ? 'poor' : ''}" data-sheet-act="tier"><span>⏫</span><small>${!tierable.length ? 'Max' : (towerTierUp(t0)?.next.name.split(' ')[0] || 'Tier')}</small><b>${!tierable.length ? '—' : `${tierCostAll}g${laserNext ? '+🪵' : ''}`}</b></button>
           <button class="sheet-chip" data-sheet-act="priority"><span>🎯</span><small>Target</small><b>${t0.priority}</b></button>
           <button class="sheet-chip sell-chip" data-sheet-act="sell"><span>💰</span><small>Sell${many ? ' all' : ''}</small><b>${sellAll}g</b></button>
         </div>${boltPanelHtml(sel)}`;

@@ -7,6 +7,120 @@ environment, so every entry here was live the moment it was pushed.
 
 ---
 
+## 2026-09-09 (later) — the panel that rebuilt itself under your finger
+
+*"When I upgrade I keep selling instead, buttons seem misaligned."* Both halves
+of that were one bug, and it was measurable.
+
+### Upgrade sold your tower because the buttons were replaced mid-press
+
+The frame loop calls `renderTowerDetails()` every 0.2s while a tower is
+selected, and that function assigned `innerHTML` unconditionally — so **all four
+buttons were destroyed and rebuilt five times a second**, under whatever finger
+happened to be on them. Measured on both layouts: the Sell node did not survive
+1.2 seconds of ticking.
+
+Worse, the tier button was rendered *only when a tier was available*, so the row
+**collapsed** when it went away and Sell slid up into the space Upgrade had been
+occupying. Press Upgrade, have the row rebuilt and shortened between press and
+release, let go onto Sell.
+
+Structure and state are now separate. Markup is rebuilt only when something
+structural changes; when only gold moved, the labels and disabled flags are
+patched on the buttons already there. `renderCommandSheet` has worked this way
+for a while — the same guard, arrived at the same way. The tier button is always
+present, greyed to "Max tier" when there is nothing to buy, so the grid cannot
+shift. The same vanishing chip is fixed in the phone sheet.
+
+| | before | after |
+|---|---|---|
+| Sell button survives 1.2s of ticking | **no** | **yes** |
+| Button heights | 35px and 52px | **50px, all four** |
+| Button widths | 246px and 120px | **119px, all four** |
+
+`.td-actions` is a fixed 2×2 grid now, and Sell sits diagonally opposite
+Upgrade — the furthest apart two cells can be.
+
+### The four options ring the tower on phones now
+
+*"On the laptop there's 4 options around a tower when you click it — why can't
+that surface on mobile as well?"* Because of one line: `renderRing()` returned
+early on touch, on the reasoning that "actions live in the bar". The bar is a
+different screen's worth of scrolling from the tower you just tapped.
+
+The ring is the right surface for a thumb — fixed angular slots, and the one
+tower UI here that already had a stable signature guard. It now draws on touch,
+with **56px targets** (46 on desktop) on a wider **68px radius** so a thumb
+clears the tower and its neighbours. Measured after the change: **12 tower
+actions reachable on a phone after tapping a tower**, four of them ringing the
+tower itself.
+
+### A hold no longer sells
+
+Resting a thumb on your own tower for 0.65s **sold it outright**, with a 3s undo
+between you and a lost tower. A tap held a moment too long is not a decision. A
+hold now selects the tower and raises the ring; sell is still one press away, on
+a labelled button, beside the other three.
+
+### Upgrade all says what the gold bought
+
+It always upgraded as many as you could afford, cheapest first — it just
+reported the number it managed, so "Upgraded 7 towers" after selecting 20 read
+as a bug rather than as the purse running out. Both batch upgrades now name the
+shortfall: *"Upgraded 7 of 20 for 340g. 13 left — 890g short of the rest,"* with
+a toast carrying the same number.
+
+### Income pays what it says
+
+Above 200 income every payout was compressed by `^0.75`, so a number you had
+spent thousands building kept quietly under-paying, and the gap widened the
+longer a match ran. `INCOME_EXP` is 1: **every level now pays in full, measured
+from 50 to 3,200.**
+
+The trade is real and is why the compression existed — uncapped, sending beats a
+pure builder's wall by about 6× at wave 40 rather than 3.4×. If sends run away,
+the lever is creep HP or send prices, not a hidden haircut on a number the HUD
+is quoting at you. Moving that one constant back to `.75` restores the old curve.
+
+### Stone and Gravity can hit a group now
+
+Measured by standing each tower beside a packed lane and counting who lost HP —
+not by guessing from the special's name:
+
+| | first tower hitting 2+ | was | widest | was |
+|---|---|---|---|---|
+| Gravity | Gravity's Pull **50g** | 150g | **9** | 5 |
+| Stone | Monolith **100g** | 350g | **9** | 2 |
+
+Fire answers a group from a 10g tower. Gravity paid fifteen times that for its
+first answer, and Stone was the only element in the game with essentially none —
+one rung in six, at 350g, reaching two bodies. `gravslam` pulses now, so
+Gravity's Pull is where the element starts working; `gravPulseCap` goes 5 → 8 so
+a pulse matches a splash; and Monolith does what its description already
+promised. Crit stays Stone's identity on T0, T1 and T4.
+
+Entry prices for crowd damage now span **10g–100g across all ten elements**,
+where they spanned 10g–350g. On the value table Gravity goes 0.74 → **0.64** and
+Stone 0.71 → **0.65**.
+
+**Honest negative:** the ten-race regression did not move — Stone and Gravity
+still die on wave 11, median still 12.5. That bot builds ~22 towers and barely
+reaches the rungs that changed, which is exactly why its death wave is not a
+difficulty rating. The buffs are measurable in what the towers do; whether they
+are felt is a question for a person playing, not for that bot.
+
+---
+
+*Harness note: Playwright's `touchscreen.tap` does not deliver pointer events to
+the page in this headless setup, which made a perfectly working mobile board
+report zero selections and nearly got filed as a game bug. `towertap.js`
+dispatches the pointer pair the game listens for instead. Two probes now exist
+because of it — the instrument has to be proven to speak before its silence
+means anything.*
+
+
+---
+
 ## 2026-09-09 — four defects an outside review found, and the gravity paradox closed
 
 An external agent review of `8670b68` returned five findings. Three were
