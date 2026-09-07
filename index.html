@@ -1985,6 +1985,24 @@ const WAVES = [
   { name:'Bulwark Juggernaut', role:'juggernaut', count:5, hp:2200, spd:2.6, armor:14, aClass:'heavy', bounty:6 },
   { name:'The Frost Tyrant', role:'boss', count:1, hp:45000, spd:2.6, armor:20, aClass:'heavy', bounty:150, lives:10, boss:true }
 ];
+/* ENDLESS HAS TO CONTINUE THE TABLE, NOT REPLAY IT.
+   Past wave 25 the list loops, and it looped at DOUBLE the weakest creep: wave
+   26 was a 3,500 HP Pathfinder wave straight after wave 25's 124,308 HP boss, a
+   35x collapse that cleared in half a second and handed back several free waves
+   before the ×1.04 late ramp caught up. Doubling was never going to bridge a
+   gap the table itself opens ~35-fold.
+
+   So take the ratio the table ACTUALLY spans — the wave LOAD it ends on over
+   the load it opens with — and raise that per loop, which lands wave 26 beside
+   wave 24 instead of beside wave 1. Load has to count the role weight too: a
+   juggernaut carries 2.4x its listed HP, and measuring the tail without it
+   under-read the span and left a 5.75x step. Derived rather than typed, so
+   re-tuning the wave list keeps endless continuous for free. */
+const WAVE_LOOP_MULT = (() => {
+  const plain = WAVES.filter((w) => !w.boss);
+  const load = (w) => w.hp * (w.count || 6) * (w.role === 'juggernaut' ? 2.4 : 1);
+  return Math.max(2, load(plain[plain.length - 1]) / load(plain[0]));
+})();
 const roleStyle = {
   standard:{ symbol:'•', size:7 }, runner:{ symbol:'➤', size:6.5 }, air:{ symbol:'▲', size:6.5 },
   armored:{ symbol:'⬢', size:8 }, boss:{ symbol:'★', size:11 },
@@ -3893,11 +3911,22 @@ const AI_OPENINGS = ['centre', 'centre', 'sides'];
    tick spends on height instead of waiting for a surplus that never arrives. */
 function aiBreadthTarget() {
   /* The target must grow SLOWER than the rival can build, or it never crosses
-     over and "widening" becomes permanent by another route. Measured build rate
-     is about five towers a wave while gold-limited, so a target rising two a
-     wave is overtaken around wave 6 and height takes over from there. */
+     over and "widening" becomes permanent by another route.
+
+     It shipped rising THREE a wave against a real build rate of 3.6, so the
+     gap closed at 0.6 a wave from a standing start of 16 and the crossover
+     landed near wave 27 — past where every bot dies. Measured consequence:
+     every race, every run, 36 towers and 100% of them tier 0. That is not a
+     harness artifact; updateAlly is the same code that runs the computers a
+     person plays against, so the "very hard computer" was a tier-0 spammer.
+
+     Slope 1 against a measured 3.6/wave closes 2.6 a wave and crosses at wave
+     6, which is what the paragraph above always claimed. The wave ceiling is
+     the belt to that braces: breadth ENDS on a clock, so a future change to
+     build rate or tower cost cannot quietly reopen the trap. */
   if (matchMode === 'classic') return Math.min(64, 16 + Math.floor(simTime / 22));
-  return Math.min(64, 16 + wave * 3);
+  if (wave >= AI_BREADTH_LAST_WAVE) return 0;
+  return Math.min(64, 16 + wave);
 }
 function enemySpots() { return enemy && enemy.spots ? enemy.spots : aiSpots('centre'); }
 /* Upgrades run on their OWN clock, not on the build tick and not behind a
@@ -3906,6 +3935,10 @@ function enemySpots() { return enemy && enemy.spots ? enemy.spots : aiSpots('cen
    swung the other way and spent everything on height — six towers at wave 12.
    One upgrade every few seconds keeps the wall growing sideways AND upward. */
 const AI_UPGRADE_PERIOD = 5.5, AI_BUILD_RESERVE = 120;
+/* Breadth stops mattering here no matter what the build rate turns out to be.
+   See aiBreadthTarget: the slope-vs-build-rate race is the mechanism, this is
+   the guarantee that it terminates. */
+const AI_BREADTH_LAST_WAVE = 8;
 function updateEnemyAI(dt) {
   enemy.buildClock -= dt;
   enemy.sendClock -= dt;
@@ -4065,7 +4098,7 @@ function waveDefFor(waveNumber) {
   const base = WAVES[(waveNumber - 1) % WAVES.length];
   const loop = Math.floor((waveNumber - 1) / WAVES.length);
   if (!loop) return base;
-  return { ...base, hp:Math.round(base.hp * Math.pow(2, loop)), bounty:base.bounty + loop * 3 };
+  return { ...base, hp:Math.round(base.hp * Math.pow(WAVE_LOOP_MULT, loop)), bounty:base.bounty + loop * 3 };
 }
 function launchNextWave() {
   if (matchMode === 'classic') return;
@@ -6186,7 +6219,7 @@ function renderHud() {
   } else {
     const arenaHud = document.body.classList.contains('arena');
     $('wave-label').textContent = wave <= WAVES.length
-      ? (arenaHud ? `WAVE ${Math.max(1, wave)}/20` : `WAVE ${String(Math.max(1, wave)).padStart(2, '0')}/20`)
+      ? (arenaHud ? `WAVE ${Math.max(1, wave)}/${WAVES.length}` : `WAVE ${String(Math.max(1, wave)).padStart(2, '0')}/${WAVES.length}`)
       : (arenaHud ? `WAVE ${wave}∞` : `WAVE ${wave} ∞`);
     const upcoming = waveDefFor(wave + 1);
     if (!matchOver) {
@@ -8118,6 +8151,27 @@ function mpHostSeat(sid, half, index, name, raceId) {
   else { mp.team = half; mp.seat = index; }
   return true;
 }
+/* Take a departed player out of the roster: close the seat so it stops counting
+   toward the side's strength, drop the board we were mirroring for them, and
+   move the camera off it if that is what we were watching. Closing rather than
+   converting to 'ai' is deliberate — nothing spawns a bot mid-match, so an 'ai'
+   seat here would be a board that never builds and never leaks, quietly holding
+   the side's lifeforce up. */
+function mpReleaseSeat(sid) {
+  if (!sid) return null;
+  let freed = null;
+  ensureRoster();
+  ['south', 'north'].forEach((h) => roster[h].forEach((s, i) => {
+    if (s.sid !== sid) return;
+    freed = mpSeatKey(h, i);
+    s.sid = null; s.kind = 'closed'; s.name = '';
+    delete mp.seatSnaps[freed]; delete mp.seatLives[freed]; delete mp.seatLeaks[freed];
+  }));
+  delete mp.peers[sid];
+  if (freed && mp.viewSeat === freed) mp.viewSeat = mpDefaultViewSeat();
+  if (mp.role === 'host') mpBroadcastRoster();
+  return freed;
+}
 function mpBroadcastRoster() {
   if (mp.role !== 'host') return;
   const payload = { t:'roster', roster:mpRosterWire(), mode:mpModeNow(), lives:startingLives(), ts:Date.now() };
@@ -8426,8 +8480,20 @@ function mpOnMessage(msg) {
   } else if (msg.t === 'over') {
     if (mp.active && battleRunning && !matchOver) endMatch(msg.result === 'defeat' ? 'victory' : 'defeat');
   } else if (msg.t === 'bye') {
-    if (mp.active && battleRunning && !matchOver) { log(`${mp.oppName || 'Opponent'} left the match.`); endMatch('victory'); }
-    else mpStatus(`${mp.oppName || 'Opponent'} left the room.`);
+    /* ONE PERSON LEAVING IS NOT A WIN. This called endMatch('victory') on ANY
+       bye, so in a 2v2 whoever dropped ended the match for all four — and if
+       the leaver was your own TEAMMATE, the room was handed a victory for
+       losing a player. Free their seat first, then end only when a side has
+       actually run out of people. In a 1v1 that is still an instant victory,
+       because releasing the only foe seat empties the half. */
+    const who = (msg.sid && mp.peers[msg.sid]?.name) || mp.oppName;
+    if (msg.sid) mpReleaseSeat(msg.sid);
+    if (mp.active && battleRunning && !matchOver) {
+      log(`${who || 'A player'} left the match.`);
+      if (!mpSeatsInPlay(mpFoeHalf()).length) endMatch('victory');
+      else if (!mpSeatsInPlay(mp.team).length) endMatch('defeat');
+      else mpSyncTeamLives();
+    } else mpStatus(`${who || 'Opponent'} left the room.`);
   }
 }
 /* The host starts the room: one seed, one roster, everybody at once. Before

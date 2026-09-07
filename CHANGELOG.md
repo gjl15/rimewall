@@ -7,6 +7,117 @@ environment, so every entry here was live the moment it was pushed.
 
 ---
 
+## 2026-09-09 — four defects an outside review found, and the gravity paradox closed
+
+An external agent review of `8670b68` returned five findings. Three were
+measurably true, one was true and **bigger than it was filed as**, and one is a
+design decision that belongs to Gene. Every claim below was re-measured here
+before anything was changed — `tools/harness/verify.js` is that check, kept so
+the next review can be audited the same way.
+
+### The computer never bought a second-tier tower. Any of them.
+
+Filed as "the regression benchmark is invalid, document it." It is not a
+benchmark problem. `updateAlly` is the same code that runs **the computers a
+person plays against**, so this was a live difficulty defect: the "very hard
+computer" for solo mode was a tier-0 spammer.
+
+The gate is `aiBreadthTarget()` — build wide first, then tall. Its own comment
+says the target must rise slower than the build rate "or widening becomes
+permanent by another route," and then it shipped rising **three a wave against a
+measured build rate of 3.6.** From a standing start of 16 the gap closed at 0.6 a
+wave, putting the crossover near wave 27 — past where every bot dies. Measured
+consequence, every race, every run:
+
+| | towers built | tier spread |
+|---|---|---|
+| before | 36 | **100% tier 0** |
+| after | 26 | 21×T0, 4×T1, 1×T2 |
+
+Slope is now 1, which crosses at wave 6 exactly as the comment always claimed,
+and `AI_BREADTH_LAST_WAVE = 8` ends breadth on a clock so a future change to
+build rate or tower cost cannot quietly reopen the trap. The rival now spends on
+quality: peak towers across the ten-race regression fell 31 → 22 while tiers
+rose.
+
+### Endless restarted the table instead of continuing it
+
+Past wave 25 the wave list loops, and it looped at **double the weakest creep.**
+Wave 26 was a 3,500 HP Pathfinder wave immediately after wave 25's 124,308 HP
+boss — a **35.5× collapse** that cleared in half a second and handed back several
+free waves before the ×1.04 late ramp caught up. Doubling was never going to
+bridge a gap the table itself opens ~170-fold.
+
+`WAVE_LOOP_MULT` is now derived from the span the table actually covers — the
+wave load it ends on over the load it opens with, counting the ×2.4 role weight a
+juggernaut carries, which a first attempt missed and left a 5.75× step.
+
+| boundary | before | after |
+|---|---|---|
+| wave 24 → 26 | 35.5× drop | **1.04×** |
+| wave 49 → 51 | 35.5× drop | **1.04×** |
+
+Wave 27 now exceeds wave 24, so the curve keeps climbing through the seam.
+Derived rather than typed, so re-tuning the wave list keeps endless continuous
+for free. The hand-authored waves 1–25 are untouched: wave 1 still clears in
+3.5s.
+
+### A teammate leaving ended the match for everyone
+
+`msg.t === 'bye'` called `endMatch('victory')` on **any** departure. In a 2v2 that
+meant whoever dropped ended the match for all four — and if the leaver was your
+own teammate, the room was handed a *victory* for losing a player.
+
+A departure now frees the seat first (`mpReleaseSeat`) and ends the match only
+when a side has actually run out of people. Closing the seat rather than
+converting it to `ai` is deliberate: nothing spawns a bot mid-match, so an `ai`
+seat would be a board that never builds and never leaks, quietly holding the
+side's lifeforce up. `tools/harness/mpbye.js` drives two real clients onto one
+team against computers and pulls one out:
+
+    before  Gene's match ended the moment Abdy left
+    after   Gene still playing, Abdy's seat closed, camera moved off his board
+
+A 1v1 still ends in victory, because releasing the only foe seat empties the
+half — verified in the same script.
+
+### The wave counter promised twenty waves
+
+The table has **25** entries; the HUD read `WAVE 07/20` and the last five waves
+of a run counted past their own total. Now `/${WAVES.length}`.
+
+---
+
+### Left open, because it is a design call, not a bug
+
+Gravity measures 2nd best value per gold (0.74) yet ties for the worst death wave
+(11). That contradiction has been open for a while; two earlier fixes moved
+neither number. It is now explained, and the explanation is a **price**:
+
+| | first tower with crowd damage | cost |
+|---|---|---|
+| Fire | T0 Kindler (`smallsplash`) | **10g** |
+| Gravity | T2 Psi Emitter (`warppulse`) | **150g** |
+
+Fire hits groups from its opening tower. Gravity is single-target until 150g a
+tower, so it is single-target for the entire early and mid game. That is also why
+the two harnesses disagreed and neither was wrong: `race.js` prices the T2+
+pulses and sees a strong race, `regress.js` mostly ever sees T0 and T1 and finds
+a weak one. They were measuring different halves of the game.
+
+Whether gravity's opening tier should touch a second body is a change to the
+race's identity, so it is Gene's call rather than a fix to slip in.
+
+---
+
+*Not adopted: the review's send-target exploit (round-robin `mpSendTarget` trusts
+the sender's `target`). Real, but it needs a modified client, and this is a game
+Gene plays with Abdy. Host migration remains unbuilt — if the host drops, nobody
+simulates the computers.*
+
+
+---
+
 ## 2026-09-08 (evening) — a cooldown on the chance-based holds, and cards you can read
 
 ### No wall can hold a creep still any more
