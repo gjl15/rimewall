@@ -512,6 +512,7 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
 .tower-stats { color:#6f7c9e !important; font:500 8px 'DM Mono',monospace !important; }
 .send-stats { color:#6f7c9e !important; font:500 8px 'DM Mono',monospace !important; }
 .air-tag { margin-left:4px; padding:1px 4px; border:1px solid #9fd8ff88; border-radius:4px; color:#9fd8ff; background:#9fd8ff14; font:700 7px 'DM Mono',monospace; letter-spacing:.08em; font-style:normal; vertical-align:1px; }
+.atk-tag { margin-left:4px; padding:1px 4px; border:1px solid #ff9faf88; border-radius:4px; color:#ff9faf; background:#ff9faf14; font:700 7px 'DM Mono',monospace; letter-spacing:.08em; font-style:normal; vertical-align:1px; }
 .resource.lumber b { font-size:12px; }
 .resource.lumber em { color:#c6a269; }
 .resource.lives b { color:#8ee89f; font:700 9px 'DM Mono',monospace; letter-spacing:.06em; }
@@ -2139,7 +2140,18 @@ const SENDS = [
   { id:'stormdrake', name:'Storm Drake', symbol:'🐲', cost:9500, income:1020, hp:5800, spd:3.2, armor:20, aClass:'heavy', air:true, shrine:4 },
   { id:'bastion', name:'Bastion', symbol:'⬓', cost:9200, income:990, hp:7600, spd:2.4, armor:22, aClass:'fortified', shrine:4 },
   { id:'aegisprime', name:'Aegis Prime', symbol:'⛨', cost:11000, income:1180, hp:7400, spd:2.7, armor:16, aClass:'light', role:'shieldbearer', shrine:5 },
-  { id:'titan', name:'World Titan', symbol:'☗', cost:15000, income:1600, hp:12000, spd:2.7, armor:24, aClass:'fortified', role:'juggernaut', shrine:5 }
+  { id:'titan', name:'World Titan', symbol:'☗', cost:15000, income:1600, hp:12000, spd:2.7, armor:24, aClass:'fortified', role:'juggernaut', shrine:5 },
+  /* ATTACKERS — bought to break a maze, never to build an economy.
+     Every other send on this ladder pays you back forever, so the whole ladder
+     is really an income ladder that happens to inconvenience someone. These
+     two pay NOTHING and cost lumber on top of the gold, which is the same
+     currency as a shrine level or a second element: sending one is giving up
+     real progress to take a wall down. They walk to the nearest tower in their
+     way and hit it instead of filing past it. */
+  { id:'breaker', name:'Wallbreaker', symbol:'🜛', cost:6000, income:0, lumber:1, attacker:true, breakPower:3,
+    hp:5200, spd:2.2, armor:18, aClass:'fortified', shrine:4 },
+  { id:'ruiner', name:'Siege Ruiner', symbol:'⛏', cost:16000, income:0, lumber:2, attacker:true, breakPower:8,
+    hp:13500, spd:2.0, armor:24, aClass:'fortified', role:'juggernaut', shrine:5 }
 ];
 const SHRINE_MAX = 5, LUMBER_PRICE = 500;
 
@@ -2314,7 +2326,11 @@ function sendCreepDef(send) {
   // shielded, Bulwark is a juggernaut) and this threw every one of them away, so
   // sends spawned plain no matter what their card promised
   const g = sendGrowth();
-  return { name:send.name, role:send.role || (send.air ? 'air' : 'standard'), hp:Math.round(send.hp * g), spd:send.spd, armor:send.armor, aClass:send.aClass, air:Boolean(send.air), bounty:Math.max(1, Math.round(send.income / 2)), lives:1 };
+  return { name:send.name, role:send.role || (send.air ? 'air' : 'standard'), hp:Math.round(send.hp * g), spd:send.spd, armor:send.armor, aClass:send.aClass, air:Boolean(send.air),
+    attacker:Boolean(send.attacker), breakPower:send.breakPower || 1,
+    /* an attacker pays no income, so killing one cannot pay the income back —
+       it pays a flat bounty for the trouble instead */
+    bounty:send.attacker ? Math.max(20, Math.round(send.cost / 120)) : Math.max(1, Math.round(send.income / 2)), lives:1 };
 }
 
 /* ---------------- Match state ---------------- */
@@ -2760,6 +2776,7 @@ function spawnCreep(waveDef, half, side, sent = false) {
     bounty:Math.round((waveDef.bounty || 0) * (jugg ? 2.2 : 1) * (sent ? 1 : hpScale * .8 + .2)), livesCost:waveDef.lives || 1,
     x:spawn.c + .5, y:spawn.r + .5, cpIndex:0, path:null, pathStep:0, pathVersion:-1,
     state:'walk', blockTargetKey:null, attackClock:0,
+    attacker:Boolean(waveDef.attacker), breakPower:waveDef.breakPower || 1,
     slowUntil:0, slowPct:0, frostUntil:0, frostStacks:0, frostPct:0, frozenUntil:0, freezeImmuneUntil:0, stunUntil:0, stasisUntil:0,
     dots:[], venom:0, venomUntil:0, armorShred:0, shield:shieldMax, shieldMax, shieldHitAt:0, regen,
     fireCharge:0, pushUntil:0, healAura:role === 'warden', onDeath
@@ -3009,7 +3026,7 @@ function updateCreep(creep, dt) {
     creep.attackClock -= dt;
     if (creep.attackClock <= 0) {
       creep.attackClock = .5;
-      tower.blockHp -= 1;
+      tower.blockHp -= (creep.breakPower || 1);
       tower.underAttack = now + .6;
       pushFx({ kind:'towerhit', x:tower.c + .5, y:tower.r + .5, until:now + .25 });
       if (tower.blockHp <= 0) {
@@ -3033,6 +3050,25 @@ function updateCreep(creep, dt) {
     const reachedNode = creep.cpIndex - 1;
     if (reachedNode >= FLAG_START && reachedNode < FLAG_END) flagReached(creep.half, creep.side, reachedNode - FLAG_START);
     return;
+  }
+  /* AN ATTACKER DOES NOT WAIT TO BE BLOCKED. Every other creep only swings when
+     the maze has left it no way through; these were bought to take the maze
+     down, so they pick the nearest tower they are walking past and hit that
+     instead. Without this they would file politely along the route and the
+     lumber you spent would have bought nothing a Bastion does not already do. */
+  if (creep.attacker && creep.state !== 'attack') {
+    let near = null, nd = 1.6;
+    towers.forEach((t) => {
+      if (halfOfRow(t.r) !== creep.half || underConstruction(t)) return;
+      const d = Math.hypot(t.c + .5 - creep.x, t.r + .5 - creep.y);
+      if (d < nd) { nd = d; near = t; }
+    });
+    if (near) {
+      log(`${creep.name} is tearing into ${towerDef(near.raceId, near.tier).name} (${near.blockHp} hits left).`);
+      creep.state = 'attack'; creep.blockTargetKey = near.key; creep.attackClock = .4;
+      near.blockingAt = simTime;
+      return;
+    }
   }
   if (!ensurePath(creep)) {
     const blocker = nearestBlockingTower(creep);
@@ -6418,7 +6454,7 @@ function renderTowerList() {
     const def = towerDef(raceId, tier);
     const isLaser = def.name === 'Laser Cannon';
     return `<button class="tower-row ${tier === selectedTowerTier ? 'selected' : ''} ${isLaser ? 'laser-row' : ''}" data-tower="${tier}">
-      <span><strong>${def.name}</strong><small>${def.desc}</small><small class="tower-stats">${def.dmg} dmg • ${def.range.toFixed(1)} range • ${def.cd.toFixed(2)}s • ${effectiveDps(def).toFixed(0)} dps${def.raceId === 'poison' ? ' (venom)' : ''}${def.special ? ' • ' + def.special : ''}${def.groundOnly ? ' • NO AIR' : ''}</small><small class="tower-stats profile-line">${attackProfileText(raceId, def)}</small></span><b>${def.cost}g${isLaser ? ' +1🪵' : ''}</b></button>`;
+      <span><strong>${def.name}</strong><small>${def.desc}</small><small class="tower-stats">${def.dmg} dmg • ${def.range.toFixed(1)} range • ${attackSpeedText(def)} • ${effectiveDps(def).toFixed(0)} dps${def.raceId === 'poison' ? ' (venom)' : ''}${def.special ? ' • ' + def.special : ''}${def.groundOnly ? ' • NO AIR' : ''}</small><small class="tower-stats profile-line">${attackProfileText(raceId, def)}</small></span><b>${def.cost}g${isLaser ? ' +1🪵' : ''}</b></button>`;
   }).join('');
   document.querySelectorAll('[data-tower]').forEach((button) => button.addEventListener('click', () => {
     selectedTowerTier = Number(button.dataset.tower);
@@ -6672,7 +6708,7 @@ function renderTowerDetails() {
       ${alike > 1 ? `<button id="td-selectall" class="ghost-button td-wide">⧉ Select all ${alike} ${stats.name}${many ? ` (${group.length} selected)` : ''}</button>` : ''}
     </div>` : ''}
     <p class="td-desc">${many ? 'Double-tap selected every like tower.' : `${stats.desc} ${specialBlurbs[stats.special] || ''}`}</p>
-    <div class="td-stats"><span>DMG <b>${stats.dmg}</b></span><span>RANGE <b>${stats.range.toFixed(1)}</b></span><span>RATE <b>${stats.cd.toFixed(2)}s</b></span></div>
+    <div class="td-stats"><span>DMG <b>${stats.dmg}</b></span><span>RANGE <b>${stats.range.toFixed(1)}</b></span><span>SPEED <b>${attackSpeedText(stats)}</b></span><span>DPS <b>${effectiveDps(stats, tower.raceId).toFixed(0)}</b></span></div>
     <p class="td-desc profile-line">${attackProfileText(tower.raceId, stats)}</p>
     ${isYours ? boltPanelHtml(group) : ''}`;
   $('td-close').addEventListener('click', () => { selectedTowerKey = null; selectedGroupKeys = []; renderTowerDetails(); });
@@ -6694,16 +6730,18 @@ function renderSendPanel() {
   }
   $('send-list').innerHTML = SENDS.map((send) => `
     <button class="send-card" data-send="${send.id}"><span class="send-icon">${send.air ? '🐉' : send.symbol}</span>
-      <div><strong>${send.name}${send.air ? ' <em class="air-tag">AIR</em>' : ''}</strong>
-      <small data-send-note="${send.id}">+${send.income} income</small>
-      <small class="send-stats">${sendShownHp(send)} HP • ${send.spd.toFixed(1)} spd • ${send.armor} armor (${send.aClass})</small></div><b>${send.cost}g</b></button>`).join('');
+      <div><strong>${send.name}${send.air ? ' <em class="air-tag">AIR</em>' : ''}${send.attacker ? ' <em class="atk-tag">ATTACKER</em>' : ''}</strong>
+      <small data-send-note="${send.id}">${send.attacker ? `<b style="color:#ff9faf">no income</b> • breaks towers (${send.breakPower} hits a swing)` : `+${send.income} income`}</small>
+      <small class="send-stats">${sendShownHp(send)} HP • ${send.spd.toFixed(1)} spd • ${send.armor} armor (${send.aClass})</small></div><b>${send.cost}g${send.lumber ? ` +${send.lumber}🪵` : ''}</b></button>`).join('');
   document.querySelectorAll('[data-send]').forEach((button) => button.addEventListener('click', () => {
     const send = SENDS.find((item) => item.id === button.dataset.send);
     if (!battleRunning) return log('Start a match before sending.');
     if (player.shrine < send.shrine) return log(`${send.name} needs Shrine level ${send.shrine}.`);
     if (player.gold < send.cost) return log(`Not enough gold — ${send.name} costs ${send.cost}g.`);
+    if (send.lumber && player.lumber < send.lumber) return log(`${send.name} costs ${send.cost}g + ${send.lumber}🪵 — and pays no income. Buy lumber first.`);
     const incWas = BASE_INCOME + incomePayout(player.income);
     player.gold -= send.cost; player.income += send.income; SFX.play('send'); Coach.notify('send'); track('send', { id: send.id });
+    if (send.lumber) { player.lumber -= send.lumber; player.lumberSpent += send.lumber; renderTowerList(); }
     logSend(send.id); if (matchStats) matchStats.sends += 1;
     const incNow = BASE_INCOME + incomePayout(player.income);
     // one purchase sends a unit down BOTH rival lanes (over the wire in PvP)
@@ -9097,6 +9135,17 @@ function barRefreshAffordable() {
 /* Poison's listed dmg/cd stopped being its damage the moment the bolt became
    35% and the burn became the rest. This is what it actually does once the
    stack is up, so the card is not quietly lying about a whole race. */
+/* ATTACK SPEED, SPELLED OUT. Every card quoted a cooldown — "0.95s" — which is
+   a period, not a speed: the number goes DOWN as the tower gets faster, so two
+   towers could not be compared at a glance without dividing. Shows attacks per
+   second, with the cooldown kept alongside for anyone who wants it. A beam has
+   no discrete swing, so it says so. */
+function attackSpeedText(def) {
+  if (!def || !def.cd) return '—';
+  if (def.special === 'beam' || def.special === 'beamline') return 'continuous';
+  const per = 1 / def.cd;
+  return `${per >= 10 ? per.toFixed(0) : per.toFixed(2)}/s (${def.cd.toFixed(2)}s)`;
+}
 function effectiveDps(def, raceId) {
   const raw = def.dmg / def.cd;
   /* Venom is keyed on the RACE now, so every poison tower carries it — the old
@@ -9449,7 +9498,7 @@ function renderCommandSheet() {
     body = `<div class="sheet-grid">${towerListFor(raceId).map((def, tier) => `
       <button class="sheet-chip ${tier === selectedTowerTier ? 'on' : ''} ${player.gold < def.cost ? 'poor' : ''}" data-sheet-tower="${tier}">
         <span>${towerDef(raceId, tier).symbol}</span><small>${def.name.split(' ')[0]}</small><b>${def.cost}g</b></button>`).join('')}</div>
-      <div class="sheet-detail"><strong>${sel.name}</strong> — ${sel.desc} ${specialBlurbs[sel.special] || ''}<br><em>${sel.dmg} dmg • ${sel.range.toFixed(1)} range • ${sel.cd.toFixed(2)}s • ${attackProfileText(raceId, sel)}</em></div>
+      <div class="sheet-detail"><strong>${sel.name}</strong> — ${sel.desc} ${specialBlurbs[sel.special] || ''}<br><em>${sel.dmg} dmg • ${sel.range.toFixed(1)} range • ${attackSpeedText(sel)} • ${effectiveDps(sel, raceId).toFixed(0)} dps • ${attackProfileText(raceId, sel)}</em></div>
       <p class="sheet-hint">Tap the board to place. Hold a placed tower to sell; the undo pill refunds fully for 3s.</p>`;
   } else if (sheetTab === 'sends') {
     const wagerReady = wager.tokens > 0 && simTime >= wager.cooldownUntil && !wager.pending;
@@ -9490,7 +9539,7 @@ function renderCommandSheet() {
               upgrade — new name, new description, new blurb — and anything above
               the action row moves that row while a finger is coming down on it.
               That is how a batch upgrade turned into a batch sell. */''}
-        <div class="sheet-detail">${stats.desc} ${specialBlurbs[stats.special] || ''}<br><em>${stats.dmg} dmg • ${stats.range.toFixed(1)} range • ${stats.cd.toFixed(2)}s • ${attackProfileText(t0.raceId, stats)}</em>${many ? '' : ` • ${t0.kills} kills`}</div>${boltPanelHtml(sel)}`;
+        <div class="sheet-detail">${stats.desc} ${specialBlurbs[stats.special] || ''}<br><em>${stats.dmg} dmg • ${stats.range.toFixed(1)} range • ${attackSpeedText(stats)} • ${effectiveDps(stats, t0.raceId).toFixed(0)} dps • ${attackProfileText(t0.raceId, stats)}</em>${many ? '' : ` • ${t0.kills} kills`}</div>${boltPanelHtml(sel)}`;
     }
   } else if (sheetTab === 'log') {
     body = recordsContent();
@@ -9712,7 +9761,7 @@ function renderWispInspect() {
       ${(() => { const alike = [...towers.values()].filter((t) => isMine(t) && t.raceId === t0.raceId && t.tier === t0.tier).length;
         return alike > 1 ? `<button class="wp-act wp-wide" data-wp-act="selectall">⧉ Select all ${alike}${sel.length > 1 ? ` · ${sel.length} selected` : ''}</button>` : ''; })()}
     </div>
-    <div class="wp-detail">${(stats.dmg/stats.cd).toFixed(0)} dps · ${attackProfileText(t0.raceId, stats)}<br>${specialBlurbs[stats.special]||stats.desc||''}${up?`<br><i>→ ${up.next.name}: ${up.next.dmg} dmg · ${up.next.range} range (full ${up.cost}g)</i>`:'<br><i>max tier</i>'}</div>${boltPanelHtml(sel)}`;
+    <div class="wp-detail">${stats.dmg} dmg · ${attackSpeedText(stats)} · ${effectiveDps(stats, t0.raceId).toFixed(0)} dps · ${attackProfileText(t0.raceId, stats)}<br>${specialBlurbs[stats.special]||stats.desc||''}${up?`<br><i>→ ${up.next.name}: ${up.next.dmg} dmg · ${up.next.range} range (full ${up.cost}g)</i>`:'<br><i>max tier</i>'}</div>${boltPanelHtml(sel)}`;
 }
 function setupWisp() {
   const wisp = $('wisp');
