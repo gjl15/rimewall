@@ -1452,22 +1452,26 @@ const TOWERS = {
      slowest but reaches furthest and skewers what is behind its target. Mace
      splashes. Every rung takes an elemental imbuing — see boltEligible. */
   ninja:[
-    /* Damage is up ~80% on the first cut, which died on wave 10 against a field
-       median of 12 — the worst in the game. Reach is the identity and stays
-       where it is; a tower that only engages what walks right past it gets a
-       fraction of the firing time a 5.5-range tower gets, and the damage per
-       second has to pay for that.
-       And "one square radius" has to mean the EIGHT cells around the tower, not
-       the four: at range 1.0 a diagonal neighbour sits 1.41 away and was never
-       reachable, so a blade covered a plus-sign. An 80% damage buff moved the
-       death wave by nothing at all, which is what said the constraint was
-       coverage rather than damage. 1.5 is the square Gene described. */
-    { name:'Shadow Initiate', cost:10, dmg:16, cd:.30, range:1.5, special:'basic', desc:'Bare hands, blindingly fast, and it can only touch what walks right past it.' },
-    { name:'Dagger Adept', cost:40, dmg:36, cd:.25, range:1.5, special:'basic', desc:'The fastest blade in the game. One square, and everything in it bleeds.' },
-    { name:'Sword Ronin', cost:100, dmg:97, cd:.40, range:2.3, special:'basic', desc:'Two squares of reach and still quicker than any mace.' },
-    { name:'Mace Breaker', cost:200, dmg:238, cd:.70, range:2.3, special:'smallsplash', desc:'Slow, heavy, and it catches everything crowded around the target.' },
-    { name:'Spear Sentinel', cost:285, dmg:360, cd:.85, range:3.2, special:'beamline', desc:'The longest reach a ninja gets, and it runs through whatever stands behind its mark.' },
-    { name:'Shadow Master', cost:350, dmg:342, cd:.30, range:2.3, special:'basic', desc:'A blur inside two squares. Nothing in the game kills faster at this range.' }
+    /* EVERY BLADE COSTS FIVE GOLD. Gene, correcting the first cut: "i thought
+       that all the ninja towers were gonna be the same price, and the way to
+       upgrade them is into the different weapons and imbuings... so maybe the
+       first tower is much weaker, worth 5 gold, and then to upgrade into the
+       different weapons another 5 gold and then u can upgrade their dmg."
+
+       So the rungs are not a power ladder, they are a WEAPON RACK at a flat
+       price: five gold to place a ninja, five more to step to the weapon you
+       want. Power comes from levelling — eight levels at a real price — and the
+       imbuing is a third, separate choice. A maxed spear runs about 385g all in,
+       which buys roughly what a 350g tier-5 tower does elsewhere, with a third
+       of the reach.
+       Reach is still the identity: 1.5 covers the eight cells around the blade,
+       and nothing beyond them. */
+    { name:'Shadow Initiate', cost:5, levelCost:10, maxLevel:8, dmg:8, cd:.30, range:1.5, special:'basic', desc:'Bare hands. Five gold, barely dangerous, and the start of every blade.' },
+    { name:'Dagger Adept', cost:5, levelCost:10, maxLevel:8, dmg:18, cd:.25, range:1.5, special:'basic', desc:'The fastest weapon in the game. One square, and everything in it bleeds.' },
+    { name:'Sword Ronin', cost:5, levelCost:10, maxLevel:8, dmg:48, cd:.40, range:2.3, special:'basic', desc:'Two squares of reach and still quicker than any mace.' },
+    { name:'Mace Breaker', cost:5, levelCost:10, maxLevel:8, dmg:120, cd:.70, range:2.3, special:'smallsplash', desc:'Slow and heavy: the swing catches everything crowded around the target.' },
+    { name:'Spear Sentinel', cost:5, levelCost:10, maxLevel:8, dmg:180, cd:.85, range:3.2, special:'beamline', desc:'The longest reach a ninja gets, and it runs through whatever stands behind its mark.' },
+    { name:'Shadow Master', cost:5, levelCost:14, maxLevel:8, dmg:150, cd:.30, range:2.3, special:'basic', desc:'A blur inside two squares. Nothing kills faster at this range — and it levels dearer than the rest.' }
   ],
   gravity:[
     { name:'Gravity Well', cost:10, dmg:9, cd:.95, range:5.5, special:'warp', desc:'A single warped slug that drags its target to a crawl.' },
@@ -1730,6 +1734,16 @@ function towerDef(raceId, tier) {
 /* Level upgrades: +15% damage and +0.25 range per level (max +3).
    Tier upgrades: pay the price difference to turn a tower into the next one. */
 const MAX_LEVEL = 3;
+/* A RACE CAN SET ITS OWN LEVEL CURVE. Ninja is bought for five gold and made
+   dangerous by levelling, so it needs far more headroom than the three levels
+   that suit a race whose power comes from its tier ladder — and its levels have
+   to carry a real price, or a 5g tower with 5g levels would be free power.
+   Everything else keeps exactly the numbers it had. */
+function towerMaxLevel(tower) {
+  const def = tower && tower.raceId != null ? towerDef(tower.raceId, tower.tier) : null;
+  return (def && def.maxLevel) || MAX_LEVEL;
+}
+function canLevel(tower) { return (tower.level || 0) < towerMaxLevel(tower); }
 /* ---------------- BOLT MODS (tech line + every race's Laser Cannon) ----------------
    Tech is the toolbox race: bolt throwers with raw numbers and no element of
    their own, which is exactly why it kept measuring bottom of the table — every
@@ -1741,19 +1755,41 @@ const BOLT_MODS = [
   { id:'ice',    name:'Ice bolt',      glyph:'❄', color:'#77d6ff' },
   { id:'fire',   name:'Fire bolt',     glyph:'✷', color:'#ff875f' },
   { id:'toxic',  name:'Toxic bolt',    glyph:'☣', color:'#9ce37d' },
-  { id:'pierce', name:'Piercing bolt', glyph:'➤', color:'#ffd86b' }
+  { id:'pierce', name:'Piercing bolt', glyph:'➤', color:'#ffd86b' },
+  /* The other six Gene asked for. Each borrows the signature of an element that
+     already owns it, at a fraction — an imbuing buys the flavour, never the
+     race. Storm chains, Quake stuns, Warp shoves, Crush crits, Chaos ignores
+     armour value, Lumen lengthens the blade. */
+  { id:'storm',  name:'Storm bolt',    glyph:'ϟ', color:'#ffd86b' },
+  { id:'quake',  name:'Quake bolt',    glyph:'⛰', color:'#c6a269' },
+  { id:'warp',   name:'Warp bolt',     glyph:'◉', color:'#b48ead' },
+  { id:'crush',  name:'Crush bolt',    glyph:'⬢', color:'#a9b3c6' },
+  { id:'chaos',  name:'Chaos bolt',    glyph:'✧', color:'#c48cff' },
+  { id:'lumen',  name:'Lumen bolt',    glyph:'⌖', color:'#7ef0d4' }
 ];
 const BOLT = {
   iceSlow:30, iceDur:1.5,
   fireBurnPct:.20, fireBurnDur:3,
   toxicSlow:60, toxicDur:1.5, toxicDotPct:.10, toxicDotDur:4,
-  pierceRange:.10, pierceRate:.10, pierceFlat:.10
+  pierceRange:.10, pierceRate:.10, pierceFlat:.10,
+  stormArc:.35, stormRange:2.2,          // a shard of Electricity's chain
+  quakeStun:.12, quakeDur:.35,           // a shard of Earth's stun
+  warpShove:.9, warpChance:.25,          // a shard of Gravity's shove
+  crushCrit:.18, crushMult:1.9,          // a shard of Stone's crit
+  chaosPct:.35,                          // a shard of Crystal: part of the hit ignores armour value
+  lumenRange:.9                          // a shard of Beam: reach
 };
 const BOLT_BY_ID = Object.fromEntries(BOLT_MODS.map((m) => [m.id, m]));
 const BOLT_BLURB = {
   ice:    `Every hit slows ${BOLT.iceSlow}% for ${BOLT.iceDur}s.`,
   fire:   `Ignites for an extra ${Math.round(BOLT.fireBurnPct * 100)}% of the hit as burn damage over ${BOLT.fireBurnDur}s.`,
   toxic:  `Slows ${BOLT.toxicSlow}% and leaves a ${Math.round(BOLT.toxicDotPct * 100)}% venom that can never land the killing blow.`,
+  storm:  `Arcs ${Math.round(BOLT.stormArc * 100)}% of every hit to one other creep within ${BOLT.stormRange} cells.`,
+  quake:  `${Math.round(BOLT.quakeStun * 100)}% chance a hit stuns for ${BOLT.quakeDur}s. Bosses resist.`,
+  warp:   `${Math.round(BOLT.warpChance * 100)}% chance a hit shoves the creep ${BOLT.warpShove} cells back toward its last checkpoint. Bosses resist.`,
+  crush:  `${Math.round(BOLT.crushCrit * 100)}% chance to crit for ${BOLT.crushMult}x.`,
+  chaos:  `${Math.round(BOLT.chaosPct * 100)}% of every hit ignores armour value and the class matrix entirely. Non-lethal.`,
+  lumen:  `+${BOLT.lumenRange} range on the tower itself — the one imbuing that lengthens a blade.`,
   pierce: `+${Math.round(BOLT.pierceRange * 100)}% range and fire rate, plus ${Math.round(BOLT.pierceFlat * 100)}% damage that ignores armour and the class matrix — identical against every armour type. Non-lethal, and it does not stack.`
 };
 /* Tech's whole line, and the Laser Cannon whatever race bought it (it is the
@@ -1781,10 +1817,16 @@ function towerLiveStats(tower) {
     stats.bolt = tower.bolt;
     // piercing is the only bolt that touches the tower's own numbers
     if (tower.bolt === 'pierce') { stats.range *= 1 + BOLT.pierceRange; stats.cd = stats.cd / (1 + BOLT.pierceRate); }
+    // the one imbuing that changes the blade rather than what it leaves behind
+    if (tower.bolt === 'lumen') stats.range += BOLT.lumenRange;
   }
   return stats;
 }
-function towerLevelCost(tower) { return Math.max(5, Math.ceil(towerDef(tower.raceId, tower.tier).cost * .4 * ((tower.level || 0) + 1))); }
+function towerLevelCost(tower) {
+  const def = towerDef(tower.raceId, tower.tier);
+  const step = def.levelCost || def.cost * .4;
+  return Math.max(5, Math.ceil(step * ((tower.level || 0) + 1)));
+}
 function towerTierUp(tower) {
   const list = towerListFor(tower.raceId);
   if (tower.tier >= list.length - 1) return null;
@@ -2698,6 +2740,7 @@ function resetMatchState() {
   wave = 0; waveClock = FIRST_WAVE_DELAY; incomeClock = INCOME_PERIOD; levelPayDue = 0; simTime = 0; battlePaused = false; matchOver = false;
   // a new match starts every side's pool full again
   mp.myLeaks = 0; mp.leaksSent = -1; mp.seatLeaks = {}; mp.seatLives = {}; mp.botLivesSent = {}; mp.seatSnaps = {}; mp.viewSeat = null;
+  mp.towerSig = null; mp.towerFullAt = -99;   // a new match republishes its board immediately
   mp.fxOut = []; mp.seatFx = {}; mirrorFx = []; mp.towerSig = '';
   spawnAllies();
   if (allies.length) {
@@ -3392,6 +3435,24 @@ function applyBoltEffects(creep, tower, stats) {
     creep.slowUntil = Math.max(creep.slowUntil, simTime + BOLT.toxicDur);
     creep.slowPct = Math.max(creep.slowPct || 0, BOLT.toxicSlow);
     pushDot(creep, stats.dmg * BOLT.toxicDotPct / BOLT.toxicDotDur, BOLT.toxicDotDur, 'bolttoxic', true);
+  } else if (bolt === 'storm') {
+    // arcs a fraction of the hit to one other creep nearby
+    let best = null, bd = BOLT.stormRange;
+    creeps.forEach((o) => { if (o === creep || o.hp <= 0 || o.half !== creep.half) return;
+      const d = Math.hypot(o.x - creep.x, o.y - creep.y); if (d < bd) { bd = d; best = o; } });
+    if (best) applyDamage(best, stats.dmg * BOLT.stormArc, tower);
+  } else if (bolt === 'quake') {
+    if (!creep.boss && rng() < BOLT.quakeStun) tryHold(creep, simTime + BOLT.quakeDur);
+  } else if (bolt === 'warp') {
+    if (!creep.boss && rng() < BOLT.warpChance) {
+      const node = creep.path && creep.path[Math.max(0, creep.pathStep - 1)];
+      if (node) shoveCreep(creep, node, BOLT.warpShove);
+    }
+  } else if (bolt === 'crush') {
+    if (rng() < BOLT.crushCrit) applyDamage(creep, stats.dmg * (BOLT.crushMult - 1), tower);
+  } else if (bolt === 'chaos') {
+    // a share of the hit that answers to nothing: no armour value, no class matrix
+    applyDamage(creep, stats.dmg * BOLT.chaosPct, tower, true, { nonLethal:true });
   } else if (bolt === 'pierce') {
     /* isDot skips the armour value AND the class matrix, which is precisely
        "deals the same to all armour types". Non-lethal so it never steals a
@@ -6279,7 +6340,7 @@ function railBody(tab) {
     if (!sel.length) return `<div class="rl-head">TOWER</div><div class="rl-card"><small>Tap one of your towers on the board to upgrade, retarget or sell it.</small></div>`;
     const t0 = sel[0], st = towerLiveStats(t0), many = sel.length > 1;
     const up = towerTierUp(t0);
-    const lvl = sel.filter((x) => x.level < MAX_LEVEL).reduce((s, x) => s + towerLevelCost(x), 0);
+    const lvl = sel.filter((x) => canLevel(x)).reduce((s, x) => s + towerLevelCost(x), 0);
     return `<div class="rl-head">${many ? `${sel.length} × ` : ''}${st.name}</div>`
       + card('data-rail-act="level"', '#8fe6b8', '⬆ Level', `+15% dmg`, lvl ? `${lvl}g` : 'MAX', false, !lvl || player.gold < lvl)
       + (up ? card('data-rail-act="tier"', '#77d6ff', `⏫ ${up.next.name}`, `${up.next.dmg} dmg`, `${sel.filter(towerTierUp).reduce((s, x) => s + (towerTierUp(x)?.cost || 0), 0)}g`, false, false) : '')
@@ -6601,20 +6662,20 @@ function towerAction(kind) {
        "Upgraded 7 towers" after selecting 20 read as a bug rather than as the
        purse running out. Name the shortfall and what would clear it. */
     let done = 0, spent = 0;
-    const wanted = group.filter((t) => t.level < MAX_LEVEL).length;
+    const wanted = group.filter((t) => canLevel(t)).length;
     for (const t of group.sort((a, b) => towerLevelCost(a) - towerLevelCost(b))) {
-      if (t.level >= MAX_LEVEL) continue;
+      if (!canLevel(t)) continue;
       const cost = towerLevelCost(t);
       if (player.gold < cost) break;
       player.gold -= cost; t.invested += cost; t.level += 1; done += 1; spent += cost; logUpgrade(-1);
     }
-    const restCost = group.filter((t) => t.level < MAX_LEVEL).reduce((s, t) => s + towerLevelCost(t), 0);
+    const restCost = group.filter((t) => canLevel(t)).reduce((s, t) => s + towerLevelCost(t), 0);
     if (done) {
       const short = wanted - done;
       log(`Upgraded ${done}${short ? ` of ${wanted}` : ''} tower${done > 1 ? 's' : ''} one level for ${spent}g (+15% damage, +0.25 range).`
         + (short ? ` ${short} left — ${restCost}g short of the rest.` : ''));
       if (short) showToast(`<b>Upgraded ${done} of ${wanted}</b><span>${restCost}g more finishes the batch</span>`);
-    } else if (wanted) log(`Not enough gold — the cheapest of those ${wanted} costs ${restCost && Math.min(...group.filter((t) => t.level < MAX_LEVEL).map(towerLevelCost))}g.`);
+    } else if (wanted) log(`Not enough gold — the cheapest of those ${wanted} costs ${restCost && Math.min(...group.filter((t) => canLevel(t)).map(towerLevelCost))}g.`);
   } else if (kind === 'tier') {
     let done = 0;
     for (const t of group.sort((a, b) => (towerTierUp(a)?.cost ?? 1e9) - (towerTierUp(b)?.cost ?? 1e9))) {
@@ -6715,7 +6776,7 @@ function renderTowerDetails() {
   const stats = towerLiveStats(tower);
   const isYours = isMine(tower);
   panel.classList.remove('hidden');
-  const upgradable = group.filter((t) => t.level < MAX_LEVEL);
+  const upgradable = group.filter((t) => canLevel(t));
   const levelCostAll = upgradable.reduce((sum, t) => sum + towerLevelCost(t), 0);
   const tierable = group.filter((t) => towerTierUp(t));
   const tierCostAll = tierable.reduce((sum, t) => sum + towerTierUp(t).cost, 0);
@@ -8252,6 +8313,9 @@ mp.peers = {};                 // sid -> { sid, name, raceId, team, seat, lives,
 mp.team = PLAYER_HALF;         // which side I am on; my own board is always drawn as the south half
 mp.seat = 0;
 mp.sendTurn = 0;
+/* How often a board republishes its whole tower list even when nothing changed,
+   so a viewer who arrives late still gets one. See the snapshot publisher. */
+const MP_TOWER_REFRESH = 3;
 mp.seatLives = {};             // "half:index" -> lifeforce, for every seat that is not mine
 mp.seatLeaks = {};             // "half:index" -> lives leaked on that board
 mp.myLeaks = 0;                // what I have let through, which is my share of the side's pool
@@ -8981,9 +9045,20 @@ function mpTick(dt) {
     /* Towers change only when somebody builds or upgrades, and they are the
        bulk of the message — so send them only when they actually differ and
        let the viewer keep the last list. Creeps move every frame and always go. */
+    /* AND A FULL LIST EVERY FEW SECONDS, WHATEVER HAPPENED.
+       Sending towers only when they change is right for the wire — they are the
+       bulk of the message — but it means the list is a one-time event, and a
+       viewer who was not listening at that moment never gets one: an omitted
+       list reads as "unchanged", so their copy stays empty forever. That is
+       every teammate who tabbed to your board after you built, and everyone at
+       all if a single message went missing. Gene, twice: "i still cant see what
+       abd is building" and "i dont see his build still."
+       A periodic resend heals both without a new message type. At the measured
+       3.5KB a snapshot this costs about 1KB/s. */
     const sig = JSON.stringify(mine.towers);
-    const towersChanged = sig !== mp.towerSig;
-    if (towersChanged) mp.towerSig = sig;
+    const stale = simTime - (mp.towerFullAt || -99) > MP_TOWER_REFRESH;
+    const towersChanged = sig !== mp.towerSig || stale;
+    if (towersChanged) { mp.towerSig = sig; mp.towerFullAt = simTime; }
     const msg = { t:'snap', sid:mp.sid, seat:mpMySeatKey(), creeps:mine.creeps, fx };
     if (towersChanged) msg.towers = mine.towers;
     mpSend(msg);
@@ -9580,7 +9655,7 @@ function renderCommandSheet() {
       const t0 = sel[0];
       const stats = towerLiveStats(t0);
       const many = sel.length > 1;
-      const upgradable = sel.filter((t) => t.level < MAX_LEVEL);
+      const upgradable = sel.filter((t) => canLevel(t));
       const levelCostAll = upgradable.reduce((sum, t) => sum + towerLevelCost(t), 0);
       const tierable = sel.filter((t) => towerTierUp(t));
       const tierCostAll = tierable.reduce((sum, t) => sum + towerTierUp(t).cost, 0);
@@ -9817,7 +9892,7 @@ function renderWispInspect() {
   const armed = pendingSell && pendingSell.sig === selectionSig(sel) && simTime - pendingSell.at < SELL_CONFIRM_WINDOW;
   return close + `<div class="wp-title"><b>${sel.length>1?sel.length+'× ':''}${stats.name}${t0.level?(' +'+t0.level):''}</b> · ${stats.dmg} dmg · ${stats.range.toFixed(1)} range</div>
     <div class="wp-actions">
-      <button class="wp-act" data-wp-act="level">⬆ Level (${sel.filter((t)=>t.level<MAX_LEVEL).reduce((s,t)=>s+towerLevelCost(t),0)||'MAX'}g)</button>
+      <button class="wp-act" data-wp-act="level">⬆ Level (${sel.filter((t)=>canLevel(t)).reduce((s,t)=>s+towerLevelCost(t),0)||'MAX'}g)</button>
       <button class="wp-act" data-wp-act="tier">⏫ Tier (${sel.filter((t)=>towerTierUp(t)).reduce((s,t)=>s+(towerTierUp(t)?.cost||0),0)}g)</button>
       <button class="wp-act" data-wp-act="priority">🎯 ${t0.priority}</button>
       <button class="wp-act wp-sell ${armed ? 'armed' : ''}" data-wp-act="sell">${armed ? `⚠ Confirm sell ${sel.length}` : `💰 Sell (+${sellWorth}g)`}</button>
