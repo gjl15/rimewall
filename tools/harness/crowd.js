@@ -55,6 +55,11 @@ const DIED = { Ice: 11, Fire: 15, Earth: 12, Tech: 11, Crystal: 14, Poison: 13, 
         c.x = col + 1.2 + (i % 3) * 0.6; c.y = row - 0.9 + Math.floor(i / 3) * 0.6;
         made.push(c);
       }
+      /* The 5e8 HP that keeps these creeps alive also inflates any special that
+         deals a SHARE of max HP rather than a flat number — Poison's `halve`
+         reads ~492,000,000 damage here. That column is meaningless for those;
+         the bodies count beside it is still right, and a percentage special is
+         a boss answer that no flat-dps measure was ever going to price. */
       const before = made.map((c) => c.hp);
       for (let i = 0; i < 240; i += 1) simulate(1 / 30);
       const hurt = made.filter((c, i) => before[i] - c.hp > 0.5);
