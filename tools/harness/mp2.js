@@ -101,6 +101,26 @@ const boot = async (page, name) => {
     `host north ${h1.north}->${h2.north} (want +2)`, `host south ${h1.south}->${h2.south} (want +0)`, `guest south ${g1.south}->${g2.south} (want +0)`);
   console.log('  ok:', h2.north - h1.north === 2 && h2.south === h1.south && g2.south === g1.south);
 
+  /* Watching another board. Every seat should be listed, the bots' board should
+     arrive from the host, and switching the pick should change what is
+     mirrored into the top half. */
+  await host.waitForTimeout(1200);
+  const watch = async (page) => page.evaluate(() => ({
+    seats:mpViewableSeats().map((s) => `${s.key}:${s.name}:${s.hasBoard ? 'board' : 'none'}`),
+    viewing:mp.viewSeat,
+    snapKeys:Object.keys(mp.seatSnaps),
+    mirroredTowers:(mp.snap && mp.snap.towers || []).length,
+    chips:[...document.querySelectorAll('[data-watch]')].map((b) => b.dataset.watch),
+  }));
+  console.log('GUEST watch', JSON.stringify(await watch(guest)));
+  const switched = await guest.evaluate(() => {
+    const other = mpViewableSeats().find((s) => s.friendly && !s.mine);
+    if (!other) return 'no team-mate seat';
+    mpSetViewSeat(other.key);
+    return { now:mp.viewSeat, towers:(mp.snap.towers || []).length };
+  });
+  console.log('GUEST switched to team-mate:', JSON.stringify(switched));
+  await guest.screenshot({ path: OUT + 'mp-watch-guest.png' });
   await host.screenshot({ path: OUT + 'mp-live-host.png' });
   const errs = hErr.concat(gErr);
   if (errs.length) console.log('ERRORS', errs.slice(0, 8));

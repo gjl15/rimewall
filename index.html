@@ -869,6 +869,18 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 
 /* income toggle + rival income */
 .resource.income { color:#8fe6b8; }               /* your income: always shown */
+/* the "whose board am I watching" strip — one chip per seat in the room */
+.seat-watch { display:flex; align-items:center; gap:5px; flex-wrap:wrap; margin:6px 0 0; }
+.seat-watch.hidden { display:none; }
+.sw-label { color:#7c88a8; font:600 8px 'DM Mono',monospace; letter-spacing:.14em; }
+.sw-vs { color:#ff9f6e; font-size:10px; }
+.sw-chip { display:inline-flex; align-items:center; gap:5px; padding:4px 8px; border:1px solid #2a3654;
+  border-radius:99px; background:#101a30; color:#c3cfe8; font:600 9px 'DM Mono',monospace; }
+.sw-chip i { width:8px; height:8px; border-radius:50%; background:var(--lane); }
+.sw-chip em { font-style:normal; color:#8995b4; font-variant-numeric:tabular-nums; }
+.sw-chip.on { border-color:var(--lane); background:color-mix(in srgb, var(--lane) 20%, #101a30); color:#eafcff; }
+.sw-chip.sw-me { opacity:.75; }
+.sw-chip:disabled { cursor:default; }
 .income-eta { margin-left:4px; font-style:normal; font-size:9px; opacity:.62; font-variant-numeric:tabular-nums; }
 .income-eta.due { opacity:1; color:#ffd86b; }
 .resource.rival-income { color:#ff9faf; display:none; }   /* rival income: only in a live match */
@@ -1144,6 +1156,7 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
              because that is where you look when a wave is landing. -->
         <div id="lobby" class="lobby hidden" aria-label="Match lobby"></div>
         <div id="confirm-modal" class="confirm-modal hidden" role="dialog" aria-modal="true"></div>
+        <div id="seat-watch" class="seat-watch hidden" aria-label="Whose board to watch"></div>
         <div id="squad-income" class="squad-income" aria-label="Squad income"></div>
         <div class="status-line" id="status-line">
           <div class="match-state"><span class="live-dot"></span><strong id="wave-label">WAVE 01</strong><span id="wave-threat" class="wave-threat"></span><span id="timer-label">00:30</span></div>
@@ -5532,6 +5545,28 @@ let quickSendKey = '';
    could see your own income and a single "+?" for the rival, so there was no way
    to tell whether an ally was carrying the economy or coasting — or which side
    was pulling ahead. Only shown when there is a squad to show. */
+/* WHOSE BOARD AM I LOOKING AT. There is one mirror surface — the top half of
+   your own screen — and it can hold one other board, so with a team you need to
+   say which. Every seat in the room gets a chip in its lane colour with its
+   lifeforce; tapping one puts that board up there. Your own chip is not a
+   choice, it is a label: your board is the half you are playing on. */
+function renderSeatWatch() {
+  const box = $('seat-watch');
+  if (!box) return;
+  const seats = mp.active ? mpViewableSeats() : [];
+  if (!battleRunning || seats.length < 3) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+  if (!mp.viewSeat || !seats.some((s) => s.key === mp.viewSeat)) mp.viewSeat = mpDefaultViewSeat();
+  box.classList.remove('hidden');
+  const chip = (s) => `<button class="sw-chip ${s.mine ? 'sw-me' : ''} ${s.key === mp.viewSeat ? 'on' : ''} ${s.friendly ? 'sw-ally' : 'sw-foe'}"
+      style="--lane:${s.lane ? s.lane.color : '#8899bb'}" data-watch="${s.key}" ${s.mine ? 'disabled' : ''}
+      title="${s.mine ? 'Your own board — you are playing it' : (s.hasBoard ? 'Watch this board' : 'No picture from this board yet')}">
+      <i></i><b>${escapeHTML(s.name)}</b><em>${s.lives == null ? '—' : s.lives}</em></button>`;
+  box.innerHTML = `<span class="sw-label">WATCHING</span>`
+    + seats.filter((s) => s.friendly).map(chip).join('')
+    + `<span class="sw-vs">⚔</span>`
+    + seats.filter((s) => !s.friendly).map(chip).join('');
+  box.querySelectorAll('[data-watch]').forEach((b) => b.addEventListener('click', () => mpSetViewSeat(b.dataset.watch)));
+}
 function renderSquadIncome() {
   const box = $('squad-income');
   if (!box || !player) return;
@@ -5827,6 +5862,7 @@ function renderHud() {
   const shrineUpgrade = $('shrine-upgrade');
   if (shrineUpgrade) shrineUpgrade.disabled = player.lumber < 1;
   refreshSendLocks();
+  renderSeatWatch();
   renderSquadIncome();
   renderRails();
   renderQuickSend();
@@ -5849,6 +5885,16 @@ function renderHud() {
   const rivalIncChip = document.querySelector('.resource.rival-income');
   if (rivalIncChip) rivalIncChip.classList.toggle('hud-yield', matchMode === 'survival');
   $('enemy-lives-label').textContent = foeLives != null ? foeLives : enemy.lives;
+  /* The rival chip used to be named after whoever said hello, which in a team
+     room is your own team-mate. Name the OTHER SIDE. */
+  const rivalName = $('rival-name-label');
+  if (rivalName && mp.active) {
+    const foes = mpViewableSeats().filter((s) => !s.friendly);
+    const people = foes.filter((s) => s.kind === 'human');
+    rivalName.textContent = (people.length === 1 ? people[0].name
+      : people.length > 1 ? `THEM ×${foes.length}`
+        : foes.length > 1 ? `BOTS ×${foes.length}` : 'COMPUTER').toUpperCase().slice(0, 10);
+  }
   const rivInc = $('rival-income-label'); if (rivInc) rivInc.textContent = mp.oppIncome != null ? hudSigned(BASE_INCOME + incomePayout(mp.oppIncome)) : '+?';
   enforceHudContract();   // R1-R3: re-fit the row against the values just written
   $('player-ship-label').textContent = `YOUR SHIP • ${player.lives}`;
@@ -7453,7 +7499,44 @@ mp.team = PLAYER_HALF;         // which side I am on; my own board is always dra
 mp.seat = 0;
 mp.sendTurn = 0;
 mp.seatLives = {};             // "half:index" -> lifeforce, for every seat that is not mine
+mp.seatIncome = {};
+mp.seatSnaps = {};             // "half:index" -> the last board picture that seat sent
 mp.botLivesSent = {};
+mp.viewSeat = null;            // whose board is mirrored into my north half right now
+/* EVERY BOARD IS SENT IN THE SENDER'S OWN COORDINATES — that is, as a south
+   half — and the viewer mirrors it. The host's computers live on ITS north
+   half, so the host flips them before sending; otherwise a bot board would
+   arrive upside down and draw off the map. */
+function mpSnapOf(rows, flip) {
+  return {
+    towers:[...towers.values()].filter(rows).map((t) => [flip ? (ROWS - 1 - t.r) : t.r, flip ? (COLS - 1 - t.c) : t.c,
+      races.findIndex((race) => race.id === t.raceId), t.tier]),
+    creeps:creeps.filter((c) => c.hp > 0 && (flip ? c.half === ENEMY_HALF : c.half === PLAYER_HALF))
+      .map((c) => [+(flip ? COLS - c.x : c.x).toFixed(1), +(flip ? ROWS - c.y : c.y).toFixed(1),
+        Object.keys(roleStyle).indexOf(c.role), +(c.hp / c.maxHp).toFixed(2), c.air ? 1 : 0, c.sent ? 1 : 0])
+  };
+}
+/* Every board you are allowed to look at: yours, your team-mates', and the
+   other side's. */
+function mpViewableSeats() {
+  if (!mp.active) return [];
+  const out = [];
+  ['south', 'north'].forEach((half) => mpSeatsInPlay(half).forEach((s, i) => {
+    const key = mpSeatKey(half, i);
+    const lane = seatLane(half === mp.team ? PLAYER_HALF : ENEMY_HALF, i, mpSeatsInPlay(half).length);
+    const peer = s.sid && s.sid !== mp.sid ? mp.peers[s.sid] : null;
+    out.push({ key, half, index:i, kind:s.kind, mine:key === mpMySeatKey(), friendly:half === mp.team,
+      name:key === mpMySeatKey() ? 'You' : (peer && peer.name) || (s.kind === 'ai' ? 'Computer' : s.name || 'Player'),
+      lane, lives:key === mpMySeatKey() ? (player ? player.lives : null) : (mp.seatLives[key] ?? null),
+      hasBoard:key === mpMySeatKey() || !!mp.seatSnaps[key] });
+  }));
+  return out;
+}
+function mpDefaultViewSeat() {
+  const foe = mpViewableSeats().find((s) => !s.friendly && s.hasBoard) || mpViewableSeats().find((s) => !s.friendly);
+  return foe ? foe.key : null;
+}
+function mpSetViewSeat(key) { mp.viewSeat = key; mp.snap = mp.seatSnaps[key] || { towers:[], creeps:[] }; renderHud(); }
 function mpMyId() { return mp.sid; }
 function mpPeer(sid) {
   if (!sid || sid === mp.sid) return null;
@@ -7833,9 +7916,12 @@ function mpOnMessage(msg) {
     const snap = { towers:Array.isArray(msg.towers) ? msg.towers : [], creeps:Array.isArray(msg.creeps) ? msg.creeps : [] };
     const from = mpPeer(msg.__from || msg.sid);
     if (from) from.snap = snap;
-    // the board mirrors ONE opponent — the first enemy seat — so pick a peer on
-    // the other side rather than whoever spoke last
-    if (!from || from.team !== mp.team) mp.snap = snap;
+    // keep every board, not just the last one to speak: mp.snap used to be
+    // overwritten by whoever sent most recently, which is why a team-mate's
+    // board was received and then thrown away
+    if (msg.seat) mp.seatSnaps[msg.seat] = snap;
+    if (!mp.viewSeat) mp.viewSeat = mpDefaultViewSeat();
+    if (!msg.seat || msg.seat === mp.viewSeat) mp.snap = snap;
   } else if (msg.t === 'over') {
     if (mp.active && battleRunning && !matchOver) endMatch(msg.result === 'defeat' ? 'victory' : 'defeat');
   } else if (msg.t === 'bye') {
@@ -7883,8 +7969,6 @@ function mpMaybeStart() {
     }
     mpBroadcastRoster();
   }
-  const rivalLabel = $('rival-name-label');
-  if (rivalLabel) rivalLabel.textContent = (mp.oppName || 'RIVAL').toUpperCase().slice(0, 10);
 }
 function mpLeave() {
   window.clearInterval(mp.helloTimer);
@@ -7915,10 +7999,17 @@ function mpTick(dt) {
   mp.snapClock -= dt;
   if (mp.snapClock <= 0) {
     mp.snapClock = .3;
-    mpSend({ t:'snap',
-      towers:[...towers.values()].filter((t) => t.owner === 'player').map((t) => [t.r, t.c, races.findIndex((race) => race.id === t.raceId), t.tier]),
-      creeps:creeps.filter((c) => c.hp > 0).map((c) => [+c.x.toFixed(1), +c.y.toFixed(1), Object.keys(roleStyle).indexOf(c.role), +(c.hp / c.maxHp).toFixed(2), c.air ? 1 : 0, c.sent ? 1 : 0])
-    });
+    // my own board, in my own coordinates, tagged with my seat
+    const mine = mpSnapOf((t) => t.owner === 'player' || (t.allyHalf === PLAYER_HALF), false);
+    mpSend({ t:'snap', sid:mp.sid, seat:mpMySeatKey(), towers:mine.towers, creeps:mine.creeps });
+    /* The computers' board lives only here, on the host's north half, so
+       nobody else could ever see it. Flip it into south-half coordinates and
+       publish it under the bot seats, which is what makes "watch their board"
+       work against an AI side. */
+    if (mpHostRunsBots()) {
+      const bots = mpSnapOf((t) => t.owner === 'enemy' || t.allyHalf === ENEMY_HALF, true);
+      mpBotSeatKeys().forEach((key) => mpSend({ t:'snap', seat:key, towers:bots.towers, creeps:bots.creeps }));
+    }
   }
 }
 /* Mirror the opponent's half into our north side (their south row r -> our ROWS-1-r, col c -> COLS-1-c). */
