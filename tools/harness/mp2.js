@@ -51,6 +51,23 @@ const boot = async (page, name) => {
   }));
   console.log('HOST  after join', JSON.stringify(await seatMap(host)));
   console.log('GUEST after join', JSON.stringify(await seatMap(guest)));
+
+  /* THE CONTROL MUST SURVIVE A REMOTE UPDATE. Gene: "it's hard to adjust the
+     seats, the portion keeps disappearing." Every roster message re-rendered
+     the lobby, so a <select> was destroyed while it was open. Focus one, push
+     a roster through, and check it is the same DOM node with the same value. */
+  const survives = await host.evaluate(() => {
+    const sel = document.querySelector('[data-lb-kind]');
+    if (!sel) return 'no select';
+    sel.focus();
+    const before = sel;
+    const value = sel.value;
+    mpApplyRoster(mpRosterWire());     // exactly what an incoming roster does
+    renderLobby();
+    const after = document.querySelector('[data-lb-kind]');
+    return { sameNode:before === after, keptValue:after && after.value === value, stillFocused:document.activeElement === after };
+  });
+  console.log('select survives a remote roster:', JSON.stringify(survives));
   await host.screenshot({ path: OUT + 'mp-lobby-host.png' });
   await guest.screenshot({ path: OUT + 'mp-lobby-guest.png' });
 
@@ -120,6 +137,29 @@ const boot = async (page, name) => {
     return { now:mp.viewSeat, towers:(mp.snap.towers || []).length };
   });
   console.log('GUEST switched to team-mate:', JSON.stringify(switched));
+
+  /* LIFEFORCE IS ONE POOL A SIDE, AND ONE PLAYER GOING DOWN IS NOT A DEFEAT.
+     Gene: "Abdy got a defeat icon whereas I can still play. The lives should
+     not be 200 vs 300 in a 2v3." Leak the guest's whole share and check the
+     side keeps playing, then finish the pool off and check both sides agree. */
+  const pool = async (p) => p.evaluate(() => ({ mine:mpTeamLives(mp.team), theirs:mpTeamLives(mpFoeHalf()), over:matchOver, lives:player.lives }));
+  console.log('pools at start   host', JSON.stringify(await pool(host)), 'guest', JSON.stringify(await pool(guest)));
+  await guest.evaluate(() => { mp.myLeaks = 40; mpSyncTeamLives(); mpSend({ t:'leaks', sid:mp.sid, seat:mpMySeatKey(), value:40 }); });
+  await host.waitForTimeout(600);
+  console.log('guest leaks 40   host', JSON.stringify(await pool(host)), 'guest', JSON.stringify(await pool(guest)));
+  const stillPlaying = await guest.evaluate(() => !matchOver && battleRunning);
+  console.log('  guest still playing after leaking 40:', stillPlaying);
+  await guest.evaluate(() => { mp.myLeaks = 100; mpSyncTeamLives(); mpSend({ t:'leaks', sid:mp.sid, seat:mpMySeatKey(), value:100 }); });
+  await host.waitForTimeout(800);
+  console.log('guest leaks 100  host', JSON.stringify(await pool(host)), 'guest', JSON.stringify(await pool(guest)));
+
+  // and an uneven room must still be level on lifeforce
+  const uneven = await host.evaluate(() => {
+    mp.myLeaks = 0; mp.seatLeaks = {};        // fresh pools, or we just measure the last test
+    lobbySetSize('north', 3);
+    return { mine:mpTeamLives(mp.team), theirs:mpTeamLives(mpFoeHalf()), sizes:[mpSeatsInPlay('south').length, mpSeatsInPlay('north').length] };
+  });
+  console.log('2v3 pools:', JSON.stringify(uneven), '(want equal)');
   await guest.screenshot({ path: OUT + 'mp-watch-guest.png' });
   await host.screenshot({ path: OUT + 'mp-live-host.png' });
   const errs = hErr.concat(gErr);

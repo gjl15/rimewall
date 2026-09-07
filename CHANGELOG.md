@@ -7,6 +7,49 @@ environment, so every entry here was live the moment it was pushed.
 
 ---
 
+## 2026-09-07 (night) — three things the first live 2v2 found
+
+Gene and Abdy played the first real team game. Everything below is from that.
+
+### One player going down is not a defeat
+*"Abdy got a defeat icon whereas I can still play."* The leak handler ended the
+match on **one client's own lifeforce**, so the first person to hit zero got a
+defeat card while their side was still fighting. A side loses, not a person.
+
+### Lifeforce is one pool a side, the same size for both
+*"The lives should not be 200 vs 300 in a 2v3."* It was the sum of the seats, so
+a bigger team simply started with more to lose — a handicap nobody chose. Both
+sides now start on the lifeforce setting and share it, whatever size they are.
+
+The pool is derived from leak **counts** rather than a decrementing number: each
+client publishes only what leaked on its own board, and the pool is the setting
+minus every count on that side. Two clients leaking in the same instant
+therefore cannot double-subtract, and a late message cannot drift the total.
+Measured across two clients: 100/100 at the start, 60/100 after one player
+leaks 40 with that player still playing, 0/100 and over on both when the pool
+is emptied, and 100 vs 100 in a 2v3.
+
+### The lobby was rewriting itself under your finger
+*"It's hard to adjust the seats, the portion keeps disappearing."* Every roster
+message from the host re-rendered the whole lobby, which destroyed the
+`<select>` you were in the middle of using — so a slot you had just set snapped
+back and an open dropdown vanished. It rebuilds only when the roster changes
+shape, never while a control inside it has focus, and puts focus back
+afterwards. Verified: the same DOM node, the same value, still focused, after a
+roster arrives.
+
+The watch strip had the same bug and worse — `renderHud` runs five times a
+second and it rewrote its own markup every time, so a chip was destroyed under
+your finger between touch and click. Its handler is delegated now and only the
+lifeforce numbers are patched in place. This is the third time this exact bug
+has appeared in this file; if a control lives inside something a timer redraws,
+assume it is broken until proven otherwise.
+
+A closed slot also dimmed its whole row, including the dropdown you need in
+order to reopen it. Only the name dims now.
+
+---
+
 ## 2026-09-07 (evening) — teams, a real lobby, and a scoreboard
 
 ### Watch any board in the room, including the computers'

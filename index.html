@@ -275,7 +275,12 @@ body.reduce-motion .mp-spin { animation:none; border-top-color:#8ee89f55; }
 .lb-size button { width:22px; height:22px; padding:0; border:1px solid #2e3b5c; border-radius:6px; background:#131b30; color:#8995b4; font:700 9px 'DM Mono',monospace; }
 .lb-size button.on { border-color:#77d6ff; background:#77d6ff22; color:#eafcff; }
 .lb-slot { display:flex; align-items:center; gap:6px; margin-bottom:5px; padding:5px 6px; border:1px solid #2a3654; border-left:3px solid var(--lane); border-radius:8px; background:#111a30; }
-.lb-slot.off { opacity:.42; }
+/* A closed slot dims its NAME, not its control. Dimming the whole row made the
+   one thing you need in order to reopen it look disabled — "the portion keeps
+   disappearing to activate or reactivate". */
+.lb-slot.off { border-style:dashed; }
+.lb-slot.off .lb-name, .lb-slot.off .lb-swatch, .lb-slot.off .lb-lane { opacity:.4; }
+.lb-slot.off .lb-kind { border-color:#3f5180; color:#c3cfe8; }
 .lb-slot.mine { background:color-mix(in srgb, var(--lane) 13%, #111a30); }
 .lb-swatch { flex:0 0 auto; width:18px; height:18px; display:grid; place-items:center; border-radius:5px;
   background:var(--lane); color:#0b1020; font:800 9px 'DM Mono',monospace; }
@@ -2375,6 +2380,8 @@ function resetMatchState() {
     if (pb) log(`The rival has studied ${pb.games} of your ${races.find((r) => r.id === rivalRace)?.name || rivalRace} games and is trying your maze against you.`);
   }
   wave = 0; waveClock = FIRST_WAVE_DELAY; incomeClock = INCOME_PERIOD; levelPayDue = 0; simTime = 0; battlePaused = false; matchOver = false;
+  // a new match starts every side's pool full again
+  mp.myLeaks = 0; mp.leaksSent = -1; mp.seatLeaks = {}; mp.seatLives = {}; mp.botLivesSent = {}; mp.seatSnaps = {}; mp.viewSeat = null;
   spawnAllies();
   if (allies.length) {
     const mine = allies.filter((a) => a.half === PLAYER_HALF);
@@ -2782,12 +2789,23 @@ function moveAlong(creep, node, dt) {
 function resolveLeak(creep) {
   creep.hp = 0; creep.leaked = true;
   const owner = creep.half === PLAYER_HALF ? player : enemy;
-  owner.lives = Math.max(0, owner.lives - creep.livesCost);
+  /* IN A ROOM, LIFEFORCE IS ONE POOL PER SIDE. Each client counts only the
+     leaks that happened on its OWN board and publishes that count; the pool is
+     the starting lifeforce minus every count on the side. Deriving it that way
+     instead of decrementing a shared number means two clients leaking at the
+     same instant cannot double-subtract, and a late-arriving message cannot
+     drift the total. */
+  if (mp.active && creep.half === PLAYER_HALF) mp.myLeaks += creep.livesCost;
+  else owner.lives = Math.max(0, owner.lives - creep.livesCost);
+  if (mp.active) mpSyncTeamLives();
   pushFx({ kind:'leak', x:creep.x, y:creep.y, until:simTime + .6 });
   if (creep.half === PLAYER_HALF) { waveBoardRetire(creep, true); SFX.play('leak'); recordLeak(); }
   if (creep.half === PLAYER_HALF) log(`${creep.name} reached your ship — that is a leak (−${creep.livesCost} ${creep.livesCost > 1 ? 'lives' : 'life'}).`);
   else if (creep.sent) log(`Your ${creep.name} broke through! Enemy loses ${creep.livesCost} ${creep.livesCost > 1 ? 'lives' : 'life'}.`);
-  if (owner.lives <= 0) endMatch(creep.half === PLAYER_HALF ? 'defeat' : 'victory');
+  /* A SIDE loses, not a person. Abdy hit zero and got a defeat card while Gene
+     was still playing, because this ended the match on one client's own lives. */
+  if (mp.active) { if ((mpTeamLives(mp.team) ?? 1) <= 0) endMatch('defeat'); }
+  else if (owner.lives <= 0) endMatch(creep.half === PLAYER_HALF ? 'defeat' : 'victory');
 }
 
 const flagFlashes = new Map(); // "half-side-i" → until time (drawn as a glow on the fx canvas)
@@ -5550,22 +5568,45 @@ let quickSendKey = '';
    say which. Every seat in the room gets a chip in its lane colour with its
    lifeforce; tapping one puts that board up there. Your own chip is not a
    choice, it is a label: your board is the half you are playing on. */
+let seatWatchKey = '';
 function renderSeatWatch() {
   const box = $('seat-watch');
   if (!box) return;
   const seats = mp.active ? mpViewableSeats() : [];
-  if (!battleRunning || seats.length < 3) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+  if (!battleRunning || seats.length < 2) { box.classList.add('hidden'); box.innerHTML = ''; seatWatchKey = ''; return; }
   if (!mp.viewSeat || !seats.some((s) => s.key === mp.viewSeat)) mp.viewSeat = mpDefaultViewSeat();
   box.classList.remove('hidden');
-  const chip = (s) => `<button class="sw-chip ${s.mine ? 'sw-me' : ''} ${s.key === mp.viewSeat ? 'on' : ''} ${s.friendly ? 'sw-ally' : 'sw-foe'}"
-      style="--lane:${s.lane ? s.lane.color : '#8899bb'}" data-watch="${s.key}" ${s.mine ? 'disabled' : ''}
-      title="${s.mine ? 'Your own board — you are playing it' : (s.hasBoard ? 'Watch this board' : 'No picture from this board yet')}">
-      <i></i><b>${escapeHTML(s.name)}</b><em>${s.lives == null ? '—' : s.lives}</em></button>`;
-  box.innerHTML = `<span class="sw-label">WATCHING</span>`
-    + seats.filter((s) => s.friendly).map(chip).join('')
-    + `<span class="sw-vs">⚔</span>`
-    + seats.filter((s) => !s.friendly).map(chip).join('');
-  box.querySelectorAll('[data-watch]').forEach((b) => b.addEventListener('click', () => mpSetViewSeat(b.dataset.watch)));
+  /* REBUILD ONLY WHEN THE SHAPE CHANGES. renderHud runs five times a second,
+     and this used to rewrite its own innerHTML every time — so a chip was
+     destroyed under your finger between touchstart and click and the tap did
+     nothing. That is the same bug the rails had. The seat list is the
+     signature; lifeforce and the selected chip are patched in place, and the
+     click handler is delegated to the container so it survives a rebuild. */
+  const sig = seats.map((s) => `${s.key}:${s.name}:${s.hasBoard ? 1 : 0}`).join('|');
+  if (sig !== seatWatchKey) {
+    seatWatchKey = sig;
+    const chip = (s) => `<button class="sw-chip ${s.mine ? 'sw-me' : ''} ${s.friendly ? 'sw-ally' : 'sw-foe'}"
+        style="--lane:${s.lane ? s.lane.color : '#8899bb'}" data-watch="${s.key}"
+        title="${s.mine ? 'Your own board — you are playing it' : (s.hasBoard ? 'Watch this board' : 'No picture from this board yet')}">
+        <i></i><b>${escapeHTML(s.name)}</b><em data-lives="${s.key}">—</em></button>`;
+    box.innerHTML = `<span class="sw-label">WATCHING</span>`
+      + seats.filter((s) => s.friendly).map(chip).join('')
+      + `<span class="sw-vs">⚔</span>`
+      + seats.filter((s) => !s.friendly).map(chip).join('');
+    if (!box._wired) {
+      box._wired = true;
+      box.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-watch]');
+        if (b) mpSetViewSeat(b.dataset.watch);
+      });
+    }
+  }
+  seats.forEach((s) => {
+    const em = box.querySelector(`[data-lives="${s.key}"]`);
+    if (em) { const v = s.lives == null ? '—' : String(s.lives); if (em.textContent !== v) em.textContent = v; }
+    const btn = box.querySelector(`[data-watch="${s.key}"]`);
+    if (btn) btn.classList.toggle('on', s.key === mp.viewSeat);
+  });
 }
 function renderSquadIncome() {
   const box = $('squad-income');
@@ -6924,7 +6965,7 @@ function openLobby() {
   ensureRoster();
   lobbyPhase = true;
   box.classList.remove('hidden');
-  renderLobby();
+  renderLobby(true);   // a local edit always redraws: the change event fires while the select still has focus
 }
 function closeLobby() {
   window.clearInterval(lobbyTimer); lobbyTimer = null;
@@ -6950,7 +6991,7 @@ function lobbySetSeat(half, index, kind) {
     (seats.find((o) => o.kind === 'ai') || seats[0]).kind = 'human';
   }
   if (mp.active && mp.role === 'host') mpBroadcastRoster();
-  renderLobby();
+  renderLobby(true);   // a local edit always redraws: the change event fires while the select still has focus
 }
 /* The host says how many slots each side has. As low as one a side, which is
    the solo game. */
@@ -6963,7 +7004,7 @@ function lobbySetSize(half, n) {
   });
   if (!mp.active && half === PLAYER_HALF && !seats.some((s) => s.kind === 'human')) seats[0].kind = 'human';
   if (mp.active && mp.role === 'host') mpBroadcastRoster();
-  renderLobby();
+  renderLobby(true);   // a local edit always redraws: the change event fires while the select still has focus
 }
 function lobbyPickRace(id) {
   const race = races.find((r) => r.id === id);
@@ -6973,13 +7014,30 @@ function lobbyPickRace(id) {
     player.races = [id]; buildRaceIdx = 0; selectedTowerTier = 0;
     renderBattleIdentity(); renderTowerList(); renderHud();
   }
-  renderLobby();
+  renderLobby(true);   // a local edit always redraws: the change event fires while the select still has focus
 }
 const SEAT_KIND_LABEL = { human:'You', ai:'Computer', open:'Open', closed:'Closed' };
-function renderLobby() {
+let lobbyKey = '';
+function renderLobby(force) {
   const box = $('lobby');
   if (!box) return;
   ensureRoster();
+  /* DO NOT REWRITE THE LOBBY UNDER SOMEBODY'S FINGER. Every roster message
+     from the host re-rendered this, which destroyed the <select> you were in
+     the middle of using — so a slot you had just set snapped back, and an open
+     dropdown vanished. Rebuild only when the roster actually changes shape,
+     and never while a control inside it has focus. */
+  const sig = JSON.stringify({
+    s:roster.south.map((x) => [x.kind, x.sid, x.name]),
+    n:roster.north.map((x) => [x.kind, x.sid, x.name]),
+    p:Object.values(mp.peers).map((x) => [x.sid, x.name, x.raceId]),
+    m:matchMode, r:selectedRace.id, a:mp.active, role:mp.role, solo:soloRules, phase:lobbyPhase,
+  });
+  if (!force && sig === lobbyKey) return;
+  const focused = box.contains(document.activeElement) ? document.activeElement : null;
+  if (focused && focused.tagName === 'SELECT' && !force) return;   // they are choosing right now
+  lobbyKey = sig;
+  const restore = focused ? (focused.dataset.lbKind || focused.dataset.lbSize || focused.id || '') : '';
   const modeName = matchMode === 'classic' ? 'Classic Wars' : matchMode === 'survival' ? 'Survival' : 'Waves vs rival';
   // in a room I may be sitting on either roster half; "your side" is mine
   const myHalf = mp.active ? mp.team : PLAYER_HALF;
@@ -7049,7 +7107,12 @@ function renderLobby() {
       <button id="lb-ready" class="lb-ready" ${mp.active && mp.role !== 'host' ? 'disabled' : ''}>${
         !lobbyPhase ? 'Back to the board' : (mp.active && mp.role !== 'host' ? 'Waiting for the host…' : 'Start match')}</button>
     </div>`;
-  $('lb-solo')?.addEventListener('change', (e) => { soloRules = e.target.checked; renderLobby(); });
+  // put focus back where it was, so a rebuild does not lose your place
+  if (restore) {
+    const back = box.querySelector(`[data-lb-kind="${restore}"], [data-lb-size="${restore}"], #${CSS.escape(restore)}`);
+    if (back) try { back.focus({ preventScroll:true }); } catch (e) { /* older browsers */ }
+  }
+  $('lb-solo')?.addEventListener('change', (e) => { soloRules = e.target.checked; renderLobby(true); });
   box.querySelectorAll('[data-lb-race]').forEach((b) => b.addEventListener('click', () => lobbyPickRace(b.dataset.lbRace)));
   box.querySelectorAll('[data-lb-kind]').forEach((sel) => sel.addEventListener('change', () => {
     const [half, i] = sel.dataset.lbKind.split(':');
@@ -7499,6 +7562,9 @@ mp.team = PLAYER_HALF;         // which side I am on; my own board is always dra
 mp.seat = 0;
 mp.sendTurn = 0;
 mp.seatLives = {};             // "half:index" -> lifeforce, for every seat that is not mine
+mp.seatLeaks = {};             // "half:index" -> lives leaked on that board
+mp.myLeaks = 0;                // what I have let through, which is my share of the side's pool
+mp.leaksSent = -1;
 mp.seatIncome = {};
 mp.seatSnaps = {};             // "half:index" -> the last board picture that seat sent
 mp.botLivesSent = {};
@@ -7550,18 +7616,32 @@ function mpSquad(team) {
   const mine = team === mp.team ? [{ sid:mp.sid, name:mpPlayerName(), raceId:selectedRace.id, team, seat:mp.seat, lives:player ? player.lives : null, income:player ? player.income : null, me:true }] : [];
   return mine.concat(mpPeersOn(team));
 }
-/* A side is out when EVERY seat on it is out, so the pool is the sum of the
-   seats — a pair has twice the lifeforce and takes twice the wave load. Values
-   come from whoever owns the seat: a person broadcasts their own, and the host
-   broadcasts the computers'. */
-function mpTeamLives(team) {
+/* ONE POOL PER SIDE, THE SAME SIZE WHATEVER THE TEAM SIZE.
+   This used to be the SUM of the seats, which made a 2v3 read 200 against 300
+   — the bigger team simply started with more to lose, which is not a handicap
+   anyone chose. Both sides now start on the lifeforce setting and share it, and
+   the pool is derived from leak COUNTS rather than a decrementing number, so
+   simultaneous leaks on two boards cannot double-subtract. */
+function mpTeamLeaks(team) {
   const seats = mpSeatsInPlay(team);
-  if (!seats.length) return null;
   return seats.reduce((sum, s, i) => {
     const key = mpSeatKey(team, i);
-    if (key === mpMySeatKey()) return sum + (player ? player.lives : startingLives());
-    return sum + (mp.seatLives[key] ?? startingLives());
+    if (key === mpMySeatKey()) return sum + mp.myLeaks;
+    return sum + (mp.seatLeaks[key] || 0);
   }, 0);
+}
+function mpTeamLives(team) {
+  if (!mpSeatsInPlay(team).length) return null;
+  return Math.max(0, startingLives() - mpTeamLeaks(team));
+}
+/* The bar you defend is the side's, so make the local number BE the side's.
+   Everything downstream — the HUD, the ship label, the summary — then needs no
+   idea that teams exist. */
+function mpSyncTeamLives() {
+  if (!mp.active || !player) return;
+  player.lives = mpTeamLives(mp.team) ?? player.lives;
+  const foe = mpTeamLives(mpFoeHalf());
+  if (enemy && foe != null) enemy.lives = foe;
 }
 function mpEnemies() { return mpPeersOn(mp.team === PLAYER_HALF ? ENEMY_HALF : PLAYER_HALF).filter((p) => (p.lives ?? 1) > 0); }
 function mpFoeHalf() { return mp.team === PLAYER_HALF ? ENEMY_HALF : PLAYER_HALF; }
@@ -7892,17 +7972,18 @@ function mpOnMessage(msg) {
       spawnCreep(sendCreepDef(send), ENEMY_HALF, 'west', true);
       spawnCreep(sendCreepDef(send), ENEMY_HALF, 'east', true);
     }
-  } else if (msg.t === 'lives') {
+  } else if (msg.t === 'leaks' || msg.t === 'lives') {
     if (!mp.active || !battleRunning || matchOver) return;
-    const v = clampLives(msg.value);
     const from = mpPeer(msg.__from || msg.sid);
-    if (from) from.lives = v;
-    if (msg.seat) mp.seatLives[msg.seat] = v;
-    mp.oppLives = v;
-    if (enemy && msg.seat && msg.seat.startsWith(mpFoeHalf())) enemy.lives = v;
-    // a side is out when EVERY seat on it is out, not when any one of them is
+    // 'lives' is the old 1v1 shape and still arrives from an older client;
+    // convert it to a leak count so both feed the same pool
+    const leaks = msg.t === 'leaks' ? Math.max(0, Math.round(Number(msg.value) || 0))
+      : Math.max(0, startingLives() - clampLives(msg.value));
+    if (msg.seat) mp.seatLeaks[msg.seat] = leaks;
+    if (from) from.lives = Math.max(0, startingLives() - leaks);
+    mpSyncTeamLives();
     if ((mpTeamLives(mpFoeHalf()) ?? 1) <= 0) endMatch('victory');
-    if ((mpTeamLives(mp.team) ?? 1) <= 0) endMatch('defeat');
+    else if ((mpTeamLives(mp.team) ?? 1) <= 0) endMatch('defeat');
   } else if (msg.t === 'income') {
     const from = mpPeer(msg.__from || msg.sid);
     const v = Math.max(0, Math.min(999999, Math.round(Number(msg.value) || 0)));   // not clampLives: that caps at 9,999 and one Titan is 1,600
@@ -7983,18 +8064,23 @@ function mpTick(dt) {
   if (mp.lastRecv && performance.now() - mp.lastRecv > 9000 && !mp.dropped) {
     mp.dropped = true; showToast('<b>🔌 Opponent connection lost</b><span>Waiting for them to reconnect…</span>');
   }
-  if (player.lives !== mp.livesSent) { mp.livesSent = player.lives; mpSend({ t:'lives', sid:mp.sid, seat:mpMySeatKey(), value:player.lives }); }
+  // publish what I have LET THROUGH, not what is left: the pool is derived, so
+  // a count is the only thing that is safe to send from more than one board
+  if (mp.myLeaks !== mp.leaksSent) { mp.leaksSent = mp.myLeaks; mpSend({ t:'leaks', sid:mp.sid, seat:mpMySeatKey(), value:mp.myLeaks }); }
+  mpSyncTeamLives();
   if (player.income !== mp.incomeSent) { mp.incomeSent = player.income; mpSend({ t:'income', sid:mp.sid, seat:mpMySeatKey(), value:player.income }); }
   /* The host owns the computers' boards, so it owns their lifeforce too —
      without this the other side's bots would have no life bar anywhere and a
      team of bots could never be beaten. */
   if (mpHostRunsBots() && enemy) {
-    mpBotSeatKeys().forEach((key) => {
-      if (mp.botLivesSent[key] === enemy.lives) return;
-      mp.botLivesSent[key] = enemy.lives;
-      mp.seatLives[key] = enemy.lives;
-      mpSend({ t:'lives', seat:key, value:enemy.lives });
-    });
+    // the bots share one board here, so their side's leaks are one count
+    const botLeaks = Math.max(0, startingLives() - enemy.lives);
+    const key = mpBotSeatKeys()[0];
+    if (key && mp.botLivesSent[key] !== botLeaks) {
+      mp.botLivesSent[key] = botLeaks;
+      mp.seatLeaks[key] = botLeaks;
+      mpSend({ t:'leaks', seat:key, value:botLeaks });
+    }
   }
   mp.snapClock -= dt;
   if (mp.snapClock <= 0) {
