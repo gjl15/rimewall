@@ -1308,7 +1308,8 @@ const races = [
   { id:'stone', name:'Stone', title:'Stone Sanctuary', builder:'Stone Summoner', symbol:'⬟', color:'#a9b3c6', desc:'Short-range crushers that crit for double damage.', trait:'Burst / crits' },
   { id:'electricity', name:'Electricity', title:'Power Plant', builder:'Spark', symbol:'ϟ', color:'#ffd86b', desc:'Fast attacks, chain lightning, and area shocks.', trait:'Fast / chain' },
   { id:'gravity', name:'Gravity', title:'Gravity Generator', builder:'Gravity Lord', symbol:'◉', color:'#b48ead', desc:'Reality-bending towers that crush percentages of HP.', trait:'Gimmicks / AoE' },
-  { id:'beam', name:'Beam', title:'Lumen Array', builder:'Lightwright', symbol:'⌖', color:'#7ef0d4', desc:'Continuous light at long reach. Tiny damage, never stops.', trait:'Sustained / reach' }
+  { id:'beam', name:'Beam', title:'Lumen Array', builder:'Lightwright', symbol:'⌖', color:'#7ef0d4', desc:'Continuous light at long reach. Tiny damage, never stops.', trait:'Sustained / reach' },
+  { id:'ninja', name:'Ninja', title:'Shadow Dojo', builder:'Shadow', symbol:'刃', color:'#e0e4ec', desc:'Melee only. Enormous damage inside one or two squares, and nothing at all outside them. Every blade takes an elemental imbuing.', trait:'Melee / imbued' }
 ];
 
 /* Six towers per race (Earth has five) + the shared Laser Cannon capstone.
@@ -1441,6 +1442,33 @@ const TOWERS = {
     { name:'Starcutter', cost:285, dmg:8, cd:.018, range:10.6, special:'beamline', desc:'Cuts a line across the lane and keeps cutting.' },
     { name:'Aurora Lance', cost:350, dmg:11, cd:.018, range:11, special:'beamline', desc:'Eleven a tick, forever, through everything on the way, from most of the way across the map.' }
   ],
+  /* NINJA — the ladder IS the weapon rack.
+     Every other element climbs a power curve; this one picks a weapon and pays
+     for reach and rhythm. Range 1 to 3 against a field that starts at 3.4 and
+     runs to 17, so the damage per second has to be the highest in the game and
+     it still only covers the cells immediately around it. Build it IN the maze,
+     not behind it.
+     Speed order is Gene's: dagger fastest, then sword, then mace; the spear is
+     slowest but reaches furthest and skewers what is behind its target. Mace
+     splashes. Every rung takes an elemental imbuing — see boltEligible. */
+  ninja:[
+    /* Damage is up ~80% on the first cut, which died on wave 10 against a field
+       median of 12 — the worst in the game. Reach is the identity and stays
+       where it is; a tower that only engages what walks right past it gets a
+       fraction of the firing time a 5.5-range tower gets, and the damage per
+       second has to pay for that.
+       And "one square radius" has to mean the EIGHT cells around the tower, not
+       the four: at range 1.0 a diagonal neighbour sits 1.41 away and was never
+       reachable, so a blade covered a plus-sign. An 80% damage buff moved the
+       death wave by nothing at all, which is what said the constraint was
+       coverage rather than damage. 1.5 is the square Gene described. */
+    { name:'Shadow Initiate', cost:10, dmg:16, cd:.30, range:1.5, special:'basic', desc:'Bare hands, blindingly fast, and it can only touch what walks right past it.' },
+    { name:'Dagger Adept', cost:40, dmg:36, cd:.25, range:1.5, special:'basic', desc:'The fastest blade in the game. One square, and everything in it bleeds.' },
+    { name:'Sword Ronin', cost:100, dmg:97, cd:.40, range:2.3, special:'basic', desc:'Two squares of reach and still quicker than any mace.' },
+    { name:'Mace Breaker', cost:200, dmg:238, cd:.70, range:2.3, special:'smallsplash', desc:'Slow, heavy, and it catches everything crowded around the target.' },
+    { name:'Spear Sentinel', cost:285, dmg:360, cd:.85, range:3.2, special:'beamline', desc:'The longest reach a ninja gets, and it runs through whatever stands behind its mark.' },
+    { name:'Shadow Master', cost:350, dmg:342, cd:.30, range:2.3, special:'basic', desc:'A blur inside two squares. Nothing in the game kills faster at this range.' }
+  ],
   gravity:[
     { name:'Gravity Well', cost:10, dmg:9, cd:.95, range:5.5, special:'warp', desc:'A single warped slug that drags its target to a crawl.' },
     { name:"Gravity's Pull", cost:50, dmg:40, cd:1.0, range:3.9, special:'gravslam', desc:'Single heavy pull that slams its target to the ground.' },
@@ -1493,7 +1521,11 @@ const ATTACK_PROFILE = {
   stone:{ label:'Crush', vs:{ unarmored:.9, light:.65, heavy:1.2, fortified:1.5 } },
   electricity:{ label:'Storm', vs:{ unarmored:1.1, light:1.4, medium:1.2, heavy:.85, fortified:.5 } },
   gravity:{ label:'Warp', vs:{ unarmored:.85, light:.9, medium:1.15, heavy:1.2, fortified:.7 } },
-  beam:{ label:'Lumen', vs:{ unarmored:1.2, light:1.15, medium:1.05, heavy:.8, fortified:.6 } }
+  beam:{ label:'Lumen', vs:{ unarmored:1.2, light:1.15, medium:1.05, heavy:.8, fortified:.6 } },
+  /* An assassin's spread: it opens throats and cannot get through plate. The
+     imbuings are where a ninja answers what it is bad at — a piercing blade
+     ignores this table entirely. */
+  ninja:{ label:'Blade', vs:{ unarmored:1.4, light:1.35, medium:1.1, heavy:.6, fortified:.45 } }
 };
 /* Per-builder identity tunables (the rework). */
 const TRAIT = {
@@ -1728,7 +1760,11 @@ const BOLT_BLURB = {
    last entry of every race's list). */
 function boltEligible(tower) {
   if (!tower) return false;   // owner-agnostic: the rival fits bolts too
-  return tower.raceId === 'tech' || tower.tier >= towerListFor(tower.raceId).length - 1;
+  /* Ninja blades take an imbuing at every rung — that IS the race. Bolts were
+     already a per-tower elemental fitting with a working picker in all three
+     panels, so the "imbue each individual tower" idea needed a race that wants
+     it, not a new system. */
+  return tower.raceId === 'tech' || tower.raceId === 'ninja' || tower.tier >= towerListFor(tower.raceId).length - 1;
 }
 /* Priced at 40% of the tier, floor 10g. At 60% with a 15g floor the search
    never bought one at any wave: a bolt on an 8g Bolt Turret cost nearly twice
@@ -2183,7 +2219,7 @@ const SHRINE_MAX = 5, LUMBER_PRICE = 500;
    Persistent (per-browser) meta-progression: four elements start unlocked and
    the other five are earned through play. Achievements toast when earned. */
 const PROFILE_KEY = 'wmw-profile-v1';
-const DEFAULT_RACES = ['ice', 'fire', 'tech', 'stone', 'beam'];
+const DEFAULT_RACES = ['ice', 'fire', 'tech', 'stone', 'beam', 'ninja'];
 const ACHIEVEMENTS = [
   { id:'first_win', icon:'🏆', name:'First Blood', desc:'Win a match', unlocks:'earth' },
   { id:'wave_15', icon:'🌊', name:'Storm Chaser', desc:'Reach wave 15', unlocks:'electricity' },
