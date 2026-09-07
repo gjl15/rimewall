@@ -68,6 +68,72 @@ seat, set in a lobby before the match.
   Chrome's `--window-size=390` actually lays out at about 500px, so a plain CLI
   screenshot lies about phones. This cost someone an afternoon already.
 
+## The files
+
+```
+index.html          813KB, 9,541 lines   THE ENTIRE GAME
+CHANGELOG.md         42KB                the design record — read it
+CLAUDE.md             3KB                working rules for this repo
+README.md                                short public blurb
+towers.html          33KB                a reference page that parses index.html
+                                         at load and lists every tower; it breaks
+                                         if the data literals stop being plain
+maze-school.html    174KB                a standalone maze-building tutorial
+sw.js                                    service worker, network-first
+manifest.json, icon-*.png, og.svg        PWA bits
+tools/harness/*.js                       the measurement tools
+docs/review-prompt.md                    this file
+```
+
+### Where things live in `index.html`
+
+Line numbers drift; grep the name. Roughly in file order:
+
+| line | name | what it is |
+|---|---|---|
+| 1264 | `races` | the ten elements |
+| 1281 | `TOWERS` | every tower, per element |
+| 1402 | `ATTACK_PROFILE` | the armour-class matrix |
+| 1415 | `TRAIT` | **every combat tunable in one object** |
+| 1535 | `specialBlurb` | special descriptions, generated from TRAIT |
+| 1599 | `BOLT_MODS` | tech bolt mods |
+| 1710 | `COLS` / `HALF_ROWS` | board size, and every coordinate derived from it |
+| 1905 | `WAVES` | the hand-authored wave table |
+| 1949 | `SENDS` | the send ladder |
+| 2179 | `ECON_SCALE` | purse scaling, and `CREEP_HP_SCALE` beside it |
+| 2565 | `spawnCreep` | where a creep is actually built |
+| 2654 | `newRoster` | the seat roster the lobby edits |
+| 2690 | `queueWaveSpawns` | wave load per half |
+| 2764 | `tryHold` / `tryStasis` | the chance-based hold cooldown |
+| 2917 | `applyDamage` | the damage pipeline: shields, matrix, armour |
+| 3046 | `applyHitEffects` | status effects on hit |
+| 3130 | `resolveProjectileHit` | hit resolution, splash, chain |
+| 3261 | `GRAV_SPECIALS` | gravity impulse weights per tier |
+| 3284 | `gravityImpulse` | gravity's control |
+| 3668 | `updateAlly` | a bot teammate |
+| 3846 | `updateEnemyAI` | the rival — a richer, separate AI |
+| 4044 | `payIncome` | the income tick |
+| 4280 | `matchPoints` | the leaderboard score |
+| 4368 | `commitMatchStats` | the match log row |
+| 4531 | `simulate` | one sim step |
+| 4689 | `drawTower` | tower rendering |
+| 4915 | `drawCreep` | creep rendering |
+| 6055 | `renderHud` | the HUD, runs 5x a second |
+| 6966 | `frameBody` | the frame loop and fixed-step accumulator |
+| 7041 | `startBattle` | committing a match |
+| 7203 | `renderLobby` | the lobby |
+| 7856 | `mpSnapOf` | the board snapshot sent over the wire |
+| 8224 | `mpOnMessage` | every network message |
+| 8498 | `drawOpponentMirror` | the board you are watching |
+| 8677 | `showCardInfo` | the pre-build card |
+| 8906 | `recordsContent` | Records and the leaderboard |
+
+Two things worth knowing about this file: **`TRAIT` is where nearly every
+balance number lives**, so start there; and **anything a timer redraws will
+destroy a control mid-tap** — that bug has appeared three times, in the rails,
+the send cards and the lobby. If a control lives inside something `renderHud`
+touches, assume it is broken until proven otherwise.
+
 ## Current measured baseline
 
 So you can tell movement from noise:
