@@ -559,6 +559,7 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
    last few pixels of the same bug that sold a base. */
 .td-actions { display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:52px; gap:8px; margin-top:8px; }
 .td-actions .td-wide { grid-column:1 / -1; }
+.td-hint { color:#7f8db0; font-style:italic; }
 .td-actions button { display:flex; align-items:center; justify-content:center; overflow:hidden; width:auto; height:52px; min-height:0; margin:0; padding:6px 8px; font-size:11px; line-height:1.2; text-align:center; }.send-card > div { flex:1; }.send-card strong,.send-card small { display:block; }.send-card strong { font-size:10px; }.send-card small { margin-top:3px; color:#8995b4; font-size:9px; }.send-card b { color:#f5d36d; font:10px 'DM Mono',monospace; }.send-icon { display:grid; place-items:center; width:28px; height:28px; border-radius:7px; color:#ff9faf; background:#ff8a9a16; }.hint-box { margin-top:22px; padding:12px; border-left:2px solid #77d6ff; background:#0c1526; }.hint-box span { color:#77d6ff; font:500 9px 'DM Mono',monospace; letter-spacing:.13em; }.hint-box p { margin-top:7px; color:#93a0be; font-size:10px; line-height:1.5; }
 .income-callout { margin:0 0 10px; padding:9px; border:1px solid #385848; border-radius:8px; background:#12271f; }.income-callout strong,.income-callout span { display:block; }.income-callout strong { color:#9de4b5; font-size:10px; }.income-callout span { margin-top:3px; color:#779d89; font-size:9px; line-height:1.35; }
 @media (max-width:900px) { .race-grid { grid-template-columns:repeat(2,1fr); }.battle-content { grid-template-columns:1fr; }.battle-main { min-width:0; }.map-viewport { height:600px; } }
@@ -6341,11 +6342,18 @@ function railBody(tab) {
     const t0 = sel[0], st = towerLiveStats(t0), many = sel.length > 1;
     const up = towerTierUp(t0);
     const lvl = sel.filter((x) => canLevel(x)).reduce((s, x) => s + towerLevelCost(x), 0);
+    /* ONE PLACE TO ACT ON A TOWER. Level, tier, target and sell were offered
+       here AND on the ring AND in the wisp panel AND in the side panel — the
+       same four actions in four places, which is four things to read and four
+       to keep in step. Counted: target and sell each appeared in three panels
+       at once. The ring wins because it is AT the tower, its slots never move,
+       and it is the one surface verified to hit correctly on both layouts.
+       This becomes what it should have been: what the tower IS, plus the
+       imbuing, which is too granular for a ring. */
     return `<div class="rl-head">${many ? `${sel.length} × ` : ''}${st.name}</div>`
-      + card('data-rail-act="level"', '#8fe6b8', '⬆ Level', `+15% dmg`, lvl ? `${lvl}g` : 'MAX', false, !lvl || player.gold < lvl)
-      + (up ? card('data-rail-act="tier"', '#77d6ff', `⏫ ${up.next.name}`, `${up.next.dmg} dmg`, `${sel.filter(towerTierUp).reduce((s, x) => s + (towerTierUp(x)?.cost || 0), 0)}g`, false, false) : '')
-      + card('data-rail-act="priority"', '#ffd86b', `🎯 ${t0.priority}${t0.priorityLocked ? ' •' : ''}`, 'cycle targeting', '', false, false)
-      + card('data-rail-act="sell"', '#ff9faf', '💰 Sell', fullRefund(t0) ? 'full refund' : '75%', `+${sel.reduce((s, x) => s + towerSellValue(x), 0)}g`, false, false)
+      + `<div class="rl-card"><small>${st.dmg} dmg · ${attackSpeedText(st)} · ${effectiveDps(st, t0.raceId).toFixed(0)} dps · ${st.range.toFixed(1)} reach`
+      + `<br>${Math.max(0, Math.round(t0.blockHp))}/${t0.blockMaxHp} HP · ${attackProfileText(t0.raceId, st)}`
+      + `<br><b style="color:#8fe6b8">Tap the tower on the board</b> to level, tier, retarget or sell it.</small></div>`
       + boltPanelHtml(sel);
   }
   const on = (v) => v ? 'on' : '';
@@ -6803,6 +6811,7 @@ function renderTowerDetails() {
   const sig = [tower.key, group.map((t) => t.key).join(','), tower.level, tower.tier, tower.priority,
     tower.raceId, isYours, upgradable.length, tierable.length, alike > 1].join('|');
   if (panel._sig === sig && panel._built) {
+    // the ring owns these now, so the panel may legitimately have none of them
     const setBtn = (id, off, text) => { const b = $(id); if (!b) return; b.disabled = !!off; if (text != null && b.textContent !== text) b.textContent = text; };
     setBtn('td-level', levelBlocked, !upgradable.length ? 'Max level' : many ? `Upgrade all • ${levelCostAll}g` : `Upgrade level ${levelCostAll}g`);
     setBtn('td-tier', tierBlocked, !tierable.length ? 'Max tier'
@@ -6823,13 +6832,9 @@ function renderTowerDetails() {
           profile line once per-tower strengths were added to it. Anything that
           can reflow now lives underneath the buttons, where it cannot push
           them. */''}
-    ${isYours ? `<div class="td-actions">
-      <button id="td-level" class="action-button" ${levelBlocked ? 'disabled' : ''}>${!upgradable.length ? 'Max level' : many ? `Upgrade all • ${levelCostAll}g` : `Upgrade level ${levelCostAll}g`}</button>
-      <button id="td-tier" class="action-button td-tier" ${tierBlocked ? 'disabled' : ''}>${!tierable.length ? 'Max tier' : `→ ${towerTierUp(tower)?.next.name || 'next tier'}${many ? ` all • ${tierCostAll}g` : ` ${tierCostAll}g`}${laserNext ? ' +1🪵' : ''}`}</button>
-      <button id="td-priority" class="ghost-button">Target: ${tower.priority}</button>
-      <button id="td-sell" class="ghost-button td-sell-danger ${sellArmed ? 'td-sell-armed' : ''}">${sellLabel}</button>
-      ${alike > 1 ? `<button id="td-selectall" class="ghost-button td-wide">⧉ Select all ${alike} ${stats.name}${many ? ` (${group.length} selected)` : ''}</button>` : ''}
-    </div>` : ''}
+    ${/* No action buttons here either. The ring around the tower is the one
+          place these live now — see the note in the rail's tower panel. */''}
+    ${isYours ? `<p class="td-desc td-hint">Level, tier, target and sell are on the ring around the tower.</p>` : ''}
     <p class="td-desc">${many ? 'Double-tap selected every like tower.' : `${stats.desc} ${specialBlurbs[stats.special] || ''}`}</p>
     <div class="td-stats"><span>DMG <b>${stats.dmg}</b></span><span>RANGE <b>${stats.range.toFixed(1)}</b></span><span>SPEED <b>${attackSpeedText(stats)}</b></span><span>DPS <b>${effectiveDps(stats, tower.raceId).toFixed(0)}</b></span><span>HP <b>${Math.max(0, Math.round(tower.blockHp))}/${tower.blockMaxHp}</b></span></div>
     <p class="td-desc profile-line">${attackProfileText(tower.raceId, stats)}</p>
@@ -6837,10 +6842,10 @@ function renderTowerDetails() {
   $('td-close').addEventListener('click', () => { selectedTowerKey = null; selectedGroupKeys = []; renderTowerDetails(); });
   if (!isYours) return;
   panel.querySelectorAll('[data-bolt]').forEach((b) => b.addEventListener('click', () => towerAction(`bolt:${b.dataset.bolt}`)));
-  $('td-level').addEventListener('click', () => towerAction('level'));
+  $('td-level')?.addEventListener('click', () => towerAction('level'));
   $('td-tier')?.addEventListener('click', () => towerAction('tier'));
-  $('td-sell').addEventListener('click', () => towerAction('sell'));
-  $('td-priority').addEventListener('click', () => towerAction('priority'));
+  $('td-sell')?.addEventListener('click', () => towerAction('sell'));
+  $('td-priority')?.addEventListener('click', () => towerAction('priority'));
   $('td-selectall')?.addEventListener('click', () => towerAction('selectall'));
 }
 
@@ -9891,14 +9896,9 @@ function renderWispInspect() {
   const sellWorth = sel.reduce((s, t) => s + towerSellValue(t), 0);
   const armed = pendingSell && pendingSell.sig === selectionSig(sel) && simTime - pendingSell.at < SELL_CONFIRM_WINDOW;
   return close + `<div class="wp-title"><b>${sel.length>1?sel.length+'× ':''}${stats.name}${t0.level?(' +'+t0.level):''}</b> · ${stats.dmg} dmg · ${stats.range.toFixed(1)} range</div>
-    <div class="wp-actions">
-      <button class="wp-act" data-wp-act="level">⬆ Level (${sel.filter((t)=>canLevel(t)).reduce((s,t)=>s+towerLevelCost(t),0)||'MAX'}g)</button>
-      <button class="wp-act" data-wp-act="tier">⏫ Tier (${sel.filter((t)=>towerTierUp(t)).reduce((s,t)=>s+(towerTierUp(t)?.cost||0),0)}g)</button>
-      <button class="wp-act" data-wp-act="priority">🎯 ${t0.priority}</button>
-      <button class="wp-act wp-sell ${armed ? 'armed' : ''}" data-wp-act="sell">${armed ? `⚠ Confirm sell ${sel.length}` : `💰 Sell (+${sellWorth}g)`}</button>
-      ${(() => { const alike = [...towers.values()].filter((t) => isMine(t) && t.raceId === t0.raceId && t.tier === t0.tier).length;
-        return alike > 1 ? `<button class="wp-act wp-wide" data-wp-act="selectall">⧉ Select all ${alike}${sel.length > 1 ? ` · ${sel.length} selected` : ''}</button>` : ''; })()}
-    </div>
+    ${/* The ring owns level, tier, target and sell — this panel used to offer
+          all four again, which is how the same action ended up in three places
+          at once. Readout and imbuing only. */''}
     <div class="wp-detail">${stats.dmg} dmg · ${attackSpeedText(stats)} · ${effectiveDps(stats, t0.raceId).toFixed(0)} dps · ${attackProfileText(t0.raceId, stats)}<br>${specialBlurbs[stats.special]||stats.desc||''}${up?`<br><i>→ ${up.next.name}: ${up.next.dmg} dmg · ${up.next.range} range (full ${up.cost}g)</i>`:'<br><i>max tier</i>'}</div>${boltPanelHtml(sel)}`;
 }
 function setupWisp() {
