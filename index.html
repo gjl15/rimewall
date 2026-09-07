@@ -267,6 +267,24 @@ body.reduce-motion .mp-spin { animation:none; border-top-color:#8ee89f55; }
 .lb-who b { font-size:10px; }
 .lb-who small { color:#8995b4; font-size:8px; }
 .lb-bot { flex:0 0 auto; padding:2px 5px; border-radius:4px; background:#2a3654; color:#9fb0d2; font:600 7px 'DM Mono',monospace; font-style:normal; letter-spacing:.1em; }
+/* slot rows: a colour swatch for the lane the seat holds, who is in it, and
+   what they play — the lobby is now the thing that decides the match */
+.lb-colhead { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+.lb-colhead h4 { margin:0; flex:1; }
+.lb-size { display:flex; gap:3px; }
+.lb-size button { width:22px; height:22px; padding:0; border:1px solid #2e3b5c; border-radius:6px; background:#131b30; color:#8995b4; font:700 9px 'DM Mono',monospace; }
+.lb-size button.on { border-color:#77d6ff; background:#77d6ff22; color:#eafcff; }
+.lb-slot { display:flex; align-items:center; gap:6px; margin-bottom:5px; padding:5px 6px; border:1px solid #2a3654; border-left:3px solid var(--lane); border-radius:8px; background:#111a30; }
+.lb-slot.off { opacity:.42; }
+.lb-slot.mine { background:color-mix(in srgb, var(--lane) 13%, #111a30); }
+.lb-swatch { flex:0 0 auto; width:18px; height:18px; display:grid; place-items:center; border-radius:5px;
+  background:var(--lane); color:#0b1020; font:800 9px 'DM Mono',monospace; }
+.lb-kind { flex:0 0 auto; width:82px; padding:4px 5px; border:1px solid #2e3b5c; border-radius:6px; background:#0c1324; color:#dbe4fa; font:600 9px 'DM Mono',monospace; }
+.lb-name { flex:1; min-width:0; display:flex; flex-direction:column; }
+.lb-name b { font-size:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.lb-name small { color:#8995b4; font-size:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.lb-lane { flex:0 0 auto; color:var(--lane); font:700 8px 'DM Mono',monospace; letter-spacing:.08em; text-transform:uppercase; }
+@media (max-width:560px) { .lb-cols { grid-template-columns:1fr; } .lb-lane { display:none; } }
 .lb-hint { margin-top:10px; color:#7c88a8; font-size:10px; line-height:1.5; }
 .lb-races { display:grid; grid-template-columns:repeat(5,1fr); gap:5px; margin-top:10px; }
 .lb-race { display:flex; flex-direction:column; align-items:center; gap:2px; min-height:48px; padding:6px 2px; border:1.5px solid #2e3b5c; border-radius:9px; background:#131b30; color:#9fb0d2; }
@@ -2300,7 +2318,10 @@ function resetMatchState() {
   const pickedMode = document.getElementById('mode-select')?.value;
   matchMode = pickedMode === 'classic' ? 'classic' : (pickedMode === 'survival' ? 'survival' : 'skirmish');
   const lives = startingLives();
-  player = { gold:START_GOLD, income:0, lives, kills:0, lumber:0, shrine:1, races:[selectedRace.id], lumberSpent:0, startLives:lives };
+  // the seat you took in the lobby decides your lane colour and home ground
+  const mySeats = seatsOn(PLAYER_HALF), mySeat = humanSeatIndex();
+  player = { gold:START_GOLD, income:0, lives, kills:0, lumber:0, shrine:1, races:[selectedRace.id], lumberSpent:0, startLives:lives,
+    seat:mySeat, lane:seatLane(PLAYER_HALF, mySeat, mySeats), zone:seatZone(PLAYER_HALF, mySeat, mySeats) };
   const questGold = mp.active ? 0 : 25 * (ensureDaily().done.length || 0);
   if (questGold) { player.gold += questGold; log(`🗒 Daily quest reward: +${questGold}g starting gold.`); }
   buildRaceIdx = 0;
@@ -2312,7 +2333,7 @@ function resetMatchState() {
   const shape = rivalSpots(rivalRace, plan, opening);
   enemy = { gold:START_GOLD, income:0, lives, lumber:0, shrine:1, raceId:rivalRace, spotIndex:0, towersBuilt:0,
     buildClock:2, sendClock:matchMode === 'classic' ? 14 : 24, opening:plan === 'learned' ? opening : plan,
-    spots:shape, plan };
+    spots:shape, plan, seat:0, lane:seatLane(ENEMY_HALF, 0, seatsOn(ENEMY_HALF)) };
   if (plan === 'learned') {
     const pb = playbookFor(rivalRace);
     enemy.playbook = pb;
@@ -2486,21 +2507,82 @@ function waveBoardRetire(creep, leaked) {
    Always 1 until the shared-half layout exists; the wave maths is ready for it. */
 function teamSizeSetting() {
   const n = parseInt(document.getElementById('team-select')?.value, 10);
-  return Math.max(1, Math.min(3, Number.isFinite(n) ? n : 1));
+  return Math.max(1, Math.min(SEATS_MAX, Number.isFinite(n) ? n : 1));
+}
+
+/* ===================== THE ROSTER =====================
+   One record per seat, and the only thing that decides who is playing. Before
+   this there was no seat object at all: a "seat" was an index into the allies
+   array, only index 0 could ever be a person, and the number of them came from
+   a menu dropdown read at match start. The lobby edits this; the match is built
+   from it; and because each half carries its own list, the two sides no longer
+   have to be the same size.
+
+   A seat wears the colour of the lane it holds — the RED/BLUE/TEAL and
+   PURPLE/YELLOW/ORANGE names that were already painted on the board and wired
+   to nothing. One seat per half holds the middle; two take the edges; three
+   take all of it.                                                            */
+const SEATS_MAX = 3;
+const SEAT_KINDS = ['human', 'ai', 'open', 'closed'];
+let roster = null;
+
+// which of the three lane colours this seat wears, given how many seats its half has
+function seatLaneIdx(i, n) { return n <= 1 ? 1 : (n === 2 ? (i === 0 ? 0 : 2) : i); }
+function seatLane(half, i, n) { return LANE_COLORS[half][seatLaneIdx(i, Math.max(1, n))]; }
+
+/* The columns a seat is responsible for. One seat holds the whole half; more
+   than one and they split it, edges first, so nobody's wall is behind
+   somebody else's. */
+function seatZone(half, i, n) {
+  if (n <= 1) return { c0:1, c1:COLS - 2, label:'whole half' };
+  const lane = seatLaneIdx(i, n);
+  if (lane === 0) return { c0:LANE_WEST[0], c1:LANE_WEST[1], label:'west' };
+  if (lane === 2) return { c0:LANE_EAST[0], c1:LANE_EAST[1], label:'east' };
+  return { c0:PILLAR_C0, c1:PILLAR_C1, label:'centre' };
+}
+
+function makeSeat(half, i, kind) {
+  return { half, index:i, kind, name:'', raceId:null, sid:null };
+}
+/* perHalf may be a number (both sides the same) or {south, north}. */
+function newRoster(perHalf) {
+  const n = typeof perHalf === 'object' ? perHalf : { south:perHalf, north:perHalf };
+  const build = (half, count) => {
+    const seats = [];
+    for (let i = 0; i < SEATS_MAX; i += 1) {
+      const active = i < Math.max(1, Math.min(SEATS_MAX, count));
+      // you take the first seat of your own half by default; everything else
+      // that is in play is a computer until somebody claims it
+      seats.push(makeSeat(half, i, !active ? 'closed' : (half === PLAYER_HALF && i === 0 ? 'human' : 'ai')));
+    }
+    return seats;
+  };
+  return { south:build('south', n.south), north:build('north', n.north) };
+}
+function ensureRoster() { if (!roster) roster = newRoster(teamSizeSetting()); return roster; }
+function rosterSeats(half) { return ensureRoster()[half].filter((s) => s.kind !== 'closed'); }
+function seatsOn(half) { return Math.max(1, rosterSeats(half).length); }
+function humanSeat() { return ensureRoster()[PLAYER_HALF].find((s) => s.kind === 'human') || null; }
+function humanSeatIndex() {
+  const seats = rosterSeats(PLAYER_HALF);
+  const i = seats.findIndex((s) => s.kind === 'human');
+  return i < 0 ? 0 : i;
 }
 function defendersPerHalf() {
-  // the host plays its own selector; the guest plays whatever the host sent
-  const n = mp.active && mp.role !== 'host' ? (mp.teamSize || 1) : teamSizeSetting();
-  return Math.max(1, Math.min(3, n));
+  // the host plays its own roster; the guest plays whatever the host sent
+  if (mp.active && mp.role !== 'host') return Math.max(1, Math.min(SEATS_MAX, mp.teamSize || 1));
+  return seatsOn(PLAYER_HALF);
 }
 function queueWaveSpawns(waveDef) {
   const count = Math.round((waveDef.count || 6) * (waveDef.boss ? 1 : 1.3));   // ~30% more bodies
   const gap = (waveDef.role === 'swarm' ? .26 : .45) * (waveDef.boss ? 4 : 1); // arrive in overlapping packs, not a trickle
-  const batches = defendersPerHalf();
   // survival has no rival, so spawning a north wave would just tick down a
   // lifeforce bar nobody is playing — only the player's half gets creeps
   const halves = (mp.active || matchMode === 'survival') ? ['south'] : ['north', 'south'];
   halves.forEach((half) => {
+    // one batch per defender ON THAT HALF: the sides can now differ in size,
+    // and a half of three should not be fed the wave load of a half of two
+    const batches = seatsOn(half);
     for (let batch = 0; batch < batches; batch += 1) {
       const stagger = batch * gap * .5;   // interleave the batches instead of stacking them on the same tick
       for (let i = 0; i < count; i += 1) {
@@ -3348,44 +3430,41 @@ function rivalSpots(raceId, plan, opening) {
   const seen = new Set(centre.map((s) => s.r * 100 + s.c));
   return centre.concat(base.filter((s) => !seen.has(s.r * 100 + s.c)));
 }
-function allyZone(seat, allySeats) {
-  const west = { c0:LANE_WEST[0], c1:LANE_WEST[1], label:'west' };
-  const east = { c0:LANE_EAST[0], c1:LANE_EAST[1], label:'east' };
-  if (allySeats <= 1) return east;
-  return seat === 0 ? west : east;
-}
-function makeAlly(half, seat, raceId, allySeats) {
-  const zone = allyZone(seat, allySeats);
+/* `seat` here is the seat's POSITION among the seats actually in play on that
+   half, so its zone and colour line up with the lobby slot and the lane label
+   on the board. This used to hand out west or east and nothing else, so a
+   third defender collided onto the second one's flank. */
+function makeAlly(half, seat, raceId, seatsHere) {
+  const zone = seatZone(half, seat, seatsHere);
   const near = (cell, marks) => Math.min(...marks.map((m) => Math.hypot(cell.r - m.r, cell.c - m.c)));
   const marks = [sharedFlagCell(half)];
   const cells = mazeOrderSouth()
     .filter(({ c }) => c >= zone.c0 && c <= zone.c1)
     .map(({ r, c }) => (half === PLAYER_HALF ? { r, c } : { r:(ROWS - 1) - r, c }));
   const ordered = cells.sort((a, b) => near(a, marks) - near(b, marks));
-  return { half, seat, raceId, zone,
+  const lane = seatLane(half, seat, seatsHere);
+  return { half, seat, raceId, zone, lane,
     name:ALLY_NAMES[(seat + (half === PLAYER_HALF ? 0 : 3)) % ALLY_NAMES.length],
     gold:START_GOLD, income:0, lumber:0, shrine:1, spotIndex:0, towersBuilt:0,
     buildClock:2 + seat * .6, sendClock:26 + seat * 5, spots:ordered, plan:zone.label,
     playbook:playbookFor(raceId) };
 }
+/* Every seat in the roster that is not a person becomes a bot with its own
+   purse. North seat 0 stays the `enemy` object — it is a richer AI than the
+   ally one and owns the centre — so it is skipped here. */
 function spawnAllies() {
   allies = [];
-  const seats = defendersPerHalf() - 1;   // seat 0 on each half is the human / the rival proper
-  if (seats <= 0) return;
-  for (let i = 0; i < seats; i += 1) {
-    const mine = allySeatRace(PLAYER_HALF, i);
-    if (mine) allies.push(makeAlly(PLAYER_HALF, i, mine, seats));
-    if (matchMode !== 'survival') {
-      const theirs = allySeatRace(ENEMY_HALF, i);
-      if (theirs) allies.push(makeAlly(ENEMY_HALF, i, theirs, seats));
-    }
-  }
-}
-/* Which element an ally seat plays. In multiplayer a seat a human has taken
-   returns null — that person is the defender, not a bot. */
-function allySeatRace(half, seat) {
-  if (mp.active && half === PLAYER_HALF && seat < (mp.humanSeats || 1) - 1) return null;
-  return races[Math.floor(rng() * races.length)].id;
+  const halves = matchMode === 'survival' ? [PLAYER_HALF] : [PLAYER_HALF, ENEMY_HALF];
+  halves.forEach((half) => {
+    const seats = rosterSeats(half);
+    const rivalSeat = half === ENEMY_HALF ? 0 : -1;          // the `enemy` object holds it
+    const mySeat = half === PLAYER_HALF ? humanSeatIndex() : -1;
+    seats.forEach((s, i) => {
+      if (i === rivalSeat || i === mySeat) return;
+      if (s.kind !== 'ai') return;                            // 'open' seats simply do not play
+      allies.push(makeAlly(half, i, s.raceId || races[Math.floor(rng() * races.length)].id, seats.length));
+    });
+  });
 }
 function allyPurse(tower) {
   if (!tower || tower.allySeat == null) return null;
@@ -6598,7 +6677,7 @@ function startBattle() {
     : matchMode === 'survival'
       ? `SURVIVAL — no rival, just the waves. First wave in ${Math.ceil(waveClock)}s. See how far you get.`
       : `Match started vs the ${races.find((race) => race.id === enemy.raceId).name} rival. First wave in ${Math.ceil(waveClock)}s — place starter towers near the gate.`);
-  openLobby();
+  closeLobby();   // the lobby ran BEFORE this and handed us the roster
 }
 /* ---------------- PRE-MATCH LOBBY ----------------
    You could not see who you were playing, or with. The match opened straight
@@ -6646,76 +6725,136 @@ function restartMatch() {
   askConfirm('Restart the match?', `Wave ${wave} and everything you have built is discarded, and a fresh match begins.`, 'Restart', startBattle);
 }
 let lobbyLeft = 0, lobbyTimer = null;
-function lobbyOpen() { return lobbyLeft > 0; }
+let lobbyPhase = false;   // the lobby is up and no match has been committed yet
+function lobbyOpen() { return lobbyPhase || lobbyLeft > 0; }
+/* ===================== THE LOBBY =====================
+   It used to open on the last line of startBattle(), after the terrain, the
+   rival and every ally had already been built — so it could show you the match
+   but never change it, and it was skipped outright in multiplayer. It runs
+   BEFORE the match now, and the roster it edits is what the match is made
+   from. No countdown: nothing is running, so nothing needs to be raced.
+
+   One row per slot, grouped by side, exactly like the Warcraft lobby the shape
+   is borrowed from: who holds it, what they play, and the colour of the lane
+   they will hold on the board.                                               */
 function openLobby() {
   const box = $('lobby');
   if (!box) return;
-  if (mp.active) return;                      // multiplayer has its own handshake
-  lobbyLeft = LOBBY_SECONDS;
-  battlePaused = true;
+  ensureRoster();
+  lobbyPhase = true;
   box.classList.remove('hidden');
   renderLobby();
-  window.clearInterval(lobbyTimer);
-  lobbyTimer = window.setInterval(() => {
-    lobbyLeft -= 1;
-    if (lobbyLeft <= 0) closeLobby();
-    else renderLobby();
-  }, 1000);
 }
 function closeLobby() {
   window.clearInterval(lobbyTimer); lobbyTimer = null;
-  lobbyLeft = 0;
+  lobbyLeft = 0; lobbyPhase = false;
   $('lobby')?.classList.add('hidden');
   battlePaused = false;
-  fitBoardToViewport();
-  log(`Match live. First wave in ${Math.ceil(waveClock)}s — build.`);
 }
-function lobbyPickRace(id) {
-  // nothing is built yet, so swapping the element is a straight substitution
-  if (!lobbyOpen()) return;
-  const race = races.find((r) => r.id === id);
-  if (!race || !raceUnlocked(id)) return;
-  selectedRace = race;
-  player.races = [id];
-  buildRaceIdx = 0; selectedTowerTier = 0;
-  renderBattleIdentity(); renderTowerList(); renderHud();
+/* Setting a slot. Only one seat on your half can be you, so claiming a new one
+   releases the old. Closing a seat that is in play shrinks that side. */
+function lobbySetSeat(half, index, kind) {
+  const seats = ensureRoster()[half];
+  const s = seats[index]; if (!s) return;
+  if (kind === 'human') {
+    if (half !== PLAYER_HALF) return;                       // you play your own side
+    seats.forEach((o) => { if (o.kind === 'human') o.kind = 'ai'; });
+  }
+  s.kind = kind;
+  if (kind !== 'closed' && !s.raceId) s.raceId = null;       // rolled at match start
+  // a side always has somebody in it, and your side always has you
+  if (!seats.some((o) => o.kind !== 'closed')) seats[0].kind = half === PLAYER_HALF ? 'human' : 'ai';
+  if (half === PLAYER_HALF && !seats.some((o) => o.kind === 'human')) {
+    (seats.find((o) => o.kind === 'ai') || seats[0]).kind = 'human';
+  }
   renderLobby();
 }
-function lobbySquad(half) {
-  const mates = allies.filter((a) => a.half === half)
-    .map((a) => ({ name:a.name, raceId:a.raceId, zone:a.zone?.label, bot:true }));
-  if (half === PLAYER_HALF) return [{ name:'You', raceId:selectedRace.id, zone:'centre', bot:false }, ...mates];
-  return [{ name:mp.active ? (mp.oppName || 'Opponent') : 'Rival', raceId:enemy.raceId, zone:'centre', bot:!mp.active }, ...mates];
+/* The host says how many slots each side has. As low as one a side, which is
+   the solo game. */
+function lobbySetSize(half, n) {
+  const seats = ensureRoster()[half];
+  const want = Math.max(1, Math.min(SEATS_MAX, n));
+  seats.forEach((s, i) => {
+    if (i < want && s.kind === 'closed') s.kind = 'ai';
+    if (i >= want) s.kind = 'closed';
+  });
+  if (half === PLAYER_HALF && !seats.some((s) => s.kind === 'human')) seats[0].kind = 'human';
+  renderLobby();
 }
+function lobbyPickRace(id) {
+  const race = races.find((r) => r.id === id);
+  if (!race || !raceUnlocked(id)) return;
+  commitRace(race);
+  if (battleRunning && player) {                            // mid-match swap (nothing is built yet)
+    player.races = [id]; buildRaceIdx = 0; selectedTowerTier = 0;
+    renderBattleIdentity(); renderTowerList(); renderHud();
+  }
+  renderLobby();
+}
+const SEAT_KIND_LABEL = { human:'You', ai:'Computer', open:'Open', closed:'Closed' };
 function renderLobby() {
   const box = $('lobby');
   if (!box) return;
-  const seat = (s) => {
-    const r = races.find((x) => x.id === s.raceId) || races[0];
-    return `<div class="lb-seat" style="--race:${r.color}">
-      <span class="lb-rune">${r.symbol}</span>
-      <span class="lb-who"><b>${s.name}</b><small>${r.name}${s.zone && s.zone !== 'centre' ? ` · ${s.zone} flank` : s.bot ? '' : ' · you'}</small></span>
-      ${s.bot ? '<i class="lb-bot">AI</i>' : ''}</div>`;
+  ensureRoster();
+  const modeName = matchMode === 'classic' ? 'Classic Wars' : matchMode === 'survival' ? 'Survival' : 'Waves vs rival';
+  const sizeS = seatsOn(PLAYER_HALF), sizeN = seatsOn(ENEMY_HALF);
+  const solo = sizeS === 1 && (matchMode === 'survival' || sizeN === 1);
+
+  const seatRow = (s, i, seatsHere, half) => {
+    const inPlay = s.kind !== 'closed';
+    const pos = inPlay ? rosterSeats(half).indexOf(s) : -1;
+    const lane = inPlay ? seatLane(half, pos, seatsHere) : null;
+    const zone = inPlay ? seatZone(half, pos, seatsHere) : null;
+    const race = s.raceId ? races.find((r) => r.id === s.raceId) : null;
+    const who = s.kind === 'human' ? (profile.name || 'You') : SEAT_KIND_LABEL[s.kind];
+    const elem = s.kind === 'human' ? selectedRace.name
+      : s.kind === 'ai' ? (race ? race.name : 'Random element')
+        : '—';
+    const kinds = half === PLAYER_HALF ? SEAT_KINDS : SEAT_KINDS.filter((k) => k !== 'human');
+    return `<div class="lb-slot ${inPlay ? '' : 'off'} ${s.kind === 'human' ? 'mine' : ''}" style="--lane:${lane ? lane.color : '#3a466a'}">
+      <span class="lb-swatch" title="${lane ? lane.name + ' lane' : 'not in play'}">${lane ? lane.name[0] : '·'}</span>
+      <select class="lb-kind" data-lb-kind="${half}:${i}" aria-label="Slot ${i + 1}">
+        ${kinds.map((k) => `<option value="${k}" ${k === s.kind ? 'selected' : ''}>${SEAT_KIND_LABEL[k]}</option>`).join('')}
+      </select>
+      <span class="lb-name"><b>${who}</b><small>${elem}${zone ? ` · ${zone.label}` : ''}</small></span>
+      <span class="lb-lane">${lane ? lane.name : ''}</span>
+    </div>`;
   };
+  const column = (half, title, size) => `
+    <div class="lb-col">
+      <div class="lb-colhead"><h4>${title}</h4>
+        <div class="lb-size">${[1, 2, 3].map((n) => `<button class="${n === size ? 'on' : ''}" data-lb-size="${half}:${n}">${n}</button>`).join('')}</div>
+      </div>
+      ${ensureRoster()[half].map((s, i) => seatRow(s, i, size, half)).join('')}
+    </div>`;
+
   box.innerHTML = `
     <div class="lb-card">
       <div class="lb-head">
         <span class="lb-tag">LOBBY</span>
-        <strong>${defendersPerHalf()}v${defendersPerHalf()} · ${matchMode === 'classic' ? 'Classic Wars' : matchMode === 'survival' ? 'Survival' : 'Waves vs rival'}</strong>
-        <span class="lb-count">${lobbyLeft}s</span>
+        <strong>${solo ? 'Solo' : `${sizeS}v${sizeN}`} · ${modeName}</strong>
+        <span class="lb-count">${mp.active ? (mp.role === 'host' ? 'HOST' : 'GUEST') : 'LOCAL'}</span>
       </div>
       <div class="lb-cols">
-        <div class="lb-col"><h4>Your half</h4>${lobbySquad(PLAYER_HALF).map(seat).join('')}</div>
-        ${matchMode === 'survival' ? '' : `<div class="lb-col"><h4>Their half</h4>${lobbySquad(ENEMY_HALF).map(seat).join('')}</div>`}
+        ${column(PLAYER_HALF, 'Your side', sizeS)}
+        ${matchMode === 'survival' ? '' : column(ENEMY_HALF, 'Their side', sizeN)}
       </div>
-      <p class="lb-hint">Change your element while the clock runs — nothing is built yet. Allies hold the flanks; you hold the middle.</p>
+      <p class="lb-hint">Each slot holds one lane of the board and wears its colour. Set the slots, then start. A side of one holds the whole half; two split the edges; three take a lane each.</p>
       <div class="lb-races">${races.filter((r) => raceUnlocked(r.id)).map((r) => `
         <button class="lb-race ${r.id === selectedRace.id ? 'on' : ''}" data-lb-race="${r.id}" style="--race:${r.color}" title="${r.name} — ${r.trait}">
           <span>${r.symbol}</span><small>${r.name}</small></button>`).join('')}</div>
-      <button id="lb-ready" class="lb-ready">Ready — start now</button>
+      <button id="lb-ready" class="lb-ready">${lobbyPhase ? 'Start match' : 'Back to the board'}</button>
     </div>`;
   box.querySelectorAll('[data-lb-race]').forEach((b) => b.addEventListener('click', () => lobbyPickRace(b.dataset.lbRace)));
-  $('lb-ready').addEventListener('click', closeLobby);
+  box.querySelectorAll('[data-lb-kind]').forEach((sel) => sel.addEventListener('change', () => {
+    const [half, i] = sel.dataset.lbKind.split(':');
+    lobbySetSeat(half, Number(i), sel.value);
+  }));
+  box.querySelectorAll('[data-lb-size]').forEach((b) => b.addEventListener('click', () => {
+    const [half, n] = b.dataset.lbSize.split(':');
+    lobbySetSize(half, Number(n));
+  }));
+  $('lb-ready').addEventListener('click', () => { if (lobbyPhase) startBattle(); else closeLobby(); });
 }
 let canvasesReady = false;
 function setupCanvasesOnce() { if (!canvasesReady) { setupCanvases(); canvasesReady = true; } }
@@ -8083,7 +8222,19 @@ document.querySelectorAll('[data-tab]').forEach((tab) => tab.addEventListener('c
   $('build-panel').classList.toggle('hidden', tab.dataset.tab !== 'build');
   $('send-panel').classList.toggle('hidden', tab.dataset.tab !== 'send');
 }));
-$('start-button').addEventListener('click', startBattle);
+/* Start opens the LOBBY; the lobby's own button commits the match. The slots
+   have to be settable before anything is built, and they were not. */
+$('start-button').addEventListener('click', () => {
+  const picked = document.getElementById('mode-select')?.value;
+  matchMode = picked === 'classic' ? 'classic' : (picked === 'survival' ? 'survival' : 'skirmish');
+  ensureRoster();
+  $('race-screen').classList.add('hidden');
+  $('battle-screen').classList.remove('hidden');
+  // the board is on screen behind the lobby now, so it has to be real before
+  // the frame loop reaches for its context
+  setupCanvasesOnce(); buildOverlay(); fitBoardToViewport(); resetMapZoom(); redrawBoard();
+  openLobby();
+});
 $('open-drawpad-card')?.addEventListener('click', () => openDrawpad('race-screen'));
 $('open-collab-card')?.addEventListener('click', openCollabDashboard);
 $('collab-back-button').addEventListener('click', () => { $('collab-screen').classList.add('hidden'); $('race-screen').classList.remove('hidden'); });
