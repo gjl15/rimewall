@@ -841,6 +841,15 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 /* arena keeps full-size map toggles (44px) — no shrink */
 /* detail popup shown on single tap, anchored above a card */
 .card-info { z-index:205; }
+/* one labelled row per number, so a pre-build card can be read at a glance */
+.ci-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:4px 10px; margin-top:5px; }
+.ci-stat { display:flex; align-items:baseline; gap:5px; font-style:normal; }
+.ci-stat em { flex:1; min-width:0; color:#8995b4; font:500 8.5px 'DM Mono',monospace; font-style:normal; letter-spacing:.05em; text-transform:uppercase; }
+.ci-stat b { color:#eafcff; font:700 11px 'DM Mono',monospace; font-variant-numeric:tabular-nums; }
+.ci-stat u { color:#6f7c9c; font:400 8px 'DM Mono',monospace; text-decoration:none; }
+.ci-vs { display:block; margin-top:6px; color:#9fb0d2; font-size:9.5px; }
+.ci-special { display:block; margin-top:6px; padding-top:5px; border-top:1px solid #26324c; color:#c3cfe8; font-size:10px; line-height:1.5; }
+.ci-special em { color:#77d6ff; font-style:normal; font-weight:700; text-transform:uppercase; letter-spacing:.06em; font-size:9px; }
 
 /* single-bar top HUD in arena — more map space */
 .arena .hud { display:flex !important; flex-wrap:nowrap; grid-template-columns:none; align-items:center; gap:8px; padding:6px 10px; overflow:hidden; }
@@ -1505,16 +1514,69 @@ function attackProfileText(raceId) {
   if (p.air && p.air > 1) parts.push('+air');
   return `${p.label}: ${parts.join(' ')}`;
 }
-const specialBlurbs = {
-  slow:'Hits slow the target 40% for 1.5s.', smallsplash:'Small splash for 40% nearby.', splash:'Splashes 50% in a wide ring.',
-  meteor:'Falling blast; splashes 60% in a huge ring.', rocket:'Artillery blast; splashes 60% in a huge ring.',
-  machinegun:'Fires continuously.', pause:'Stops the target cold for 3.5s (bosses resist).', frostnova:'Big frost splash that frosts everything hit.',
-  deepfreeze:'Drives 3 frost stacks a hit — freezes solid in 4 hits instead of 12.',
-  crit:'25% chance to strike for double (all Stone towers).', chain:'Chain lightning jumps to 3 extra creeps.', thunder:'Pulse: chips toward 75% max HP, strips shields, may stun.',
-  blackhole:'Gravity pulse: area damage, may slow or shove creeps back.', halve:'Halves the target’s current HP (bosses resist).', mind:'−30% of current HP (bosses resist).',
-  paralyze:'Sets the target to 11 HP (bosses resist).', armorshred:'Strips 5 armor from the target.', ion:'+500 bonus damage while the target is above 500 HP.',
-  laser:'Crits, slows, and poisons on every hit.', airbonus:'+60% damage to air units.', pierce4:'Ignores 4 points of armor.'
-};
+/* WHAT A SPECIAL DOES, WITH THE ODDS AND THE RATE SPELLED OUT.
+   The old table was a dozen hand-written sentences, and Gene was right that you
+   could not tell what you were buying: half of them said "may stun" or "fires
+   continuously" with no number attached, the numbers that were there had been
+   copied by hand and had drifted from the tunables, TWO keys did not match the
+   special they described (pierce4 against `pierce`, airbonus against
+   `skyhunter`) so those two towers showed nothing at all, and fifteen specials
+   had no entry whatsoever.
+
+   Every line is built from the live TRAIT values now, so it cannot drift, and
+   every one says how likely it is and how often it happens. */
+function gravOdds(special) {
+  const w = gravSpec(special).w;
+  const total = Object.values(w).reduce((a, v) => a + v, 0) || 1;
+  const name = { slow:'slow', down:'slam down', up:'throw up', back:`shove ${GRAV_BACK_CELLS[0]}–${GRAV_BACK_CELLS[1]} cells back`, forward:'fling forward' };
+  return Object.entries(w).map(([k, v]) => `${Math.round(v / total * 100)}% ${name[k] || k}`).join(', ');
+}
+function specialBlurb(sp) {
+  const pct = (v) => Math.round(v * 100) + '%';
+  const gravTail = ` One impulse on ${pct(TRAIT.gravSlowChance)} of hits: ${gravOdds(sp)}. A creep can be displaced once every ${TRAIT.gravPushCD}s, and shoved back ${GRAV_BACK_LIMIT === 1 ? 'once only' : `${GRAV_BACK_LIMIT} times`} in its life; a blocked impulse slows instead. Bosses resist displacement.`;
+  const table = {
+    slow:`Every hit slows the target. Frost slows deepen as they stack, up to ${TRAIT.frostMax}%.`,
+    snowball:`Every shot bursts: everything within 1.5 cells takes 45% and is frost-chilled too.`,
+    frostnova:`Splash that frost-chills everything it catches, and freezes HP regeneration.`,
+    deepfreeze:`Drives 3 frost stacks a hit, so it freezes a creep solid in 4 hits instead of 12.`,
+    pause:`Locks the target in place for 3.5s. Every hit. Bosses resist.`,
+    smallsplash:`Every shot also hits everything within 1.2 cells for 40% damage.`,
+    splash:`Every shot also hits everything within 1.8 cells for 50% damage.`,
+    meteor:`A slow, heavy shot: everything within 2.5 cells takes 60%.`,
+    rocket:`Artillery: everything within 2.5 cells takes 60%.`,
+    machinegun:`Single target, no splash — it just fires faster than anything else.`,
+    crit:`${pct(TRAIT.stoneCritChance)} of hits deal ${TRAIT.stoneCritMult}x damage. Crits print in gold.`,
+    chain:`Every shot arcs to 3 more creeps, each hop at 70% of the last.`,
+    thunder:`An area pulse every shot: strips shields outright, chips everything toward ${pct(TRAIT.thunderFloor)} of max HP (at most ${pct(TRAIT.thunderCap)} a pulse), and can stun.`,
+    poison:`Every hit adds venom worth ${pct(TRAIT.poisonStackPct)} of the target's max HP per second to one pool, refreshing a ${TRAIT.poisonDur}s timer. Every poison tower feeds the same pool. The venom ignores armour value.`,
+    halve:`Cuts the target's CURRENT hit points in half. Every hit. Bosses resist.`,
+    mind:`Removes 30% of the target's current hit points. Every hit. Bosses resist.`,
+    paralyze:`Drops the target to 11 HP and then crits it. Every hit. Bosses resist.`,
+    armorshred:`Strips 5 armour from the target, for every tower shooting it.`,
+    ion:`+500 flat damage while the target is above 500 HP — an opener, not a finisher.`,
+    laser:`Crits, slows and poisons on every hit, and ignores armour.`,
+    skyhunter:`+60% damage against flying creeps. Every hit.`,
+    pierce:`Ignores a flat 4 points of armour. Every hit.`,
+    snipe:`+${Math.round((TRAIT.snipeMult - 1) * 100)}% against whichever creep is furthest along the route.`,
+    focus:`Every consecutive hit on the SAME creep adds ${pct(TRAIT.focusStep)}, up to 5 stacks. Switching target resets it.`,
+    resonate:`Every 5th shot detonates for double across a small radius.`,
+    overcharge:`Every 4th bolt lands at double.`,
+    discharge:`Banks a charge while idle: the first hit after ${TRAIT.dischargeIdle}s with nothing to shoot lands at ${TRAIT.dischargeMult}x.`,
+    shatter:`+${Math.round((TRAIT.shatterMult - 1) * 100)}% against anything already slowed or frozen — and Ice slows everything.`,
+    splinter:`A shard peels off into one neighbouring creep for ${pct(TRAIT.splinterMult)}.`,
+    entangle:`Roots the target for ${TRAIT.entangleDur}s and targets BOSSES first. Bosses are slowed hard instead of rooted.`,
+    beam:`A continuous ray rather than a volley: damage lands every frame, so the rate holds at any framerate.`,
+    warp:`A single warped slug that drags its target to a crawl.` + gravTail,
+    gravslam:`Single heavy pull that slams its target to the ground.` + gravTail,
+    warppulse:`An AREA pulse: full damage to the lead creep and ${pct(TRAIT.gravPulseMult)} to at most ${TRAIT.gravPulseCap} more.` + gravTail,
+    repulse:`Very fast area pulses that mostly shove the lead creep back down the lane.` + gravTail,
+    liftoff:`Heavy area pulses that mostly hurl the lead creep into the air.` + gravTail,
+    blackhole:`Every warp effect at once, over an area.` + gravTail,
+  };
+  return table[sp] || '';
+}
+// kept as a name so older call sites read the same; it is a lookup, not a table
+const specialBlurbs = new Proxy({}, { get:(_, k) => (typeof k === 'string' ? specialBlurb(k) : undefined) });
 
 function towerDef(raceId, tier) {
   const list = towerListFor(raceId);
@@ -3164,6 +3226,8 @@ function resolveProjectileHit(projectile) {
      repulse   fast pulses that shove back         (T3)
      liftoff   heavy pulses that throw upward      (T4)
      blackhole every effect at once                (T5) */
+const GRAV_BACK_LIMIT = 1;        // how many times one creep can be shoved back, ever
+const GRAV_BACK_CELLS = [2, 5];   // how far that shove carries it, in board cells
 const GRAV_SPECIALS = {
   warp:      { pulse:false, w:{ slow:100 } },
   gravslam:  { pulse:false, w:{ slow:35, down:65 } },
@@ -3220,9 +3284,21 @@ function gravityImpulse(creep, tower, stats) {
     creep.knockKind = 'up'; creep.knockUntil = creep.stunUntil;
     pushFx({ kind:'num', x:creep.x, y:creep.y - .5, text:'▲', until:simTime + .7, color:'#d9b8ff' });
   } else if (kind === 'back') {
-    shoveCreep(creep, goals[Math.max(0, creep.cpIndex - 1)], 1.5);
-    if (creep.cpIndex > 0) creep.cpIndex -= 1;   // a passed flag must be crossed again
-    pushFx({ kind:'num', x:creep.x, y:creep.y - .5, text:'«', until:simTime + .6, color:'#c58fd8' });
+    /* SENT BACK A CHECKPOINT, ONCE PER CREEP. Sending a creep back makes it
+       re-cross a flag it had already passed, which is the strongest thing
+       gravity does — and with a wall of them a creep could be sent back over
+       and over and never arrive at all. That is not a defence, it is a lock.
+       One per creep; after that the roll pays out as the slow. */
+    if ((creep.turnedBack || 0) >= GRAV_BACK_LIMIT) { slowIt(); return; }
+    creep.turnedBack = (creep.turnedBack || 0) + 1;
+    /* A real shove — 2 to 5 cells back toward the checkpoint it last crossed.
+       It used to move 1.5 cells AND reset the creep's checkpoint, so the flag
+       had to be crossed again: a much bigger effect than it looked, and one a
+       wall could apply over and over. The distance is the effect now, and it
+       happens once. */
+    const cells = GRAV_BACK_CELLS[0] + rng() * (GRAV_BACK_CELLS[1] - GRAV_BACK_CELLS[0]);
+    shoveCreep(creep, goals[Math.max(0, creep.cpIndex - 1)], cells);
+    pushFx({ kind:'num', x:creep.x, y:creep.y - .5, text:`«${cells.toFixed(0)}`, until:simTime + .7, color:'#c58fd8' });
   } else {
     // flung FORWARD: you lose ground, but the slam hurts
     shoveCreep(creep, goals[creep.cpIndex], 1.5);
@@ -5795,7 +5871,7 @@ function railBody(tab) {
       const d = towerDef(raceId, tier);
       const laser = d.name === 'Laser Cannon';
       return card(`data-rail-tower="${tier}"`, d.color, d.name,
-        `${d.dmg} dmg · ${d.range.toFixed(1)} rng${d.groundOnly ? ' · NO AIR' : ''}`,
+        `${d.dmg} dmg · ${d.range.toFixed(1)} range${d.groundOnly ? ' · NO AIR' : ''}`,
         `${d.cost}g${laser ? '+🪵' : ''}`, tier === selectedTowerTier, player.gold < d.cost);
     }).join('');
   }
@@ -6047,7 +6123,7 @@ function renderTowerList() {
     const def = towerDef(raceId, tier);
     const isLaser = def.name === 'Laser Cannon';
     return `<button class="tower-row ${tier === selectedTowerTier ? 'selected' : ''} ${isLaser ? 'laser-row' : ''}" data-tower="${tier}">
-      <span><strong>${def.name}</strong><small>${def.desc}</small><small class="tower-stats">${def.dmg} dmg • ${def.range.toFixed(1)} rng • ${def.cd.toFixed(2)}s • ${effectiveDps(def).toFixed(0)} dps${def.raceId === 'poison' ? ' (venom)' : ''}${def.special ? ' • ' + def.special : ''}${def.groundOnly ? ' • NO AIR' : ''}</small><small class="tower-stats profile-line">${attackProfileText(raceId)}</small></span><b>${def.cost}g${isLaser ? ' +1🪵' : ''}</b></button>`;
+      <span><strong>${def.name}</strong><small>${def.desc}</small><small class="tower-stats">${def.dmg} dmg • ${def.range.toFixed(1)} range • ${def.cd.toFixed(2)}s • ${effectiveDps(def).toFixed(0)} dps${def.raceId === 'poison' ? ' (venom)' : ''}${def.special ? ' • ' + def.special : ''}${def.groundOnly ? ' • NO AIR' : ''}</small><small class="tower-stats profile-line">${attackProfileText(raceId)}</small></span><b>${def.cost}g${isLaser ? ' +1🪵' : ''}</b></button>`;
   }).join('');
   document.querySelectorAll('[data-tower]').forEach((button) => button.addEventListener('click', () => {
     selectedTowerTier = Number(button.dataset.tower);
@@ -6348,7 +6424,7 @@ function handleBoardTap(event) {
     if (tower.owner !== 'player') {   // rival tower — inspect what they're building, no select
       inspectEntity = { kind:'enemy', ref:tower };
       if (touchUI() && document.body.classList.contains('arena')) { wispTab = 'inspect'; renderWispPanel('inspect'); }
-      else log(`Rival is building ${towerLiveStats(tower).name} (${towerLiveStats(tower).dmg} dmg, ${towerLiveStats(tower).range.toFixed(1)} rng).`);
+      else log(`Rival is building ${towerLiveStats(tower).name} (${towerLiveStats(tower).dmg} dmg, ${towerLiveStats(tower).range.toFixed(1)} range).`);
       return;
     }
     if (lastTapKey === key && now - lastTapAt < 420 && isMine(tower)) {
@@ -6386,7 +6462,7 @@ function handleBoardTap(event) {
       if (touchUI() && document.body.classList.contains('arena')) { wispTab = 'inspect'; renderWispPanel('inspect'); }
       else if (hit.kind === 'mirror-tower') {
         const st = towerLiveStats(hit.ref);
-        log(`${mpSeatName(mp.viewSeat) || 'They'} built ${st.name} — ${st.dmg} dmg · ${st.range.toFixed(1)} rng · ${(st.dmg / st.cd).toFixed(0)} dps.`);
+        log(`${mpSeatName(mp.viewSeat) || 'They'} built ${st.name} — ${st.dmg} dmg · ${st.range.toFixed(1)} range · ${(st.dmg / st.cd).toFixed(0)} dps.`);
       } else log(`${hit.ref.name} on the watched board — ${Math.round((hit.ref.hp / hit.ref.maxHp) * 100)}% health.`);
       return;
     }
@@ -8547,7 +8623,7 @@ function effectiveDps(def, raceId) {
 function towerStatLine(def) {
   const rate = effectiveDps(def).toFixed(0);
   const flag = def.groundOnly ? 'NO AIR' : (def.special || 'basic');
-  return `${def.range.toFixed(1)} rng · ${rate} dps · ${flag}`;
+  return `${def.range.toFixed(1)} range · ${rate} dps · ${flag}`;
 }
 /* What a send ACTUALLY arrives with: the ladder value, times the growth it has
    accrued this match, times the board's HP scale. The cards printed the raw
@@ -8578,9 +8654,38 @@ function showCardInfoHTML(html, cardEl) {
   el.style.top = Math.max(8, r.top - el.offsetHeight - 8) + 'px';
   window.clearTimeout(cardInfoTimer); cardInfoTimer = window.setTimeout(hideCardInfo, 3200);
 }
+/* WHAT YOU ARE ABOUT TO BUY. This was one cramped line — damage, dps, "rng",
+   the matrix — and then whatever sentence the blurb table happened to have.
+   Gene: "I find it hard to see the details of each tower before build; there
+   should be clearly defined percent chance skills on what they do and how
+   often, and range should be spelled out in full as rng is another game
+   mechanic that's confusing."
+   So: one labelled row per number, the firing rate in shots a second as well as
+   a cooldown, RANGE spelled out in cells, and the special underneath with its
+   odds and its rate. */
 function showCardInfo(def, raceId, cardEl) {
-  showCardInfoHTML(`<b>${def.name} · ${def.cost}g</b><span>${def.dmg} dmg · ${(def.dmg/def.cd).toFixed(0)} dps · ${def.range.toFixed(1)} rng · ${attackProfileText(raceId)}</span><span>${specialBlurbs[def.special] || def.desc || ''}</span>`, cardEl);
+  const dps = effectiveDps(def);
+  const rate = 1 / Math.max(.001, def.cd);
+  const stat = (label, value, note) => `<i class="ci-stat"><em>${label}</em><b>${value}</b>${note ? `<u>${note}</u>` : ''}</i>`;
+  const blurb = specialBlurb(def.special);
+  showCardInfoHTML(
+    `<b>${def.name} · ${def.cost} gold</b>`
+    + `<span class="ci-grid">${
+      stat('Damage', def.dmg, 'per shot')
+      + stat('Rate', `${rate.toFixed(2)}/s`, `every ${def.cd.toFixed(2)}s`)
+      + stat('Damage per second', Math.round(dps), '')
+      + stat('Range', `${def.range.toFixed(1)} cells`, '')
+      + stat('Gold per dps', (def.cost / Math.max(1, dps)).toFixed(2), 'lower is better')
+      + (def.groundOnly ? stat('Targets', 'ground only', 'cannot hit air') : '')
+    }</span>`
+    + `<span class="ci-vs">${attackProfileText(raceId)}</span>`
+    + (blurb ? `<span class="ci-special"><em>${specialName(def.special)}</em> ${blurb}</span>` : `<span>${def.desc || ''}</span>`),
+    cardEl);
 }
+/* The internal ids are one squashed word; readers get spaces. */
+const SPECIAL_NAME = { smallsplash:'small splash', frostnova:'frost nova', machinegun:'machine gun', armorshred:'armour shred',
+  warppulse:'warp pulse', gravslam:'grav slam', blackhole:'black hole', skyhunter:'sky hunter', deepfreeze:'deep freeze' };
+function specialName(id) { return SPECIAL_NAME[id] || id || 'basic'; }
 function hideCardInfo() { $('card-info')?.classList.add('hidden'); }
 function wireTowerCard(card) {
   // single tap = select + show its detail above the card; drag UP = place on the board
@@ -8825,7 +8930,7 @@ function learnContent() {
     <p class="sheet-heading">ARMOR BY WAVE — plan your build and time your sends</p>
     <div class="learn-list">${Object.entries(classWaves).map(([cls, waves]) => `<div class="learn-row"><span>${cls}</span><small>waves ${waves.join(', ')}</small></div>`).join('')}</div>
     <p class="sheet-heading">EVERY TOWER — dmg · dps · range · spell</p>
-    ${races.map((race) => `<div class="learn-block"><b style="color:${race.color}">${race.symbol} ${race.name}</b>${towerListFor(race.id).map((t) => `<div class="learn-row"><span>${t.name}</span><small>${t.cost}g · ${t.dmg} dmg · ${effectiveDps(t, race.id).toFixed(0)} dps${race.id === 'poison' ? ' (venom)' : ''} · ${t.range} rng · ${(t.cost/effectiveDps(t, race.id)).toFixed(2)} g/dps${t.special?' · '+t.special:''}${t.groundOnly?' · <b style="color:#ff9faf">NO AIR</b>':''}</small></div>`).join('')}</div>`).join('')}
+    ${races.map((race) => `<div class="learn-block"><b style="color:${race.color}">${race.symbol} ${race.name}</b>${towerListFor(race.id).map((t) => `<div class="learn-row"><span>${t.name}</span><small>${t.cost}g · ${t.dmg} dmg · ${effectiveDps(t, race.id).toFixed(0)} dps${race.id === 'poison' ? ' (venom)' : ''} · ${t.range} range · ${(t.cost/effectiveDps(t, race.id)).toFixed(2)} g/dps${t.special?' · '+t.special:''}${t.groundOnly?' · <b style="color:#ff9faf">NO AIR</b>':''}</small></div>`).join('')}</div>`).join('')}
     <p class="sheet-heading">EVERY WAVE — hp · armor · class · trait</p>
     <div class="learn-list">${WAVES.map((w, i) => `<div class="learn-row"><span>${i+1}. ${w.name}</span><small>${Math.round((w.hp||0)*(w.boss?1:TRAIT.hpScaleNeutral*waveHpMult(i+1))*(w.role==='juggernaut'?2.4:1))} hp · ${(w.armor||0)+(w.boss?0:TRAIT.armorBonus)} armor · ${w.aClass}${w.air?' · air':''}${w.role&&w.role!=='standard'?' · '+w.role:''}</small></div>`).join('')}</div>
     <p class="sheet-heading">EVERY SEND — cost · income · hp · armor</p>
@@ -8855,7 +8960,7 @@ function renderCommandSheet() {
     body = `<div class="sheet-grid">${towerListFor(raceId).map((def, tier) => `
       <button class="sheet-chip ${tier === selectedTowerTier ? 'on' : ''} ${player.gold < def.cost ? 'poor' : ''}" data-sheet-tower="${tier}">
         <span>${towerDef(raceId, tier).symbol}</span><small>${def.name.split(' ')[0]}</small><b>${def.cost}g</b></button>`).join('')}</div>
-      <div class="sheet-detail"><strong>${sel.name}</strong> — ${sel.desc} ${specialBlurbs[sel.special] || ''}<br><em>${sel.dmg} dmg • ${sel.range.toFixed(1)} rng • ${sel.cd.toFixed(2)}s • ${attackProfileText(raceId)}</em></div>
+      <div class="sheet-detail"><strong>${sel.name}</strong> — ${sel.desc} ${specialBlurbs[sel.special] || ''}<br><em>${sel.dmg} dmg • ${sel.range.toFixed(1)} range • ${sel.cd.toFixed(2)}s • ${attackProfileText(raceId)}</em></div>
       <p class="sheet-hint">Tap the board to place. Hold a placed tower to sell; the undo pill refunds fully for 3s.</p>`;
   } else if (sheetTab === 'sends') {
     const wagerReady = wager.tokens > 0 && simTime >= wager.cooldownUntil && !wager.pending;
@@ -8881,7 +8986,7 @@ function renderCommandSheet() {
       const sellAll = sel.reduce((sum, t) => sum + towerSellValue(t), 0);
       const laserNext = towerTierUp(t0)?.next.name === 'Laser Cannon';
       body = `
-        <div class="sheet-detail"><strong>${many ? `${sel.length} × ` : ''}${stats.name}</strong>${many ? ' — batch selection' : ` — Level ${(t0.level || 0) + 1} • ${t0.kills} kills`}<br>${stats.desc} ${specialBlurbs[stats.special] || ''}<br><em>${stats.dmg} dmg • ${stats.range.toFixed(1)} rng • ${stats.cd.toFixed(2)}s • ${attackProfileText(t0.raceId)}</em></div>
+        <div class="sheet-detail"><strong>${many ? `${sel.length} × ` : ''}${stats.name}</strong>${many ? ' — batch selection' : ` — Level ${(t0.level || 0) + 1} • ${t0.kills} kills`}<br>${stats.desc} ${specialBlurbs[stats.special] || ''}<br><em>${stats.dmg} dmg • ${stats.range.toFixed(1)} range • ${stats.cd.toFixed(2)}s • ${attackProfileText(t0.raceId)}</em></div>
         <div class="sheet-grid sheet-actions">
           <button class="sheet-chip ${!upgradable.length || player.gold < 1 ? 'poor' : ''}" data-sheet-act="level"><span>⬆</span><small>Level${many ? ' all' : ''}</small><b>${upgradable.length ? `${levelCostAll}g` : 'MAX'}</b></button>
           ${tierable.length ? `<button class="sheet-chip ${player.gold < 1 || (laserNext && player.lumber < 1) ? 'poor' : ''}" data-sheet-act="tier"><span>⏫</span><small>${towerTierUp(t0)?.next.name.split(' ')[0] || 'Tier'}</small><b>${tierCostAll}g${laserNext ? '+🪵' : ''}</b></button>` : ''}
@@ -9061,7 +9166,7 @@ function renderWispInspect() {
     return close + `<div class="wp-detail">
       <b><span class="wp-inspect-ico">${race ? race.symbol : '⛫'}</span>${st.name}</b>
       <small style="color:#8995b4"> — ${escapeHTML(who)}'s board</small><br>
-      ${st.dmg} dmg · ${(st.dmg / st.cd).toFixed(0)} dps · ${st.range.toFixed(1)} rng · tier ${(t.tier || 0) + 1}<br>
+      ${st.dmg} dmg · ${(st.dmg / st.cd).toFixed(0)} dps · ${st.range.toFixed(1)} range · tier ${(t.tier || 0) + 1}<br>
       ${attackProfileText(t.raceId)}<br>
       <span style="color:#9fb0d2">${st.desc || ''} ${specialBlurbs[st.special] || ''}</span></div>`;
   }
@@ -9082,13 +9187,13 @@ function renderWispInspect() {
   }
   if (ie && ie.kind === 'enemy' && ie.ref) {
     const t = ie.ref, st = towerLiveStats(t), er = races.find(r=>r.id===t.raceId);
-    return close + `<div class="wp-detail"><b><span class="wp-inspect-ico">${er?.symbol||'⛫'}</span>${st.name} <small>(rival building)</small></b><br>${st.dmg} dmg · ${(st.dmg/st.cd).toFixed(0)} dps · ${st.range.toFixed(1)} rng<br>${er?.name} · ${attackProfileText(t.raceId)}<br>${specialBlurbs[st.special]||st.desc||''}</div>`;
+    return close + `<div class="wp-detail"><b><span class="wp-inspect-ico">${er?.symbol||'⛫'}</span>${st.name} <small>(rival building)</small></b><br>${st.dmg} dmg · ${(st.dmg/st.cd).toFixed(0)} dps · ${st.range.toFixed(1)} range<br>${er?.name} · ${attackProfileText(t.raceId)}<br>${specialBlurbs[st.special]||st.desc||''}</div>`;
   }
   const sel = selectionTowers().filter(isMine);
   const t0 = sel[0], stats = t0 ? towerLiveStats(t0) : null;
   if (!t0) return close + `<div class="wp-detail">Tap any tower, creep, or rival tower to inspect it.</div>`;
   const up = towerTierUp(t0);
-  return close + `<div class="wp-detail"><b>${sel.length>1?sel.length+'× ':''}${stats.name}${t0.level?(' +'+t0.level):''}</b><br>${stats.dmg} dmg · ${(stats.dmg/stats.cd).toFixed(0)} dps · ${stats.range.toFixed(1)} rng<br>${attackProfileText(t0.raceId)}<br>${specialBlurbs[stats.special]||stats.desc||''}${up?`<br><i>→ ${up.next.name}: ${up.next.dmg} dmg · ${up.next.range} rng (full ${up.cost}g)</i>`:'<br><i>max tier</i>'}</div>
+  return close + `<div class="wp-detail"><b>${sel.length>1?sel.length+'× ':''}${stats.name}${t0.level?(' +'+t0.level):''}</b><br>${stats.dmg} dmg · ${(stats.dmg/stats.cd).toFixed(0)} dps · ${stats.range.toFixed(1)} range<br>${attackProfileText(t0.raceId)}<br>${specialBlurbs[stats.special]||stats.desc||''}${up?`<br><i>→ ${up.next.name}: ${up.next.dmg} dmg · ${up.next.range} range (full ${up.cost}g)</i>`:'<br><i>max tier</i>'}</div>
     <div class="wp-actions">
       <button class="wp-act" data-wp-act="level">⬆ Level (${sel.filter((t)=>t.level<MAX_LEVEL).reduce((s,t)=>s+towerLevelCost(t),0)||'MAX'}g)</button>
       <button class="wp-act" data-wp-act="tier">⏫ Tier (${sel.filter((t)=>towerTierUp(t)).reduce((s,t)=>s+(towerTierUp(t)?.cost||0),0)}g)</button>
