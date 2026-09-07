@@ -7,6 +7,60 @@ environment, so every entry here was live the moment it was pushed.
 
 ---
 
+## 2026-09-08 (later) — the leak, the light show, and gravity's wasted procs
+
+### Everything leaked in a room, and it was a counting bug
+Offline, a half is one board that several defenders share, so it takes a batch
+of creeps **per seat**. In a room each person has their **own copy** of the half
+with only their own towers on it — and it was still spawning a batch per
+team-mate. Gene and Abdy were each facing the whole team's wave with half a
+team's wall.
+
+Your board gets one batch now. The team still meets the same total; it is spread
+across their boards instead of stacked on each one. The host's north half keeps
+a batch per bot seat, because there the bots really do share one board.
+
+### The board viewer opened on the wrong board
+Watching defaulted to an *enemy* seat, so *"allies should see what maze I'm
+building"* read as broken when the feature was there and pointed the wrong way.
+It opens on a team-mate's board when you have one.
+
+### The wave vanished into its own light show
+*"I love the projectile effects, especially Electricity — but it's hard to see
+the wave moving once they get in due to all the yellow."* And then: *"that's not
+just Electricity, Poison too and some others."*
+
+Creeps are painted first, then projectiles, then effects — so a dense volley
+buries the thing you are trying to read. **The happy medium is not dimmer
+effects**, which are the best part of the game. It is a thin pass *after* them
+that redraws only each creep's rim and health pip: a few pixels a body, so the
+volley keeps all of its brightness and the wave still reads through it.
+
+Sends were also drawn in `#ffd86b` — the exact yellow Electricity fires — so a
+wave of sends disappeared into an Electricity wall's own tracers. Sends are
+magenta now, which collides with no element and reads immediately as "this one
+was sent at you".
+
+### Gravity was throwing its procs away
+Every gravity hit rolls an impulse, and displacements are gated by a 3s
+per-creep and 3.5s per-tower cooldown so a wall cannot hold a creep in a
+permanent pushback lock. Fair. But a roll that landed on a displacement while a
+cooldown was running **simply returned** — no shove, no stun, and no slow
+either. On the mid tiers 45% of rolls are displacements and on the capstone 70%
+are, so a large share of what gravity did was nothing at all.
+
+Which is why a race that measures as the **second best value per gold in the
+game** — 0.74 gold per point of crowd dps, behind only Fire at 0.58 — dies as
+early as the worst. A blocked impulse falls back to the slow now: the lock stays
+impossible, the proc stops being wasted. Measured over 24 towers and 60 seconds:
+of 134 rolls, 20.9% displace, 73.1% slow, and 6.0% do nothing, against roughly
+30% doing nothing before.
+
+Two new instruments: `race.js` (value per gold per element, adjusted for the
+armour matrix) and `grav.js` (what gravity's rolls actually become).
+
+---
+
 ## 2026-09-08 — every field, and the numbers that were lying
 
 ### The whole tower and creep, not just its position
