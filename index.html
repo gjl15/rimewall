@@ -2635,9 +2635,16 @@ function queueWaveSpawns(waveDef) {
     : mp.active ? (mpHostRunsBots() ? ['north', 'south'] : ['south'])
       : ['north', 'south'];
   halves.forEach((half) => {
-    // one batch per defender ON THAT HALF: the sides can now differ in size,
-    // and a half of three should not be fed the wave load of a half of two
-    const batches = seatsOn(half);
+    /* ONE BATCH PER DEFENDER, AND IN A ROOM YOU ARE ONE DEFENDER.
+       Offline, a half is one board that several defenders share, so it takes a
+       batch per seat. In a room each person has their OWN copy of the half and
+       only their own towers on it — so spawning a batch per team-mate meant
+       Gene and Abdy each faced the whole team's wave with half a team's wall,
+       and everything leaked. The team still meets the same total; it is spread
+       across their boards instead of stacked on each one.
+       The exception is the host's north half, where every bot seat really is
+       sharing one board. */
+    const batches = (mp.active && half === PLAYER_HALF) ? 1 : seatsOn(half);
     for (let batch = 0; batch < batches; batch += 1) {
       const stagger = batch * gap * .5;   // interleave the batches instead of stacking them on the same tick
       for (let i = 0; i < count; i += 1) {
@@ -3183,14 +3190,22 @@ function shoveCreep(creep, node, cells) {
 function gravityImpulse(creep, tower, stats) {
   const pot = tierPot(tower);
   const kind = rollGravImpulse(stats && stats.special);
-  if (kind === 'slow') {
+  const slowIt = () => {
     creep.slowUntil = Math.max(creep.slowUntil, simTime + 1.4);
     creep.slowPct = Math.max(creep.slowPct || 0, Math.round(TRAIT.gravSlowPct * pot));
-    return;
-  }
-  // everything below displaces or locks the creep: bosses resist, and the
-  // cooldowns that stopped a permanent pushback lock apply to all of it
-  if (creep.boss || simTime < creep.pushUntil || simTime < (tower.pushClock || 0)) return;
+  };
+  if (kind === 'slow') { slowIt(); return; }
+  /* THE COOLDOWN DELAYED THE SHOVE AND DELETED THE PROC.
+     Everything below displaces or locks the creep, and two cooldowns gate it:
+     3s per creep and 3.5s per tower, which exist so a wall cannot hold a creep
+     in a permanent pushback lock. Fair. But a roll that landed on a displacement
+     while either was running simply RETURNED — no shove, no stun, and no slow
+     either. On the mid tiers 45% of rolls are displacements and on the capstone
+     70% are, so most of what gravity did was nothing at all, which is why a race
+     that measures as the second best value per gold in the game dies as early
+     as the worst. A blocked impulse falls back to the slow now: the lock stays
+     impossible, the proc stops being wasted. */
+  if (creep.boss || simTime < creep.pushUntil || simTime < (tower.pushClock || 0)) { slowIt(); return; }
   creep.pushUntil = simTime + TRAIT.gravPushCD;
   tower.pushClock = simTime + TRAIT.gravTowerPushCD;
   // a burst at the moment of impulse, so the hit itself has a frame you can catch
@@ -4781,9 +4796,48 @@ function rmReduced() {
 function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
 // map a tower/impact tint back to its element so effects can be flavored by color
 const ELEMENT_BY_COLOR = { '#77d6ff':'ice', '#ff875f':'fire', '#c6a269':'earth', '#80a6ff':'tech', '#c48cff':'crystal', '#a7e36e':'poison', '#a9b3c6':'stone', '#ffd86b':'electricity', '#b48ead':'gravity', '#7ef0d4':'beam' };
+/* THE WAVE HAS TO SURVIVE ITS OWN LIGHT SHOW.
+   Creeps are painted first, then projectiles, then effects — so a dense volley
+   buries the thing you are trying to read. Gene, on Electricity: "I love the
+   projectile effects... but it's hard to see the wave moving once they get in
+   due to all the yellow."
+
+   The happy medium is not dimmer effects. It is a thin pass AFTER them that
+   redraws only each creep's rim and a health pip — a few pixels per body, so
+   the volley keeps every bit of its brightness and the wave still reads
+   through it. */
+function drawCreepReadPass(ctx) {
+  if (!creeps.length) return;
+  ctx.save();
+  ctx.lineWidth = 1.6;
+  creeps.forEach((creep) => {
+    if (creep.hp <= 0) return;
+    const style = roleStyle[creep.role] || roleStyle.standard;
+    const size = style.size + (creep.sent ? 1 : 0);
+    const x = creep.x * CELL, y = creep.y * CELL - (creep.air ? 4 : 0);
+    ctx.strokeStyle = '#0a1120'; ctx.globalAlpha = .85;      // a dark rim first, so it reads on a pale burst too
+    ctx.beginPath(); ctx.arc(x, y, size + 1.4, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = creepColor(creep); ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI * 2); ctx.stroke();
+    // and the health pip, which is the other thing you actually track
+    const frac = Math.max(0, Math.min(1, creep.hp / Math.max(1, creep.maxHp)));
+    const w = Math.max(14, size * 2.2);
+    ctx.globalAlpha = .9; ctx.fillStyle = '#0a1120';
+    ctx.fillRect(x - w / 2 - 1, y - size - 8, w + 2, 4);
+    ctx.fillStyle = frac > .5 ? '#8ee89f' : frac > .25 ? '#ffd86b' : '#ff8a9a';
+    ctx.fillRect(x - w / 2, y - size - 7.2, w * frac, 2.4);
+  });
+  ctx.restore();
+}
+/* One place that decides what colour a creep is. Sends used to be #ffd86b —
+   the exact yellow Electricity fires — so a wave of sends vanished into an
+   Electricity wall's own tracers. They are magenta now, which collides with
+   no element and reads immediately as "this one was sent at you". */
+const SENT_COLOR = '#ff5fd0';
+function creepColor(creep) { return creep.sent ? SENT_COLOR : (roleColors[creep.role] || '#ff9faf'); }
 function drawCreep(ctx, creep) {
   const style = roleStyle[creep.role] || roleStyle.standard;
-  const color = creep.sent ? '#ffd86b' : roleColors[creep.role] || '#ff9faf';
+  const color = creepColor(creep);
   const x = creep.x * CELL, y = creep.y * CELL;
   const size = style.size + (creep.sent ? 1 : 0);
   const reduced = rmReduced();
@@ -5441,6 +5495,7 @@ function renderFrame() {
   });
   projectiles.forEach((projectile) => drawProjectile(fxCtx, projectile));
   effects.forEach((effect) => drawEffect(fxCtx, effect));
+  drawCreepReadPass(fxCtx);   // the wave must survive its own light show
   if (marquee) {
     const col = marquee.mode === 'lasso' ? '#c58fd8' : '#77d6ff';
     fxCtx.save();
@@ -7748,8 +7803,15 @@ function mpViewableSeats() {
   }));
   return out;
 }
+/* Open on a TEAM-MATE'S board if you have one. You need to see the maze the
+   person sharing your lifeforce is building far more than you need to see the
+   enemy's, and defaulting to the enemy is why "allies should see what maze I'm
+   building" read as broken — the feature was there and pointed the wrong way. */
 function mpDefaultViewSeat() {
-  const foe = mpViewableSeats().find((s) => !s.friendly && s.hasBoard) || mpViewableSeats().find((s) => !s.friendly);
+  const seats = mpViewableSeats();
+  const mate = seats.find((s) => s.friendly && !s.mine && s.hasBoard) || seats.find((s) => s.friendly && !s.mine);
+  if (mate) return mate.key;
+  const foe = seats.find((s) => !s.friendly && s.hasBoard) || seats.find((s) => !s.friendly);
   return foe ? foe.key : null;
 }
 function mpSetViewSeat(key) {

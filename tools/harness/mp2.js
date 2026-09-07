@@ -238,6 +238,26 @@ const boot = async (page, name) => {
     return { bytes:n, perSec:Math.round(n * 3.33) };
   });
   console.log(`wire cost at 90 towers + 70 creeps: ${bytes.bytes} bytes a snapshot, ~${(bytes.perSec / 1024).toFixed(1)} KB/s`);
+  /* WAVE LOAD. Each person in a room has a private copy of the half with only
+     their own towers on it, so their board must get ONE batch — not one per
+     team-mate, which had Gene and Abdy each facing the whole team's wave with
+     half a team's wall. */
+  const load = await guest.evaluate(() => {
+    pendingSpawns.length = 0; creeps.length = 0;
+    queueWaveSpawns(waveDefFor(1));
+    const south = pendingSpawns.filter((s) => s.half === 'south').length;
+    const per = Math.round((waveDefFor(1).count || 6) * 1.3);
+    return { seatsOnMyHalf:seatsOn('south'), spawns:south, perBatch:per, batches:south / per };
+  });
+  console.log('wave load on a guest board:', JSON.stringify(load), '(want batches 1)');
+  const hostLoad = await host.evaluate(() => {
+    pendingSpawns.length = 0;
+    queueWaveSpawns(waveDefFor(1));
+    const per = Math.round((waveDefFor(1).count || 6) * 1.3);
+    return { south:pendingSpawns.filter((s) => s.half === 'south').length / per,
+      north:pendingSpawns.filter((s) => s.half === 'north').length / per };
+  });
+  console.log('wave load on the host:', JSON.stringify(hostLoad), '(want south 1, north = bot seats)');
   console.log('  positions right:', JSON.stringify(inspect.towerAt) === JSON.stringify(inspect.expectAt)
     && JSON.stringify(inspect.creepAt) === JSON.stringify(inspect.expectCreep),
     '| tap inspects the right tower:', inspect.cardName === inspect.realName,
