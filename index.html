@@ -285,6 +285,9 @@ body.reduce-motion .mp-spin { animation:none; border-top-color:#8ee89f55; }
 .lb-name small { color:#8995b4; font-size:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .lb-lane { flex:0 0 auto; color:var(--lane); font:700 8px 'DM Mono',monospace; letter-spacing:.08em; text-transform:uppercase; }
 @media (max-width:560px) { .lb-cols { grid-template-columns:1fr; } .lb-lane { display:none; } }
+.lb-solo { display:flex; align-items:flex-start; gap:8px; margin-top:10px; padding:8px 9px; border:1px solid #34497a; border-radius:9px; background:#101a30; color:#c3cfe8; font-size:10px; line-height:1.5; }
+.lb-solo input { margin-top:1px; accent-color:#77d6ff; }
+.lb-solo b { color:#eafcff; }
 .lb-hint { margin-top:10px; color:#7c88a8; font-size:10px; line-height:1.5; }
 .lb-races { display:grid; grid-template-columns:repeat(5,1fr); gap:5px; margin-top:10px; }
 .lb-race { display:flex; flex-direction:column; align-items:center; gap:2px; min-height:48px; padding:6px 2px; border:1.5px solid #2e3b5c; border-radius:9px; background:#131b30; color:#9fb0d2; }
@@ -3914,6 +3917,15 @@ function showMatchSummary(result, earnedBefore, prog = {}) {
       <span>Waves<b>${wave}/${total}</b></span><span>Kills<b>${player.kills}</b></span>
       <span>Send income<b>+${player.income}</b></span><span>Lifeforce<b>${player.lives} : ${enemy.lives}</b></span>
     </div>
+    ${(() => {
+      // the run's score, and where it sits among every run of the same shape
+      const pts = matchStats?.points ?? 0;
+      if (!pts) return '';
+      const same = loadMatchLog().filter((m) => bracketOf(m) === bracketOf(matchStats));
+      const ranked = same.map((m) => m.points ?? matchPoints(m)).sort((a, b) => b - a);
+      const rank = ranked.findIndex((p) => p <= pts) + 1;
+      return `<p class="summary-best">🏅 ${pts.toLocaleString()} POINTS${ranked.length > 1 ? ` — #${rank || ranked.length} of ${ranked.length} in ${bracketLabel(bracketOf(matchStats))}` : ''}</p>`;
+    })()}
     ${prog.daily ? `<p class="summary-best">🗓 DAILY GAUNTLET — Wave ${wave}${profile.dailyStreak > 1 ? ` · 🔥 ${profile.dailyStreak}-day streak` : ''}</p>` : ''}
     ${prog.newBest ? `<p class="summary-best">🏆 NEW BEST — Wave ${wave}</p>` : ''}
     ${prog.xpGain != null ? `<div class="summary-xp"><div class="xp-line"><span>${prog.nowLevel > prog.prevLevel ? `⭐ LEVEL UP → Lv ${prog.nowLevel}` : `Commander Lv ${cl.level}`}</span><b>+${prog.xpGain} XP</b></div><div class="xp-bar"><i style="width:${Math.round(cl.into / cl.need * 100)}%"></i></div></div>` : ''}
@@ -4052,6 +4064,50 @@ function loadSharedLog() {
 function saveSharedLog(list) {
   try { localStorage.setItem(SHARED_LOG_KEY, JSON.stringify(list.slice(-SHARED_LOG_CAP))); } catch (e) { /* per-browser only */ }
 }
+/* ===================== SCORE =====================
+   One number from a finished match, so runs can be ranked against each other
+   instead of only described. Every term is something the row already carried.
+
+     waves      1000 each — how far you got is most of the game
+     kills         3 each
+     economy       2 per point of income + a tenth of the gold you actually spent,
+                   so a hoarder does not outrank a builder
+     holding    3000 x the fraction of your lifeforce still standing
+     pace        900 x waves per minute — a fast clean run beats a slow one
+     winning    4000
+     leaks       -40 each
+
+   Then the handicaps you chose: a smaller lifeforce and a harder rival are
+   worth more. Ranking happens WITHIN a bracket (mode + side size + the day, for
+   the daily), so these multipliers only ever correct inside one, they are not
+   trying to make survival comparable with a duel. */
+const LIFE_MULT = { 25:1.3, 50:1.15, 100:1 };
+const DIFF_MULT = { relaxed:.85, normal:1, hard:1.15, brutal:1.3 };
+function matchPoints(m) {
+  if (!m) return 0;
+  const secs = Math.max(60, m.secs || 0);
+  const startLives = m.startLives || 100;
+  const raw = 1000 * (m.wave || 0)
+    + 3 * (m.kills || 0)
+    + 2 * (m.peakIncome || 0) + .1 * (m.goldSpent || 0)
+    + 3000 * Math.max(0, Math.min(1, (m.livesLeft ?? 0) / startLives))
+    + 900 * ((m.wave || 0) / (secs / 60))
+    + (m.result === 'victory' ? 4000 : 0)
+    - 40 * (m.livesLost || 0);
+  // survival has no rival, so its difficulty dial is not a handicap
+  const diff = m.mode === 'survival' ? 1 : (DIFF_MULT[m.difficulty] ?? 1);
+  return Math.max(0, Math.round(raw * (LIFE_MULT[startLives] ?? 1) * diff));
+}
+/* Runs are only ever ranked against runs of the same shape. */
+function bracketOf(m) {
+  const day = m.daily && m.at ? new Date(m.at).toISOString().slice(0, 10) : 'open';
+  return `${m.mode || 'skirmish'}·${m.team || 1}v${m.team || 1}·${day}`;
+}
+function bracketLabel(key) {
+  const [mode, team, day] = key.split('·');
+  const name = mode === 'classic' ? 'Classic Wars' : mode === 'survival' ? 'Survival' : 'Waves vs rival';
+  return `${name} · ${team}${day === 'open' ? '' : ` · daily ${day}`}`;
+}
 function matchKey(m) { return `${m.at}|${m.race}|${m.wave}|${m.kills}`; }
 /* Everything the rival is allowed to learn from. Deduped, because the same
    export pasted twice must not count a game twice and skew the weighting. */
@@ -4124,6 +4180,16 @@ function commitMatchStats(result) {
   matchStats.mode = matchMode;
   matchStats.team = defendersPerHalf ? defendersPerHalf() : 1;
   matchStats.livesLeft = player.lives;
+  /* What a leaderboard needs and the row never carried: the seed the match ran
+     on, the handicap it ran at, and who played it. Without these two runs are
+     not comparable and a board is just a list. */
+  matchStats.seed = lastMatchSeed ?? null;
+  matchStats.startLives = player.startLives || startingLives();
+  matchStats.difficulty = document.getElementById('ai-select')?.value || 'normal';
+  matchStats.daily = !!matchIsDaily;
+  matchStats.name = profile.name || '';
+  matchStats.aid = profile.anonId || '';
+  matchStats.points = matchPoints(matchStats);
   // how the rival's chosen plan actually did — this is what the next match reads
   matchStats.rivalPlan = enemy?.plan || null;
   matchStats.rivalLives = enemy?.lives ?? null;
@@ -6726,6 +6792,20 @@ function restartMatch() {
 }
 let lobbyLeft = 0, lobbyTimer = null;
 let lobbyPhase = false;   // the lobby is up and no match has been committed yet
+/* SOLO RULES. One player against one computer is a different game from a team
+   match: nobody to cover for you and nothing to coordinate, so it plays as a
+   duel — sends only, no neutral waves, and the rival at its hardest. On by
+   default whenever the lobby is down to one a side. */
+let soloRules = true;
+function applySoloRules() {
+  if (!soloRules) return false;
+  const solo = seatsOn(PLAYER_HALF) === 1 && (matchMode === 'survival' || seatsOn(ENEMY_HALF) === 1);
+  if (!solo || matchMode === 'survival') return false;
+  matchMode = 'classic';
+  const modeSel = document.getElementById('mode-select'); if (modeSel) modeSel.value = 'classic';
+  const aiSel = document.getElementById('ai-select'); if (aiSel) aiSel.value = 'brutal';
+  return true;
+}
 function lobbyOpen() { return lobbyPhase || lobbyLeft > 0; }
 /* ===================== THE LOBBY =====================
    It used to open on the last line of startBattle(), after the terrain, the
@@ -6839,12 +6919,15 @@ function renderLobby() {
         ${column(PLAYER_HALF, 'Your side', sizeS)}
         ${matchMode === 'survival' ? '' : column(ENEMY_HALF, 'Their side', sizeN)}
       </div>
+      ${solo ? `<label class="lb-solo"><input type="checkbox" id="lb-solo" ${soloRules ? 'checked' : ''}>
+        <span><b>Solo rules</b> — sends only, no neutral waves, and a brutal rival. One player, one very hard opponent.</span></label>` : ''}
       <p class="lb-hint">Each slot holds one lane of the board and wears its colour. Set the slots, then start. A side of one holds the whole half; two split the edges; three take a lane each.</p>
       <div class="lb-races">${races.filter((r) => raceUnlocked(r.id)).map((r) => `
         <button class="lb-race ${r.id === selectedRace.id ? 'on' : ''}" data-lb-race="${r.id}" style="--race:${r.color}" title="${r.name} — ${r.trait}">
           <span>${r.symbol}</span><small>${r.name}</small></button>`).join('')}</div>
       <button id="lb-ready" class="lb-ready">${lobbyPhase ? 'Start match' : 'Back to the board'}</button>
     </div>`;
+  $('lb-solo')?.addEventListener('change', (e) => { soloRules = e.target.checked; renderLobby(); });
   box.querySelectorAll('[data-lb-race]').forEach((b) => b.addEventListener('click', () => lobbyPickRace(b.dataset.lbRace)));
   box.querySelectorAll('[data-lb-kind]').forEach((sel) => sel.addEventListener('change', () => {
     const [half, i] = sel.dataset.lbKind.split(':');
@@ -6854,7 +6937,11 @@ function renderLobby() {
     const [half, n] = b.dataset.lbSize.split(':');
     lobbySetSize(half, Number(n));
   }));
-  $('lb-ready').addEventListener('click', () => { if (lobbyPhase) startBattle(); else closeLobby(); });
+  $('lb-ready').addEventListener('click', () => {
+    if (!lobbyPhase) return closeLobby();
+    if (applySoloRules()) log('Solo rules: sends only, and the rival is playing brutal.');
+    startBattle();
+  });
 }
 let canvasesReady = false;
 function setupCanvasesOnce() { if (!canvasesReady) { setupCanvases(); canvasesReady = true; } }
@@ -7865,6 +7952,35 @@ function renderWhatsNew() {
   });
   if (!seen) box.dataset.open = '1';
 }
+/* THE BOARD. Every run in the pool, scored and ranked inside its own bracket.
+   It reads the pool that already exists — your own log plus anything imported
+   from another device — so it needs no storage of its own and no server. A run
+   from a build before scoring existed is scored on the spot from its row. */
+function leaderboardHtml(log, limit = 8) {
+  const scored = (log || []).filter((m) => m && typeof m.wave === 'number')
+    .map((m) => ({ ...m, points:m.points ?? matchPoints(m) }));
+  if (!scored.length) return '';
+  const brackets = {};
+  scored.forEach((m) => { (brackets[bracketOf(m)] = brackets[bracketOf(m)] || []).push(m); });
+  // busiest bracket first, and never more than three of them
+  const keys = Object.keys(brackets).sort((a, b) => brackets[b].length - brackets[a].length).slice(0, 3);
+  const mine = profile.anonId || '';
+  const best = Math.max(...scored.map((m) => m.points));
+  return `<p class="sheet-heading">LEADERBOARD — best run ${best.toLocaleString()} points</p>
+    ${keys.map((key) => {
+      const rows = brackets[key].slice().sort((a, b) => b.points - a.points).slice(0, limit);
+      return `<p class="sheet-hint" style="margin-bottom:4px"><b>${bracketLabel(key)}</b></p>
+        <div class="learn-list">${rows.map((m, i) => {
+          const race = races.find((x) => x.id === m.race);
+          const who = m.name || (m.src === 'shared' ? 'Shared' : 'You');
+          const own = !m.src || m.aid === mine;
+          return `<div class="learn-row"${own ? ' style="border-color:#3a5a7a"' : ''}>
+            <span style="color:${race?.color || '#fff'}">${i + 1}. ${race?.symbol || ''} ${who}</span>
+            <small><b style="color:#ffd86b">${m.points.toLocaleString()}</b> · wave ${m.wave} · ${m.kills || 0} kills · ${m.livesLeft ?? '?'}/${m.startLives || 100} left · ${Math.round((m.secs || 0) / 60)}m${m.result === 'victory' ? ' · WON' : ''}</small></div>`;
+        }).join('')}</div>`;
+    }).join('')}
+    <p class="sheet-hint">Scored from the run itself: waves reached, kills, economy, lifeforce held, pace, and the win — less a penalty for every leak, times the handicap you chose. Runs are ranked only against runs of the same mode and side size, so a survival grind never competes with a duel. The pool is this device plus anything imported, so <b>Copy JSON</b> here and <b>Import log</b> there puts two people on one board.</p>`;
+}
 function recordsContent() {
   const log = loadMatchLog();
   const sharedCount = log.filter((m) => m.src === 'shared').length;
@@ -7874,8 +7990,10 @@ function recordsContent() {
   }
   const audit = raceAudit(log);
   const recent = log.slice(-12).reverse();
+  const board = leaderboardHtml(log);
   const fmt = (n) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(Math.round(n));
   return `
+    ${board}
     <p class="sheet-heading">RACE AUDIT — ${log.length} match${log.length === 1 ? '' : 'es'} in the pool${sharedCount ? ` (${log.length - sharedCount} yours, ${sharedCount} shared)` : ''}</p>
     <div class="learn-list">${audit.map((r) => {
       const race = races.find((x) => x.id === r.race);
