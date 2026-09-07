@@ -303,7 +303,11 @@ h2 span { color:#7583a6; }
 #board-canvas,#fx-canvas { position:absolute; inset:0; width:100%; height:100%; display:block; }
 #fx-canvas { z-index:2; touch-action:none; }
 .board-overlay { position:absolute; inset:0; z-index:3; pointer-events:none; }
-.ov { position:absolute; transform:translate(-50%,-50%); white-space:nowrap; color:#17325a; font:700 8px 'DM Mono',monospace; letter-spacing:.06em; text-transform:uppercase; }
+.ov { position:absolute; transform:translate(-50%,-50%) scale(var(--ovz,1)); white-space:nowrap; color:#17325a; font:700 8px 'DM Mono',monospace; letter-spacing:.06em; text-transform:uppercase; }
+/* The landmark labels live inside #map-frame, which the camera scales — so at
+   the 5.6x the match now opens at, "SOUTH SHRINE" was rendered five times
+   life-size and covered a third of the screen. --ovz counter-scales them so they
+   stay the same size on screen at every zoom, the way a map label should. */
 .ov small { display:block; font-size:7px; font-weight:500; letter-spacing:.04em; }
 .ov-ship { font-size:15px; text-align:center; color:#e8e4ff; text-shadow:0 1px 4px #17123f; }
 .ov-ship small { color:#cfc9ff; }
@@ -1570,12 +1574,50 @@ function undoSell() {
   return true;
 }
 
-/* ---------------- Authoritative map model (traced from assets/reference-map.png) ----------------
-   32×49 cells. Horizontal navy river band through the middle with the creep gate at its center;
-   each half is a wide panel with a central cliff massif, so creeps run: center → along the river
-   corridor → up/down the outer lane → back toward the middle along the top corridor → exit gate →
-   ship in the purple harbor. Lanes are 8 tower-widths wide so mazing is meaningful. */
-const COLS = 32, ROWS = 49, CELL = 24;
+/* ---------------- Authoritative map model ----------------
+   101 columns × 60 rows of ground per side, with a navy river band between them.
+   Creeps spawn at the river's centre, sweep the full river to one end, run down
+   the outer lane, cross the wide open band in front of the base, and walk into
+   the dark door at the very edge of the board.
+
+   EVERY row and column below is derived from these constants. They used to be
+   ~20 hardcoded literals scattered through terrain, routing, rendering, the AI's
+   build zones and the multiplayer mirror, which is why the board had never been
+   resized before. Change a number here and the whole map follows.
+
+   CELL is a RESOLUTION knob, not a size: the board canvas is drawn at
+   COLS*CELL × ROWS*CELL and then CSS-scaled to fit the viewport, so CELL sets
+   how many texels a cell gets, never how big it looks. It has to come down as
+   the board grows — at the old CELL=24 a 101×125 board wants a 4848×6000
+   backing store, which is 28.6M pixels against iOS Safari's 16.78M ceiling and
+   over the 4096px max dimension: the canvas silently fails to allocate and the
+   map renders BLANK on an iPhone. At CELL=12 it is 2424×3000 (7.3M px, ~58MB
+   for the two canvases) — comparable to what the old board used. */
+const COLS = Number(window.__COLS__ ?? 51);         // the centre column is the door
+const HALF_ROWS = Number(window.__HALF_ROWS__ ?? 34);   // rows of ground per side
+const RIVER_ROWS = 5;                               // the navy band down the middle
+const ROWS = HALF_ROWS * 2 + RIVER_ROWS;            // 125
+/* One texel budget for the board, spread over however many columns there are:
+   at 32 columns this is the 24 the board always used, at 51 it is 17, at 101 it
+   would be 9. Keeps the backing store roughly constant instead of growing with
+   the square of the board. */
+const CELL = Math.max(6, Math.min(24, Math.round(880 / COLS)));
+const RIVER_TOP = HALF_ROWS, RIVER_BOT = HALF_ROWS + RIVER_ROWS - 1;   // 60..64
+const RIVER_MID = (RIVER_TOP + RIVER_BOT) >> 1;                        // 62
+const SOUTH_TOP = RIVER_BOT + 1, SOUTH_BOT = ROWS - 1;                 // 65..124
+const NORTH_TOP = 0, NORTH_BOT = RIVER_TOP - 1;                        // 0..59
+/* The non-buildable middle massif: 31 wide × 35 tall per side, centred. */
+const PILLAR_W = Math.max(5, Math.round(COLS * .307) | 1), PILLAR_H = Math.max(5, Math.round(HALF_ROWS * .583));
+const PILLAR_C0 = ((COLS - PILLAR_W) >> 1), PILLAR_C1 = PILLAR_C0 + PILLAR_W - 1;   // 35..65
+const S_PILLAR_R0 = SOUTH_TOP, S_PILLAR_R1 = SOUTH_TOP + PILLAR_H - 1;             // 65..99
+const N_PILLAR_R1 = NORTH_BOT, N_PILLAR_R0 = NORTH_BOT - PILLAR_H + 1;             // 25..59
+/* The door: a narrow dark mouth at the very edge of the board, on the 51st
+   column, that the creeps walk straight into. */
+const DOOR_C = (COLS - 1) >> 1;                     // 50 — the 51st column
+const DOOR_HALF = 1;                                // 3 cells wide: 49, 50, 51
+const DOOR_C0 = DOOR_C - DOOR_HALF, DOOR_C1 = DOOR_C + DOOR_HALF;
+const S_DOOR_R = ROWS - 1, S_GATE_R = ROWS - 2;     // 124 (edge), 123 (threshold)
+const N_DOOR_R = 0, N_GATE_R = 1;
 const FX_SCALE = 2.0;   // projectile/impact glyphs are enlarged this much so they're visible at the mobile fit-scale
 const BOARD_W = COLS * CELL, BOARD_H = ROWS * CELL;
 const T = { FLOOR:0, CLIFF:1, RIVER:2, GATE:3, HARBOR:4 };
@@ -1587,52 +1629,33 @@ const inBounds = (r, c) => r >= 0 && r < ROWS && c >= 0 && c < COLS;
 function buildBaseTerrain() {
   baseTerrain.fill(T.FLOOR);
   for (let r = 0; r < ROWS; r += 1) for (let c = 0; c < COLS; c += 1) {
-    if (r <= 1 || r >= 47) baseTerrain[idx(r, c)] = T.HARBOR;
-    else if (r === 2 || r === 46) baseTerrain[idx(r, c)] = T.CLIFF;
-    else if (r >= 23 && r <= 25) baseTerrain[idx(r, c)] = T.RIVER;
-    else if (c === 0 || c === 31) baseTerrain[idx(r, c)] = T.CLIFF;
+    if (r >= RIVER_TOP && r <= RIVER_BOT) baseTerrain[idx(r, c)] = T.RIVER;
+    else if (c === 0 || c === COLS - 1) baseTerrain[idx(r, c)] = T.CLIFF;   // outer walls
   }
-  // central pillar runs from just off the river down toward the harbor cliffs (cols 11-20),
-  // forcing creeps into the two long side lanes and leaving a wide middle mazing region below.
-  // North mirrors south about the river (rows 23-25).
-  for (let r = 3; r <= 22; r += 1) for (let c = 11; c <= 20; c += 1) baseTerrain[idx(r, c)] = T.CLIFF;
-  for (let r = 26; r <= 45; r += 1) for (let c = 11; c <= 20; c += 1) baseTerrain[idx(r, c)] = T.CLIFF;
-  // ...but re-open a WIDE middle mazing region near each base (below/above the pillar) plus the
-  // approach to the ship, so the middle is a real third lane (wider than the sides, as in the reference).
-  for (let r = 38; r <= 45; r += 1) for (let c = 9; c <= 22; c += 1) baseTerrain[idx(r, c)] = T.FLOOR;
-  for (let r = 3; r <= 10; r += 1) for (let c = 9; c <= 22; c += 1) baseTerrain[idx(r, c)] = T.FLOOR;
-  /* A MAZEABLE POCKET IN FRONT OF EACH SHIP. Rows 2 and 46 were solid cliff with
-     a two-cell hole punched in them, so the last thing a creep walked through
-     was a funnel you could not build in — the most valuable ground on the board
-     and it was off limits.
-     Shape and size come from the traced map export, not from taste: the notch is
-     seven cells wide (12-18) and three rows deep (46-48), and the ground either
-     side of it in the last two rows is CLIFF rather than the open harbour that
-     used to run the full width. That turns the approach into a channel cut down
-     to the ship instead of a dock sitting in open water. */
+  /* The central massif: 31 wide × 35 tall on each side, hard against the river,
+     so creeps are forced out into the two long side lanes and then back across
+     the wide open band in front of the base. That band is the third lane and the
+     best mazing ground on the board. */
+  for (let r = S_PILLAR_R0; r <= S_PILLAR_R1; r += 1) for (let c = PILLAR_C0; c <= PILLAR_C1; c += 1) baseTerrain[idx(r, c)] = T.CLIFF;
+  for (let r = N_PILLAR_R0; r <= N_PILLAR_R1; r += 1) for (let c = PILLAR_C0; c <= PILLAR_C1; c += 1) baseTerrain[idx(r, c)] = T.CLIFF;
+  /* THE DARK DOOR. The exit is not a dock sitting in open water any more — the
+     last two rows are solid rock with a three-cell mouth cut through them on the
+     51st column, and the creeps walk straight into the edge of the board. Row
+     ROWS-1 is the doorway itself (harbour, so it still reads as the berth), the
+     row in front of it is the walkable threshold, and everything either side is
+     cliff. */
   for (let c = 0; c < COLS; c += 1) {
-    baseTerrain[idx(47, c)] = T.CLIFF; baseTerrain[idx(48, c)] = T.CLIFF;   // south flanks
-    baseTerrain[idx(1, c)] = T.CLIFF; baseTerrain[idx(0, c)] = T.CLIFF;     // north, mirrored
+    baseTerrain[idx(S_DOOR_R, c)] = T.CLIFF; baseTerrain[idx(S_GATE_R, c)] = T.CLIFF;
+    baseTerrain[idx(N_DOOR_R, c)] = T.CLIFF; baseTerrain[idx(N_GATE_R, c)] = T.CLIFF;
   }
-  for (let c = 12; c <= 18; c += 1) {
-    for (const r of [46, 47, 48]) baseTerrain[idx(r, c)] = T.FLOOR;
-    for (const r of [2, 1, 0]) baseTerrain[idx(r, c)] = T.FLOOR;
+  for (let c = DOOR_C0; c <= DOOR_C1; c += 1) {
+    baseTerrain[idx(S_DOOR_R, c)] = T.HARBOR; baseTerrain[idx(S_GATE_R, c)] = T.GATE;
+    baseTerrain[idx(N_DOOR_R, c)] = T.HARBOR; baseTerrain[idx(N_GATE_R, c)] = T.GATE;
   }
-  // the ships themselves stay harbour so the berth still reads as water
-  [15, 16].forEach((c) => { baseTerrain[idx(48, c)] = T.HARBOR; baseTerrain[idx(0, c)] = T.HARBOR; });
-  /* Gates: the center river spawn and the two harbour exits stay walkable, never
-     buildable. The harbour gate used to sit at the FRONT of the notch (row 46
-     south, row 2 north) — the only way in — so the pocket's whole mouth was
-     spoken for and there was nothing to maze through on the way to it. It sits
-     one row deeper now, directly above the berth, which leaves the notch mouth
-     (row 46, all seven cells) free to build on. Same seventeen buildable cells;
-     they are just in front of the gate instead of behind it. */
-  [15, 16].forEach((c) => {
-    baseTerrain[idx(1, c)] = T.GATE; baseTerrain[idx(47, c)] = T.GATE;
-  });
-  [15, 16].forEach((c) => {
-    for (let r = 23; r <= 25; r += 1) baseTerrain[idx(r, c)] = T.GATE;
-  });
+  // the river spawn at the centre of the band, walkable but never buildable
+  for (let c = DOOR_C0; c <= DOOR_C1; c += 1) {
+    for (let r = RIVER_TOP; r <= RIVER_BOT; r += 1) baseTerrain[idx(r, c)] = T.GATE;
+  }
 }
 buildBaseTerrain();
 terrain.set(baseTerrain);
@@ -1641,31 +1664,51 @@ terrain.set(baseTerrain);
    creep walks the full river before advancing (the reference map's long west
    arrow) — then flag 1 (river corner), flag 2 (outer turn), flag 3 (return
    toward the middle), the final gate, and the ship. Flags are nodes 1–3. */
+const LANE_W_C = 4, LANE_E_C = COLS - 5;                     // the outer lane each side runs down
+const S_TURN_R = S_PILLAR_R1 + 6, N_TURN_R = N_PILLAR_R0 - 6;   // where the lane turns back inward
+const S_MID_R = S_DOOR_R - 8, N_MID_R = N_DOOR_R + 8;           // the shared middle flag, in the open band
 const ROUTES = {
-  north:{ west:[{r:23,c:2},{r:7,c:4},{r:5,c:15},{r:1,c:15},{r:0,c:15}], east:[{r:23,c:29},{r:7,c:27},{r:5,c:15},{r:1,c:16},{r:0,c:16}] },
-  south:{ west:[{r:25,c:2},{r:41,c:4},{r:43,c:15},{r:47,c:15},{r:48,c:15}], east:[{r:25,c:29},{r:41,c:27},{r:43,c:15},{r:47,c:16},{r:48,c:16}] }
+  north:{
+    west:[{ r:RIVER_TOP, c:2 }, { r:N_TURN_R, c:LANE_W_C }, { r:N_MID_R, c:DOOR_C }, { r:N_GATE_R, c:DOOR_C }, { r:N_DOOR_R, c:DOOR_C }],
+    east:[{ r:RIVER_TOP, c:COLS - 3 }, { r:N_TURN_R, c:LANE_E_C }, { r:N_MID_R, c:DOOR_C }, { r:N_GATE_R, c:DOOR_C }, { r:N_DOOR_R, c:DOOR_C }]
+  },
+  south:{
+    west:[{ r:RIVER_BOT, c:2 }, { r:S_TURN_R, c:LANE_W_C }, { r:S_MID_R, c:DOOR_C }, { r:S_GATE_R, c:DOOR_C }, { r:S_DOOR_R, c:DOOR_C }],
+    east:[{ r:RIVER_BOT, c:COLS - 3 }, { r:S_TURN_R, c:LANE_E_C }, { r:S_MID_R, c:DOOR_C }, { r:S_GATE_R, c:DOOR_C }, { r:S_DOOR_R, c:DOOR_C }]
+  }
 };
 // Node 0 = river edge (creeps still sweep the full river), nodes 1-2 are the only FLAGS —
 // lane-bottom + a SHARED middle-base cell (both lanes cross the same center square, so it
 // renders as a single middle flag). Node 3 = gate, node 4 = ship. Same lane→bottom→middle path.
 const FLAG_START = 1, FLAG_END = 3;   // ROUTES[..][..].slice(FLAG_START, FLAG_END) are the flags
-const SPAWNS = { north:{ west:{r:23,c:15}, east:{r:23,c:16} }, south:{ west:{r:25,c:15}, east:{r:25,c:16} } };
+const SPAWNS = {
+  north:{ west:{ r:RIVER_MID, c:DOOR_C }, east:{ r:RIVER_MID, c:DOOR_C } },
+  south:{ west:{ r:RIVER_MID, c:DOOR_C }, east:{ r:RIVER_MID, c:DOOR_C } }
+};
 // Flags occupy exactly one square: only the flag's own cell is unbuildable.
 // Pathing stays forgiving because touching any adjacent cell satisfies a flag.
 const protectedCells = new Set();
 Object.values(ROUTES).forEach((sides) => Object.values(sides).forEach((nodes) => nodes.forEach((cell) => protectedCells.add(idx(cell.r, cell.c)))));
 
 const PLAYER_HALF = 'south', ENEMY_HALF = 'north';
-function halfOfRow(r) { return r <= 24 ? 'north' : 'south'; }
-// rows 46-48 are the notch at the ship; the old cliff and harbour rows are
-// mazeable ground now, except the protected run straight out of the gate
-function isPlayerBuildRow(r) { return r >= 26 && r <= 48; }
+function halfOfRow(r) { return r <= RIVER_MID ? 'north' : 'south'; }
+// the whole south panel is yours to maze, right up to the door — the terrain
+// (cliff flanks, gate threshold, harbour berth) is what limits it, not the row
+function isPlayerBuildRow(r) { return r >= SOUTH_TOP && r <= SOUTH_BOT; }
+function isEnemyBuildRow(r) { return r >= NORTH_TOP && r <= NORTH_BOT; }
+/* Your shrine is the near face of the central massif — tapping it opens the send
+   commands, the way selecting the Shrine building does in the original map. It
+   sits at the bottom-centre of your pillar so it is reachable from the open band
+   without hunting for it. */
+const SHRINE_R0 = S_PILLAR_R1 - 7, SHRINE_R1 = S_PILLAR_R1;
+const SHRINE_C0 = DOOR_C - 6, SHRINE_C1 = DOOR_C + 6;
+function isShrineCell(r, c) { return r >= SHRINE_R0 && r <= SHRINE_R1 && c >= SHRINE_C0 && c <= SHRINE_C1; }
 
 function terrainAt(r, c) { return inBounds(r, c) ? terrain[idx(r, c)] : T.CLIFF; }
 function isWalkable(r, c) { const t = terrainAt(r, c); return t === T.FLOOR || t === T.GATE || t === T.HARBOR || t === T.RIVER; }
 function isBuildableCell(r, c, forHalf = PLAYER_HALF) {
   if (terrainAt(r, c) !== T.FLOOR || protectedCells.has(idx(r, c)) || towers.has(idx(r, c))) return false;
-  return forHalf === PLAYER_HALF ? isPlayerBuildRow(r) : (r >= 0 && r <= 22);   // rows 0-2 mirror the ship notch
+  return forHalf === PLAYER_HALF ? isPlayerBuildRow(r) : isEnemyBuildRow(r);
 }
 
 /* ---------------- Pathfinding (A*, 8-neighbor with diagonals, towers block) ----------------
@@ -1963,8 +2006,14 @@ const WAVE_PERIOD = 30;
    it squinting at a board wondering who you were even playing. It is a 20s
    lobby (see your squad, change your element, ready up early) and then 30s of
    build time, which is the same runway with the roster made visible. */
-const START_GOLD = 30, FIRST_WAVE_DELAY = 30, LOBBY_SECONDS = 20;
-const INCOME_PERIOD = 25, BASE_INCOME = 24;   // was 33 — balance audit: income was the flat snowball outpacing HP growth
+/* ECONOMY SCALE. A maze only bites when you can finish a row of it, and a row is
+   as long as the board is wide. On the old 32-wide board a comb row cost ~30
+   towers; on a 101-wide one it costs ~99, so the same purse buys a wall with
+   holes in it and the creeps stroll through. ECON_SCALE keeps the gold curve in
+   proportion to the ground it has to cover, measured against the old board. */
+const ECON_SCALE = Number(window.__ECON_SCALE__ ?? 1);
+const START_GOLD = Math.round(30 * ECON_SCALE), FIRST_WAVE_DELAY = 30, LOBBY_SECONDS = 20;
+const INCOME_PERIOD = 25, BASE_INCOME = Math.round(24 * ECON_SCALE);   // was 33 — balance audit: income was the flat snowball outpacing HP growth
 const BOUNTY_MULT = 1;   // was 2 — kill-gold was the fattest early faucet (defense out-damaged threat ~5.7x)
 /* INCOME HAS DIMINISHING RETURNS. Every send in the ladder pays for itself in
    100-235s and then prints forever with no cap, so income bought income and the
@@ -3104,14 +3153,36 @@ function updateProjectile(projectile, dt) {
    An ally is a small rival: same build ladder, same send ladder, same playbook,
    just pointed at the other end of the board. It funds itself, so it never
    spends gold you earned, and its kills pay it rather than you. */
+/* The hand-built serpentine every AI builds along: alternating combs in the two
+   outer lanes, then across the wide open band in front of the door. Derived from
+   the board constants so it follows the map when the map changes — it used to be
+   two identical copies of the same literal row and column ranges, one here and
+   one in aiSpots(), which is how a resize would have silently left the rival
+   building in the middle of a cliff. */
+const LANE_WEST = [1, PILLAR_C0 - 1], LANE_EAST = [PILLAR_C1 + 1, COLS - 2];
+const BAND_R0 = S_PILLAR_R1 + 1, BAND_R1 = S_GATE_R - 1;   // the open band, 100..122
 function mazeOrderSouth() {
   const south = [];
-  for (const [c0, c1] of [[1, 10], [21, 30]]) { let b = 0;
-    for (let r = 27; r <= 36; r += 2) { const gapLeft = b % 2 === 0; b += 1;
-      for (let c = c0; c <= c1; c += 1) { if (gapLeft ? c === c0 : c === c1) continue; south.push({ r, c }); } } }
+  /* THE BAND IN FRONT OF THE DOOR COMES FIRST, from the door outward. It used to
+     come last, after both side lanes — which was harmless on the old board where
+     everything was within one tower's range of everything else, and fatal on
+     this one. Both ground lanes converge here, and it is the only ground that
+     can reach the AIR waves: they ignore the maze and fly straight down the
+     door's column, through a 31-wide massif nothing can be built on, so the band
+     is the single stretch where they are ever in range. Building the lanes first
+     left the nearest tower 17 cells off the flight line against a 5.5 range, and
+     every race died on the wave-14 air pack with a full wall standing. */
   let n = 0;
-  for (let r = 38; r <= 45; r += 2) { const gapWest = n % 2 === 0; n += 1;
-    for (let c = 1; c <= 30; c += 1) { if (gapWest ? c <= 2 : c >= 29) continue; south.push({ r, c }); } }
+  for (let r = BAND_R1; r >= BAND_R0; r -= 2) {
+    const gapWest = n % 2 === 0; n += 1;
+    const row = [];
+    for (let c = 1; c <= COLS - 2; c += 1) { if (gapWest ? c <= 2 : c >= COLS - 3) continue; row.push({ r, c }); }
+    row.sort((a, b) => Math.abs(a.c - DOOR_C) - Math.abs(b.c - DOOR_C));   // cover the door column before the flanks
+    south.push(...row);
+  }
+  for (const [c0, c1] of [LANE_WEST, LANE_EAST]) { let b = 0;
+    for (let r = S_PILLAR_R1 - 1; r >= S_PILLAR_R0 + 2; r -= 2) { const gapLeft = b % 2 === 0; b += 1;
+      for (let c = c0; c <= c1; c += 1) { if (gapLeft ? c === c0 : c === c1) continue; south.push({ r, c }); } } }
   return south;
 }
 const ALLY_NAMES = ['Vex', 'Coil', 'Marrow', 'Tine', 'Halcyon', 'Bramble'];
@@ -3142,16 +3213,18 @@ function rivalSpots(raceId, plan, opening) {
      and keep the maze order behind it as overflow. */
   const mark = sharedFlagCell(ENEMY_HALF);
   const centre = [];
-  for (let r = 0; r <= 22; r += 1) {
-    for (let c = 11; c <= 20; c += 1) if (isBuildableCell(r, c, ENEMY_HALF)) centre.push({ r, c });
+  for (let r = NORTH_TOP; r <= NORTH_BOT; r += 1) {
+    for (let c = PILLAR_C0; c <= PILLAR_C1; c += 1) if (isBuildableCell(r, c, ENEMY_HALF)) centre.push({ r, c });
   }
   centre.sort((a, b) => Math.hypot(a.r - mark.r, a.c - mark.c) - Math.hypot(b.r - mark.r, b.c - mark.c));
   const seen = new Set(centre.map((s) => s.r * 100 + s.c));
   return centre.concat(base.filter((s) => !seen.has(s.r * 100 + s.c)));
 }
 function allyZone(seat, allySeats) {
-  if (allySeats <= 1) return { c0:21, c1:30, label:'east' };
-  return seat === 0 ? { c0:1, c1:10, label:'west' } : { c0:21, c1:30, label:'east' };
+  const west = { c0:LANE_WEST[0], c1:LANE_WEST[1], label:'west' };
+  const east = { c0:LANE_EAST[0], c1:LANE_EAST[1], label:'east' };
+  if (allySeats <= 1) return east;
+  return seat === 0 ? west : east;
 }
 function makeAlly(half, seat, raceId, allySeats) {
   const zone = allyZone(seat, allySeats);
@@ -3262,13 +3335,7 @@ function allyUpgrade(ally, list, maxTier) {
   towersVersion += 1;
 }
 function aiSpots(strategy) {
-  const south = [];
-  for (const [c0, c1] of [[1, 10], [21, 30]]) { let b = 0;
-    for (let r = 27; r <= 36; r += 2) { const gapLeft = b % 2 === 0; b += 1;
-      for (let c = c0; c <= c1; c += 1) { if (gapLeft ? c === c0 : c === c1) continue; south.push({ r, c }); } } }
-  let n = 0;
-  for (let r = 38; r <= 45; r += 2) { const gapWest = n % 2 === 0; n += 1;
-    for (let c = 1; c <= 30; c += 1) { if (gapWest ? c <= 2 : c >= 29) continue; south.push({ r, c }); } }
+  const south = mazeOrderSouth();
   /* ORDER BY THE SHARED FLAG, NOT BY ROW. Sorting on row alone left the cells
      within each row in generation order — west to east — so the AI filled every
      row from column 1 rightward and the east half of its half stood bare for
@@ -4055,7 +4122,7 @@ function drawTerrain(ctx, scale = 1) {
       g.addColorStop(0, '#1a3d7a'); g.addColorStop(.5, '#12305f'); g.addColorStop(1, '#1a3d7a');
       ctx.fillStyle = g; ctx.fillRect(x, y, CELL, CELL);
     }
-    else if (t === T.GATE) { ctx.fillStyle = r >= 23 && r <= 25 ? '#1d418a' : '#8ed2dd'; ctx.fillRect(x, y, CELL, CELL); }
+    else if (t === T.GATE) { ctx.fillStyle = r >= RIVER_TOP && r <= RIVER_BOT ? '#1d418a' : '#8ed2dd'; ctx.fillRect(x, y, CELL, CELL); }
     else if (t === T.CLIFF) { ctx.fillStyle = '#245e54'; ctx.fillRect(x, y, CELL, CELL); }
   }
   // cliff bevel edges + cosmetic massif notches like the reference blob
@@ -4109,18 +4176,20 @@ function drawTerrain(ctx, scale = 1) {
   ctx.strokeStyle = '#5b91d2aa'; ctx.lineWidth = 2;
   for (let c = 1; c < COLS - 1; c += 2) {
     const x = c * CELL;
-    [23.6, 24.5, 25.4].forEach((row) => {
+    for (let k = 0; k < RIVER_ROWS; k += 1) {
+      const row = RIVER_TOP + .6 + k * .9;
       ctx.beginPath(); ctx.moveTo(x + 3, row * CELL); ctx.quadraticCurveTo(x + CELL / 2, row * CELL - 7, x + CELL - 3, row * CELL); ctx.stroke();
-    });
+    }
   }
+  const doorW = (DOOR_C1 - DOOR_C0 + 1) * CELL;
   ctx.strokeStyle = '#ffd86b'; ctx.lineWidth = 2; ctx.setLineDash([6, 5]);
-  ctx.strokeRect(15 * CELL + 2, 23 * CELL + 2, 2 * CELL - 4, 3 * CELL - 4);
-  ctx.strokeRect(15 * CELL + 2, 2 * CELL + 2, 2 * CELL - 4, CELL - 4);
-  ctx.strokeRect(15 * CELL + 2, 46 * CELL + 2, 2 * CELL - 4, CELL - 4);
+  ctx.strokeRect(DOOR_C0 * CELL + 2, RIVER_TOP * CELL + 2, doorW - 4, RIVER_ROWS * CELL - 4);
+  ctx.strokeRect(DOOR_C0 * CELL + 2, N_GATE_R * CELL + 2, doorW - 4, CELL - 4);
+  ctx.strokeRect(DOOR_C0 * CELL + 2, S_GATE_R * CELL + 2, doorW - 4, CELL - 4);
   ctx.setLineDash([]);
   // player build zone tint
   ctx.fillStyle = '#d8f6ef18';
-  for (let r = 26; r <= 45; r += 1) for (let c = 0; c < COLS; c += 1) {
+  for (let r = SOUTH_TOP; r <= S_PILLAR_R1; r += 1) for (let c = 0; c < COLS; c += 1) {
     if (terrain[idx(r, c)] === T.FLOOR) ctx.fillRect(c * CELL, r * CELL, CELL, CELL);
   }
   // one-square waypoint flags: pole, banner, and the touch order number
@@ -4888,7 +4957,7 @@ function drawRiverFx(ctx) {
     riverCells = [];
     for (let r = 0; r < ROWS; r += 1) for (let c = 0; c < COLS; c += 1) {
       const t = terrain[idx(r, c)];
-      if (t === T.RIVER || (t === T.GATE && r >= 23 && r <= 25)) riverCells.push({ r, c });
+      if (t === T.RIVER || (t === T.GATE && r >= RIVER_TOP && r <= RIVER_BOT)) riverCells.push({ r, c });
     }
   }
   ctx.save();
@@ -5086,15 +5155,18 @@ function buildOverlay() {
   let html = '';
   // the markers sat one row shy of their own berths, so both ships read as
   // floating at the mouth of the notch instead of docked at the bottom of it
-  html += overlayItem('ov-ship', 0, 15.5, '⛵<small>NORTH SHIP</small>');
-  html += overlayItem('ov-ship ov-ship-player', 48, 15.5, `⛵<small id="player-ship-label">YOUR SHIP</small>`);
-  html += overlayItem('ov-gate', 24.5, 15.5, '✹<small>CREEP GATE</small>');
-  html += overlayItem('ov-shrine', 12.5, 15.5, '✦<small>NORTH SHRINE</small>');
-  html += overlayItem('ov-shrine', 35.5, 15.5, '✦<small>SOUTH SHRINE</small>');
-  [['RED', 13, 4.5], ['BLUE', 4.5, 15.5], ['TEAL', 13, 27.5]].forEach(([name, r, c]) => { html += overlayItem('ov-spot', r, c, `${name}<small>${name === 'BLUE' ? 'MID' : 'EDGE'} • RIVAL</small>`); });
-  [['PURPLE', 35, 4.5], ['YELLOW', 43.5, 15.5], ['ORANGE', 35, 27.5]].forEach(([name, r, c]) => { html += overlayItem('ov-spot ov-spot-you', r, c, `${name}<small>${name === 'YELLOW' ? 'MID' : 'EDGE'}</small>`); });
-  html += overlayItem('ov-force ov-force-north', 3.4, 2, mp.active && mp.oppName ? `NORTH FORCE • ${mp.oppName.toUpperCase()}` : 'NORTH FORCE • RIVAL');
-  html += overlayItem('ov-force', 44.6, 2, 'SOUTH FORCE • YOU');
+  const midC = DOOR_C + .5;
+  html += overlayItem('ov-ship', N_DOOR_R, midC, '⛵<small>NORTH DOOR</small>');
+  html += overlayItem('ov-ship ov-ship-player', S_DOOR_R, midC, `⛵<small id="player-ship-label">YOUR DOOR</small>`);
+  html += overlayItem('ov-gate', RIVER_MID, midC, '✹<small>CREEP GATE</small>');
+  html += overlayItem('ov-shrine', (ROWS - 1) - (SHRINE_R0 + SHRINE_R1) / 2, midC, '✦<small>NORTH SHRINE</small>');
+  html += overlayItem('ov-shrine', (SHRINE_R0 + SHRINE_R1) / 2, midC, '✦<small>SOUTH SHRINE</small>');
+  const laneW = (LANE_WEST[0] + LANE_WEST[1]) / 2, laneE = (LANE_EAST[0] + LANE_EAST[1]) / 2;
+  const nLane = (ROWS - 1) - (S_PILLAR_R0 + S_PILLAR_R1) / 2, sLane = (S_PILLAR_R0 + S_PILLAR_R1) / 2;
+  [['RED', nLane, laneW], ['BLUE', N_MID_R, midC], ['TEAL', nLane, laneE]].forEach(([name, r, c]) => { html += overlayItem('ov-spot', r, c, `${name}<small>${name === 'BLUE' ? 'MID' : 'EDGE'} • RIVAL</small>`); });
+  [['PURPLE', sLane, laneW], ['YELLOW', S_MID_R, midC], ['ORANGE', sLane, laneE]].forEach(([name, r, c]) => { html += overlayItem('ov-spot ov-spot-you', r, c, `${name}<small>${name === 'YELLOW' ? 'MID' : 'EDGE'}</small>`); });
+  html += overlayItem('ov-force ov-force-north', NORTH_TOP + 3, 2, mp.active && mp.oppName ? `NORTH FORCE • ${mp.oppName.toUpperCase()}` : 'NORTH FORCE • RIVAL');
+  html += overlayItem('ov-force', SOUTH_BOT - 3, 2, 'SOUTH FORCE • YOU');
   $('board-overlay').innerHTML = html;
 }
 
@@ -5778,7 +5850,7 @@ function handleBoardTap(event) {
   const t = terrainAt(cell.r, cell.c);
   if (ghost && (t !== T.FLOOR || !isPlayerBuildRow(cell.r))) { ghost = null; ghostChips = []; }
   if (maybeDoubleTapZoom(event, cell, t)) return;
-  if (t === T.CLIFF && cell.r >= 34 && cell.r <= 37 && cell.c >= 11 && cell.c <= 20) {
+  if (t === T.CLIFF && isShrineCell(cell.r, cell.c)) {
     // tapping YOUR shrine opens the send commands, like selecting the original's Shrine building
     if (touchUI()) openCommandSheet('sends');
     else document.querySelector('[data-tab="send"]')?.click();
@@ -5836,6 +5908,18 @@ function buildAt(cell) {
 }
 
 /* ---------------- Zoom / pan (pinch on touch, ctrl+wheel on desktop) ---------------- */
+/* ZOOM RANGE. 1x is "the whole board fits", which on a 101-column map viewed
+   through a 311px phone is a 3px cell — a strategic overview, not something you
+   can build on. The ceiling used to be a flat 3x, chosen when the board was 32
+   wide; on this map that still only reaches a 9px cell, smaller than the OLD
+   board's unzoomed one. MAX_ZOOM is derived instead: enough that a cell can
+   always reach a tappable ~26px on the narrowest phone, whatever the board's
+   dimensions. WORK_ZOOM is where a double-tap and the match opening put you —
+   the scale at which you can actually see and place a tower. */
+const MIN_PHONE_VP = 300;   // the narrowest map viewport we design for, in CSS px
+const TAPPABLE_PX = 26;     // a cell you can hit with a thumb
+const MAX_ZOOM = Math.max(3, Math.ceil(COLS * TAPPABLE_PX / MIN_PHONE_VP));
+const WORK_ZOOM = Math.max(2.2, MAX_ZOOM * .62);
 let mapZoomScale = 1, mapOffsetX = 0, mapOffsetY = 0, frameBase = { left:0, top:0, width:BOARD_W, height:BOARD_H };
 const activeMapPointers = new Map();
 let pinchStartDistance = 0, pinchStartScale = 1, pinchStartOffset = { x:0, y:0 }, panStart = null, tapCandidate = null;
@@ -5851,7 +5935,7 @@ function smoothZoomTo(nextScale, anchor = null) {
   const fromY = camAnim ? camAnim.y : mapOffsetY;
   const contentX = (point.x - frameBase.left - fromX) / fromScale;
   const contentY = (point.y - frameBase.top - fromY) / fromScale;
-  const z = Math.min(3, Math.max(1, nextScale));
+  const z = Math.min(MAX_ZOOM, Math.max(1, nextScale));
   let x = point.x - frameBase.left - contentX * z;
   let y = point.y - frameBase.top - contentY * z;
   const sw = frameBase.width * z, sh = frameBase.height * z;
@@ -5863,7 +5947,7 @@ function smoothZoomTo(nextScale, anchor = null) {
 function camZoomNow() { return camAnim ? camAnim.z : mapZoomScale; }
 function maybeDoubleTapZoom(event, cell, terrain) {
   // double-tap water/cliff/rival ground toggles zoom, Google-Maps style
-  const shrine = terrain === T.CLIFF && cell.r >= 34 && cell.r <= 37 && cell.c >= 11 && cell.c <= 20;
+  const shrine = terrain === T.CLIFF && isShrineCell(cell.r, cell.c);
   const zoomable = !shrine && (terrain !== T.FLOOR || !isPlayerBuildRow(cell.r));
   if (!zoomable) { lastGroundTap = null; return false; }
   const now = performance.now();
@@ -5872,7 +5956,7 @@ function maybeDoubleTapZoom(event, cell, terrain) {
   if (prior && now - prior.at < 380 && Math.hypot(prior.r - cell.r, prior.c - cell.c) < 1.2) {
     const rect = $('map-viewport').getBoundingClientRect();
     const anchor = { x:event.clientX - rect.left, y:event.clientY - rect.top };
-    if (camZoomNow() < 1.6) smoothZoomTo(2.2, anchor); else camAnim = { z:1, x:0, y:0 };
+    if (camZoomNow() < WORK_ZOOM * .75) smoothZoomTo(WORK_ZOOM, anchor); else camAnim = { z:1, x:0, y:0 };
     lastGroundTap = null;
     return true;
   }
@@ -5953,6 +6037,7 @@ function applyMapTransform() {
   if (scaledH <= vh) mapOffsetY = (vh - scaledH) / 2 - frameBase.top;
   else mapOffsetY = Math.max(vh - scaledH - frameBase.top, Math.min(-frameBase.top, mapOffsetY));
   $('map-frame').style.transform = `translate(${mapOffsetX}px, ${mapOffsetY}px) scale(${mapZoomScale})`;
+  $('board-overlay')?.style.setProperty('--ovz', (1 / mapZoomScale).toFixed(4));
   $('zoom-label').textContent = `${Math.round(mapZoomScale * 100)}%`;
   // arena (touch match): the map owns all gestures. Otherwise: unzoomed maps
   // let one finger scroll the page; zoomed maps pan with one finger.
@@ -5964,12 +6049,29 @@ function setMapZoom(nextScale, anchor = null, fromScale = mapZoomScale, fromOffs
   const point = anchor || { x:rect.width / 2, y:rect.height / 2 };
   const contentX = (point.x - frameBase.left - fromOffset.x) / fromScale;
   const contentY = (point.y - frameBase.top - fromOffset.y) / fromScale;
-  mapZoomScale = Math.min(3, Math.max(1, nextScale));
+  mapZoomScale = Math.min(MAX_ZOOM, Math.max(1, nextScale));
   mapOffsetX = point.x - frameBase.left - contentX * mapZoomScale;
   mapOffsetY = point.y - frameBase.top - contentY * mapZoomScale;
   applyMapTransform();
 }
 function resetMapZoom() { mapZoomScale = 1; mapOffsetX = 0; mapOffsetY = 0; applyMapTransform(); }
+/* Put the camera on YOUR ground at a scale you can build at. On a board this
+   wide, "fit the whole thing" is an overview — opening a match there showed the
+   player a 3px cell and no way to know that zooming was the point. Frames the
+   door and the open band in front of it, which is where the first tower goes. */
+function frameHomeGround(animate = false) {
+  const viewport = $('map-viewport');
+  if (!viewport || frameBase.width < 10) return;
+  const vw = viewport.clientWidth, vh = viewport.clientHeight;
+  const z = Math.min(MAX_ZOOM, Math.max(1, WORK_ZOOM));
+  // the board point we want under the middle of the screen
+  const u = (DOOR_C + .5) / COLS, v = (BAND_R0 + BAND_R1) / 2 / ROWS;
+  const x = vw / 2 - frameBase.left - u * frameBase.width * z;
+  const y = vh / 2 - frameBase.top - v * frameBase.height * z;
+  if (animate) { camAnim = { z, x, y }; return; }
+  mapZoomScale = z; mapOffsetX = x; mapOffsetY = y; camAnim = null;
+  applyMapTransform();
+}
 function pointerDistance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 /* Best-effort escape hatch for a page Safari has already zoomed: drop the focus
    that caused it, then re-assert the viewport so the engine re-lays-out at 1x.
@@ -5993,11 +6095,13 @@ function resetEverything(reason) {
   closeWispMenus?.();
   ghost = null; ghostChips = []; selectMode = null; marquee = null;
   document.querySelectorAll('.settings-modal').forEach((m) => m.classList.add('hidden'));
-  camAnim = { z:1, x:0, y:0 };
+  camAnim = null;
   resetMapZoom();
   resetPageZoom();
   window.scrollTo(0, 0);
   fitBoardToViewport();
+  // "reset" means unstick the view, not zoom out to a board you cannot build on
+  if (battleRunning) frameHomeGround();
   if (reason) log(reason);
 }
 /* DOUBLE-TAP ANYWHERE OFF THE BOARD = RESET. The map has had its own
@@ -6296,7 +6400,7 @@ function startBattle() {
   wager = { tokens:3, cooldownUntil:0, pending:null };
   waveBoards = {}; matchGrades = [];
   document.getElementById('wager-prompt')?.remove();
-  fitBoardToViewport(); resetMapZoom();
+  fitBoardToViewport(); resetMapZoom(); frameHomeGround();
   const rivalLabel = $('rival-name-label');
   if (rivalLabel && !mp.active) rivalLabel.textContent = 'RIVAL';
   renderHud();
@@ -6446,7 +6550,9 @@ function toggleBattlePause() {
 }
 
 /* ---------------- Drawpad (map planner on the same 32×49 grid) ---------------- */
-const DP_CELL = 24, DP_W = COLS * DP_CELL, DP_H = ROWS * DP_CELL;
+/* The drawpad canvas is board-sized too, so its cell has to come down with the
+   board's or it allocates a 2448x3504 backing store for a sketch pad. */
+const DP_CELL = Math.max(8, Math.round(800 / COLS)), DP_W = COLS * DP_CELL, DP_H = ROWS * DP_CELL;
 let drawpadInitialized = false, drawpadTool = 'ground', drawpadMarks = [], drawpadReturnScreen = 'race-screen', drawpadPointer = null;
 const drawpadBoxTools = new Set(['ground', 'cliff-box', 'water', 'wave-box']);
 const drawpadToolNames = { ground:'FLOOR BOX', 'cliff-box':'CLIFF BOX', water:'RIVER BOX', 'wave-box':'CREEP WAVE', cliff:'CLIFF STROKE', path:'PATH', checkpoint:'CHECKPOINT', spawn:'SPAWN', shrine:'SHRINE', player:'PLAYER', ship:'SHIP', erase:'ERASE' };
@@ -7081,14 +7187,14 @@ function mpTick(dt) {
     });
   }
 }
-/* Mirror the opponent's half into our north side (their south row r → our 48−r, col c → 31−c). */
+/* Mirror the opponent's half into our north side (their south row r -> our ROWS-1-r, col c -> COLS-1-c). */
 function drawOpponentMirror(ctx) {
   if (!mp.active) return;
   const roleKeys = Object.keys(roleStyle);
   if (!mp.snap) return;
   (mp.snap.towers || []).forEach((entry) => { if (!Array.isArray(entry)) return; const [r, c, raceIdx, tier] = entry;
     const race = races[raceIdx] || races[0];
-    const x = (31 - c) * CELL, y = (48 - r) * CELL;
+    const x = (COLS - 1 - c) * CELL, y = (ROWS - 1 - r) * CELL;
     ctx.save();
     ctx.translate(x + CELL / 2, y + CELL / 2);
     ctx.fillStyle = '#0b1425'; ctx.strokeStyle = race.color; ctx.lineWidth = 1.6;
