@@ -187,6 +187,36 @@ const boot = async (page, name) => {
   }));
   console.log('host emitted', emitted, 'events; guest replayed', JSON.stringify(replayed));
   console.log('  mirrored correctly:', JSON.stringify(replayed.firstShot) === JSON.stringify(replayed.expect));
+
+  /* THE WATCHED BOARD MUST BE THE REAL ART, AND TAPPABLE. Gene: "I want to see
+     his cool tower effects and I still can't see what his units do by clicking
+     on them." Push a board of known towers and creeps, then check the viewer
+     rebuilds real entities from it and that a tap on one produces an inspect
+     card with the right tower's name. */
+  const inspect = await guest.evaluate(() => {
+    mpSetViewSeat('south:0');
+    // an Ice tier-2 at (5,60) and a creep beside it, in the sender's own frame
+    mp.snap = { towers:[[60, 5, races.findIndex((r) => r.id === 'ice'), 2]], creeps:[[6, 61, 0, 0.5, 0, 1]] };
+    rebuildMirrorEntities();
+    const t = mirrorTowers[0], c = mirrorCreeps[0];
+    const hit = mirrorHit(t.c + .5, t.r + .5);
+    inspectEntity = hit;
+    const card = renderWispInspect();
+    return {
+      towers:mirrorTowers.length, creeps:mirrorCreeps.length,
+      towerAt:[t.r, t.c], expectAt:[ROWS - 1 - 60, COLS - 1 - 5],
+      creepAt:[+c.x.toFixed(1), +c.y.toFixed(1)], expectCreep:[+(COLS - 6).toFixed(1), +(ROWS - 61).toFixed(1)],
+      hitKind:hit && hit.kind,
+      cardName:(card.match(/<b><span class="wp-inspect-ico">[^<]*<\/span>([^<]*)</) || [])[1],
+      realName:towerLiveStats(t).name,
+      drew:(() => { try { const cv = document.createElement('canvas'); cv.width = cv.height = 400; drawTower(cv.getContext('2d'), t); drawCreep(cv.getContext('2d'), c); return 'ok'; } catch (e) { return 'THREW: ' + e.message; } })(),
+    };
+  });
+  console.log('mirror entities + inspect:', JSON.stringify(inspect, null, 1));
+  console.log('  positions right:', JSON.stringify(inspect.towerAt) === JSON.stringify(inspect.expectAt)
+    && JSON.stringify(inspect.creepAt) === JSON.stringify(inspect.expectCreep),
+    '| tap inspects the right tower:', inspect.cardName === inspect.realName,
+    '| real renderers survive it:', inspect.drew === 'ok');
   await guest.screenshot({ path: OUT + 'mp-watch-guest.png' });
   await host.screenshot({ path: OUT + 'mp-live-host.png' });
   const errs = hErr.concat(gErr);

@@ -7,6 +7,38 @@ environment, so every entry here was live the moment it was pushed.
 
 ---
 
+## 2026-09-07 (night, latest) — his board, drawn properly, and tappable
+
+*"I want to be able to see his cool tower effects and I still can't see what his
+units do by clicking on them. What is so hard about it, do we need another
+software?"*
+
+No other software, and nothing here was hard. The mirror was drawn by a **second,
+much worse renderer** written years apart from the real one: a rounded square
+with a race letter for a tower, a circle with a symbol for a creep. That is why
+a team-mate's board looked nothing like the game he was playing — not because
+the data was missing, but because the drawing code was a sketch.
+
+The snapshot already carries everything `drawTower` and `drawCreep` need. The
+watched board now rebuilds plain objects at mirrored coordinates and hands them
+to **the same two functions that draw your own board**, so an Ice tower looks
+like an Ice tower, a Beam fires its ray, a tier-5 is the size of a tier-5, and
+air units hover over their shadows. The sketch renderer is gone.
+
+And it is tappable. There was nothing to tap up there before — it was paint —
+so you could watch someone build something and never learn what it was. Tapping
+a tower on the watched board opens the same inspect card your own towers get:
+name, damage, dps, range, tier, armour matrix and what its special does. Tapping
+a creep gives its class and health share, with a note that exact hit points are
+not sent over the wire.
+
+Verified across two clients: a known board pushed to the viewer rebuilds at the
+right mirrored cells, a tap on the tower returns the tower that is actually
+there ("Whiteout Spire"), and the real renderers accept the rebuilt objects
+without throwing.
+
+---
+
 ## 2026-09-07 (night, later) — a watched board that looks alive
 
 *"It's still hard to see all the effects. Why can't me and Abdy share a live

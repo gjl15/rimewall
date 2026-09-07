@@ -6320,6 +6320,17 @@ function handleBoardTap(event) {
       else log(`${best.name}: ${Math.round(best.hp)}/${best.maxHp} HP · ${best.armor} armor · ${best.aClass}${best.air?' · air':''}`);
       return;
     }
+    // nothing of ours there — try the board we are watching
+    const hit = mp.active ? mirrorHit(px, py) : null;
+    if (hit) {
+      inspectEntity = hit;
+      if (touchUI() && document.body.classList.contains('arena')) { wispTab = 'inspect'; renderWispPanel('inspect'); }
+      else if (hit.kind === 'mirror-tower') {
+        const st = towerLiveStats(hit.ref);
+        log(`${mpSeatName(mp.viewSeat) || 'They'} built ${st.name} — ${st.dmg} dmg · ${st.range.toFixed(1)} rng · ${(st.dmg / st.cd).toFixed(0)} dps.`);
+      } else log(`${hit.ref.name} on the watched board — ${Math.round((hit.ref.hp / hit.ref.maxHp) * 100)}% health.`);
+      return;
+    }
   }
   lastTapKey = null;
   selectedTowerKey = null; selectedGroupKeys = []; renderTowerDetails();
@@ -8194,45 +8205,68 @@ function mpTick(dt) {
     }
   }
 }
-/* Mirror the opponent's half into our north side (their south row r -> our ROWS-1-r, col c -> COLS-1-c). */
+/* THE WATCHED BOARD IS DRAWN BY THE REAL RENDERERS.
+   It used to be a sketch — a rounded square with a race letter for a tower, a
+   circle with a symbol for a creep — which is why a team-mate's board looked
+   nothing like the game he was playing. Nothing about drawing it properly was
+   hard; the snapshot already carries everything drawTower and drawCreep need.
+   Rebuild plain objects at mirrored coordinates and hand them to the same two
+   functions that draw your own board, so an Ice tower looks like an Ice tower,
+   a Beam fires its ray, and a boss is the size of a boss.
+
+   These objects are inert: nothing simulates them, and their keys are negative
+   so they can never collide with a real tower's. */
+let mirrorTowers = [], mirrorCreeps = [];
+const roleKeyList = () => Object.keys(roleStyle);
+function rebuildMirrorEntities() {
+  mirrorTowers = []; mirrorCreeps = [];
+  if (!mp.active || !mp.snap) return;
+  (mp.snap.towers || []).forEach((e, i) => {
+    if (!Array.isArray(e)) return;
+    const [r, c, raceIdx, tier] = e;
+    const race = races[raceIdx] || races[0];
+    mirrorTowers.push({ key:-1000 - i, r:(ROWS - 1) - r, c:(COLS - 1) - c, raceId:race.id, tier:tier || 0,
+      level:0, owner:'mirror', bolt:null, invested:0, buildUntil:0, underAttack:0, kills:0, priority:'first',
+      blockHp:1, blockMaxHp:1, mirror:true });
+  });
+  const keys = roleKeyList();
+  (mp.snap.creeps || []).forEach((e) => {
+    if (!Array.isArray(e)) return;
+    const [x, y, roleIdx, hpFrac, air, sent] = e;
+    const role = keys[roleIdx] || 'standard';
+    const def = WAVES.find((w) => (w.role || 'standard') === role) || WAVES[0];
+    const maxHp = 1000;
+    mirrorCreeps.push({ x:COLS - x, y:ROWS - y, role, sent:!!sent, air:!!air,
+      hp:Math.max(1, maxHp * (hpFrac || 0)), maxHp, name:def.name || 'Unit', armor:def.armor || 0,
+      aClass:def.aClass || 'medium', boss:!!def.boss, spd:def.spd || 2,
+      slowUntil:0, frostUntil:0, stunUntil:0, stasisUntil:0, knockUntil:0, venom:0, venomUntil:0,
+      shield:0, shieldMax:0, armorShred:0, dots:[], half:ENEMY_HALF, mirror:true });
+  });
+}
 function drawOpponentMirror(ctx) {
   if (!mp.active) return;
   drawMirrorFx(ctx);   // the watched board's combat, replayed from its events
-  const roleKeys = Object.keys(roleStyle);
   if (!mp.snap) return;
-  (mp.snap.towers || []).forEach((entry) => { if (!Array.isArray(entry)) return; const [r, c, raceIdx, tier] = entry;
-    const race = races[raceIdx] || races[0];
-    const x = (COLS - 1 - c) * CELL, y = (ROWS - 1 - r) * CELL;
-    ctx.save();
-    ctx.translate(x + CELL / 2, y + CELL / 2);
-    ctx.fillStyle = '#0b1425'; ctx.strokeStyle = race.color; ctx.lineWidth = 1.6;
-    const half = CELL / 2 - 2.5;
-    ctx.beginPath(); ctx.roundRect(-half, -half, half * 2, half * 2, 5); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = race.color; ctx.font = `${tier >= 3 ? 14 : 12}px "DM Mono", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(race.symbol, 0, 1);
-    ctx.restore();
-  });
-  (mp.snap.creeps || []).forEach((entry) => { if (!Array.isArray(entry)) return; const [x, y, roleIdx, hpFrac, air, sent] = entry;
-    const role = roleKeys[roleIdx] || 'standard';
-    const style = roleStyle[role];
-    const color = sent ? '#ffd86b' : roleColors[role] || '#ff9faf';
-    // mirror a CONTINUOUS coordinate: cell c spans [c,c+1), so c+.5 maps to
-    // COLS-(c+.5). These were the literals 32 and 49 — the old board's size —
-    // so on the 51x73 board every mirrored creep drew in the wrong place.
-    const mx = (COLS - x) * CELL, my = (ROWS - y) * CELL;
-    ctx.save();
-    ctx.translate(mx, my);
-    if (air) { ctx.fillStyle = '#00000030'; ctx.beginPath(); ctx.ellipse(2, 6, style.size * .9, style.size * .38, 0, 0, Math.PI * 2); ctx.fill(); ctx.translate(0, -4); }
-    ctx.fillStyle = '#251a2b'; ctx.strokeStyle = color; ctx.lineWidth = 1.4;
-    ctx.beginPath(); ctx.arc(0, 0, style.size, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = color; ctx.font = `${Math.round(style.size * 1.15)}px "DM Mono", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(style.symbol, 0, .5);
-    const width = Math.max(16, style.size * 2.4);
-    ctx.fillStyle = '#1b0d18'; ctx.fillRect(-width / 2 - 1, -style.size - 8, width + 2, 4.5);
-    ctx.fillStyle = hpFrac > .5 ? '#8ee89f' : hpFrac > .25 ? '#ffd86b' : '#ff8a9a';
-    ctx.fillRect(-width / 2, -style.size - 7.2, width * hpFrac, 3);
-    ctx.restore();
-  });
+  rebuildMirrorEntities();
+  // a bad frame from the wire must never take the board down with it
+  try {
+    mirrorTowers.forEach((t) => drawTower(ctx, t));
+    mirrorCreeps.forEach((c) => drawCreep(ctx, c));
+  } catch (e) {
+    if (!drawOpponentMirror._warned) { drawOpponentMirror._warned = true; console.warn('mirror draw failed', e); }
+  }
+}
+/* Tapping something on the watched board. It was inert — the only thing up
+   there was paint — so "I can't see what his units do by clicking on them" was
+   exactly right. The snapshot carries the element and tier, which is everything
+   the tower's real stat line is derived from anyway. */
+function mirrorHit(px, py) {
+  let best = null, bd = .75;
+  mirrorTowers.forEach((t) => { const d = Math.hypot(t.c + .5 - px, t.r + .5 - py); if (d < bd) { bd = d; best = { kind:'mirror-tower', ref:t }; } });
+  if (best) return best;
+  bd = .6;
+  mirrorCreeps.forEach((c) => { const d = Math.hypot(c.x - px, c.y - py); if (d < bd) { bd = d; best = { kind:'mirror-creep', ref:c }; } });
+  return best;
 }
 
 /* ---------------- Wisp servant + command sheet (touch-first controls) ----------------
@@ -8865,6 +8899,28 @@ function renderWispPanel(mode) {
 function renderWispInspect() {
   const ie = inspectEntity;
   const close = `<div class="wp-head"><span>🛠 Inspect</span><button data-wp-do="close">✕</button></div>`;
+  /* Something on the board you are WATCHING. There was nothing to tap up there
+     before — it was paint — so you could see a team-mate had built something
+     and never find out what. The snapshot carries the element and the tier,
+     which is what every one of these numbers is derived from anyway. */
+  if (ie && ie.kind === 'mirror-tower' && ie.ref) {
+    const t = ie.ref, st = towerLiveStats(t), race = races.find((r) => r.id === t.raceId);
+    const who = mpSeatName(mp.viewSeat);
+    return close + `<div class="wp-detail">
+      <b><span class="wp-inspect-ico">${race ? race.symbol : '⛫'}</span>${st.name}</b>
+      <small style="color:#8995b4"> — ${escapeHTML(who)}'s board</small><br>
+      ${st.dmg} dmg · ${(st.dmg / st.cd).toFixed(0)} dps · ${st.range.toFixed(1)} rng · tier ${(t.tier || 0) + 1}<br>
+      ${attackProfileText(t.raceId)}<br>
+      <span style="color:#9fb0d2">${st.desc || ''} ${specialBlurbs[st.special] || ''}</span></div>`;
+  }
+  if (ie && ie.kind === 'mirror-creep' && ie.ref) {
+    const c = ie.ref;
+    return close + `<div class="wp-detail">
+      <b><span class="wp-inspect-ico">${c.sent ? '⚔' : '👾'}</span>${c.name}${c.sent ? ' (a send)' : ''}</b>
+      <small style="color:#8995b4"> — ${escapeHTML(mpSeatName(mp.viewSeat))}'s board</small><br>
+      ${Math.round((c.hp / c.maxHp) * 100)}% health · ${c.aClass}${c.air ? ' · air' : ''}<br>
+      <span style="color:#8995b4">Exact hit points are not sent over the wire — only the share remaining.</span></div>`;
+  }
   if (ie && ie.kind === 'creep' && ie.ref && ie.ref.hp > 0) {
     const c = ie.ref, tags = [c.air?'AIR':'', c.role&&c.role!=='standard'?c.role:'', c.regen?'regen':'', c.shieldMax?'shielded':''].filter(Boolean);
     return close + `<div class="wp-detail"><b><span class="wp-inspect-ico">${c.sent?'⚔':'👾'}</span>${c.name}${c.sent?' (rival send)':''}</b><br>${Math.round(c.hp)}/${c.maxHp} HP${c.shieldMax?` · ${Math.round(c.shield)}/${c.shieldMax} shield`:''}<br>${c.armor} armor · ${c.aClass} · spd ${c.spd.toFixed(1)}<br>${tags.length?tags.join(' · '):'standard'} · worth ${Math.round((c.sent?c.bounty:c.bounty*BOUNTY_MULT))}g${venomReadout(c)}</div>`;
