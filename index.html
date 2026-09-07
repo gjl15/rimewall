@@ -2059,6 +2059,24 @@ const ECON_SCALE = Number(window.__ECON_SCALE__ ?? Math.pow(COLS / REFERENCE_COL
 const START_GOLD = Math.round(30 * ECON_SCALE), FIRST_WAVE_DELAY = 30, LOBBY_SECONDS = 20;
 const INCOME_PERIOD = 25, BASE_INCOME = Math.round(24 * ECON_SCALE);   // was 33 — balance audit: income was the flat snowball outpacing HP growth
 const BOUNTY_MULT = 1;   // was 2 — kill-gold was the fattest early faucet (defense out-damaged threat ~5.7x)
+/* CREEP HP RIDES THE SAME SCALE AS GOLD.
+   ECON_SCALE exists because a wider board needs a longer wall, and it doubled
+   the purse. But gold buys DPS as well as wall, and creep HP never moved — so
+   the same wave met roughly twice the guns it was tuned against. Measured with
+   tools/harness/econ.js, as the seconds of sustained fire the whole purse needs
+   to clear a wave (lower = easier):
+
+                       wave 1   wave 4   wave 9   wave 15
+     tuned reference     3.0      8.9      8.0      11.1
+     after the resize    1.7      5.5      5.3       6.6
+
+   Scaling creep HP by the same factor restores every gold-to-HP relationship
+   at any board width, and leaves board size doing what it should: changing the
+   geometry, not the arithmetic. WAVE_PRESSURE is the separate dial for "make
+   the game harder" — raise it and every creep gets tougher without touching
+   the purse. */
+const WAVE_PRESSURE = Number(window.__WAVE_PRESSURE__ ?? 1);
+const CREEP_HP_SCALE = ECON_SCALE * WAVE_PRESSURE;
 /* INCOME HAS DIMINISHING RETURNS. Every send in the ladder pays for itself in
    100-235s and then prints forever with no cap, so income bought income and the
    curve went exponential while creep HP grew ~4%/wave: a player splitting gold
@@ -2422,7 +2440,9 @@ function spawnCreep(waveDef, half, side, sent = false) {
   const role = waveDef.role || 'standard';
   const hpScale = waveDef.boss ? 1 : (sent ? TRAIT.hpScaleSend : TRAIT.hpScaleNeutral * waveHpMult(wave));
   const jugg = role === 'juggernaut' && !sent;   // sends carry their own tuned stats; don't multiply them again
-  const baseHp = Math.round((waveDef.hp || 1) * hpScale * (jugg ? 2.4 : 1));
+  // CREEP_HP_SCALE keeps HP in step with the purse at any board width, and
+  // applies to bosses and sends too so nothing drifts out of proportion.
+  const baseHp = Math.round((waveDef.hp || 1) * hpScale * (jugg ? 2.4 : 1) * CREEP_HP_SCALE);
   const spd = waveDef.spd * (jugg ? .6 : 1);
   const armor = (waveDef.armor || 0) + (waveDef.boss ? 0 : TRAIT.armorBonus) + (jugg ? 4 : 0);
   const aClass = jugg ? 'fortified' : (waveDef.aClass || 'medium');
