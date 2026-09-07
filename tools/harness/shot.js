@@ -21,7 +21,8 @@ const flags = (process.argv[6] || '').split(',').filter(Boolean);
   await page.evaluate((flags) => {
     document.querySelectorAll('.coach-card').forEach((c) => c.remove());
     if (typeof closeLobby === 'function') closeLobby();
-    flags.forEach((f) => { if (typeof debug === 'object') debug[f] = true; });
+    flags.forEach((f) => { if (f === 'solo') { soloRules = true; rebuildBoard('solo'); }
+      else if (typeof debug === 'object') debug[f] = true; });
     if (typeof camAnim !== 'undefined') camAnim = { z: 1, x: 0, y: 0 };
   }, flags);
   await page.waitForTimeout(1500);

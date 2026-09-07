@@ -348,6 +348,10 @@ h2 span { color:#7583a6; }
 .ov-gate small { color:#ffe9a5; font-size:6.5px; }
 .ov-shrine { text-align:center; color:#d9c2ff; font-size:12px; text-shadow:0 1px 3px #14372f; }
 .ov-shrine small { color:#cbb3f2; font-size:6.5px; }
+/* the rival's massif is rock, not a shrine — muted, so it does not read as
+   something you can use */
+.ov-massif { text-align:center; color:#8fa2b8; font-size:11px; text-shadow:0 1px 3px #14372f; }
+.ov-massif small { color:#7c8fa6; font-size:6.5px; }
 /* the lane name is drawn in its own lane colour, over a dark plate so it stays
    legible on the pale ground; --lane is set per label in buildOverlay */
 .ov-spot { text-align:center; opacity:.95; padding:3px 7px; border-radius:7px;
@@ -1707,39 +1711,42 @@ function undoSell() {
    over the 4096px max dimension: the canvas silently fails to allocate and the
    map renders BLANK on an iPhone. At CELL=12 it is 2424×3000 (7.3M px, ~58MB
    for the two canvases) — comparable to what the old board used. */
-const COLS = Number(window.__COLS__ ?? 51);         // the centre column is the door
-const HALF_ROWS = Number(window.__HALF_ROWS__ ?? 34);   // rows of ground per side
+/* THE BOARD IS NOW A FUNCTION OF THE MATCH, NOT OF THE PAGE LOAD.
+   Every one of these used to be a const read once when the file parsed, which
+   is why the board could never change size without a reload: about thirty
+   derived values, two terrain arrays, the route table and the economy all hang
+   off three numbers. deriveBoard() assigns the whole set, and rebuildBoard()
+   below re-runs it and everything downstream — so a solo match can play a
+   bigger map than a four-player room without touching anything else.
+   window.__COLS__ / __HALF_ROWS__ still override, for the harness. */
+let COLS, HALF_ROWS, ROWS, CELL, RIVER_TOP, RIVER_BOT, RIVER_MID,
+  SOUTH_TOP, SOUTH_BOT, NORTH_TOP, NORTH_BOT,
+  PILLAR_W, PILLAR_H, PILLAR_C0, PILLAR_C1, S_PILLAR_R0, S_PILLAR_R1, N_PILLAR_R0, N_PILLAR_R1,
+  DOOR_C, DOOR_C0, DOOR_C1, S_DOOR_R, S_GATE_R, N_DOOR_R, N_GATE_R,
+  BOARD_W, BOARD_H, baseTerrain, terrain,
+  LANE_W_C, LANE_E_C, S_TURN_R, N_TURN_R, S_MID_R, N_MID_R,
+  ROUTES, SPAWNS, SHRINE_R0, SHRINE_R1, SHRINE_C0, SHRINE_C1;
 const RIVER_ROWS = 5;                               // the navy band down the middle
-const ROWS = HALF_ROWS * 2 + RIVER_ROWS;            // 125
-/* One texel budget for the board, spread over however many columns there are:
-   at 32 columns this is the 24 the board always used, at 51 it is 17, at 101 it
-   would be 9. Keeps the backing store roughly constant instead of growing with
-   the square of the board. */
-const CELL = Math.max(6, Math.min(24, Math.round(880 / COLS)));
-const RIVER_TOP = HALF_ROWS, RIVER_BOT = HALF_ROWS + RIVER_ROWS - 1;   // 60..64
-const RIVER_MID = (RIVER_TOP + RIVER_BOT) >> 1;                        // 62
-const SOUTH_TOP = RIVER_BOT + 1, SOUTH_BOT = ROWS - 1;                 // 65..124
-const NORTH_TOP = 0, NORTH_BOT = RIVER_TOP - 1;                        // 0..59
-/* The non-buildable middle massif: 31 wide × 35 tall per side, centred. */
-const PILLAR_W = Math.max(5, Math.round(COLS * .307) | 1), PILLAR_H = Math.max(5, Math.round(HALF_ROWS * .583));
-const PILLAR_C0 = ((COLS - PILLAR_W) >> 1), PILLAR_C1 = PILLAR_C0 + PILLAR_W - 1;   // 35..65
-const S_PILLAR_R0 = SOUTH_TOP, S_PILLAR_R1 = SOUTH_TOP + PILLAR_H - 1;             // 65..99
-const N_PILLAR_R1 = NORTH_BOT, N_PILLAR_R0 = NORTH_BOT - PILLAR_H + 1;             // 25..59
-/* The door: a narrow dark mouth at the very edge of the board, on the 51st
-   column, that the creeps walk straight into. */
-const DOOR_C = (COLS - 1) >> 1;                     // 50 — the 51st column
-const DOOR_HALF = 1;                                // 3 cells wide: 49, 50, 51
-const DOOR_C0 = DOOR_C - DOOR_HALF, DOOR_C1 = DOOR_C + DOOR_HALF;
-const S_DOOR_R = ROWS - 1, S_GATE_R = ROWS - 2;     // 124 (edge), 123 (threshold)
-const N_DOOR_R = 0, N_GATE_R = 1;
-const FX_SCALE = 2.0;   // projectile/impact glyphs are enlarged this much so they're visible at the mobile fit-scale
-const BOARD_W = COLS * CELL, BOARD_H = ROWS * CELL;
+const DOOR_HALF = 1;                                // the door is 3 cells wide
+const protectedCells = new Set();
 const T = { FLOOR:0, CLIFF:1, RIVER:2, GATE:3, HARBOR:4 };
-const baseTerrain = new Uint8Array(COLS * ROWS);
-const terrain = new Uint8Array(COLS * ROWS);
 const idx = (r, c) => r * COLS + c;
 const inBounds = (r, c) => r >= 0 && r < ROWS && c >= 0 && c < COLS;
-
+const FX_SCALE = 2.0;   // projectile/impact glyphs are enlarged this much so they're visible at the mobile fit-scale
+/* The colour of each lane, and later of each SEAT that holds it. These names
+   were already painted on the board as overlay labels (RED/BLUE/TEAL north,
+   PURPLE/YELLOW/ORANGE south) but were wired to nothing, so a route, a seat and
+   a label that all mean "the west lane" shared no colour. Order is
+   [west, middle, east]; a half with one defender uses the middle. */
+const LANE_COLORS = {
+  north:[{ id:'red', name:'Red', color:'#ff6b6b' }, { id:'blue', name:'Blue', color:'#6ba8ff' }, { id:'teal', name:'Teal', color:'#54d6c4' }],
+  south:[{ id:'purple', name:'Purple', color:'#b07cff' }, { id:'yellow', name:'Yellow', color:'#ffd86b' }, { id:'orange', name:'Orange', color:'#ff9f4d' }]
+};
+const laneColor = (half, side) => LANE_COLORS[half][side === 'west' ? 0 : 2].color;
+// Node 0 = river edge (creeps still sweep the full river), nodes 1-2 are the only FLAGS —
+// lane-bottom + a SHARED middle-base cell (both lanes cross the same center square, so it
+// renders as a single middle flag). Node 3 = gate, node 4 = ship. Same lane→bottom→middle path.
+const FLAG_START = 1, FLAG_END = 3;   // ROUTES[..][..].slice(FLAG_START, FLAG_END) are the flags
 function buildBaseTerrain() {
   baseTerrain.fill(T.FLOOR);
   for (let r = 0; r < ROWS; r += 1) for (let c = 0; c < COLS; c += 1) {
@@ -1771,6 +1778,34 @@ function buildBaseTerrain() {
     for (let r = RIVER_TOP; r <= RIVER_BOT; r += 1) baseTerrain[idx(r, c)] = T.GATE;
   }
 }
+
+function deriveBoard(cols, halfRows) {
+  COLS = Math.max(24, Math.round(cols)); HALF_ROWS = Math.max(16, Math.round(halfRows));
+  ROWS = HALF_ROWS * 2 + RIVER_ROWS;
+/* One texel budget for the board, spread over however many columns there are:
+   at 32 columns this is the 24 the board always used, at 51 it is 17, at 101 it
+   would be 9. Keeps the backing store roughly constant instead of growing with
+   the square of the board. */
+  CELL = Math.max(6, Math.min(24, Math.round(880 / COLS)));
+  RIVER_TOP = HALF_ROWS; RIVER_BOT = HALF_ROWS + RIVER_ROWS - 1;
+  RIVER_MID = (RIVER_TOP + RIVER_BOT) >> 1;
+  SOUTH_TOP = RIVER_BOT + 1; SOUTH_BOT = ROWS - 1;
+  NORTH_TOP = 0; NORTH_BOT = RIVER_TOP - 1;
+/* The non-buildable middle massif: 31 wide × 35 tall per side, centred. */
+  PILLAR_W = Math.max(5, Math.round(COLS * .307) | 1); PILLAR_H = Math.max(5, Math.round(HALF_ROWS * .583));
+  PILLAR_C0 = ((COLS - PILLAR_W) >> 1); PILLAR_C1 = PILLAR_C0 + PILLAR_W - 1;
+  S_PILLAR_R0 = SOUTH_TOP; S_PILLAR_R1 = SOUTH_TOP + PILLAR_H - 1;
+  N_PILLAR_R1 = NORTH_BOT; N_PILLAR_R0 = NORTH_BOT - PILLAR_H + 1;
+/* The door: a narrow dark mouth at the very edge of the board, on the 51st
+   column, that the creeps walk straight into. */
+  DOOR_C = (COLS - 1) >> 1;
+  DOOR_C0 = DOOR_C - DOOR_HALF; DOOR_C1 = DOOR_C + DOOR_HALF;
+  S_DOOR_R = ROWS - 1; S_GATE_R = ROWS - 2;
+  N_DOOR_R = 0; N_GATE_R = 1;
+  BOARD_W = COLS * CELL; BOARD_H = ROWS * CELL;
+  baseTerrain = new Uint8Array(COLS * ROWS);
+  terrain = new Uint8Array(COLS * ROWS);
+
 buildBaseTerrain();
 terrain.set(baseTerrain);
 
@@ -1778,20 +1813,10 @@ terrain.set(baseTerrain);
    creep walks the full river before advancing (the reference map's long west
    arrow) — then flag 1 (river corner), flag 2 (outer turn), flag 3 (return
    toward the middle), the final gate, and the ship. Flags are nodes 1–3. */
-const LANE_W_C = 4, LANE_E_C = COLS - 5;                     // the outer lane each side runs down
-/* The colour of each lane, and later of each SEAT that holds it. These names
-   were already painted on the board as overlay labels (RED/BLUE/TEAL north,
-   PURPLE/YELLOW/ORANGE south) but were wired to nothing, so a route, a seat and
-   a label that all mean "the west lane" shared no colour. Order is
-   [west, middle, east]; a half with one defender uses the middle. */
-const LANE_COLORS = {
-  north:[{ id:'red', name:'Red', color:'#ff6b6b' }, { id:'blue', name:'Blue', color:'#6ba8ff' }, { id:'teal', name:'Teal', color:'#54d6c4' }],
-  south:[{ id:'purple', name:'Purple', color:'#b07cff' }, { id:'yellow', name:'Yellow', color:'#ffd86b' }, { id:'orange', name:'Orange', color:'#ff9f4d' }]
-};
-const laneColor = (half, side) => LANE_COLORS[half][side === 'west' ? 0 : 2].color;
-const S_TURN_R = S_PILLAR_R1 + 6, N_TURN_R = N_PILLAR_R0 - 6;   // where the lane turns back inward
-const S_MID_R = S_DOOR_R - 8, N_MID_R = N_DOOR_R + 8;           // the shared middle flag, in the open band
-const ROUTES = {
+  LANE_W_C = 4; LANE_E_C = COLS - 5;                          // the outer lane each side runs down
+  S_TURN_R = S_PILLAR_R1 + 6; N_TURN_R = N_PILLAR_R0 - 6;     // where the lane turns back inward
+  S_MID_R = S_DOOR_R - 8; N_MID_R = N_DOOR_R + 8;             // the shared middle flag, in the open band
+  ROUTES = {
   north:{
     west:[{ r:RIVER_TOP, c:2 }, { r:N_TURN_R, c:LANE_W_C }, { r:N_MID_R, c:DOOR_C }, { r:N_GATE_R, c:DOOR_C }, { r:N_DOOR_R, c:DOOR_C }],
     east:[{ r:RIVER_TOP, c:COLS - 3 }, { r:N_TURN_R, c:LANE_E_C }, { r:N_MID_R, c:DOOR_C }, { r:N_GATE_R, c:DOOR_C }, { r:N_DOOR_R, c:DOOR_C }]
@@ -1801,18 +1826,49 @@ const ROUTES = {
     east:[{ r:RIVER_BOT, c:COLS - 3 }, { r:S_TURN_R, c:LANE_E_C }, { r:S_MID_R, c:DOOR_C }, { r:S_GATE_R, c:DOOR_C }, { r:S_DOOR_R, c:DOOR_C }]
   }
 };
-// Node 0 = river edge (creeps still sweep the full river), nodes 1-2 are the only FLAGS —
-// lane-bottom + a SHARED middle-base cell (both lanes cross the same center square, so it
-// renders as a single middle flag). Node 3 = gate, node 4 = ship. Same lane→bottom→middle path.
-const FLAG_START = 1, FLAG_END = 3;   // ROUTES[..][..].slice(FLAG_START, FLAG_END) are the flags
-const SPAWNS = {
+  SPAWNS = {
   north:{ west:{ r:RIVER_MID, c:DOOR_C }, east:{ r:RIVER_MID, c:DOOR_C } },
   south:{ west:{ r:RIVER_MID, c:DOOR_C }, east:{ r:RIVER_MID, c:DOOR_C } }
 };
 // Flags occupy exactly one square: only the flag's own cell is unbuildable.
 // Pathing stays forgiving because touching any adjacent cell satisfies a flag.
-const protectedCells = new Set();
-Object.values(ROUTES).forEach((sides) => Object.values(sides).forEach((nodes) => nodes.forEach((cell) => protectedCells.add(idx(cell.r, cell.c)))));
+  protectedCells.clear();
+  Object.values(ROUTES).forEach((sides) => Object.values(sides).forEach((nodes) => nodes.forEach((cell) => protectedCells.add(idx(cell.r, cell.c)))));
+}
+deriveBoard(Number(window.__COLS__ ?? 51), Number(window.__HALF_ROWS__ ?? 34));
+
+/* HOW BIG THE BOARD IS FOR THIS MATCH.
+   A room of four people wants a board everyone can read on a phone; one player
+   against one computer can afford more ground, because the thing that actually
+   caps board size is the per-creep A* and a solo Classic match runs far fewer
+   creeps than a four-batch Skirmish. Measured costs are in the changelog. */
+const BOARD_SIZES = { normal:[51, 34], solo:[63, 42] };
+let boardSizeNow = 'normal';
+function wantedBoardSize() {
+  if (window.__COLS__) return null;                 // the harness pinned it; leave it alone
+  return (soloRules && seatsOn(PLAYER_HALF) === 1 && seatsOn(ENEMY_HALF) === 1) ? 'solo' : 'normal';
+}
+/* Re-derive the board and everything downstream of it. Safe to call between
+   matches only — it reallocates the terrain arrays. */
+function rebuildBoard(sizeKey) {
+  if (!BOARD_SIZES[sizeKey] || sizeKey === boardSizeNow) return false;
+  boardSizeNow = sizeKey;
+  deriveBoard(BOARD_SIZES[sizeKey][0], BOARD_SIZES[sizeKey][1]);
+  deriveEconomy();
+  buildBaseTerrain();
+  // every cache that was shaped by the old board
+  mazeOrderCache = null; riverCells = null;
+  towers.clear(); towersVersion += 1;
+  creeps.length = 0; projectiles.length = 0; effects.length = 0; pendingSpawns.length = 0;
+  /* Resize the canvas BEFORE painting it. The first version redrew the board and
+     then resized, which clears it — the terrain was correct and invisible. */
+  if (canvasesReady) setupCanvases();
+  applySavedSketchToTerrain();
+  buildOverlay();
+  fitBoardToViewport(); resetMapZoom();
+  if (canvasesReady) redrawBoard();
+  return true;
+}
 
 const PLAYER_HALF = 'south', ENEMY_HALF = 'north';
 function halfOfRow(r) { return r <= RIVER_MID ? 'north' : 'south'; }
@@ -1824,8 +1880,8 @@ function isEnemyBuildRow(r) { return r >= NORTH_TOP && r <= NORTH_BOT; }
    commands, the way selecting the Shrine building does in the original map. It
    sits at the bottom-centre of your pillar so it is reachable from the open band
    without hunting for it. */
-const SHRINE_R0 = S_PILLAR_R1 - 7, SHRINE_R1 = S_PILLAR_R1;
-const SHRINE_C0 = DOOR_C - 6, SHRINE_C1 = DOOR_C + 6;
+  SHRINE_R0 = S_PILLAR_R1 - 7; SHRINE_R1 = S_PILLAR_R1;
+  SHRINE_C0 = DOOR_C - 6; SHRINE_C1 = DOOR_C + 6;
 function isShrineCell(r, c) { return r >= SHRINE_R0 && r <= SHRINE_R1 && c >= SHRINE_C0 && c <= SHRINE_C1; }
 
 function terrainAt(r, c) { return inBounds(r, c) ? terrain[idx(r, c)] : T.CLIFF; }
@@ -2176,9 +2232,16 @@ const WAVE_PERIOD = 30;
    never have to fill a board, only wall a route across it. Treat it as a
    starting point for any future resize, and re-measure. */
 const REFERENCE_COLS = 32;   // the board every number in this file was tuned against
-const ECON_SCALE = Number(window.__ECON_SCALE__ ?? Math.pow(COLS / REFERENCE_COLS, 1.5));
-const START_GOLD = Math.round(30 * ECON_SCALE), FIRST_WAVE_DELAY = 30, LOBBY_SECONDS = 20;
-const INCOME_PERIOD = 25, BASE_INCOME = Math.round(24 * ECON_SCALE);   // was 33 — balance audit: income was the flat snowball outpacing HP growth
+/* The purse rides the board, so these re-derive whenever the board does. */
+let ECON_SCALE, START_GOLD, BASE_INCOME, CREEP_HP_SCALE;
+function deriveEconomy() {
+  ECON_SCALE = Number(window.__ECON_SCALE__ ?? Math.pow(COLS / REFERENCE_COLS, 1.5));
+  START_GOLD = Math.round(30 * ECON_SCALE);
+  BASE_INCOME = Math.round(24 * ECON_SCALE);
+  CREEP_HP_SCALE = ECON_SCALE * WAVE_PRESSURE;
+}
+const FIRST_WAVE_DELAY = 30, LOBBY_SECONDS = 20;
+const INCOME_PERIOD = 25;   // was 33 — balance audit: income was the flat snowball outpacing HP growth
 const BOUNTY_MULT = 1;   // was 2 — kill-gold was the fattest early faucet (defense out-damaged threat ~5.7x)
 /* CREEP HP RIDES THE SAME SCALE AS GOLD.
    ECON_SCALE exists because a wider board needs a longer wall, and it doubled
@@ -2197,7 +2260,7 @@ const BOUNTY_MULT = 1;   // was 2 — kill-gold was the fattest early faucet (de
    the game harder" — raise it and every creep gets tougher without touching
    the purse. */
 const WAVE_PRESSURE = Number(window.__WAVE_PRESSURE__ ?? 1);
-const CREEP_HP_SCALE = ECON_SCALE * WAVE_PRESSURE;
+deriveEconomy();   // WAVE_PRESSURE has to exist first, so the seeding happens here
 /* INCOME HAS DIMINISHING RETURNS. Every send in the ladder pays for itself in
    100-235s and then prints forever with no cap, so income bought income and the
    curve went exponential while creep HP grew ~4%/wave: a player splitting gold
@@ -5709,8 +5772,14 @@ function buildOverlay() {
   html += overlayItem('ov-ship', N_DOOR_R, midC, '⛵<small>NORTH DOOR</small>');
   html += overlayItem('ov-ship ov-ship-player', S_DOOR_R, midC, `⛵<small id="player-ship-label">YOUR DOOR</small>`);
   html += overlayItem('ov-gate', RIVER_MID, midC, '✹<small>CREEP GATE</small>');
-  html += overlayItem('ov-shrine', (ROWS - 1) - (SHRINE_R0 + SHRINE_R1) / 2, midC, '✦<small>NORTH SHRINE</small>');
-  html += overlayItem('ov-shrine', (SHRINE_R0 + SHRINE_R1) / 2, midC, '✦<small>SOUTH SHRINE</small>');
+  /* THERE IS ONLY ONE SHRINE, AND THERE ALWAYS WAS.
+     Gene asked for "only one shrine". It turns out the map was drawing two and
+     the code only ever had one: isShrineCell tests the SOUTH pillar alone, so
+     the north label pointed at a wall you could not tap and that did nothing.
+     Your shrine is the near face of your own massif — tapping it opens the send
+     commands. The rival's massif is just rock, and now says so. */
+  html += overlayItem('ov-massif', (ROWS - 1) - (SHRINE_R0 + SHRINE_R1) / 2, midC, '▲<small>RIVAL MASSIF</small>');
+  html += overlayItem('ov-shrine', (SHRINE_R0 + SHRINE_R1) / 2, midC, '✦<small>YOUR SHRINE · TAP TO SEND</small>');
   const laneW = (LANE_WEST[0] + LANE_WEST[1]) / 2, laneE = (LANE_EAST[0] + LANE_EAST[1]) / 2;
   const nLane = (ROWS - 1) - (S_PILLAR_R0 + S_PILLAR_R1) / 2, sLane = (S_PILLAR_R0 + S_PILLAR_R1) / 2;
   /* The lane names are painted in their own colour now, so a label, the dashed
@@ -7280,7 +7349,7 @@ function renderLobby(force) {
         ${matchMode === 'survival' ? '' : column(foeHalf, 'Their side', sizeN)}
       </div>
       ${solo ? `<label class="lb-solo"><input type="checkbox" id="lb-solo" ${soloRules ? 'checked' : ''}>
-        <span><b>Solo rules</b> — sends only, no neutral waves, and a brutal rival. One player, one very hard opponent.</span></label>` : ''}
+        <span><b>Solo rules</b> — sends only, no neutral waves, a brutal rival, and a bigger board (${BOARD_SIZES.solo[0]}×${BOARD_SIZES.solo[1] * 2 + 5} against ${BOARD_SIZES.normal[0]}×${BOARD_SIZES.normal[1] * 2 + 5}). One player, one very hard opponent, more ground.</span></label>` : ''}
       <p class="lb-hint">Each slot holds one lane of the board and wears its colour. Set the slots, then start. A side of one holds the whole half; two split the edges; three take a lane each.</p>
       <div class="lb-races">${races.filter((r) => raceUnlocked(r.id)).map((r) => `
         <button class="lb-race ${r.id === selectedRace.id ? 'on' : ''}" data-lb-race="${r.id}" style="--race:${r.color}" title="${r.name} — ${r.trait}">
@@ -7311,7 +7380,10 @@ function renderLobby(force) {
   $('lb-ready').addEventListener('click', () => {
     if (!lobbyPhase) return closeLobby();
     if (mp.active) return mpHostStart();          // the host starts the whole room at once
-    if (applySoloRules()) log('Solo rules: sends only, and the rival is playing brutal.');
+    const solo = applySoloRules();
+    // the board is sized before anything is built on it
+    if (rebuildBoard(wantedBoardSize() || boardSizeNow)) log(`Board: ${COLS}x${ROWS} for this match.`);
+    if (solo) log('Solo rules: sends only, a brutal rival, and the larger board.');
     startBattle();
   });
 }
