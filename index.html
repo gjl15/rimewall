@@ -1865,6 +1865,15 @@ const SENDS = [
   { id:'miner', name:'Miner', symbol:'⛏', cost:20, income:5, hp:100, spd:1.9, armor:0, aClass:'unarmored', shrine:1 },
   { id:'stalker', name:'Prowler', symbol:'☠', cost:48, income:10, hp:265, spd:2.2, armor:3, aClass:'light', shrine:1 },
   { id:'wolfrider', name:'Fang Outrider', symbol:'◈', cost:126, income:26, hp:400, spd:2.5, armor:7, aClass:'medium', shrine:1 },
+  /* FORTIFIED, AND EARLY. The ladder had exactly one fortified send — the World
+     Titan, 15,000g at Shrine 5 — so for the whole early and mid game there was
+     no way to punish an element that folds to it. Eight of the ten do: Tech
+     x0.40, Poison x0.50, Electricity x0.50, Ice x0.55, Beam x0.60, Fire x0.65,
+     Gravity x0.70, Crystal x0.70. Only Stone (x1.50) and Earth (x1.55) want to
+     see one. That asymmetry is the point: a wall built for the last wave is the
+     wrong wall for this one, and the sender is the person who gets to say so.
+     They are slow, which is the cost — more time under the guns. */
+  { id:'hoverbarge', name:'Hoverbarge', symbol:'⬓', cost:140, income:28, hp:340, spd:2.0, armor:9, aClass:'fortified', shrine:1 },
   { id:'babydragon', name:'Drake Whelp', symbol:'▲', cost:40, income:8, hp:110, spd:2.2, armor:0, aClass:'light', air:true, shrine:1 },
   { id:'reptile', name:'Glacier Basilisk', symbol:'❄', cost:500, income:56, hp:782, spd:2.9, armor:10, aClass:'medium', shrine:2 },
   { id:'regenerator', name:'Mossback', symbol:'✚', cost:620, income:70, hp:430, spd:2.1, armor:6, aClass:'medium', role:'regenerator', shrine:2 },
@@ -1872,14 +1881,17 @@ const SENDS = [
   { id:'spirit', name:'Undying Shade', symbol:'❖', cost:1590, income:180, hp:1300, spd:2.9, armor:14, aClass:'unarmored', shrine:2 },
   { id:'bonecaller', name:'Bonecaller', symbol:'♻', cost:700, income:78, hp:620, spd:2.3, armor:8, aClass:'medium', role:'deathheal', shrine:2 },
   { id:'matureddragon', name:'Elder Drake', symbol:'▲', cost:800, income:90, hp:825, spd:2.9, armor:12, aClass:'light', air:true, shrine:2 },
+  { id:'ramhulk', name:'Ram Hulk', symbol:'⬓', cost:1450, income:165, hp:1500, spd:2.2, armor:13, aClass:'fortified', shrine:2 },
   { id:'totem', name:'Idol Bearer', symbol:'⬢', cost:3995, income:450, hp:2500, spd:3.0, armor:15, aClass:'heavy', shrine:3 },
   { id:'juggernaut', name:'Bulwark', symbol:'◆', cost:4600, income:520, hp:2200, spd:2.6, armor:14, aClass:'heavy', role:'juggernaut', shrine:3 },
   { id:'unholy', name:'Dread Knight', symbol:'♞', cost:5330, income:600, hp:2875, spd:3.1, armor:15, aClass:'heavy', shrine:3 },
   { id:'adultdragon', name:'Ancient Drake', symbol:'▲', cost:3200, income:360, hp:3000, spd:3.1, armor:20, aClass:'heavy', air:true, shrine:3 },
   { id:'wardbearer', name:'Ward Bearer', symbol:'⛊', cost:4200, income:470, hp:2600, spd:2.8, armor:14, aClass:'heavy', role:'deathshield', shrine:3 },
+  { id:'siegehulk', name:'Siege Hulk', symbol:'⬓', cost:4500, income:500, hp:3400, spd:2.4, armor:18, aClass:'fortified', shrine:3 },
   { id:'wraith', name:'Wraith Lord', symbol:'❖', cost:7000, income:760, hp:4600, spd:3.0, armor:18, aClass:'unarmored', role:'regenerator', shrine:4 },
   { id:'colossus', name:'Colossus', symbol:'◆', cost:8800, income:940, hp:6600, spd:2.6, armor:20, aClass:'heavy', role:'juggernaut', shrine:4 },
   { id:'stormdrake', name:'Storm Drake', symbol:'🐲', cost:9500, income:1020, hp:5800, spd:3.2, armor:20, aClass:'heavy', air:true, shrine:4 },
+  { id:'bastion', name:'Bastion', symbol:'⬓', cost:9200, income:990, hp:7600, spd:2.4, armor:22, aClass:'fortified', shrine:4 },
   { id:'aegisprime', name:'Aegis Prime', symbol:'⛨', cost:11000, income:1180, hp:7400, spd:2.7, armor:16, aClass:'light', role:'shieldbearer', shrine:5 },
   { id:'titan', name:'World Titan', symbol:'☗', cost:15000, income:1600, hp:12000, spd:2.7, armor:24, aClass:'fortified', role:'juggernaut', shrine:5 }
 ];
@@ -7786,7 +7798,9 @@ function towerStatLine(def) {
 }
 function sendStatLine(sd) {
   const tag = [sd.air ? 'air' : '', sd.role && sd.role !== 'standard' ? sd.role : ''].filter(Boolean).join(' ');
-  return `${sd.hp}hp · ${sd.armor || 0} arm · ${sd.spd} spd${tag ? ` · ${tag}` : ''}`;
+  // the armour CLASS decides whether a wall can hurt this at all, and it was
+  // the one stat the card did not print
+  return `${sd.hp}hp · ${sd.aClass || 'medium'} · ${sd.armor || 0} arm · ${sd.spd} spd${tag ? ` · ${tag}` : ''}`;
 }
 function wireSendCard(card) {
   const id = card.dataset.barSend;
