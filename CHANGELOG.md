@@ -7,6 +7,87 @@ environment, so every entry here was live the moment it was pushed.
 
 ---
 
+## 2026-09-09 (night) — Poison and Beam get an answer to a crowd, and a tap clears the board
+
+### The two elements that could only ever hit one creep
+
+Measured, Poison and Beam touched **exactly one creep at every rung of their
+ladders** — the only two elements in the game with no crowd answer at all, which
+is what put them bottom of the tier list. Both now have one, written to match
+what their cards already claimed:
+
+| | first tower hitting 2+ | was | widest | was |
+|---|---|---|---|---|
+| Poison | Blightspire **50g** | never | **9** | 1 |
+| Beam | Prism Lance **100g** | never | **3** | 1 |
+
+**Poison** keeps its venom either way — venom is race-keyed, so a poison tower
+poisons whatever its special says. Blightspire bursts, Mirelobber's sludge
+splashes, and Miasma Vent chokes a wide stretch of lane. All three were already
+described that way; only the code disagreed.
+
+**Beam** gets a new special, `beamline`: the ray burns everything it passes
+through on the way to its mark, at 45%. *"Cuts a line across the lane"* was
+printed on Starcutter's card. A line catches a lane rather than a blob, which is
+why its measured width is 3 where a splash tower's is 9 — that is the shape of
+the thing, not a shortfall. `beamLineR` is 0.55 cells, so it catches the lane it
+is aimed down and not the next one over.
+
+| | before | after |
+|---|---|---|
+| Poison | **C** | **B** |
+| Beam | **C** | **B** |
+
+### The tier list was rigged to always have a bottom two
+
+`tierOf` cut S/A/B/C by **rank position** — `i < 2 ? S : i < 5 ? A : i < 8 ? B :
+C` — so exactly two elements sat in C no matter how even the roster became.
+Buffing the bottom two just pushed two others down, forever. It cuts on **score
+thresholds** now, so a balanced roster can be all A and B with C empty, and C
+means "measurably behind the field" rather than "came last".
+
+### Tapping clears the board
+
+*"Clicking on a current unit or an area outside of the selected units or action
+should clear the board and allow you to see more — currently it's blocking
+spaces to build."*
+
+The inspect panel is most of a phone screen and it sits over the cells you are
+trying to build on. A bare-board tap used to drop the selection and close the
+rail drawer only, leaving the wisp panel and the command sheet covering the
+ground. It now puts all of them away. And tapping the tower you already have
+selected lets go of it — checked *after* the double-tap window, so tapping twice
+quickly still selects every like tower; this is the slower second tap, which is
+a person saying "I'm done here, show me the map".
+
+Verified on both layouts: selection cleared, ring down, panels closed.
+
+---
+
+### Where the roster stands
+
+    S   Fire        0.87
+    A   Earth 0.67   Crystal 0.67   Electricity 0.58
+    B   Poison 0.46  Gravity 0.41   Beam 0.32
+    C   Ice 0.29     Tech 0.19      Stone 0.17
+
+**The gap is Fire, not the bottom.** Fire scores 0.87 against a field whose next
+best is 0.67: crowd damage on all six rungs from a 10g tower, and it outlives
+everything else by three waves. Chasing it by buffing the other nine is how a
+roster ends up homogenised — every element with cheap splash and nothing to tell
+them apart. The lever worth pulling next is Fire's, and that is a decision, not
+a defect, so it is left alone here.
+
+Ice, Tech and Stone now sit in C on the threshold scale. All three share a death
+wave of 11, and that column is 25% of the score while being the least
+trustworthy input on the board — the regression bot builds ~22 towers and barely
+leaves tier 1, so it under-reads exactly the elements whose answer lives higher
+up the ladder. Before buffing those three, the honest move is a better measure
+of survival than that bot.
+
+
+---
+
 ## 2026-09-09 (later) — the panel that rebuilt itself under your finger
 
 *"When I upgrade I keep selling instead, buttons seem misaligned."* Both halves

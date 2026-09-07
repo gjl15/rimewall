@@ -91,14 +91,19 @@ const DIED = { Ice: 11, Fire: 15, Earth: 12, Tech: 11, Crystal: 14, Poison: 13, 
       + nReach(r.reach) * .15 + nLasts(r.died) * .25).toFixed(3);
   });
   rows.sort((a, b) => b.score - a.score);
-  const tierOf = (i) => (i < 2 ? 'S' : i < 5 ? 'A' : i < 8 ? 'B' : 'C');
+  /* TIERS CUT ON SCORE, NOT ON RANK. This used to be `i < 2 ? S : i < 5 ? A :
+     i < 8 ? B : C`, which pins exactly two elements in C however even the game
+     becomes — buffing the bottom two just pushes two others down, forever. On
+     thresholds, a balanced roster can be all A and B with C empty, and C means
+     "measurably behind the field" rather than "came last". */
+  const tierOf = (_, score) => (score >= .72 ? 'S' : score >= .5 ? 'A' : score >= .3 ? 'B' : 'C');
 
   const p = (s, n) => String(s).padEnd(n);
   console.log('RIMEWALL TIER LIST — measured, weighted value .35 / crowd access .25 / survival .25 / reach .15\n');
   console.log('  ' + p('', 4) + p('element', 13) + p('g per crowd dps', 17) + p('crowd from', 12) + p('widest', 8) + p('reach', 7) + p('lasts to', 9) + 'score');
   let last = '';
   rows.forEach((r, i) => {
-    const tier = tierOf(i);
+    const tier = tierOf(i, r.score);
     console.log('  ' + p(tier === last ? '' : tier + ' →', 4) + p(r.race, 13)
       + p(r.value.toFixed(2), 17) + p(r.crowdAt == null ? 'never' : r.crowdAt + 'g', 12)
       + p(r.widest, 8) + p(r.reach, 7) + p('wave ' + (r.died ?? '?'), 9) + r.score.toFixed(2));

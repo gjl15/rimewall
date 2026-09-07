@@ -141,6 +141,54 @@ const phone = { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isM
     console.log('  double tap -> selected ' + dbl.sel + ' then ' + dblAfter.sel + ' towers'
       + ' | gold ' + dbl.gold + ' -> ' + dblAfter.gold + (dblAfter.gold < dbl.gold ? '  <- IT SPENT GOLD instead of selecting' : '')
       + ' | levels bought: ' + dblAfter.lvl);
+    /* CLEARING THE BOARD. Gene: tapping a unit again, or bare ground, should
+       put the panels away so the cells underneath can be built on. Check both
+       gestures actually leave nothing covering the map. */
+    const openStuff = () => page.evaluate(() => ({
+      selected: selectedGroupKeys.length,
+      panelsUp: ['tower-details', 'wisp-panel', 'wisp-radial', 'command-sheet']
+        .filter((id) => { const el = document.getElementById(id); return el && !el.classList.contains('hidden'); }),
+      ring: !document.getElementById('action-ring')?.classList.contains('hidden'),
+      ghost: ghost ? ghost.r + ',' + ghost.c : null,
+      creeps: creeps.length,
+      selKey: selectedTowerKey,
+      selAt: (() => { const t = selectedTowerKey != null && towers.get(selectedTowerKey); return t ? t.r + ',' + t.c : null; })(),
+    }));
+    await tap(where.x, where.y); await page.waitForTimeout(500);
+    const opened = await openStuff();
+    // tap the SAME tower again, slowly, past the double-tap window
+    await page.waitForTimeout(600);
+    await tap(where.x, where.y); await page.waitForTimeout(500);
+    const afterSecond = await openStuff();
+    // and now bare ground, well away from any tower
+    await page.evaluate(() => { const t = makeTower(SOUTH_TOP + 6, 12, selectedRace.id, 1, 'player'); t.buildUntil = 0; if (!towers.has(t.key)) addTower(t); });
+    await tap(where.x, where.y); await page.waitForTimeout(400);
+    // pick a genuinely empty, in-bounds cell and confirm nothing else is on top
+    // of it — a bare-ground test that lands under a side panel proves nothing
+    const bare = await page.evaluate(() => {
+      const r = document.getElementById('fx-canvas').getBoundingClientRect();
+      /* A cell you CANNOT build on. On desktop, tapping bare buildable ground
+         places a tower — correct behaviour, but it masks the thing under test
+         by selecting the tower it just built. An unbuildable cell isolates the
+         clearing. */
+      for (let row = SOUTH_TOP + 8; row < SOUTH_BOT - 1; row += 1) {
+        for (let col = 4; col < COLS - 4; col += 1) {
+          if (towers.has(idx(row, col)) || !inBounds(row, col)) continue;
+          if (isBuildableCell(row, col)) continue;
+          const x = r.left + ((col + .5) / COLS) * r.width, y = r.top + ((row + .5) / ROWS) * r.height;
+          const top = document.elementFromPoint(x, y);
+          if (top && top.id === 'fx-canvas') return { x, y, row, col };
+        }
+      }
+      return null;
+    });
+    if (!bare) { console.log('  (could not find an uncovered empty cell to tap)'); }
+    if (bare) { await tap(bare.x, bare.y); await page.waitForTimeout(500); }
+    const afterBare = await openStuff();
+    console.log('  with a tower selected:      ' + JSON.stringify(opened));
+    console.log('  after tapping it again:     ' + JSON.stringify(afterSecond));
+    console.log('  after tapping bare ground:  ' + JSON.stringify(afterBare) + (bare ? '  at cell ' + bare.row + ',' + bare.col : ''));
+    console.log('  board clears: ' + ((afterSecond.selected === 0 && afterBare.selected === 0 && !afterBare.ring) ? 'YES' : 'NO'));
     console.log('  sell button survived 1.2s of ticking:', b.__identity === 'ORIGINAL' ? 'YES' : 'NO — the node was replaced under your finger');
     const moved = Object.keys(a).filter((k) => k !== '__identity' && a[k] !== b[k]);
     console.log('  buttons that moved on their own:', moved.length ? moved.join(', ') : 'none');

@@ -1346,8 +1346,14 @@ const TOWERS = {
   ],
   poison:[
     { name:'Venom Barb', cost:10, dmg:10, cd:1.25, range:7.8, special:'poison', desc:'Poison spikes slow and sicken.' },
-    { name:'Blightspire', cost:50, dmg:38, cd:1.0, range:7.8, special:'poison', desc:'Steady venom over a long reach.' },
-    { name:'Mirelobber', cost:150, dmg:130, cd:1.2, range:8.6, special:'poison', groundOnly:true, desc:'Flings sticky sludge far downrange. Ground only.' },
+    { name:'Blightspire', cost:50, dmg:38, cd:1.0, range:7.8, special:'smallsplash', desc:'Bursts of venom over a long reach, splashing whatever stands close.' },
+    /* POISON'S AREA RUNGS. Measured, Poison touched exactly one creep at every
+       rung in the ladder — the only elements with no crowd answer at all were
+       this and Beam, and both sat bottom of the tier list for it. Venom is
+       race-keyed, so a poison tower keeps poisoning whatever its special says:
+       these two can splash AND sicken, which is what "flings sticky sludge" and
+       "chokes lanes with gas" were describing the whole time. */
+    { name:'Mirelobber', cost:150, dmg:130, cd:1.2, range:8.6, special:'splash', groundOnly:true, desc:'Flings sticky sludge that bursts over everything downrange. Ground only.' },
     /* Was 45 dmg at 1.3s — 5.49 g/dps, the same mid-ladder dead rung Ice had.
        Its card already PROMISED it poisoned; special 'halve' meant it never did,
        because venom keyed on the special rather than the race. Venom is
@@ -1355,7 +1361,7 @@ const TOWERS = {
        like a tower you have to tech through. */
     { name:'Toxin Creeper', cost:190, dmg:190, cd:1.3, range:6.5, special:'halve', desc:'Halves a creep’s current HP and poisons it. Bosses resist.' },
     { name:'Carrion Totem', cost:230, dmg:305, cd:1.15, range:7.0, special:'poison', desc:'Grave rot in heavy doses.' },
-    { name:'Miasma Vent', cost:390, dmg:545, cd:.9, range:7.8, special:'poison', desc:'Chokes lanes with lethal gas.' }
+    { name:'Miasma Vent', cost:390, dmg:545, cd:.9, range:7.8, special:'meteor', desc:'Chokes a wide stretch of lane with lethal gas.' }
   ],
   stone:[
     { name:'Cairn', cost:10, dmg:14, cd:1.07, range:3.9, special:'crit', desc:'Cheap stones that can hit double.' },
@@ -1391,10 +1397,10 @@ const TOWERS = {
   beam:[
     { name:'Spotlamp', cost:10, dmg:1, cd:.1, range:9, special:'beam', desc:'A thin ray that never lets up. One damage a tick.' },
     { name:'Arclight', cost:40, dmg:2, cd:.055, range:9.4, special:'beam', desc:'Brighter, faster, still barely a scratch each tick.' },
-    { name:'Prism Lance', cost:100, dmg:3, cd:.028, range:9.8, special:'beam', desc:'A focused lance that holds its target down the lane.' },
-    { name:'Focal Array', cost:200, dmg:5, cd:.018, range:10.2, special:'beam', desc:'Mirrors stack the ray into a steady burn.' },
-    { name:'Starcutter', cost:285, dmg:8, cd:.018, range:10.6, special:'beam', desc:'Cuts a line across the lane and keeps cutting.' },
-    { name:'Aurora Lance', cost:350, dmg:11, cd:.018, range:11, special:'beam', desc:'Eleven a tick, forever, from most of the way across the map.' }
+    { name:'Prism Lance', cost:100, dmg:3, cd:.028, range:9.8, special:'beamline', desc:'A lance that burns straight through whatever stands in the way.' },
+    { name:'Focal Array', cost:200, dmg:5, cd:.018, range:10.2, special:'beamline', desc:'Mirrors stack the ray into a steady burn along its whole length.' },
+    { name:'Starcutter', cost:285, dmg:8, cd:.018, range:10.6, special:'beamline', desc:'Cuts a line across the lane and keeps cutting.' },
+    { name:'Aurora Lance', cost:350, dmg:11, cd:.018, range:11, special:'beamline', desc:'Eleven a tick, forever, through everything on the way, from most of the way across the map.' }
   ],
   gravity:[
     { name:'Gravity Well', cost:10, dmg:9, cd:.95, range:5.5, special:'warp', desc:'A single warped slug that drags its target to a crawl.' },
@@ -1479,6 +1485,10 @@ const TRAIT = {
      Bosses take a fraction, or a percentage DoT trivialises the health bar
      that makes them bosses. */
   poisonStackPct:.03, poisonDur:4, poisonSlow:20, dotCap:30, poisonBossMult:.35,
+  /* Beam's pierce: how wide the ray counts as, in cells, and what a creep caught
+     along it takes compared with the mark. .55 is a little over half a cell, so
+     a line of creeps in one lane is caught and the next lane over is not. */
+  beamLineR:.55, beamLineMult:.45,
   fireIgnitePct:.15, fireEruptMult:.5, fireEruptRadius:1.9,
   earthSplashRadius:1.5, earthSplashMult:.65, earthStunDirect:.18, earthStunSplash:.1,
   stoneCritChance:.25, stoneCritMult:2,
@@ -1588,6 +1598,7 @@ function specialBlurb(sp) {
     splinter:`A shard peels off into one neighbouring creep for ${pct(TRAIT.splinterMult)}.`,
     entangle:`Roots the target for ${TRAIT.entangleDur}s and targets BOSSES first. Bosses are slowed hard instead of rooted.`,
     beam:`A continuous ray rather than a volley: damage lands every frame, so the rate holds at any framerate.`,
+    beamline:`A continuous ray that PIERCES: full damage to its mark, and ${pct(TRAIT.beamLineMult)} to every creep the ray passes through on the way there.`,
     warp:`A single warped slug that drags its target to a crawl.` + gravTail,
     gravslam:`Single heavy pull that slams its target to the ground.` + gravTail,
     warppulse:`An AREA pulse: full damage to the lead creep and ${pct(TRAIT.gravPulseMult)} to at most ${TRAIT.gravPulseCap} more.` + gravTail,
@@ -3564,14 +3575,37 @@ function updateTower(tower, dt) {
       tx:mark.x, ty:mark.y, t:0, dur:projectileFlightTime(null) });
     return;
   }
-  if (beamStats.special === 'beam') {
+  if (beamStats.special === 'beam' || beamStats.special === 'beamline') {
     /* A ray, not a volley. At cd .018 a shot-based tower would queue ~55
        projectiles a second per tower; applying dmg/cd * dt instead gives the
        identical dps at any framerate, allocates nothing, and is what "strikes a
        beam down onto the creeps" actually looks like. */
     const mark = pickTarget(tower, beamStats);
     if (!mark) { tower.beamTo = null; return; }
-    applyDamage(mark, beamStats.dmg / beamStats.cd * dt, tower);
+    const tick = beamStats.dmg / beamStats.cd * dt;
+    applyDamage(mark, tick, tower);
+    /* A LANCE CUTS THROUGH WHAT IS IN THE WAY. Beam was the only element in the
+       game whose every rung touched exactly one creep, which is what put it
+       bottom of the tier list — and "cuts a line across the lane" was already
+       written on the card. The upper rungs now burn everything the ray passes
+       through on its way to the mark, at a fraction. Damage stays tiny per
+       tick; it is the reach and the line that make it worth its gold. */
+    if (beamStats.special === 'beamline') {
+      const tx = tower.c + .5, ty = tower.r + .5;
+      const dx = mark.x - tx, dy = mark.y - ty;
+      const len2 = dx * dx + dy * dy;
+      if (len2 > 1e-6) {
+        for (const other of creeps) {
+          if (other === mark || other.hp <= 0 || other.half !== mark.half) continue;
+          if (beamStats.groundOnly && other.air) continue;
+          // how far off the tower->mark segment this creep sits
+          const t = Math.max(0, Math.min(1, ((other.x - tx) * dx + (other.y - ty) * dy) / len2));
+          if (Math.hypot(other.x - (tx + dx * t), other.y - (ty + dy * t)) <= TRAIT.beamLineR) {
+            applyDamage(other, tick * TRAIT.beamLineMult, tower);
+          }
+        }
+      }
+    }
     tower.beamTo = { x:mark.x, y:mark.y }; tower.beamAt = simTime;
     return;
   }
@@ -4929,7 +4963,7 @@ function drawTower(ctx, tower) {
   // the ray is the attack itself, so it is drawn straight from the tower's live
   // target rather than queued as an effect — no allocation, and it cannot be
   // switched off with the decorative particles
-  if (stats.special === 'beam' && tower.beamTo && simTime - (tower.beamAt || 0) < .12) {
+  if ((stats.special === 'beam' || stats.special === 'beamline') && tower.beamTo && simTime - (tower.beamAt || 0) < .12) {
     ctx.save();
     ctx.strokeStyle = stats.color; ctx.globalAlpha = .5; ctx.lineWidth = 2.6;
     ctx.beginPath(); ctx.moveTo(x + CELL / 2, y + CELL / 2);
@@ -6647,6 +6681,16 @@ function handleBoardTap(event) {
       // double-tap: select every like tower (same element and tier) for batch actions
       selectedGroupKeys = [...towers.values()].filter((t) => isMine(t) && t.raceId === tower.raceId && t.tier === tower.tier).map((t) => t.key);
       log(`${selectedGroupKeys.length} × ${towerLiveStats(tower).name} selected — batch upgrade or sell from the panel.`);
+    } else if (selectedTowerKey === key && selectedGroupKeys.length === 1) {
+      /* Tap the tower you already have selected and it lets go, putting the
+         panels away with it. Checked AFTER the double-tap window, so tapping
+         twice quickly still selects every like tower — this is the slower
+         second tap, which is a person saying "I'm done here, show me the map".*/
+      lastTapKey = null;
+      selectedTowerKey = null; selectedGroupKeys = []; inspectEntity = null;
+      renderTowerDetails(); renderRing(); railClose(); closeWispMenus();
+      if (touchUI()) closeCommandSheet();
+      return;
     } else {
       selectedGroupKeys = [key];
     }
@@ -6683,9 +6727,17 @@ function handleBoardTap(event) {
       return;
     }
   }
+  /* TAPPING BARE BOARD CLEARS THE BOARD. The inspect panel and the sheet are
+     most of a phone screen, and they sit over the cells you are trying to build
+     on — so the gesture for "show me the map again" has to actually put them
+     away. It used to drop the selection and close the rail drawer only, leaving
+     the wisp panel and the command sheet covering the ground. */
   lastTapKey = null;
-  selectedTowerKey = null; selectedGroupKeys = []; renderTowerDetails();
-  railClose();   // tapping bare board means you are placing — get the drawer out of the way
+  selectedTowerKey = null; selectedGroupKeys = []; inspectEntity = null;
+  renderTowerDetails(); renderRing();
+  railClose();
+  closeWispMenus();
+  if (touchUI()) closeCommandSheet();
   if (matchOver) return;
   const t = terrainAt(cell.r, cell.c);
   if (ghost && (t !== T.FLOOR || !isPlayerBuildRow(cell.r))) { ghost = null; ghostChips = []; }
