@@ -160,6 +160,33 @@ const boot = async (page, name) => {
     return { mine:mpTeamLives(mp.team), theirs:mpTeamLives(mpFoeHalf()), sizes:[mpSeatsInPlay('south').length, mpSeatsInPlay('north').length] };
   });
   console.log('2v3 pools:', JSON.stringify(uneven), '(want equal)');
+
+  /* THE WATCHED BOARD MUST LOOK ALIVE. Gene: "it's still hard to see all the
+     effects." Positions alone made a team-mate's board a spreadsheet. Fire a
+     few events on the host's board and check the guest, watching it, turns them
+     into tracers, bursts and puffs in mirrored coordinates. */
+  await guest.evaluate(() => { matchOver = false; battleRunning = true; mp.myLeaks = 0; mpSyncTeamLives(); mpSetViewSeat('south:0'); });
+  const emitted = await host.evaluate(() => {
+    matchOver = false; battleRunning = true;
+    mp.fxOut = [];
+    mpEmit([0, 4, 60, 8, 62, 0, 5]);      // a shot from (4,60) at (8,62)
+    mpEmit([1, 8, 62, 0, 1]);             // a big impact there
+    mpEmit([2, 8, 62]);                   // and a kill
+    mpEmit([3, 25, 71]);                  // plus a leak at the door
+    const fx = mp.fxOut; mp.fxOut = [];
+    mpSend({ t:'snap', sid:mp.sid, seat:mpMySeatKey(), towers:[], creeps:[], fx });
+    return fx.length;
+  });
+  await guest.waitForTimeout(90);
+  const replayed = await guest.evaluate(() => ({
+    watching:mp.viewSeat,
+    fx:mirrorFx.map((f) => f.kind),
+    // mirrored: a shot from (4,60) should arrive at (COLS-4, ROWS-60)
+    firstShot:mirrorFx.filter((f) => f.kind === 'shot').map((f) => [f.x1, f.y1, f.x2, f.y2])[0],
+    expect:[COLS - 4, ROWS - 60, COLS - 8, ROWS - 62],
+  }));
+  console.log('host emitted', emitted, 'events; guest replayed', JSON.stringify(replayed));
+  console.log('  mirrored correctly:', JSON.stringify(replayed.firstShot) === JSON.stringify(replayed.expect));
   await guest.screenshot({ path: OUT + 'mp-watch-guest.png' });
   await host.screenshot({ path: OUT + 'mp-live-host.png' });
   const errs = hErr.concat(gErr);

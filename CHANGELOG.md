@@ -7,6 +7,47 @@ environment, so every entry here was live the moment it was pushed.
 
 ---
 
+## 2026-09-07 (night, later) — a watched board that looks alive
+
+*"It's still hard to see all the effects. Why can't me and Abdy share a live
+experience of the game? Is it too hard to do that?"*
+
+Not too hard. It was that the only thing crossing the wire was **positions** —
+tower squares and creep dots, three times a second. Every tracer, burst, damage
+number and death puff is generated locally from events the other client never
+heard about, so a team-mate's board rendered as a spreadsheet while their actual
+game was full of combat.
+
+So the events are sent now: shots, impacts, kills and leaks, as compact arrays
+alongside the snapshot, capped at 36 per message so a hundred-tower wall cannot
+flood the relay. The viewer replays them in mirrored coordinates as tracers
+flying the arc the real projectile flew, impact rings that scale with the blast,
+kill puffs and leak pulses.
+
+**This is replay, not simulation.** Nothing downstream reads it, so it cannot
+desync a match — which is exactly why it is the right tier to build first.
+
+Verified across two clients: the host emits one of each kind, and the guest,
+watching that seat, produces all four with the shot mirrored to the cell it
+should be (a shot from 4,60 arrives at 47,13 on a 51×73 board).
+
+### Why not go further, for now
+Three tiers exist and this is the middle one.
+
+| tier | what you get | cost |
+|---|---|---|
+| positions only (before) | shapes moving | free |
+| **events replayed (now)** | combat you can read | small, no desync risk |
+| every client simulates every board | the real thing, identical everywhere | 4× the CPU on a phone, a fixed timestep, an input-delay queue, and a desync ends the match |
+
+The third tier is genuinely possible — the simulation is already driven by a
+seeded PRNG and already steps at a near-fixed 1/30 — but a 2v2 means simulating
+four boards per client, and the per-creep A\* is already the thing that gates
+the board size. That is a project, not an evening. This gets most of the feel
+for none of the risk.
+
+---
+
 ## 2026-09-07 (night) — three things the first live 2v2 found
 
 Gene and Abdy played the first real team game. Everything below is from that.
