@@ -1451,7 +1451,28 @@ const TOWERS = {
   ]
 };
 const LASER_TOWER = { name:'Laser Cannon', cost:650, dmg:300, cd:.2, range:20, special:'laser', desc:'The forbidden capstone: crits, slows, and poisons at extreme speed.' };
-function towerListFor(raceId) { return [...(TOWERS[raceId] || TOWERS.ice), LASER_TOWER]; }
+/* SOMETHING TO PUT IN FRONT. Once attackers exist, the front row stops being
+   wasted space and becomes a job: soak the swings so the towers behind keep
+   firing. A tower that deals no damage at all would be a strange buy in a game
+   without attackers, and is the obvious buy in one with them. Lumber-gated so
+   it competes with a shrine level, and available to every element because a
+   wall is not an element. */
+const BULWARK_TOWER = { name:'Bulwark Stake', cost:120, lumber:1, dmg:0, cd:1, range:0, special:'bulwark', hpMult:14,
+  desc:'No attack at all — a post that soaks attackers. Fourteen times the hit points of an ordinary tower.' };
+function towerListFor(raceId) { return [...(TOWERS[raceId] || TOWERS.ice), LASER_TOWER, BULWARK_TOWER]; }
+/* HIT POINTS, AS A REAL NUMBER YOU CAN BUILD AROUND.
+   A tower used to take a flat 4 + tier swings, each swing a hard-coded 1. With
+   attackers on the ladder that had to become something a person can plan
+   against, and Gene's constraint was explicit: a tower must take MORE
+   punishment than before, never less. So a swing now carries damage, an
+   ordinary creep's swing is worth exactly what it used to be (one twelfth of a
+   tier-0 tower), and LEVELS ADD HIT POINTS — a levelled front row genuinely
+   tanks, which is the strategy this is meant to open up. */
+const SWING_DMG = 12;
+function towerMaxHp(def, tier, level) {
+  const base = (4 + tier) * SWING_DMG * (def && def.hpMult ? def.hpMult : 1);
+  return Math.round(base * (1 + .35 * (level || 0)));
+}
 
 /* classic-style armor: reduction = a×0.06 / (1 + a×0.06); race attack bonuses vs
    armor classes follow the source map's design notes. Poison/crystal/laser are
@@ -1650,6 +1671,7 @@ function specialBlurb(sp) {
     shatter:`+${Math.round((TRAIT.shatterMult - 1) * 100)}% against anything already slowed or frozen — and Ice slows everything.`,
     splinter:`A shard peels off into one neighbouring creep for ${pct(TRAIT.splinterMult)}.`,
     entangle:`Roots the target for ${TRAIT.entangleDur}s and targets BOSSES first. Bosses are slowed hard instead of rooted.`,
+    bulwark:`No attack at all. It exists to be hit: ${BULWARK_TOWER.hpMult}x the hit points of an ordinary tower, so the front row can soak attackers while the towers behind keep firing.`,
     beam:`A continuous ray rather than a volley: damage lands every frame, so the rate holds at any framerate.`,
     beamline:`A continuous ray that PIERCES: full damage to its mark, and ${pct(TRAIT.beamLineMult)} to every creep the ray passes through on the way there.`,
     warp:`A single warped slug that drags its target to a crawl.` + gravTail,
@@ -1668,8 +1690,10 @@ function towerDef(raceId, tier) {
   const list = towerListFor(raceId);
   const def = list[Math.min(tier, list.length - 1)];
   const race = races.find((item) => item.id === raceId) || races[0];
-  const isLaser = def === LASER_TOWER;
-  return { ...def, raceId:race.id, tier, color:isLaser ? '#ff5f8f' : race.color, symbol:isLaser ? '✦' : race.symbol };
+  const isLaser = def === LASER_TOWER, isWall = def === BULWARK_TOWER;
+  return { ...def, raceId:race.id, tier,
+    color:isLaser ? '#ff5f8f' : isWall ? '#9aa7bd' : race.color,
+    symbol:isLaser ? '✦' : isWall ? '⬛' : race.symbol };
 }
 /* Level upgrades: +15% damage and +0.25 range per level (max +3).
    Tier upgrades: pay the price difference to turn a tower into the next one. */
@@ -2732,7 +2756,7 @@ function applyGlobalPriority(next) {
 function makeTower(r, c, raceId, tier, owner) {
   const def = towerDef(raceId, tier);
   const buildTime = 1.2 + tier * .4;   // classic-style construction; canceling during it refunds fully
-  return { key:idx(r, c), r, c, raceId, tier, level:0, owner, cooldown:0, priority:owner === 'player' ? globalPriority : 'first', kills:0, invested:def.cost, placedAt:simTime, buildTime, buildUntil:simTime + buildTime, blockHp:4 + tier, blockMaxHp:4 + tier, underAttack:0 };
+  return { key:idx(r, c), r, c, raceId, tier, level:0, owner, cooldown:0, priority:owner === 'player' ? globalPriority : 'first', kills:0, invested:def.cost, placedAt:simTime, buildTime, buildUntil:simTime + buildTime, blockHp:towerMaxHp(def, tier, 0), blockMaxHp:towerMaxHp(def, tier, 0), underAttack:0 };
 }
 function addTower(tower) { towers.set(tower.key, tower); towersVersion += 1; refreshRouteDebug(); }
 function removeTower(key) { towers.delete(key); towersVersion += 1; if (selectedTowerKey === key) selectedTowerKey = null; selectedGroupKeys = selectedGroupKeys.filter((k) => k !== key); refreshRouteDebug(); }
@@ -3026,7 +3050,7 @@ function updateCreep(creep, dt) {
     creep.attackClock -= dt;
     if (creep.attackClock <= 0) {
       creep.attackClock = .5;
-      tower.blockHp -= (creep.breakPower || 1);
+      tower.blockHp -= SWING_DMG * (creep.breakPower || 1);
       tower.underAttack = now + .6;
       pushFx({ kind:'towerhit', x:tower.c + .5, y:tower.r + .5, until:now + .25 });
       if (tower.blockHp <= 0) {
@@ -3064,7 +3088,7 @@ function updateCreep(creep, dt) {
       if (d < nd) { nd = d; near = t; }
     });
     if (near) {
-      log(`${creep.name} is tearing into ${towerDef(near.raceId, near.tier).name} (${near.blockHp} hits left).`);
+      log(`${creep.name} is tearing into ${towerDef(near.raceId, near.tier).name} (${Math.max(0, Math.round(near.blockHp))} HP left, ${SWING_DMG * (creep.breakPower || 1)} a swing).`);
       creep.state = 'attack'; creep.blockTargetKey = near.key; creep.attackClock = .4;
       near.blockingAt = simTime;
       return;
@@ -3073,7 +3097,7 @@ function updateCreep(creep, dt) {
   if (!ensurePath(creep)) {
     const blocker = nearestBlockingTower(creep);
     if (blocker) {
-      if (creep.state !== 'attack') log(`${creep.name} is hard-blocked and attacking ${towerDef(blocker.raceId, blocker.tier).name} (${blocker.blockHp} hits left).`);
+      if (creep.state !== 'attack') log(`${creep.name} is hard-blocked and attacking ${towerDef(blocker.raceId, blocker.tier).name} (${Math.max(0, Math.round(blocker.blockHp))} HP left).`);
       creep.state = 'attack'; creep.blockTargetKey = blocker.key; creep.attackClock = .4;
       blocker.blockingAt = simTime;   // drives the red blocking marker on the board
     }
@@ -6453,8 +6477,9 @@ function renderTowerList() {
   $('tower-list').innerHTML = towerListFor(raceId).map((entry, tier) => {
     const def = towerDef(raceId, tier);
     const isLaser = def.name === 'Laser Cannon';
+    const lum = def.lumber || (isLaser ? 1 : 0);
     return `<button class="tower-row ${tier === selectedTowerTier ? 'selected' : ''} ${isLaser ? 'laser-row' : ''}" data-tower="${tier}">
-      <span><strong>${def.name}</strong><small>${def.desc}</small><small class="tower-stats">${def.dmg} dmg • ${def.range.toFixed(1)} range • ${attackSpeedText(def)} • ${effectiveDps(def).toFixed(0)} dps${def.raceId === 'poison' ? ' (venom)' : ''}${def.special ? ' • ' + def.special : ''}${def.groundOnly ? ' • NO AIR' : ''}</small><small class="tower-stats profile-line">${attackProfileText(raceId, def)}</small></span><b>${def.cost}g${isLaser ? ' +1🪵' : ''}</b></button>`;
+      <span><strong>${def.name}</strong><small>${def.desc}</small><small class="tower-stats">${def.dmg} dmg • ${def.range.toFixed(1)} range • ${attackSpeedText(def)} • ${effectiveDps(def).toFixed(0)} dps${def.raceId === 'poison' ? ' (venom)' : ''}${def.special ? ' • ' + def.special : ''}${def.groundOnly ? ' • NO AIR' : ''}</small><small class="tower-stats profile-line">${attackProfileText(raceId, def)}</small></span><b>${def.cost}g${lum ? ` +${lum}🪵` : ''}</b></button>`;
   }).join('');
   document.querySelectorAll('[data-tower]').forEach((button) => button.addEventListener('click', () => {
     selectedTowerTier = Number(button.dataset.tower);
@@ -6565,7 +6590,8 @@ function towerAction(kind) {
       }
       player.gold -= up.cost; t.invested = up.cost;   // old investment forfeit — the space premium
       t.tier += 1; t.level = 0;
-      t.blockHp = t.blockMaxHp = 4 + t.tier;
+      { const was = t.blockMaxHp || 1, next = towerMaxHp(towerDef(t.raceId, t.tier), t.tier, t.level || 0);
+        t.blockHp = Math.round((t.blockHp / was) * next); t.blockMaxHp = next; }
       done += 1; logUpgrade(t.tier);
     }
     const tierWanted = group.filter((t) => towerTierUp(t)).length;
@@ -6708,7 +6734,7 @@ function renderTowerDetails() {
       ${alike > 1 ? `<button id="td-selectall" class="ghost-button td-wide">⧉ Select all ${alike} ${stats.name}${many ? ` (${group.length} selected)` : ''}</button>` : ''}
     </div>` : ''}
     <p class="td-desc">${many ? 'Double-tap selected every like tower.' : `${stats.desc} ${specialBlurbs[stats.special] || ''}`}</p>
-    <div class="td-stats"><span>DMG <b>${stats.dmg}</b></span><span>RANGE <b>${stats.range.toFixed(1)}</b></span><span>SPEED <b>${attackSpeedText(stats)}</b></span><span>DPS <b>${effectiveDps(stats, tower.raceId).toFixed(0)}</b></span></div>
+    <div class="td-stats"><span>DMG <b>${stats.dmg}</b></span><span>RANGE <b>${stats.range.toFixed(1)}</b></span><span>SPEED <b>${attackSpeedText(stats)}</b></span><span>DPS <b>${effectiveDps(stats, tower.raceId).toFixed(0)}</b></span><span>HP <b>${Math.max(0, Math.round(tower.blockHp))}/${tower.blockMaxHp}</b></span></div>
     <p class="td-desc profile-line">${attackProfileText(tower.raceId, stats)}</p>
     ${isYours ? boltPanelHtml(group) : ''}`;
   $('td-close').addEventListener('click', () => { selectedTowerKey = null; selectedGroupKeys = []; renderTowerDetails(); });
@@ -6731,7 +6757,7 @@ function renderSendPanel() {
   $('send-list').innerHTML = SENDS.map((send) => `
     <button class="send-card" data-send="${send.id}"><span class="send-icon">${send.air ? '🐉' : send.symbol}</span>
       <div><strong>${send.name}${send.air ? ' <em class="air-tag">AIR</em>' : ''}${send.attacker ? ' <em class="atk-tag">ATTACKER</em>' : ''}</strong>
-      <small data-send-note="${send.id}">${send.attacker ? `<b style="color:#ff9faf">no income</b> • breaks towers (${send.breakPower} hits a swing)` : `+${send.income} income`}</small>
+      <small data-send-note="${send.id}">${send.attacker ? `<b style="color:#ff9faf">no income</b> • breaks towers · ${SWING_DMG * send.breakPower} damage a swing` : `+${send.income} income`}</small>
       <small class="send-stats">${sendShownHp(send)} HP • ${send.spd.toFixed(1)} spd • ${send.armor} armor (${send.aClass})</small></div><b>${send.cost}g${send.lumber ? ` +${send.lumber}🪵` : ''}</b></button>`).join('');
   document.querySelectorAll('[data-send]').forEach((button) => button.addEventListener('click', () => {
     const send = SENDS.find((item) => item.id === button.dataset.send);
@@ -6957,7 +6983,8 @@ function buildAt(cell) {
   const raceId = currentBuildRaceId();
   const def = towerDef(raceId, selectedTowerTier);
   if (player.gold < def.cost) return log(`Not enough gold — ${def.name} costs ${def.cost}g.`);
-  if (def.name === 'Laser Cannon' && player.lumber < 1) return log('The Laser Cannon costs 650g + 1 lumber, as in the original map.');
+  const lumberCost = def.lumber || (def.name === 'Laser Cannon' ? 1 : 0);
+  if (lumberCost && player.lumber < lumberCost) return log(`${def.name} costs ${def.cost}g + ${lumberCost} lumber.`);
   /* A TOWER THAT SEALS THE LANE IS NEVER PLACED. It used to go down, take your
      gold, break the route, and leave you a few seconds to spot it and undo — a
      race that is hard on a desktop and unwinnable on a phone, which is exactly
@@ -6977,7 +7004,7 @@ function buildAt(cell) {
   }
   player.gold -= def.cost;
   pushFx({ kind:'num', x:cell.c + .5, y:cell.r + .25, text:`-${def.cost}g`, until:simTime + .8, color:'#ff9f6e' });
-  if (def.name === 'Laser Cannon') { player.lumber -= 1; player.lumberSpent += 1; if (player.lumberSpent >= 3) award('lumberjack'); renderTowerList(); }
+  if (lumberCost) { player.lumber -= lumberCost; player.lumberSpent += lumberCost; if (player.lumberSpent >= 3) award('lumberjack'); renderTowerList(); }
   questEvent('architect');
   const placed = makeTower(cell.r, cell.c, raceId, selectedTowerTier, 'player');
   placed.seq = ++buildSeq;
