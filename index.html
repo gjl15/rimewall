@@ -557,6 +557,7 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
    took row two, Sell included, 9px up the screen with it. Measured; it is the
    last few pixels of the same bug that sold a base. */
 .td-actions { display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:52px; gap:8px; margin-top:8px; }
+.td-actions .td-wide { grid-column:1 / -1; }
 .td-actions button { display:flex; align-items:center; justify-content:center; overflow:hidden; width:auto; height:52px; min-height:0; margin:0; padding:6px 8px; font-size:11px; line-height:1.2; text-align:center; }.send-card > div { flex:1; }.send-card strong,.send-card small { display:block; }.send-card strong { font-size:10px; }.send-card small { margin-top:3px; color:#8995b4; font-size:9px; }.send-card b { color:#f5d36d; font:10px 'DM Mono',monospace; }.send-icon { display:grid; place-items:center; width:28px; height:28px; border-radius:7px; color:#ff9faf; background:#ff8a9a16; }.hint-box { margin-top:22px; padding:12px; border-left:2px solid #77d6ff; background:#0c1526; }.hint-box span { color:#77d6ff; font:500 9px 'DM Mono',monospace; letter-spacing:.13em; }.hint-box p { margin-top:7px; color:#93a0be; font-size:10px; line-height:1.5; }
 .income-callout { margin:0 0 10px; padding:9px; border:1px solid #385848; border-radius:8px; background:#12271f; }.income-callout strong,.income-callout span { display:block; }.income-callout strong { color:#9de4b5; font-size:10px; }.income-callout span { margin-top:3px; color:#779d89; font-size:9px; line-height:1.35; }
 @media (max-width:900px) { .race-grid { grid-template-columns:repeat(2,1fr); }.battle-content { grid-template-columns:1fr; }.battle-main { min-width:0; }.map-viewport { height:600px; } }
@@ -716,7 +717,11 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
 .arena .quick-send { display:none !important; }
 .arena .wisp { right:max(10px, env(safe-area-inset-right)); bottom:calc(140px + env(safe-area-inset-bottom)); }
 /* P1 — screen-space action ring (fixed px, fixed angular slots) */
-.action-ring { position:absolute; z-index:34; width:0; height:0; pointer-events:none; }
+/* Above the wisp panel (182), not below it. At z-index 34 the ring was drawn
+   under the inspect panel on a phone: all four buttons were VISIBLE and none of
+   them could be pressed, because the panel's own box sat over them and took
+   every tap. Measured — each ring button's centre resolved to div.wp-detail. */
+.action-ring { position:absolute; z-index:190; width:0; height:0; pointer-events:none; }
 .action-ring.hidden { display:none; }
 .ring-btn { position:absolute; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0; width:46px; height:46px; margin:-23px 0 0 -23px; border-radius:50%; border:2px solid var(--rc,#77d6ff); background:#0d1424f2; color:var(--rc,#77d6ff); font-size:15px; pointer-events:auto; box-shadow:0 4px 14px #000a; }
 .ring-btn i { font:700 7px 'DM Mono',monospace; font-style:normal; letter-spacing:.04em; }
@@ -782,6 +787,7 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 .wisp-panel .wp-act { display:flex; align-items:center; justify-content:center; overflow:hidden; height:50px; padding:6px 8px; border:1px solid #2c4a7a; border-radius:9px; background:#111a30; color:#fff; font:700 12px 'DM Mono',monospace; text-align:center; }
 /* one line, always — a title that wraps moves the buttons under it */
 .wisp-panel .wp-title { overflow:hidden; margin-top:2px; color:#dbe4fa; font:12px 'DM Mono',monospace; white-space:nowrap; text-overflow:ellipsis; }
+.wisp-panel .wp-wide { grid-column:1 / -1; border-color:#4a3f7a; color:#c9b6ff; }
 .wisp-panel .wp-sell { border-color:#5a2f3a; color:#ff9faf; }
 .wisp-panel .wp-sell.armed { border-color:#ff6b81; background:#3a1420; color:#ffd0d8; }
 /* slim send rail = the command-bar in arena when not staging a ghost */
@@ -5786,12 +5792,19 @@ function renderRing() {
   x = Math.min(vr.width - pad - RAD, Math.max(pad + RAD, x));
   y = Math.min(vr.height - pad - RAD, Math.max(pad + RAD, y));
   ring.style.left = `${x}px`; ring.style.top = `${y}px`;
-  const sig = [mode, tower ? `${tower.key}:${tower.level}:${tower.tier}:${tower.priority}` : `g${cell.r},${cell.c}:${selectedTowerTier}`, Math.floor(player.gold / 10)].join('|');
+  const sig = [mode, tower ? `${tower.key}:${tower.level}:${tower.tier}:${tower.priority}` : `g${cell.r},${cell.c}:${selectedTowerTier}`,
+    Math.floor(player.gold / 10), selectedGroupKeys.length, pendingSell ? 1 : 0].join('|');
   if (ring._sig === sig) { ring.classList.remove('hidden'); return; }
   ring._sig = sig;
   ring.classList.remove('hidden');
   // fixed angular slots forever: ✓/⏫ right, ✖/sell left, level top, target bottom (R10)
-  const slots = { right:[RAD, 0], left:[-RAD, 0], top:[0, -RAD], bottom:[0, RAD] };
+  /* Four cardinal slots, plus one on the diagonal for Select all. Batch select
+     used to be a double-tap, which on a phone is a coin toss — too slow and it
+     is two separate taps, too fast and the first has not finished opening what
+     the second lands in. A button cannot be mistimed. The diagonal keeps the
+     four you press constantly exactly where they have always been. */
+  const DIAG = Math.round(RAD * .72);
+  const slots = { right:[RAD, 0], left:[-RAD, 0], top:[0, -RAD], bottom:[0, RAD], topleft:[-DIAG, -DIAG] };
   let btns = [], label = '';
   if (mode === 'ghost') {
     const def = towerDef(currentBuildRaceId(), selectedTowerTier);
@@ -5804,12 +5817,16 @@ function renderRing() {
     btns = [{ slot:'left', glyph:'↩', tag:`+${towerSellValue(tower)}g`, color:'#ffd86b', act:'t-cancel' }];
     label = `undo — full refund (${Math.max(0, Math.ceil(REFUND_GRACE - (simTime - tower.placedAt)))}s)`;
   } else {
+    const alike = [...towers.values()].filter((t) => isMine(t) && t.raceId === tower.raceId && t.tier === tower.tier).length;
+    const many = selectedGroupKeys.length > 1;
+    const armed = many && pendingSell && pendingSell.sig === selectionSig(selectionTowers().filter(isMine)) && simTime - pendingSell.at < SELL_CONFIRM_WINDOW;
     btns = [
       { slot:'top', glyph:'⬆', tag:'LVL', color:'#8fe6b8', act:'t-level' },
       { slot:'right', glyph:'⏫', tag:'TIER', color:'#77d6ff', act:'t-tier' },
-      { slot:'left', glyph:'💰', tag:`+${towerSellValue(tower)}`, color:'#ff9faf', act:'t-sell' },
+      { slot:'left', glyph:armed ? '⚠' : '💰', tag:armed ? 'SURE?' : `+${towerSellValue(tower)}`, color:armed ? '#ff6b81' : '#ff9faf', act:'t-sell' },
       { slot:'bottom', glyph:'🎯', tag:tower.priority.toUpperCase().slice(0, 5), color:'#ffd86b', act:'t-priority' },
     ];
+    if (alike > 1) btns.push({ slot:'topleft', glyph:'⧉', tag:many ? `${selectedGroupKeys.length}` : `ALL ${alike}`, color:'#c9b6ff', act:'t-selectall' });
   }
   ring.innerHTML = btns.map((b) => `<button class="ring-btn" style="--rc:${b.color}; left:${slots[b.slot][0]}px; top:${slots[b.slot][1]}px" data-ring="${b.act}">${b.glyph}${b.tag ? `<i>${b.tag}</i>` : ''}</button>`).join('')
     + (label ? `<span class="ring-label" style="left:0; top:${-RAD - 34}px">${label}</span>` : '');
@@ -6551,6 +6568,17 @@ function towerAction(kind) {
     player.gold += refund;
     selectedGroupKeys = []; selectedTowerKey = null;
     log(`${n > 1 ? `${n} towers` : 'Tower'} sold for ${refund}g — ↩ undo for ${SELL_UNDO_WINDOW}s. ${cachedRouteText}.`);
+  } else if (kind === 'selectall') {
+    /* Double-tap was the only way to batch-select, and a double-tap on a phone
+       is a coin toss: too slow and it is two taps, too fast and the first one
+       has not finished opening the panel it lands in. A button says what it
+       does and cannot be mistimed. */
+    const like = [...towers.values()].filter((t) => isMine(t) && t.raceId === group[0].raceId && t.tier === group[0].tier);
+    selectedGroupKeys = like.map((t) => t.key);
+    selectedTowerKey = selectedGroupKeys[0];
+    pendingSell = null;   // a changed selection cancels any armed sell
+    log(`${like.length} × ${towerLiveStats(group[0]).name} selected — upgrades and sells now apply to all of them.`);
+    showToast(`<b>${like.length} selected</b><span>every ${towerLiveStats(group[0]).name} you own</span>`);
   } else if (kind === 'priority') {
     const next = priorities[(priorities.indexOf(group[0].priority) + 1) % priorities.length];
     // retargeting by hand LOCKS a tower against the global switch; FIRST releases it
@@ -6595,6 +6623,7 @@ function renderTowerDetails() {
   const tierCostAll = tierable.reduce((sum, t) => sum + towerTierUp(t).cost, 0);
   const sellAll = group.reduce((sum, t) => sum + towerSellValue(t), 0);
   const graceNote = !many && fullRefund(tower) ? ' • undo, full refund' : many ? '' : ' • 75%';
+  const alike = [...towers.values()].filter((t) => isMine(t) && t.raceId === tower.raceId && t.tier === tower.tier).length;
   const sellArmed = many && pendingSell && pendingSell.sig === selectionSig(group) && simTime - pendingSell.at < SELL_CONFIRM_WINDOW;
   const sellLabel = sellArmed ? `⚠ Confirm — sell all ${group.length}` : `Sell${many ? ' all' : ''} ${sellAll}g${graceNote}`;
   const laserNext = towerTierUp(tower)?.next.name === 'Laser Cannon';
@@ -6613,7 +6642,7 @@ function renderTowerDetails() {
      flags on the buttons that are already there. renderCommandSheet has done
      this for a while — the same guard, arrived at the same way. */
   const sig = [tower.key, group.map((t) => t.key).join(','), tower.level, tower.tier, tower.priority,
-    tower.raceId, isYours, upgradable.length, tierable.length].join('|');
+    tower.raceId, isYours, upgradable.length, tierable.length, alike > 1].join('|');
   if (panel._sig === sig && panel._built) {
     const setBtn = (id, off, text) => { const b = $(id); if (!b) return; b.disabled = !!off; if (text != null && b.textContent !== text) b.textContent = text; };
     setBtn('td-level', levelBlocked, !upgradable.length ? 'Max level' : many ? `Upgrade all • ${levelCostAll}g` : `Upgrade level ${levelCostAll}g`);
@@ -6640,6 +6669,7 @@ function renderTowerDetails() {
       <button id="td-tier" class="action-button td-tier" ${tierBlocked ? 'disabled' : ''}>${!tierable.length ? 'Max tier' : `→ ${towerTierUp(tower)?.next.name || 'next tier'}${many ? ` all • ${tierCostAll}g` : ` ${tierCostAll}g`}${laserNext ? ' +1🪵' : ''}`}</button>
       <button id="td-priority" class="ghost-button">Target: ${tower.priority}</button>
       <button id="td-sell" class="ghost-button td-sell-danger ${sellArmed ? 'td-sell-armed' : ''}">${sellLabel}</button>
+      ${alike > 1 ? `<button id="td-selectall" class="ghost-button td-wide">⧉ Select all ${alike} ${stats.name}${many ? ` (${group.length} selected)` : ''}</button>` : ''}
     </div>` : ''}
     <p class="td-desc">${many ? 'Double-tap selected every like tower.' : `${stats.desc} ${specialBlurbs[stats.special] || ''}`}</p>
     <div class="td-stats"><span>DMG <b>${stats.dmg}</b></span><span>RANGE <b>${stats.range.toFixed(1)}</b></span><span>RATE <b>${stats.cd.toFixed(2)}s</b></span></div>
@@ -6652,6 +6682,7 @@ function renderTowerDetails() {
   $('td-tier')?.addEventListener('click', () => towerAction('tier'));
   $('td-sell').addEventListener('click', () => towerAction('sell'));
   $('td-priority').addEventListener('click', () => towerAction('priority'));
+  $('td-selectall')?.addEventListener('click', () => towerAction('selectall'));
 }
 
 function renderSendPanel() {
@@ -6799,8 +6830,13 @@ function handleBoardTap(event) {
     selectedTowerKey = key;
     chipAutoHideAt = 0;
     inspectEntity = { kind:'tower' };
-    renderTowerDetails();
-    if (touchUI() && document.body.classList.contains('arena')) { wispTab = 'inspect'; renderWispPanel('inspect'); railTab = 'tower'; renderRails(); }
+    renderTowerDetails(); renderRing();
+    /* ON A PHONE THE RING IS THE TOWER UI. Opening the full inspect panel here
+       as well put a half-screen box over the board — the thing that was
+       "blocking spaces to build" — and over the ring itself. The ring carries
+       the same four actions at the tower, so raise that and the rail; the
+       panel is still one tap away on the wisp when the numbers are wanted. */
+    if (touchUI() && document.body.classList.contains('arena')) { railTab = 'tower'; renderRails(); }
     return;
   }
   // not on a tower — a creep tapped directly gets inspected (works on sends, bosses, rivals)
@@ -6884,6 +6920,23 @@ function buildAt(cell) {
   const def = towerDef(raceId, selectedTowerTier);
   if (player.gold < def.cost) return log(`Not enough gold — ${def.name} costs ${def.cost}g.`);
   if (def.name === 'Laser Cannon' && player.lumber < 1) return log('The Laser Cannon costs 650g + 1 lumber, as in the original map.');
+  /* A TOWER THAT SEALS THE LANE IS NEVER PLACED. It used to go down, take your
+     gold, break the route, and leave you a few seconds to spot it and undo — a
+     race that is hard on a desktop and unwinnable on a phone, which is exactly
+     what Gene hit. The rival AI has always tested this before committing (it
+     lays a tower, checks its lanes, and pulls it back if they closed); the
+     person playing had no such check. Probe first, refuse before charging. */
+  const probe = makeTower(cell.r, cell.c, raceId, selectedTowerTier, 'player');
+  addTower(probe);
+  const lanes = PLAYER_HALF;
+  const seals = routeLength(lanes, 'west') == null || routeLength(lanes, 'east') == null;
+  removeTower(key);
+  if (seals) {
+    pushFx({ kind:'num', x:cell.c + .5, y:cell.r + .25, text:'blocked', until:simTime + 1, color:'#ff6b81' });
+    showToast('<b>That would seal your lane</b><span>Creeps must always have a way through — leave a gap</span>');
+    if (navigator.vibrate) navigator.vibrate(25);
+    return log('That tower would close the last way through your maze — nothing was built and nothing was spent.');
+  }
   player.gold -= def.cost;
   pushFx({ kind:'num', x:cell.c + .5, y:cell.r + .25, text:`-${def.cost}g`, until:simTime + .8, color:'#ff9f6e' });
   if (def.name === 'Laser Cannon') { player.lumber -= 1; player.lumberSpent += 1; if (player.lumberSpent >= 3) award('lumberjack'); renderTowerList(); }
@@ -9656,6 +9709,8 @@ function renderWispInspect() {
       <button class="wp-act" data-wp-act="tier">⏫ Tier (${sel.filter((t)=>towerTierUp(t)).reduce((s,t)=>s+(towerTierUp(t)?.cost||0),0)}g)</button>
       <button class="wp-act" data-wp-act="priority">🎯 ${t0.priority}</button>
       <button class="wp-act wp-sell ${armed ? 'armed' : ''}" data-wp-act="sell">${armed ? `⚠ Confirm sell ${sel.length}` : `💰 Sell (+${sellWorth}g)`}</button>
+      ${(() => { const alike = [...towers.values()].filter((t) => isMine(t) && t.raceId === t0.raceId && t.tier === t0.tier).length;
+        return alike > 1 ? `<button class="wp-act wp-wide" data-wp-act="selectall">⧉ Select all ${alike}${sel.length > 1 ? ` · ${sel.length} selected` : ''}</button>` : ''; })()}
     </div>
     <div class="wp-detail">${(stats.dmg/stats.cd).toFixed(0)} dps · ${attackProfileText(t0.raceId, stats)}<br>${specialBlurbs[stats.special]||stats.desc||''}${up?`<br><i>→ ${up.next.name}: ${up.next.dmg} dmg · ${up.next.range} range (full ${up.cost}g)</i>`:'<br><i>max tier</i>'}</div>${boltPanelHtml(sel)}`;
 }
