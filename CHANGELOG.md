@@ -7,6 +7,158 @@ environment, so every entry here was live the moment it was pushed.
 
 ---
 
+## 2026-09-07 (evening) — teams, a real lobby, and a scoreboard
+
+### Two people can play on one team
+The multiplayer protocol carried exactly one opponent, in scalars: `oppName`,
+`oppRace`, `oppLives`, `oppIncome` and a single snapshot. A third client's
+arrival simply overwrote the second one's, and no message said who it came
+from — so two people on a team had nowhere to exist.
+
+What did **not** change is the thing that makes this safe: every client
+simulates only its own board and everyone else is a mirror. That was already
+true for 1v1 and it generalises with no lockstep, because there is no shared
+simulation to desync. What was added is identity.
+
+- **Peers are a map**, keyed by session, and every message names its sender.
+- **Seats, not sessions, are the address.** A seat can be a computer and a
+  computer has no client, so messages address `north:1` rather than a session.
+  That is what lets a room mix people and bots on either side.
+- **A send goes to one seat.** It used to be broadcast and spawned by whoever
+  heard it, so in a team match one purchase landed on every enemy board — and
+  before targeting existed, on your own teammate. The sender picks one enemy
+  seat round-robin and names it.
+- **The host runs the computers.** Otherwise a bot's board exists in as many
+  versions as there are clients and its lifeforce has no single value. The host
+  alone spawns the far half's waves, runs its AI and broadcasts its lifeforce.
+- **Team lifeforce is the sum of the seats**, and a side is out when every seat
+  on it is out. A pair has twice the lifeforce and twice the wave load, so it is
+  not a solo player with a spare life bar.
+
+Verified by driving two real clients in one browser over the BroadcastChannel
+transport — the same path the game falls back to when the relay is blocked:
+both land in the lobby with the same roster, the host starts them on one shared
+seed, Gene takes Purple/west and Abdy Orange/east, both agree the sides are 200
+lifeforce each, and a send from either lands on the host's north half (+2) and
+on nobody's south half. No page errors.
+
+**Not claimed:** three or more clients, and reconnection. The protocol is shaped
+for both, but neither is tested.
+
+### A lobby with slots you can actually set
+It used to open on the *last line* of `startBattle()`, after the terrain, the
+rival and every ally had already been built — so it could show you the match but
+never change it — and it was skipped entirely in multiplayer, which is the one
+place a lobby is for.
+
+There was also no seat object anywhere in the file. A "seat" was an index into
+the allies array, only index 0 could ever be a person, and the count came from a
+menu dropdown read at match start.
+
+- One record per slot: who holds it (you / computer / open / closed), what they
+  play, and the lane they hold. Each half carries its own list, so the sides can
+  differ in size.
+- **A seat is a colour is a place.** RED/BLUE/TEAL and PURPLE/YELLOW/ORANGE were
+  already painted on the board and wired to nothing. A seat wears its lane's
+  colour in the lobby, on the board label and on the dashed route. One a side
+  holds the whole half; two split the edges; three take a lane each.
+- `seatZone` replaces `allyZone`, which only ever returned west or east — a
+  third defender used to collide onto the second one's flank, which is why 3v3
+  was in the menu but not really in the game.
+- Wave batches are counted per half rather than from one shared number.
+
+### Solo rules
+One player against one computer is a different game from a team match, so when
+the lobby is down to one a side it offers to play it as a duel: sends only, no
+neutral waves, rival at brutal. On by default, and a checkbox.
+
+### A score, and a board to rank it on
+Every finished run is scored from the row it already writes: 1000 a wave, 3 a
+kill, economy for income and gold actually spent, 3000 × lifeforce still
+standing, 900 × waves per minute, 4000 for a win, −40 a leak, times the handicap
+you chose. Runs rank only inside a bracket — mode, side size, and the date for a
+daily — so a survival grind never competes with a duel.
+
+Ordering, on five worked cases: a fast brutal win at wave 9 (31,354) beats a
+survival grind to wave 27 (29,336) beats a clean defeat at wave 14 (20,367); the
+same wave-14 run scores less when it takes 40 minutes (19,694) and much less
+when it leaks 95 lives instead of 39 (15,858).
+
+The board reads the match-log pool that already merges your log with anything
+imported, so it needs no server: **Copy JSON** on one phone and **Import log** on
+another puts two people on one board. It sits at the top of Records, and the
+match summary prints your score and rank.
+
+### Fortified sends, so a wall built for the wrong thing can be punished
+Twenty-one rungs on the ladder and exactly one was fortified — the World Titan,
+15,000g at Shrine 5 — so for the whole early and mid game there was no way to
+attack the armour class most walls fold to. Eight of the ten elements are weak
+to it; only Stone (×1.50) and Earth (×1.55) want to meet one.
+
+Four rungs added, one per shrine level: **Hoverbarge** (140g), **Ram Hulk**
+(1,450g), **Siege Hulk** (4,500g), **Bastion** (9,200g). They are slow, which is
+what they pay for the armour.
+
+| send | price | class | easiest for | hardest for | spread |
+|---|---|---|---|---|---|
+| Fang Outrider | 126g | medium | Fire 1,234 | Stone 1,542 | 1.25× |
+| **Hoverbarge** | 140g | fortified | Earth 918 | **Tech 3,557** | **3.87×** |
+
+That spread is the widest in the ladder and the whole point: at the same price
+the medium rung is the same problem for everybody and the fortified rung is a
+different problem depending on what they built. Send cards print the armour
+class now, which they never did.
+
+### Creep HP rides the same scale as the purse
+`ECON_SCALE` doubled the gold when the board went from 32 to 51 columns, on the
+sound argument that a maze only bites when you can finish a row of it. But gold
+buys DPS as well as wall, and creep HP never moved — so every wave met roughly
+twice the guns it had been tuned against. Gene: *"I had 120 gold at wave two
+which seems OP."*
+
+Seconds of sustained fire the whole purse needs to clear a wave (lower = easier):
+
+| | wave 1 | wave 4 | wave 9 | wave 15 |
+|---|---|---|---|---|
+| tuned reference | 3.0 | 8.9 | 8.0 | 11.1 |
+| after the resize | 1.7 | 5.5 | 5.3 | 6.6 |
+| **now** | **3.5** | **11.1** | **10.7** | **15.3** |
+
+`CREEP_HP_SCALE = ECON_SCALE` restores every gold-to-HP relationship at any
+board width. `WAVE_PRESSURE` is a separate dial for making the game harder
+without touching the purse.
+
+### Four bugs Gene reported, all confirmed
+- **Routes were unreadable.** Both lanes of a half were drawn the same colour,
+  on top of each other along the run they share into the door, with no
+  direction — so the overlay read as one dashed loop and told you nothing. Each
+  lane now carries its map colour, the two are nudged apart on whichever axis
+  they share, and an arrowhead every nine cells points the way. Routes default
+  on.
+- **Mirrored creeps drew in the wrong place.** `drawOpponentMirror` mirrored
+  towers with `COLS`/`ROWS` but creeps with the literals `32` and `49` — the old
+  board's size — so on the 51×73 board every mirrored creep landed ~20 cells off.
+- **Income read as delayed, three reasons.** The "+N" that floats when income
+  pays was pinned to the middle of the *old* board, which on this one is in the
+  rival's half. Skirmish had no income countdown at all. And wave rollover paid
+  a second lump on its own clock. All three fixed; the income chip carries the
+  seconds to the next payout in every mode.
+- **One tap picks a race.** Tapping a card only previewed it; you had to find
+  "Fight as Fire" underneath and press that too, so people walked into the lobby
+  as whatever they picked last time.
+
+### A harness, in the repo
+`tools/harness/` drives the real game in real Chrome and prints numbers instead
+of impressions: `econ.js` (gold in vs wave HP per wave), `sends.js` (effective
+HP per element per rung), `regress.js` (each element played by the ally AI on
+the player's purse — a yardstick between builds, not a claim about human play),
+`lobby.js`, `mp2.js` (two clients, one room), `board.js`, `shot.js`. See its
+README. Headless Chrome's `--window-size=390` actually lays out at ~500px, so
+phone screenshots need Playwright's mobile emulation — that one cost an
+afternoon.
+
+---
+
 ## 2026-09-07 (later still)
 
 ### Classic Wars could not be won. Not "was hard to win" — could not.

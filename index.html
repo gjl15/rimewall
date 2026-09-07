@@ -8198,8 +8198,20 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    lives in CHANGELOG.md, this is the "what changed for me" version.
    Bump RELEASE_TAG whenever you add an entry: the card auto-expands once per
    new tag, then collapses and stays collapsed. */
-const RELEASE_TAG = '2026-09-05b';
+const RELEASE_TAG = '2026-09-07a';
 const RELEASE_NOTES = [
+  { date:'2026-09-07', title:'Teams, a real lobby, and a scoreboard', items:[
+    'TWO PEOPLE ON ONE TEAM. Create a room, share the code, and whoever joins sits on your side. Your side\'s lifeforce is the sum of your seats, and you lose only when every seat on it is out.',
+    'A LOBBY WITH SLOTS. Set who holds each slot — you, a computer, open or closed — and how many a side, as low as one. It runs BEFORE the match now, so the slots actually decide it.',
+    'Every slot holds one lane and wears its colour: Purple, Yellow and Orange your side, Red, Blue and Teal theirs. One a side holds the whole half, two split the edges, three take a lane each.',
+    'FORTIFIED SENDS at last — Hoverbarge 140g, Ram Hulk, Siege Hulk, Bastion. Eight of the ten elements fold to fortified; only Stone and Earth beat it. Send cards show the armour class now.',
+    'SCORE AND LEADERBOARD. Every finished match scores on waves, kills, economy, lifeforce held, pace and the win, less your leaks. Ranked against runs of the same mode and side size, at the top of Records.',
+    'SOLO RULES: one a side plays as a duel — sends only, no neutral waves, rival at brutal.',
+    'Creeps are tougher. The bigger board doubled your gold but not their health, so waves met twice the guns they were tuned for. Fixed.',
+    'Creep routes are readable: each lane in its own colour with arrows showing which way they walk, and on by default.',
+    'One tap picks your element — no more hunting for the confirm button.',
+    'Fixed: the opponent\'s creeps drew about twenty cells off, and gold arrived on two different clocks so income looked broken. The income chip now counts down to the next payout.'
+  ] },
   { date:'2026-09-05', title:'A rival that learns, and AI teammates', items:[
     'Pick 2v2 or 3v3 and every seat nobody fills becomes an AI ally — it builds and sends from its OWN gold, never yours. Two people can run a full 3v3.',
     'The rival studies your best games with each element and copies your maze — but it tracks whether copying you actually works and drops it if it does not.',
