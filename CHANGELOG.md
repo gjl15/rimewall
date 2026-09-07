@@ -7,6 +7,54 @@ environment, so every entry here was live the moment it was pushed.
 
 ---
 
+## 2026-09-07 (later still)
+
+### Classic Wars could not be won. Not "was hard to win" — could not.
+Three full 1v1 runs, twenty minutes each, both sides building constantly and
+sending everything they could afford: **every one ended 100 lives to 100 lives
+with zero leaks in either direction.** 549 towers, ~95 sends, Shrine 5, and
+nothing ever got through.
+
+Skirmish scales its pressure — `waveDefFor` doubles creep HP every loop of the
+wave table. Classic has no waves, so the only pressure in the mode was a send
+ladder frozen at its printed stats forever, while the wall it had to beat
+compounded all match. The gap that produces:
+
+- **World Titan — the 15,000g top of the ladder, 12,000 HP, 24 armour — dies to
+  twenty tier-2 fire towers.** About 1,900g of wall.
+- Across the ladder an attacker pays **1.5× to 3.7×** what the defender pays to
+  stop it. No income curve converts that into a leak.
+
+**Sends now double in HP on a timer in Classic, the way waves double on a loop
+in Skirmish.** Every 150 seconds. With it the rival actually gets ground down —
+finishing on 31 / 82 / 50 lives across three runs where it previously finished
+on 100 every time.
+
+That number is a first calibration off a noisy measurement, and it is honest to
+say so: the rival's race is drawn at random and single runs swing hard. It also
+only fixes half the problem. First blood still lands around minute 13, because
+an exponential is slowest exactly when both walls are small. Closing the
+1.5–3.7× attack-to-defence gap is the other half, and that wants real play to
+tune rather than a simulated builder.
+
+Skirmish is untouched — the growth applies only in Classic, and the ten-race
+regression is unmoved (median death wave 45, was 46).
+
+### "First" was shooting the first mob of the wave, not the one closest to the ship
+Abdy reported this twice and I twice said targeting checked out. He was right and
+I was wrong. `creepProgress` scored a creep as `cpIndex * 1000 + pathStep` —
+where `pathStep` is that creep's index into **its own current path**. It resets
+to 1 on every re-path, and every tower you place re-paths every creep. So
+seconds after any build the entire wave scored identically and the sort fell
+through to array order, which is spawn order.
+
+Progress is now counted as steps **remaining** to the next checkpoint, which is
+stable across re-paths and is what "closest to the ship" actually means. Verified
+with six creeps strung out along the route: "first" picks the one with five steps
+left, not the one that spawned first.
+
+---
+
 ## 2026-09-07 (later)
 
 ### A bigger board — 51 × 73, and the door is now a hole in the world's edge

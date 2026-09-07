@@ -1987,13 +1987,38 @@ function leakDiagnostic() {
   const where = w > e * 1.5 ? 'the west lane' : e > w * 1.5 ? 'the east lane' : 'both lanes';
   return `${tot} creep${tot > 1 ? 's' : ''} leaked through ${where} — lengthen the maze there.`;
 }
+/* CLASSIC WARS: SENDS HAVE TO GROW, BECAUSE WALLS DO.
+   Skirmish scales its pressure — waveDefFor doubles creep HP every loop of the
+   wave table. Classic has no waves, so the only pressure in the mode was a send
+   ladder frozen at its card value forever, while the wall it had to beat
+   compounded all match. Measured: fifteen minutes of 1v1, 100 lives against 100
+   lives, not a single leak on either side — and a World Titan, the 15,000g top
+   of the ladder, dying to twenty tier-2 towers (about 1,900g of wall). Across
+   the ladder an attacker was paying 1.5x to 3.7x what the defender paid to stop
+   it, so no income curve could ever convert into a leak.
+   Sends now double in HP on a timer, the way waves double on a loop. */
+const SEND_GROWTH_PERIOD = Number(window.__SEND_GROWTH__ ?? 150);   // seconds per doubling
+/* 150s is a FIRST calibration off a noisy measurement (the rival's race is drawn
+   at random, so single runs swing hard) — three runs each: with no growth the
+   match ends 100L-100L every time, at 220s the rival finishes on 89/82/100
+   lives, at 180s on 86/74/92, at 150s on 31/82/50 and at 120s on 34/15/78.
+   150 is where every run showed real pressure without the late game exploding.
+   It still takes ~13 minutes to the first leak, because growth is slowest
+   exactly when both walls are small; closing the 1.5x-3.7x attack-to-defence
+   gold gap is the other half of this and wants real play to tune, not a
+   simulated builder. */
+function sendGrowth() {
+  if (matchMode !== 'classic' || !SEND_GROWTH_PERIOD) return 1;
+  return Math.pow(2, Math.max(0, simTime) / SEND_GROWTH_PERIOD);
+}
 function sendCreepDef(send) {
   // killing a send pays the defender exactly the income it granted its sender
   // the defender earns the send's income value per PURCHASE (each of the two units carries half)
   // the ladder has always declared roles (Mossback regenerates, Aegis Runner is
   // shielded, Bulwark is a juggernaut) and this threw every one of them away, so
   // sends spawned plain no matter what their card promised
-  return { name:send.name, role:send.role || (send.air ? 'air' : 'standard'), hp:send.hp, spd:send.spd, armor:send.armor, aClass:send.aClass, air:Boolean(send.air), bounty:Math.max(1, Math.round(send.income / 2)), lives:1 };
+  const g = sendGrowth();
+  return { name:send.name, role:send.role || (send.air ? 'air' : 'standard'), hp:Math.round(send.hp * g), spd:send.spd, armor:send.armor, aClass:send.aClass, air:Boolean(send.air), bounty:Math.max(1, Math.round(send.income / 2)), lives:1 };
 }
 
 /* ---------------- Match state ---------------- */
@@ -3043,7 +3068,19 @@ function firePulse(tower, stats) {
 }
 
 /* ---------------- Towers firing ---------------- */
-function creepProgress(creep) { return creep.cpIndex * 1000 + (creep.path ? creep.pathStep : 0); }
+/* HOW FAR ALONG THE ROUTE A CREEP IS — higher means closer to the ship.
+   This used to add `pathStep`, the creep's index into its OWN current path. That
+   index resets to 1 every time the creep re-paths, and every tower placement
+   re-paths every creep, so seconds after any build the whole wave scored
+   identically and the sort fell through to array order — which is spawn order.
+   That is exactly the bug Abdy reported twice: "first" was picking the first mob
+   of the wave rather than the one closest to boarding. Counting steps REMAINING
+   to the next checkpoint is stable across re-paths and is what "closest to the
+   ship" actually means. */
+function creepProgress(creep) {
+  const remain = creep.path ? Math.max(0, creep.path.length - creep.pathStep) : 0;
+  return creep.cpIndex * 1000 - Math.min(999, remain);
+}
 function poisonStacks(creep) { return creep && creep.venom > 0 && simTime < creep.venomUntil ? Math.round(creep.venom) : 0; }
 /* The venom maths, spelled out on the creep you are looking at. Every poison
    tower that hits this creep adds to ONE shared pool — additively, no cap — and
