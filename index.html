@@ -2969,7 +2969,10 @@ function makeTower(r, c, raceId, tier, owner) {
   const buildTime = 1.2 + tier * .4;   // classic-style construction; canceling during it refunds fully
   return { key:idx(r, c), r, c, raceId, tier, level:0, owner, cooldown:0, priority:owner === 'player' ? globalPriority : 'first', kills:0, invested:def.cost, placedAt:simTime, buildTime, buildUntil:simTime + buildTime, blockHp:towerMaxHp(def, tier, 0), blockMaxHp:towerMaxHp(def, tier, 0), underAttack:0 };
 }
-function addTower(tower) { towers.set(tower.key, tower); towersVersion += 1; refreshRouteDebug(); }
+/* Two timestamps the renderer reads for §6's feel moments: when this tower
+   appeared, and when it last gained a tier. Both are one number and neither is
+   simulation state — a reload loses them and nothing cares. */
+function addTower(tower) { tower.born = simTime; towers.set(tower.key, tower); towersVersion += 1; refreshRouteDebug(); }
 function removeTower(key) { towers.delete(key); towersVersion += 1; if (selectedTowerKey === key) selectedTowerKey = null; selectedGroupKeys = selectedGroupKeys.filter((k) => k !== key); refreshRouteDebug(); }
 
 let routeBlocked = false;
@@ -3416,7 +3419,9 @@ function applyDamage(creep, amount, tower, isDot = false, opts) {
   if (opts && opts.nonLethal) dmg = Math.min(dmg, Math.max(0, creep.hp - 1));
   creep.hp -= dmg;
   if (!isDot) creep.hitAt = simTime;
-  if (!isDot && dmg >= 60) pushFx({ kind:'num', x:creep.x, y:creep.y - .4, text:String(Math.round(dmg)), until:simTime + .7 });
+  /* §6: a damage numeral is set in the serif at max(9, cell*.62), rises 14px
+     and fades over 500ms — and a crit reads gold rather than merely larger. */
+  if (!isDot && dmg >= 60) pushFx({ kind:'num', x:creep.x, y:creep.y - .4, text:String(Math.round(dmg)), until:simTime + .5, serif:true });
   if (creep.hp <= 0) {
     creep.hp = 0;
     /* An ally's kill pays the ALLY, not the human on its half. Otherwise a
@@ -4261,7 +4266,7 @@ function allyUpgrade(ally, list, maxTier) {
   const next = list[weakest.tier + 1];
   if (!next || ally.gold < next.cost) return;
   ally.gold -= next.cost;
-  weakest.tier += 1; weakest.invested += next.cost;
+  weakest.tier += 1; weakest.tierAt = simTime; weakest.invested += next.cost;
   weakest.blockHp = weakest.blockMaxHp = 4 + weakest.tier;
   towersVersion += 1;
 }
@@ -5366,7 +5371,28 @@ function drawTower(ctx, tower) {
      nobody to tell apart, and an ownership mark that is always on is noise. */
   const laneSeats = mp.active ? mpSeatsInPlay(halfOfRow(tower.r)).length : (defendersPerHalf ? defendersPerHalf() : 1);
   const lane = laneSeats >= 2 ? (towerLaneColor ? towerLaneColor(tower) : null) : null;
+  /* §6 PLACEMENT SNAP: the tower lands slightly oversized and settles over
+     160ms, with a thin ring opening out of it. It is the only confirmation that
+     a tap became a building, and without it a placement on a phone reads as
+     nothing happening. */
+  const age = simTime - (tower.born ?? -9);
+  if (age >= 0 && age < .16) { const k = 1 + .35 * (1 - age / .16); ctx.scale(k, k); }
   drawTowerStructure(ctx, tower, stats, building, lane);
+  if (age >= 0 && age < .4) {
+    ctx.save();
+    ctx.strokeStyle = '#c9d3e6'; ctx.globalAlpha = 1 - age / .4; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(0, 0, CELL * (.4 + age * 2), 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+  /* §6 TIER-UP: a light sweeps down the tower once. A tier is the biggest
+     single thing you buy and it used to happen in silence. */
+  const ta = simTime - (tower.tierAt ?? -9);
+  if (ta >= 0 && ta < .35) {
+    ctx.save();
+    ctx.fillStyle = '#fff'; ctx.globalAlpha = .8 * (1 - ta / .35);
+    ctx.fillRect(-CELL / 2 + 1, -CELL * .2 + (ta / .35) * CELL * .6, CELL - 2, 1.5);
+    ctx.restore();
+  }
   // the level bar stays on the top edge; tier is the plinth's job now
   ctx.fillStyle = '#ffd45c';
   for (let i = 0; i < (tower.level || 0); i += 1) { ctx.fillRect(-half + 2 + i * 3.4, -half + 2, 2.4, 2); }
@@ -5919,7 +5945,12 @@ function drawEffect(ctx, effect) {
     ctx.lineCap = 'butt';
   } else if (effect.kind === 'num') {
     ctx.globalAlpha = Math.min(1, remain / .4);
-    ctx.font = `700 ${effect.big ? 14 : 10}px "DM Mono", monospace`; ctx.textAlign = 'center';
+    /* §6: damage numerals are set in the serif at max(9, cell * .62) so they
+       stay readable as the board zooms, and rise 14px as they fade. Everything
+       else here (gold, venom, the frost bite) keeps the mono it had. */
+    if (effect.serif) ctx.font = `700 ${Math.max(9, Math.round(CELL * .62))}px "Playfair Display", Georgia, serif`;
+    else ctx.font = `700 ${effect.big ? 14 : 10}px "DM Mono", monospace`;
+    ctx.textAlign = 'center';
     const nx = effect.x * CELL, ny = effect.y * CELL - (0.7 - remain) * 14;
     if (effect.big) {   // crits carry a dark outline so the gold reads over any tile
       ctx.lineWidth = 3; ctx.strokeStyle = '#2a1c00'; ctx.strokeText(effect.text, nx, ny);
@@ -6834,7 +6865,7 @@ function towerAction(kind) {
         player.lumber -= 1; player.lumberSpent += 1; if (player.lumberSpent >= 3) award('lumberjack');
       }
       player.gold -= up.cost; t.invested = up.cost;   // old investment forfeit — the space premium
-      t.tier += 1; t.level = 0;
+      t.tier += 1; t.level = 0; t.tierAt = simTime;
       { const was = t.blockMaxHp || 1, next = towerMaxHp(towerDef(t.raceId, t.tier), t.tier, t.level || 0);
         t.blockHp = Math.round((t.blockHp / was) * next); t.blockMaxHp = next; }
       done += 1; logUpgrade(t.tier);
