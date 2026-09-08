@@ -5925,14 +5925,17 @@ function drawDebug(ctx) {
       };
       const color = laneColor(half, side);
       ctx.save();
-      ctx.strokeStyle = color; ctx.globalAlpha = half === PLAYER_HALF ? .95 : .6;
-      ctx.lineWidth = 2.4; ctx.lineJoin = 'round'; ctx.setLineDash([7, 5]);
+      /* Four coloured dashed routes at near-full opacity were drawing more of
+         the eye than the creeps walking along them. They are a guide to where
+         things go, not the thing itself. */
+      ctx.strokeStyle = color; ctx.globalAlpha = half === PLAYER_HALF ? .34 : .2;
+      ctx.lineWidth = 1.6; ctx.lineJoin = 'round'; ctx.setLineDash([5, 7]);
       ctx.beginPath();
       pts.forEach((cell, i) => { const p = xy(cell, i); if (!i) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); });
       ctx.stroke();
       // direction: an arrowhead every ~9 cells, pointing the way they travel
-      ctx.setLineDash([]); ctx.fillStyle = color;
-      for (let i = 4; i < pts.length - 2; i += 9) {
+      ctx.setLineDash([]); ctx.fillStyle = color; ctx.globalAlpha = half === PLAYER_HALF ? .5 : .3;
+      for (let i = 4; i < pts.length - 2; i += 14) {
         const a = xy(pts[i], i), b = xy(pts[i + 2], i + 2);
         const ang = Math.atan2(b.y - a.y, b.x - a.x), s = Math.max(3.5, CELL * .34);
         ctx.save(); ctx.translate(a.x, a.y); ctx.rotate(ang);
@@ -6181,32 +6184,24 @@ function buildOverlay() {
   let html = '';
   // the markers sat one row shy of their own berths, so both ships read as
   // floating at the mouth of the notch instead of docked at the bottom of it
+  /* NO PROSE ON THE PLAYFIELD.
+     The board carried nine text labels — NORTH DOOR, YOUR DOOR, CREEP GATE,
+     RIVAL MASSIF, YOUR SHRINE · TAP TO SEND, six lane names, and two force
+     banners — sitting on top of the ground you play on. While the field was
+     bright they were merely busy; once the ground went dark they were the
+     loudest thing left in the frame, competing with the units for every glance.
+     A glyph says where a thing is. It does not need to say what it is called
+     every second of every match. The shrine keeps a marker because it is the
+     one you TAP; the doors and the gate keep theirs because they are where
+     creeps appear. The lane names and the force banners are gone: the routes
+     are already drawn in each lane's own colour, which is what the names were
+     repeating. */
   const midC = DOOR_C + .5;
-  html += overlayItem('ov-ship', N_DOOR_R, midC, '⛵<small>NORTH DOOR</small>');
-  html += overlayItem('ov-ship ov-ship-player', S_DOOR_R, midC, `⛵<small id="player-ship-label">YOUR DOOR</small>`);
-  html += overlayItem('ov-gate', RIVER_MID, midC, '✹<small>CREEP GATE</small>');
-  /* THERE IS ONLY ONE SHRINE, AND THERE ALWAYS WAS.
-     Gene asked for "only one shrine". It turns out the map was drawing two and
-     the code only ever had one: isShrineCell tests the SOUTH pillar alone, so
-     the north label pointed at a wall you could not tap and that did nothing.
-     Your shrine is the near face of your own massif — tapping it opens the send
-     commands. The rival's massif is just rock, and now says so. */
-  html += overlayItem('ov-massif', (ROWS - 1) - (SHRINE_R0 + SHRINE_R1) / 2, midC, '▲<small>RIVAL MASSIF</small>');
-  html += overlayItem('ov-shrine', (SHRINE_R0 + SHRINE_R1) / 2, midC, '✦<small>YOUR SHRINE · TAP TO SEND</small>');
-  const laneW = (LANE_WEST[0] + LANE_WEST[1]) / 2, laneE = (LANE_EAST[0] + LANE_EAST[1]) / 2;
-  const nLane = (ROWS - 1) - (S_PILLAR_R0 + S_PILLAR_R1) / 2, sLane = (S_PILLAR_R0 + S_PILLAR_R1) / 2;
-  /* The lane names are painted in their own colour now, so a label, the dashed
-     route beside it and (once seats exist) the player holding that lane all
-     read as the same thing. They used to be two fixed navies. */
-  const laneRows = { north:[nLane, N_MID_R, nLane], south:[sLane, S_MID_R, sLane] };
-  const laneCols = [laneW, midC, laneE];
-  ['north', 'south'].forEach((half) => LANE_COLORS[half].forEach((lane, i) => {
-    const sub = i === 1 ? 'MID' : 'EDGE';
-    html += overlayItem(`ov-spot${half === PLAYER_HALF ? ' ov-spot-you' : ''}`, laneRows[half][i], laneCols[i],
-      `${lane.name.toUpperCase()}<small>${sub}${half === PLAYER_HALF ? '' : ' • RIVAL'}</small>`, `style="--lane:${lane.color}"`);
-  }));
-  html += overlayItem('ov-force ov-force-north', NORTH_TOP + 3, 2, mp.active && mp.oppName ? `NORTH FORCE • ${mp.oppName.toUpperCase()}` : 'NORTH FORCE • RIVAL');
-  html += overlayItem('ov-force', SOUTH_BOT - 3, 2, 'SOUTH FORCE • YOU');
+  html += overlayItem('ov-ship', N_DOOR_R, midC, '⛵');
+  html += overlayItem('ov-ship ov-ship-player', S_DOOR_R, midC, '⛵');
+  html += overlayItem('ov-gate', RIVER_MID, midC, '✹');
+  html += overlayItem('ov-massif', (ROWS - 1) - (SHRINE_R0 + SHRINE_R1) / 2, midC, '▲');
+  html += overlayItem('ov-shrine', (SHRINE_R0 + SHRINE_R1) / 2, midC, '✦');
   $('board-overlay').innerHTML = html;
 }
 
@@ -6598,7 +6593,10 @@ function renderHud() {
   }
   const rivInc = $('rival-income-label'); if (rivInc) rivInc.textContent = mp.oppIncome != null ? hudSigned(BASE_INCOME + incomePayout(mp.oppIncome)) : '+?';
   enforceHudContract();   // R1-R3: re-fit the row against the values just written
-  $('player-ship-label').textContent = `YOUR SHIP • ${player.lives}`;
+  /* was "YOUR SHIP • 100" painted on the board beside the ship. The HUD has
+     carried your lifeforce the whole time, so this was the same number twice,
+     and the board's copy was the one sitting on the playfield. */
+  const shipLabel = $('player-ship-label'); if (shipLabel) shipLabel.textContent = '';
   if (matchMode === 'classic') {
     $('wave-label').textContent = 'CLASSIC WARS';
     if (!matchOver) $('wave-banner').textContent = 'CLASSIC WARS • SENDS ONLY — RACE THE RIVAL’S LIFEFORCE';
