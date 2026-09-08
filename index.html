@@ -1517,11 +1517,11 @@ const TOWERS = {
        Reach is still the identity: 1.5 covers the eight cells around the blade,
        and nothing beyond them. */
     { name:'Shadow Initiate', cost:5, levelCost:10, maxLevel:8, dmg:8, cd:.30, range:1.5, special:'basic', desc:'Bare hands. Five gold, barely dangerous, and the start of every blade.' },
-    { name:'Dagger Adept', cost:5, levelCost:10, maxLevel:8, dmg:18, cd:.25, range:1.5, special:'basic', desc:'The fastest weapon in the game. One square, and everything in it bleeds.' },
-    { name:'Sword Ronin', cost:5, levelCost:10, maxLevel:8, dmg:48, cd:.40, range:2.3, special:'basic', desc:'Two squares of reach and still quicker than any mace.' },
-    { name:'Mace Breaker', cost:5, levelCost:10, maxLevel:8, dmg:120, cd:.70, range:2.3, special:'smallsplash', desc:'Slow and heavy: the swing catches everything crowded around the target.' },
-    { name:'Spear Sentinel', cost:5, levelCost:10, maxLevel:8, dmg:180, cd:.85, range:3.2, special:'beamline', desc:'The longest reach a ninja gets, and it runs through whatever stands behind its mark.' },
-    { name:'Shadow Master', cost:5, levelCost:14, maxLevel:8, dmg:150, cd:.30, range:2.3, special:'basic', desc:'A blur inside two squares. Nothing kills faster at this range — and it levels dearer than the rest.' }
+    { name:'Dagger Adept', cost:5, levelCost:10, maxLevel:8, dmg:20, cd:.25, range:1.5, special:'basic', desc:'The fastest weapon in the game. One square, and everything in it bleeds.' },
+    { name:'Sword Ronin', cost:5, levelCost:10, maxLevel:8, dmg:34, cd:.40, range:2.3, special:'basic', desc:'Two squares of reach and still quicker than any mace.' },
+    { name:'Mace Breaker', cost:5, levelCost:10, maxLevel:8, dmg:60, cd:.70, range:2.3, special:'smallsplash', desc:'Slow and heavy: the swing catches everything crowded around the target.' },
+    { name:'Spear Sentinel', cost:5, levelCost:10, maxLevel:8, dmg:75, cd:.85, range:3.2, special:'beamline', desc:'The longest reach a ninja gets, and it runs through whatever stands behind its mark.' },
+    { name:'Shadow Master', cost:5, levelCost:14, maxLevel:8, dmg:26, cd:.30, range:2.3, special:'basic', desc:'A blur inside two squares. Nothing kills faster at this range — and it levels dearer than the rest.' }
   ],
   gravity:[
     { name:'Gravity Well', cost:10, dmg:9, cd:.95, range:5.5, special:'warp', desc:'A single warped slug that drags its target to a crawl.' },
@@ -2031,7 +2031,10 @@ function deriveBoard(cols, halfRows) {
   SOUTH_TOP = RIVER_BOT + 1; SOUTH_BOT = ROWS - 1;
   NORTH_TOP = 0; NORTH_BOT = RIVER_TOP - 1;
 /* The non-buildable middle massif: 31 wide × 35 tall per side, centred. */
-  PILLAR_W = Math.max(5, Math.round(COLS * .307) | 1); PILLAR_H = Math.max(5, Math.round(HALF_ROWS * .583));
+  /* Fixed 13 x 13. These were .307 of the width and .583 of the half — ratios
+     that existed to keep a massif sane across boards of different sizes, which
+     is a problem that no longer exists now that there is one board. */
+  PILLAR_W = 13; PILLAR_H = 13;
   PILLAR_C0 = ((COLS - PILLAR_W) >> 1); PILLAR_C1 = PILLAR_C0 + PILLAR_W - 1;
   S_PILLAR_R0 = SOUTH_TOP; S_PILLAR_R1 = SOUTH_TOP + PILLAR_H - 1;
   N_PILLAR_R1 = NORTH_BOT; N_PILLAR_R0 = NORTH_BOT - PILLAR_H + 1;
@@ -2074,14 +2077,19 @@ terrain.set(baseTerrain);
   protectedCells.clear();
   Object.values(ROUTES).forEach((sides) => Object.values(sides).forEach((nodes) => nodes.forEach((cell) => protectedCells.add(idx(cell.r, cell.c)))));
 }
-deriveBoard(Number(window.__COLS__ ?? 51), Number(window.__HALF_ROWS__ ?? 34));
+deriveBoard(Number(window.__COLS__ ?? 41), Number(window.__HALF_ROWS__ ?? 26));
 
 /* HOW BIG THE BOARD IS FOR THIS MATCH.
    A room of four people wants a board everyone can read on a phone; one player
    against one computer can afford more ground, because the thing that actually
    caps board size is the per-creep A* and a solo Classic match runs far fewer
    creeps than a four-batch Skirmish. Measured costs are in the changelog. */
-const BOARD_SIZES = { normal:[51, 34], solo:[63, 42] };
+/* ONE BOARD FOR EVERY MODE (handoff §3). Solo used to get a bigger field on the
+   theory that one player deserves more ground; the direction's answer is better
+   — keep the board and let the rival build the whole U instead. 41 x 57 with a
+   26-row half is what the phone camera in §4 is built around: your half plus
+   the river at a 17px cell fits one screen without shrinking a cell to a dot. */
+const BOARD_SIZES = { normal:[41, 26], solo:[41, 26] };
 let boardSizeNow = 'normal';
 function wantedBoardSize() {
   if (window.__COLS__) return null;                 // the harness pinned it; leave it alone
@@ -7334,11 +7342,35 @@ function frameHomeGround(animate = false) {
   const viewport = $('map-viewport');
   if (!viewport || frameBase.width < 10) return;
   const vw = viewport.clientWidth, vh = viewport.clientHeight;
-  const z = Math.min(MAX_ZOOM, Math.max(1, WORK_ZOOM));
-  // the board point we want under the middle of the screen
-  const u = (DOOR_C + .5) / COLS, v = (BAND_R0 + BAND_R1) / 2 / ROWS;
+  /* YOUR HALF, AT A CELL YOU CAN HIT (handoff §4).
+     "Fit the whole board" is an overview, not a camera: on a phone it hands you
+     a 3px cell and no hint that zooming was the point. And showing BOTH halves
+     at a workable cell is impossible on a 390px screen — the direction's rule
+     is never to try. So: zoom until a cell is 17px, put the river along the top
+     edge so your ground fills everything under it, and centre on the door,
+     which is where the first tower goes and where the creeps come in. */
+  const wantCell = touchUI() ? 17 : 13;
+  const cellNow = frameBase.width / COLS;
+  const z = Math.min(MAX_ZOOM, Math.max(1, wantCell / Math.max(.001, cellNow)));
+  // horizontally: the door under the middle of the screen
+  const u = (DOOR_C + .5) / COLS;
   const x = vw / 2 - frameBase.left - u * frameBase.width * z;
-  const y = vh / 2 - frameBase.top - v * frameBase.height * z;
+  /* vertically: the top of the river at the top of the viewport on a phone, so
+     the whole of your half sits below it; the whole board centred on a laptop,
+     which has the room for it. */
+  let y;
+  if (touchUI()) {
+    /* No bottom clamp here. The usual rule — never pan past the end of the
+       board — is right for free panning and wrong for this framing: your half
+       plus the river is 31 rows, about 520px at a 17px cell, and the viewport
+       is taller than that. Clamping to keep the board's bottom edge at or below
+       the viewport's left the river a third of the way down the screen, which
+       is the thing this camera exists to avoid. */
+    y = -frameBase.top - (RIVER_TOP / ROWS) * frameBase.height * z;
+  } else {
+    const v = (BAND_R0 + BAND_R1) / 2 / ROWS;
+    y = vh / 2 - frameBase.top - v * frameBase.height * z;
+  }
   if (animate) { camAnim = { z, x, y }; return; }
   mapZoomScale = z; mapOffsetX = x; mapOffsetY = y; camAnim = null;
   applyMapTransform();
@@ -7684,7 +7716,13 @@ function startBattle() {
   wager = { tokens:3, cooldownUntil:0, pending:null };
   waveBoards = {}; matchGrades = [];
   document.getElementById('wager-prompt')?.remove();
+  /* Frame twice: once now, and once after the browser has actually laid the
+     arena out. frameHomeGround derives its zoom from the frame's measured size,
+     and at match start that size is still the pre-arena one — which is why the
+     phone opened on a 14.4px cell instead of the 17px the camera asks for, with
+     the river a third of the way down instead of along the top edge. */
   fitBoardToViewport(); resetMapZoom(); frameHomeGround();
+  requestAnimationFrame(() => { fitBoardToViewport(); frameHomeGround(); });
   const rivalLabel = $('rival-name-label');
   if (rivalLabel && !mp.active) rivalLabel.textContent = 'RIVAL';
   renderHud();
@@ -7910,7 +7948,7 @@ function renderLobby(force) {
         ${matchMode === 'survival' ? '' : column(foeHalf, 'Their side', sizeN)}
       </div>
       ${solo ? `<label class="lb-solo"><input type="checkbox" id="lb-solo" ${soloRules ? 'checked' : ''}>
-        <span><b>Solo rules</b> — sends only, no neutral waves, a brutal rival, and a bigger board (${BOARD_SIZES.solo[0]}×${BOARD_SIZES.solo[1] * 2 + 5} against ${BOARD_SIZES.normal[0]}×${BOARD_SIZES.normal[1] * 2 + 5}). One player, one very hard opponent, more ground.</span></label>` : ''}
+        <span><b>Solo rules</b> — sends only, no neutral waves, and a brutal rival that builds the whole far side rather than a corner of it. One player, one very hard opponent.</span></label>` : ''}
       <p class="lb-hint">Each slot holds one lane of the board and wears its colour. Set the slots, then start. A side of one holds the whole half; two split the edges; three take a lane each.</p>
       <div class="lb-races">${races.filter((r) => raceUnlocked(r.id)).map((r) => `
         <button class="lb-race ${r.id === selectedRace.id ? 'on' : ''}" data-lb-race="${r.id}" style="--race:${r.color}" title="${r.name} — ${r.trait}">
