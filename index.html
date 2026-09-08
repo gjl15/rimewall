@@ -21,7 +21,7 @@
 <link rel="icon" type="image/png" href="icon-512.png" />
 <title>Rimewall</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap');
 
 :root { color-scheme: dark; --ink:#e9edff; --muted:#8e98b7; --deep:#080c19; --panel:#11182b; --panel-2:#151f37; --line:#273252; --ice:#8adcff; --fire:#ff9068; --earth:#d9b070; --tech:#98acff; --crystal:#cf9dff; --poison:#b4e870; --stone:#bcc6da; --electric:#ffd65e; --gravity:#dc94e4; --beam:#7ff0cf; --ninja:#eef1f8; }
 * { box-sizing: border-box; }
@@ -809,6 +809,71 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 .bar-detail span { font:500 9px/1.3 'DM Mono',monospace; color:#bcd2ff; }
 .bar-detail i { font-style:normal; font:600 9px 'DM Mono',monospace; color:#8fe6b8; }
 
+
+/* ====================================================================
+   CHROME — "frost-etched stone" (design handoff §5).
+   The old chrome was competent and generic: pill radii, glowing borders,
+   emoji standing in for iconography, and every number set in the same mono
+   as its label so nothing had a hierarchy. This is one opinion applied
+   consistently — a serif carries every NUMBER because numbers are what you
+   read in a fight, mono carries every LABEL because labels are furniture,
+   and edges are cut rather than softened.
+   ================================================================== */
+.playing .hud, .playing .status-line, .playing .command-panel, .playing .rl-card,
+.playing .tower-row, .playing .send-card, .playing .sheet-detail, .playing .wisp-panel {
+  border-radius: 2px;
+  box-shadow: inset 0 1px 0 #ffffff0a;
+}
+.playing .hud, .playing .status-line, .playing .command-panel {
+  background: #0b1020; border-color: #2a3550;
+}
+/* numerals are the thing you read under pressure: serif, and big enough to
+   read without looking for them */
+.resources .resource em, #wave-label, #timer-label {
+  font-family: 'Playfair Display', Georgia, serif; font-weight: 700;
+  letter-spacing: 0; font-variant-numeric: tabular-nums;
+}
+.resources .resource em { font-size: 20px; }
+.resources .resource.gold em { font-size: 24px; color: #ffd45c; }
+.resources .resource.lives em { color: #8fe6b8; }
+.resources .resource.enemy em { color: #ff7a8a; }
+.resources .resource.income em { color: #8fe6b8; font-size: 16px; }
+/* labels are furniture: mono, small, wide, quiet */
+.resources .resource b, .panel-heading, .sl-label, .rl-head {
+  font-family: 'DM Mono', monospace; font-weight: 500;
+  letter-spacing: .18em; text-transform: uppercase; font-size: 9px; color: #8e98b7;
+}
+.vs-mark { color: #3a4766; }
+/* the wordmark is for the title screen. In a match it was pushing the numbers
+   onto a second line on a 390px phone, which is the one place they must not go. */
+.arena .hud-brand { display: none; }
+/* a section rule is two hairlines, not one line and a glow */
+.playing .panel-heading { border-top: 1px solid #1b2438; box-shadow: 0 1px 0 #3a4766; padding-top: 10px; margin-top: 12px; }
+/* no pills, no glow */
+.playing .primary-button, .playing .action-button {
+  border-radius: 2px; background: #8adcff; color: #07101a;
+  font: 700 13px 'DM Mono', monospace; letter-spacing: .15em; text-transform: uppercase;
+  box-shadow: none;
+}
+.playing .ghost-button, .playing .test-button, .playing .sl-chip {
+  border-radius: 2px; box-shadow: none;
+}
+.playing .rail button, .playing .ring-btn { box-shadow: none; }
+.playing .ring-btn { border-radius: 2px; }
+/* the tower list reads as a price list: serif cost, mono name */
+.playing .tower-row b { font-family: 'Playfair Display', Georgia, serif; font-weight: 700; font-size: 15px; color: #ffd45c; }
+.playing .tower-row strong { font-family: 'DM Mono', monospace; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; font-size: 10px; }
+.playing .tower-row.selected { border-color: #8adcff; background: #12203a; }
+
+
+/* the rival's half, 36px tall, above your board. Only on touch: a laptop has
+   the room to show the whole board at once and does not need a proxy. */
+.rival-strip { display:none; }
+.playing .rival-strip { display:none; }
+.arena .rival-strip { display:block; position:absolute; left:0; right:0; top:0; z-index:32;
+  width:100%; height:36px; border-bottom:1px solid #2a3550; background:#0b1020ee; cursor:pointer; }
+.arena .rival-strip.watching { border-color:#8adcff; }
+
 /* ---- UI #10: wisp radial + floating panel + slim send rail ---- */
 .wisp-radial { position:fixed; z-index:181; width:0; height:0; pointer-events:none; }
 .wisp-radial.hidden { display:none; }
@@ -1239,11 +1304,11 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
           <button id="settings-open-hud" class="test-button gear-hud" title="Settings" aria-label="Settings">⚙</button>
           <button id="undo-slot" class="test-button undo-slot" disabled>↩ UNDO</button>
           <div class="resources">
-            <span class="resource gold"><b>◆</b><em id="gold-label">30</em></span>
-            <span class="resource lumber" title="Lumber — buys shrine upgrades, a second element, or a Laser Cannon"><b>🪵</b><em id="lumber-label">0</em></span>
-            <span class="resource income" title="Gold you are paid on each income tick, and the seconds until the next one"><b>↗</b><em id="income-label">+24</em><i id="income-eta" class="income-eta">25s</i></span><span class="resource rival-income" title="Ally / rival income"><b>↗R</b><em id="rival-income-label">+0</em></span>
-            <span class="resource lives" title="Your lifeforce"><b>♥ YOU</b><em id="lives-label">100</em></span>
-            <span class="vs-mark">⚔</span>
+            <span class="resource gold"><b>GOLD</b><em id="gold-label">30</em></span>
+            <span class="resource lumber" title="Lumber — buys shrine upgrades, a second element, or a Laser Cannon"><b>LUM</b><em id="lumber-label">0</em></span>
+            <span class="resource income" title="Gold you are paid on each income tick, and the seconds until the next one"><b>INC</b><em id="income-label">+24</em><i id="income-eta" class="income-eta">25s</i></span><span class="resource rival-income" title="Ally / rival income"><b>R</b><em id="rival-income-label">+0</em></span>
+            <span class="resource lives" title="Your lifeforce"><b>YOU</b><em id="lives-label">100</em></span>
+            <span class="vs-mark">/</span>
             <span class="resource enemy" title="Rival lifeforce"><b id="rival-name-label">RIVAL</b><em id="enemy-lives-label">100</em></span>
           </div>
         </header>
@@ -1279,6 +1344,15 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
             <div id="arena-stage" class="arena-stage">
             <div id="rail-left" class="rail rail-left" aria-label="Command categories"></div>
             <div class="map-viewport" id="map-viewport" aria-label="Zoomable Rimewall map">
+              <!-- RIVAL STRIP (handoff §4): the far half at 1:5, pinned over the
+                   top of the board. Never render both halves at a workable cell
+                   on a phone — this is how you keep an eye on theirs without
+                   giving up yours. Tap to swap the camera; tap again to come
+                   home. It lives INSIDE the viewport and is positioned, not
+                   laid out: as a flex sibling of the rails it collapsed the
+                   board to nothing. -->
+              <canvas id="rival-strip" class="rival-strip" width="820" height="72"
+                      title="The rival half — tap to look at their board"></canvas>
               <div class="map-frame" id="map-frame">
                 <canvas id="board-canvas" aria-hidden="true"></canvas>
                 <canvas id="fx-canvas" aria-label="Rimewall battlefield"></canvas>
@@ -7375,6 +7449,70 @@ function frameHomeGround(animate = false) {
   mapZoomScale = z; mapOffsetX = x; mapOffsetY = y; camAnim = null;
   applyMapTransform();
 }
+
+/* ============================================================================
+   THE RIVAL STRIP. A phone cannot show two halves at a cell you can build on —
+   the direction's rule is never to try. So the far half is drawn here at about
+   a fifth scale: towers as element-coloured squares, creeps as dots, the massif
+   as a block. Enough to see a maze forming and a wave walking it, in 36px.
+   ========================================================================= */
+let rivalStripWatching = false;
+function drawRivalStrip() {
+  const cv = $('rival-strip');
+  if (!cv || !document.body.classList.contains('arena') || !battleRunning) return;
+  const ctx = cv.getContext('2d');
+  const half = rivalStripWatching ? PLAYER_HALF : ENEMY_HALF;
+  const r0 = half === 'north' ? 0 : RIVER_BOT + 1;
+  const rows = HALF_ROWS, cols = COLS;
+  const w = cv.width, h = cv.height;
+  const sx = w / cols, sy = h / rows;
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = half === 'north' ? '#161a33' : '#0e1c28';
+  ctx.fillRect(0, 0, w, h);
+  // the massif, so the shape of their ground is readable
+  ctx.fillStyle = '#1a1f35';
+  for (let r = 0; r < rows; r += 1) for (let c = 0; c < cols; c += 1) {
+    if (terrain[idx(r0 + r, c)] === T.CLIFF) ctx.fillRect(c * sx, r * sy, Math.ceil(sx), Math.ceil(sy));
+  }
+  /* Their towers come from the mirror when we hold a snapshot of that seat, and
+     from the live board when the half is simulated here (a bot side on the
+     host, or our own half when we are watching theirs). */
+  const paint = (list, mirror) => list.forEach((t) => {
+    const rr = (t.r ?? 0) - r0;
+    if (rr < 0 || rr >= rows) return;
+    const st = mirror ? t : towerLiveStats(t);
+    ctx.fillStyle = RW_ELEMENT[t.raceId] || st.color || '#8adcff';
+    ctx.fillRect((t.c ?? 0) * sx, rr * sy, Math.max(1.6, sx), Math.max(1.6, sy));
+  });
+  paint([...towers.values()].filter((t) => halfOfRow(t.r) === half), false);
+  if (typeof mirrorTowers !== 'undefined' && mirrorTowers.length) paint(mirrorTowers, true);
+  ctx.fillStyle = '#ff7a8a';
+  creeps.forEach((cr) => {
+    if (cr.hp <= 0 || cr.half !== half) return;
+    const rr = cr.y - r0;
+    if (rr < 0 || rr >= rows) return;
+    ctx.fillRect(cr.x * sx - .8, rr * sy - .8, 2, 2);
+  });
+  ctx.strokeStyle = '#2a3550'; ctx.lineWidth = 1; ctx.strokeRect(.5, .5, w - 1, h - 1);
+}
+function setupRivalStrip() {
+  const cv = $('rival-strip');
+  if (!cv || cv._wired) return;
+  cv._wired = true;
+  cv.addEventListener('click', () => {
+    /* Swap which half the CAMERA is on. The strip always shows the other one,
+       so the pair reads as "here, and over there" whichever way round it is. */
+    rivalStripWatching = !rivalStripWatching;
+    cv.classList.toggle('watching', rivalStripWatching);
+    const viewport = $('map-viewport');
+    if (!viewport || frameBase.width < 10) return;
+    const vh = viewport.clientHeight;
+    const z = mapZoomScale;
+    const topRow = rivalStripWatching ? 0 : RIVER_TOP;
+    mapOffsetY = -frameBase.top - (topRow / ROWS) * frameBase.height * z;
+    applyMapTransform();
+  });
+}
 function pointerDistance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 /* Best-effort escape hatch for a page Safari has already zoomed: drop the focus
    that caused it, then re-assert the viewport so the engine re-lays-out at 1x.
@@ -7633,7 +7771,7 @@ function frameBody(now) {
     let acc = dt * (ghost && !mp.active ? 0.5 : 1);   // solo: time slows to 50% while a tower is staged
     while (acc > 0) { const step = Math.min(1 / 30, acc); simulate(step); acc -= step; }
     hudClock -= dt;
-    if (hudClock <= 0) { hudClock = .2; renderHud(); if (selectedTowerKey !== null) renderTowerDetails(); renderCommandBar(); }   // renderHud already calls renderCommandSheet
+    if (hudClock <= 0) { hudClock = .2; renderHud(); drawRivalStrip(); if (selectedTowerKey !== null) renderTowerDetails(); renderCommandBar(); }   // renderHud already calls renderCommandSheet
   }
   if (!$('battle-screen').classList.contains('hidden')) {
     const viewport = $('map-viewport');
@@ -10313,6 +10451,7 @@ try { if (profile.devUnlockAll || /[?&]dev=1/.test(location.search)) document.bo
 if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 window.addEventListener('beforeunload', () => { if (mp.transport) mpSend({ t:'bye' }); });
 setupMapZoom();
+setupRivalStrip();
 setupPanicReset();
 document.getElementById('team-select')?.addEventListener('change', renderTeamRoster);
 renderRaceCards();
