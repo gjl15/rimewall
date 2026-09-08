@@ -501,10 +501,18 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
 .playing .battle-title-row h2, .playing .battle-title-row .eyebrow, .playing .hint-box { display:none !important; }
 .playing .app-shell { padding-top:12px; }
 .playing .brand-row { display:none; }
+/* TWO FLOATING BARS BECOME ONE. The HUD and the status line sat as separate
+   rounded panels with a gap between them, so the eye read two pieces of chrome
+   before it reached the board. They are one bar now — same information, one
+   object. The wave and timer already live in the HUD, so the status line is
+   carrying the mode name and the global targeting switch, which is why it is
+   still here at all. */
+.playing .hud { border-radius:0; border-bottom:0; }
+.playing .status-line { margin-top:0; border-top:0; border-radius:0 0 12px 12px; padding:6px 14px; }
 /* One button does not need a row of its own. "Change race" tucks up onto the
    match strip, which was already spanning the full width with nothing on its
    left but a mode name. Two bars of chrome become one. */
-.playing .battle-title-row { position:absolute; right:0; top:-46px; margin:0; }
+.playing .battle-title-row { position:absolute; right:14px; top:-42px; margin:0; z-index:61; }
 .playing .battle-content { position:relative; padding-top:46px; }
 .playing .match-state { padding:8px 12px; }
 /* the board is the game: give it the height the headline and the row were using */
@@ -515,10 +523,19 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
    (routes, ranges, inspect, target, and three zoom buttons) want to be one
    button with a small menu behind it; until then they stay in the corners,
    smaller and out of the way. */
+/* SEVEN VIEW CONTROLS BEHIND ONE. Routes, ranges, inspect, targeting and three
+   zoom buttons sat permanently on the board — seven things to read, in the two
+   corners you are most likely to be building in, none of them touched more than
+   a few times a match. One eye button opens them and closes them again.
+   Collapsed is the default because the answer to "what do I press to play" must
+   never be seven things. */
+.map-toggles.collapsed button:not(#mt-more) { display:none; }
+.map-toggles.collapsed ~ .map-zoom-controls { display:none; }
+#mt-more { background:#9ce3d8cc; }
+.map-toggles:not(.collapsed) #mt-more { background:#ffd86b; border-color:#8a6a12; }
 .playing .map-toggles { transform:scale(.82); transform-origin:top left; opacity:.72; }
-.playing .map-toggles:hover { opacity:1; }
-.playing .map-zoom-controls { transform:scale(.82); transform-origin:bottom right; opacity:.72; }
-.playing .map-zoom-controls:hover { opacity:1; }
+.playing .map-toggles:hover, .playing .map-toggles:not(.collapsed) { opacity:1; }
+.playing .map-zoom-controls { transform:scale(.82); transform-origin:bottom right; opacity:.86; }
 .arena .battle-content { display:block; padding-top:8px; }
 .arena .map-viewport { height:calc(100dvh - 118px); min-height:300px; }
 .arena .hud { padding:8px 10px; }
@@ -557,7 +574,9 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
 .license-row { display:flex; gap:6px; margin-bottom:8px; }
 .license-row select { flex:1; min-width:0; padding:8px; border:1px solid #2e3b5c; border-radius:8px; color:#a5afd0; background:#10172a; font:500 11px 'DM Mono',monospace; }
 .license-row .ghost-button { white-space:nowrap; }
-.lumber-button { width:100%; margin-bottom:8px; padding:12px; color:#e8cf9a; border-color:#6b5a35; background:#1a1610; font-size:12px; }
+/* was a full-width amber banner above the tower list, shouting louder than the
+   towers themselves for something bought two or three times a match */
+.lumber-button { width:100%; margin:8px 0 0; padding:9px; color:#b9a877; border-color:#3d3524; background:#14120c; font-size:10px; }
 .lumber-button:disabled { opacity:.5; }
 .shrine-status { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; }
 .shrine-status .ghost-button { white-space:nowrap; }
@@ -1268,7 +1287,7 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
               </div>
               <div id="arena-log" class="arena-log" aria-live="polite"></div>
               <div id="action-ring" class="action-ring hidden"></div>
-              <div class="map-toggles" aria-label="Map indicators"><button id="mt-routes" title="Show creep routes">🧭</button><button id="mt-ranges" title="Show tower ranges">◎</button><button id="mt-inspect" title="Inspect — tap a tower or creep to read its stats" aria-pressed="false">🔍</button><button id="mt-target" title="Targeting for ALL your towers — tap to switch first / last">🎯<i id="mt-target-tag">1st</i></button></div>
+              <div class="map-toggles collapsed" aria-label="Map indicators"><button id="mt-more" title="View options — routes, ranges, inspect, targeting, zoom" aria-expanded="false">👁</button><button id="mt-routes" title="Show creep routes">🧭</button><button id="mt-ranges" title="Show tower ranges">◎</button><button id="mt-inspect" title="Inspect — tap a tower or creep to read its stats" aria-pressed="false">🔍</button><button id="mt-target" title="Targeting for ALL your towers — tap to switch first / last">🎯<i id="mt-target-tag">1st</i></button></div>
               <div class="map-zoom-controls" aria-label="Map zoom controls"><button id="zoom-out-button" aria-label="Zoom out">−</button><span id="zoom-label">100%</span><button id="zoom-in-button" aria-label="Zoom in">+</button><button id="zoom-reset-button" aria-label="Reset map zoom">reset</button></div>
               <div class="zoom-hint">PINCH TO ZOOM • DRAG WHEN ZOOMED<span class="hotkey-hint"> • 1–9 SEND • Q–U TOWERS • ESC = UNDO • RIGHT-CLICK / HOLD = SELL</span></div>
             </div>
@@ -1301,9 +1320,13 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
             <div id="tower-details" class="tower-details hidden"></div>
             <div id="build-panel" class="command-body">
               <p class="panel-heading">TOWER LINE</p>
-              <div id="build-extras"></div>
               <div id="tower-list" class="tower-list"></div>
               <button id="build-mode-button" class="action-button">Place selected tower <span>+</span></button>
+              <!-- Lumber and the second-element licence are bought a handful of
+                   times in a match and used to sit ABOVE the towers, so the
+                   thing you touch constantly was pushed down the panel behind
+                   two things you rarely touch. They live under the list now. -->
+              <div id="build-extras"></div>
             </div>
             <div id="send-panel" class="command-body hidden">
               <div id="shrine-status" class="shrine-status"></div>
@@ -6609,8 +6632,18 @@ function renderTowerList() {
     const def = towerDef(raceId, tier);
     const isLaser = def.name === 'Laser Cannon';
     const lum = def.lumber || (isLaser ? 1 : 0);
-    return `<button class="tower-row ${tier === selectedTowerTier ? 'selected' : ''} ${isLaser ? 'laser-row' : ''}" data-tower="${tier}">
-      <span><strong>${def.name}</strong><small>${def.desc}</small><small class="tower-stats">${def.dmg} dmg • ${def.range.toFixed(1)} range • ${attackSpeedText(def)} • ${effectiveDps(def).toFixed(0)} dps${def.raceId === 'poison' ? ' (venom)' : ''}${def.special ? ' • ' + def.special : ''}${def.groundOnly ? ' • NO AIR' : ''}</small><small class="tower-stats profile-line">${attackProfileText(raceId, def)}</small></span><b>${def.cost}g${lum ? ` +${lum}🪵` : ''}</b></button>`;
+    /* A CARD YOU CAN SCAN, NOT READ. Each of these carried its description, a
+       four-part stat line, and the whole armour matrix — four lines of mono
+       text per tower, eight towers deep, which is a wall you skim past rather
+       than a list you choose from. The line you choose on is damage, reach and
+       rate; the prose and the matrix are why you chose, and they belong on the
+       card you open, not on all eight at once. The selected one still shows
+       everything, because that is the one you are actually asking about. */
+    const chosen = tier === selectedTowerTier;
+    return `<button class="tower-row ${chosen ? 'selected' : ''} ${isLaser ? 'laser-row' : ''}" data-tower="${tier}">
+      <span><strong>${def.name}</strong>
+      <small class="tower-stats">${def.dmg} dmg • ${def.range.toFixed(1)} reach • ${effectiveDps(def).toFixed(0)} dps${def.groundOnly ? ' • NO AIR' : ''}</small>
+      ${chosen ? `<small>${def.desc}</small><small class="tower-stats">${attackSpeedText(def)}${def.special && def.special !== 'basic' ? ' • ' + def.special : ''}${def.raceId === 'poison' ? ' • venom' : ''}</small><small class="tower-stats profile-line">${attackProfileText(raceId, def)}</small>` : ''}</span><b>${def.cost}g${lum ? ` +${lum}🪵` : ''}</b></button>`;
   }).join('');
   document.querySelectorAll('[data-tower]').forEach((button) => button.addEventListener('click', () => {
     selectedTowerTier = Number(button.dataset.tower);
@@ -10112,6 +10145,15 @@ function syncMapToggles() {
   const sr = $('set-routes'); if (sr) sr.checked = !!debug.routes;
   const sg = $('set-ranges'); if (sg) sg.checked = !!debug.ranges;
 }
+/* The eye opens the view options and shuts them again. Everything behind it
+   keeps the handler it always had — this only decides whether they are on the
+   board or out of the way. */
+$('mt-more')?.addEventListener('click', () => {
+  const box = document.querySelector('.map-toggles');
+  if (!box) return;
+  const open = box.classList.toggle('collapsed') === false;
+  $('mt-more')?.setAttribute('aria-expanded', String(open));
+});
 $('mt-routes')?.addEventListener('click', () => { debug.routes = !debug.routes; syncMapToggles(); });
 $('mt-ranges')?.addEventListener('click', () => { debug.ranges = !debug.ranges; syncMapToggles(); });
 // the whole-wall targeting switch: first <-> last, the only two you flip mid-wave
