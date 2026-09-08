@@ -5102,9 +5102,18 @@ function drawTerrain(ctx, scale = 1) {
     }
   }
   // buildable grid hint
-  ctx.strokeStyle = '#7fb4ff12'; ctx.lineWidth = 1;
+  /* THE GRID IS HOW YOU AIM. Darkening the board, I dropped this to a whisper
+     along with the decoration — but a cell boundary is the thing you place a
+     tower ON, and Gene could not see where one cell ended and the next began.
+     Every buildable cell is legible again, and the rows you can actually build
+     in are brighter still, so "where am I allowed to put this" is answered by
+     looking rather than by trying. */
+  ctx.lineWidth = 1;
   for (let r = 0; r < ROWS; r += 1) for (let c = 0; c < COLS; c += 1) {
-    if (terrain[idx(r, c)] === T.FLOOR) ctx.strokeRect(c * CELL + .5, r * CELL + .5, CELL - 1, CELL - 1);
+    if (terrain[idx(r, c)] !== T.FLOOR) continue;
+    const mine = r >= SOUTH_TOP && r <= S_PILLAR_R1;
+    ctx.strokeStyle = mine ? '#9ecbff3a' : '#7fb4ff1c';
+    ctx.strokeRect(c * CELL + .5, r * CELL + .5, CELL - 1, CELL - 1);
   }
   // river waves + gate glow
   ctx.strokeStyle = '#8fbdf055'; ctx.lineWidth = 2;
@@ -5148,7 +5157,15 @@ function redrawBoard() { boardCtx.clearRect(0, 0, BOARD_W, BOARD_H); drawTerrain
 function drawTowerStructure(ctx, tower, stats, building) {
   // per-element silhouettes, tier scales the build; all local coords, origin = cell center
   const tier = tower.tier || 0;
-  const s = 1.12 + tier * .075;   // motifs fill more of the cell so the element reads at mobile size
+  /* FIT THE CELL, AND SIT IN THE MIDDLE OF IT.
+     Every motif is drawn roughly from y -9 to y +5.5 — taller than it is deep,
+     and hanging well above the origin. At the old 1.12 scale that put a tower
+     15px tall inside a 12px plinth in a 17px cell: the art spilled over the top
+     edge into the row above, which is what reads as "not centred in the cell"
+     and what made the cell borders hard to follow. Scale to fit, then push down
+     by half the motif's own offset so its visual middle lands on the cell's. */
+  const s = .82 + tier * .05;
+  ctx.translate(0, 1.6 * s);
   const color = stats.color;
   const seed = (tower.key % 97) * .61;
   ctx.save();
@@ -5278,12 +5295,41 @@ function drawTower(ctx, tower) {
   // element-colored ground glow — this is what tints the TILE by element, replacing the old bright identical frame
   ctx.fillStyle = stats.color + (building ? '18' : '3a');
   ctx.beginPath(); ctx.ellipse(0, half * .78, half * .95, half * .42, 0, 0, Math.PI * 2); ctx.fill();
-  // small dark plinth behind the motif, dim neutral frame (no longer the dominant shape)
+  /* THE PLINTH CARRIES THE TIER. A tier used to change only the scale of the
+     motif and a row of 2px pips along the bottom edge — which meant a tier-0 and
+     a tier-4 of the same element read as the same tower until you leaned in.
+     The base grows instead: plain stone at 0, corner buttresses from 1, a ring
+     from 3, a full crown at 5. Silhouette first, pips second. */
+  const tier = tower.tier || 0;
   ctx.fillStyle = '#0b1425e0';
-  ctx.strokeStyle = '#26324c'; ctx.lineWidth = 1;
+  ctx.strokeStyle = tier >= 3 ? stats.color + '77' : '#26324c'; ctx.lineWidth = tier >= 3 ? 1.3 : 1;
   if (building) ctx.setLineDash([4, 3]);
-  ctx.beginPath(); ctx.roundRect(-half + 1.5, -half + 1.5, (half - 1.5) * 2, (half - 1.5) * 2, 5); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.roundRect(-half + 1.5, -half + 1.5, (half - 1.5) * 2, (half - 1.5) * 2, tier >= 5 ? 2 : 5); ctx.fill(); ctx.stroke();
   ctx.setLineDash([]);
+  if (!building) {
+    const b = half - 1.5;
+    if (tier >= 1) {   // buttresses at the corners, one pair per tier up to four
+      ctx.fillStyle = stats.color + 'cc';
+      const corners = [[-b, -b], [b, -b], [-b, b], [b, b]].slice(0, Math.min(4, tier + 1));
+      corners.forEach(([cx, cy]) => {
+        ctx.beginPath(); ctx.arc(cx, cy, 1.9, 0, Math.PI * 2); ctx.fill();
+      });
+    }
+    if (tier >= 3) {   // a ring the motif sits inside
+      ctx.strokeStyle = stats.color + '55'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(0, 0, b * .86, 0, Math.PI * 2); ctx.stroke();
+    }
+    if (tier >= 5) {   // a crown of spurs: the top of the ladder is unmistakable
+      ctx.strokeStyle = stats.color; ctx.lineWidth = 1.4;
+      for (let i = 0; i < 8; i += 1) {
+        const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * b * .92, Math.sin(a) * b * .92);
+        ctx.lineTo(Math.cos(a) * (b + 2.2), Math.sin(a) * (b + 2.2));
+        ctx.stroke();
+      }
+    }
+  }
   if (building) {
     const progress = 1 - (tower.buildUntil - simTime) / tower.buildTime;
     ctx.globalAlpha = 1;
