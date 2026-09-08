@@ -371,7 +371,7 @@ h2 span { color:#7583a6; }
 .debug-bar input { accent-color:#77d6ff; }
 .dbg-stats { margin-left:auto; color:#657293; letter-spacing:.03em; text-transform:none; }
 .map-toggles { position:absolute; left:12px; top:12px; z-index:30; display:flex; flex-direction:column; gap:6px; }
-.map-toggles button { width:44px; height:44px; padding:0; border:1px solid #17325a99; border-radius:10px; background:#9ce3d8ee; color:#17325a; font-size:17px; box-shadow:0 4px 12px #17325a33; }
+.map-toggles button { width:44px; height:44px; padding:0; border:1px solid #2c4a7a; border-radius:10px; background:#101a2ecc; color:#cfe0ff; font-size:17px; box-shadow:0 4px 12px #0007; backdrop-filter:blur(6px); }
 .map-toggles button.on { background:#ffd86b; border-color:#8a6a12; box-shadow:0 0 0 2px #ffd86b66, 0 4px 12px #17325a33; }
 /* a lane with no path — the loudest state this control can have */
 .map-toggles button.mt-alarm { background:#ff5f6e; border-color:#7a1420; color:#fff; animation:mt-alarm-pulse 1s ease-in-out infinite; }
@@ -382,7 +382,7 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
 #mt-target i { position:absolute; right:2px; bottom:1px; font:700 7px 'DM Mono',monospace; font-style:normal; letter-spacing:.02em; }
 .wisp-undo { position:absolute; top:-14px; left:-14px; display:flex; align-items:center; justify-content:center; width:34px; height:34px; border:1.5px solid #ffd86b; border-radius:50%; background:#3a2a08; color:#ffd86b; font-size:13px; font-style:normal; box-shadow:0 0 10px #ffd86b99; animation:undo-pulse 1.1s ease-in-out infinite; }
 .wisp-undo.hidden { display:none; }
-.map-zoom-controls { position:absolute; right:12px; bottom:12px; z-index:30; display:flex; align-items:center; gap:8px; padding:5px; border:1px solid #17325a99; border-radius:10px; background:#9ce3d8ee; box-shadow:0 4px 12px #17325a33; }.map-zoom-controls button { min-width:44px; height:44px; padding:0 6px; border:0; border-radius:7px; color:#17325a; background:transparent; font:700 15px 'DM Mono',monospace; }.map-zoom-controls button:hover { background:#d8f6ef; }.map-zoom-controls span { min-width:37px; color:#17325a; font:700 8px 'DM Mono',monospace; text-align:center; }.map-zoom-controls button:last-child { min-width:44px; font-size:8px; text-transform:uppercase; }.zoom-hint { position:absolute; left:12px; bottom:15px; z-index:30; color:#17325a; font:700 8px 'DM Mono',monospace; letter-spacing:.08em; text-shadow:0 1px #d8f6ef; pointer-events:none; }
+.map-zoom-controls { position:absolute; right:12px; bottom:12px; z-index:30; display:flex; align-items:center; gap:8px; padding:5px; border:1px solid #2c4a7a; border-radius:10px; background:#101a2ecc; box-shadow:0 4px 12px #0007; backdrop-filter:blur(6px); }.map-zoom-controls button { min-width:44px; height:44px; padding:0 6px; border:0; border-radius:7px; color:#cfe0ff; background:transparent; font:700 15px 'DM Mono',monospace; }.map-zoom-controls button:hover { background:#1d2b47; }.map-zoom-controls span { min-width:37px; color:#8fa3c8; font:700 8px 'DM Mono',monospace; text-align:center; }.map-zoom-controls button:last-child { min-width:44px; font-size:8px; text-transform:uppercase; }.zoom-hint { position:absolute; left:12px; bottom:15px; z-index:30; color:#5f739a; font:700 8px 'DM Mono',monospace; letter-spacing:.08em; pointer-events:none; }
 .log-strip { display:flex; align-items:center; gap:10px; min-height:48px; margin-top:12px; padding:0 14px; border:1px solid #233150; border-radius:10px; color:#9ba7c4; font:11px 'DM Mono',monospace; background:#0d1424; }
 .command-panel { align-self:start; padding:18px; border:1px solid #2c3959; border-radius:15px; background:linear-gradient(160deg,#17213a,#0e1527); }
 .race-identity { gap:12px; padding-bottom:18px; border-bottom:1px solid #2a3858; }.big-rune { display:grid; place-items:center; width:48px; height:48px; border:1px solid var(--race,#77d6ff); border-radius:13px; color:var(--race,#77d6ff); background:#77d6ff12; font-size:25px; }.race-identity strong,.race-identity span:last-child { display:block; }.race-identity strong { margin-top:5px; font-size:18px; }.race-identity span:last-child { margin-top:3px; color:#8e9ab8; font-size:11px; }
@@ -531,7 +531,7 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
    never be seven things. */
 .map-toggles.collapsed button:not(#mt-more) { display:none; }
 .map-toggles.collapsed ~ .map-zoom-controls { display:none; }
-#mt-more { background:#9ce3d8cc; }
+#mt-more { background:#101a2ecc; }
 .map-toggles:not(.collapsed) #mt-more { background:#ffd86b; border-color:#8a6a12; }
 .playing .map-toggles { transform:scale(.82); transform-origin:top left; opacity:.72; }
 .playing .map-toggles:hover, .playing .map-toggles:not(.collapsed) { opacity:1; }
@@ -5033,34 +5033,44 @@ function setupCanvases() {
 function drawTerrain(ctx, scale = 1) {
   ctx.save();
   ctx.scale(scale, scale);
-  // frozen-field base: cool vertical wash instead of a flat fill
+  /* A NIGHT FIELD, NOT A NOON ONE. The board used to be a bright mint slab —
+     lighter than the app around it and lighter than the units standing on it,
+     so the loudest thing on screen was empty ground and a pale tower on pale
+     snow had nowhere to go. Values are inverted now: the ground is the darkest
+     thing in the frame, water is the lit thing, and every creep, tower and
+     projectile is brighter than what it stands on. The two halves separate by
+     TEMPERATURE rather than brightness, so neither side looks like the "real"
+     one. */
   const baseGrad = ctx.createLinearGradient(0, 0, 0, BOARD_H);
-  baseGrad.addColorStop(0, '#a8dbe6'); baseGrad.addColorStop(.5, '#84c8d6'); baseGrad.addColorStop(1, '#9ad3df');
+  baseGrad.addColorStop(0, '#141d33'); baseGrad.addColorStop(.5, '#0f1626'); baseGrad.addColorStop(1, '#121b30');
   ctx.fillStyle = baseGrad; ctx.fillRect(0, 0, BOARD_W, BOARD_H);
+  // north reads faintly violet, south faintly teal: whose ground this is, at a glance
+  ctx.fillStyle = '#5b4c9e12'; ctx.fillRect(0, 0, BOARD_W, RIVER_TOP * CELL);
+  ctx.fillStyle = '#2ea6a012'; ctx.fillRect(0, (RIVER_BOT + 1) * CELL, BOARD_W, BOARD_H - (RIVER_BOT + 1) * CELL);
   for (let r = 0; r < ROWS; r += 1) for (let c = 0; c < COLS; c += 1) {
     const t = terrain[idx(r, c)];
     const x = c * CELL, y = r * CELL;
-    if (t === T.HARBOR) { ctx.fillStyle = '#5b55c0'; ctx.fillRect(x, y, CELL, CELL); }
+    if (t === T.HARBOR) { ctx.fillStyle = '#44388f'; ctx.fillRect(x, y, CELL, CELL); }
     else if (t === T.RIVER) {
       const g = ctx.createLinearGradient(0, y, 0, y + CELL);
-      g.addColorStop(0, '#1a3d7a'); g.addColorStop(.5, '#12305f'); g.addColorStop(1, '#1a3d7a');
+      g.addColorStop(0, '#25578f'); g.addColorStop(.5, '#193d6f'); g.addColorStop(1, '#25578f');
       ctx.fillStyle = g; ctx.fillRect(x, y, CELL, CELL);
     }
-    else if (t === T.GATE) { ctx.fillStyle = r >= RIVER_TOP && r <= RIVER_BOT ? '#1d418a' : '#8ed2dd'; ctx.fillRect(x, y, CELL, CELL); }
-    else if (t === T.CLIFF) { ctx.fillStyle = '#245e54'; ctx.fillRect(x, y, CELL, CELL); }
+    else if (t === T.GATE) { ctx.fillStyle = r >= RIVER_TOP && r <= RIVER_BOT ? '#224e85' : '#1b2740'; ctx.fillRect(x, y, CELL, CELL); }
+    else if (t === T.CLIFF) { ctx.fillStyle = '#1d2740'; ctx.fillRect(x, y, CELL, CELL); }
   }
   // cliff bevel edges + cosmetic massif notches like the reference blob
-  ctx.fillStyle = '#2f7263';
+  ctx.fillStyle = '#4a628f';
   for (let r = 0; r < ROWS; r += 1) for (let c = 0; c < COLS; c += 1) {
     if (terrain[idx(r, c)] !== T.CLIFF) continue;
     if (r > 0 && terrain[idx(r - 1, c)] !== T.CLIFF) ctx.fillRect(c * CELL, r * CELL, CELL, 3);
   }
-  ctx.fillStyle = '#1b4a42';
+  ctx.fillStyle = '#080d18';
   for (let r = 0; r < ROWS; r += 1) for (let c = 0; c < COLS; c += 1) {
     if (terrain[idx(r, c)] !== T.CLIFF) continue;
     if (r < ROWS - 1 && terrain[idx(r + 1, c)] !== T.CLIFF) ctx.fillRect(c * CELL, r * CELL + CELL - 3, CELL, 3);
   }
-  ctx.fillStyle = '#245e54';
+  ctx.fillStyle = '#1d2740';
   // notches mirror exactly: north pokes up into row 10, south pokes down into row 38
   [[10.6, 12], [10.6, 15], [10.6, 18], [38, 12], [38, 15], [38, 18]].forEach(([r, c]) => ctx.fillRect(c * CELL, r * CELL, CELL, CELL * .4));
   // snow drift along the top edge of the river banks + a soft rim on floor near cliffs
@@ -5076,7 +5086,7 @@ function drawTerrain(ctx, scale = 1) {
   for (let r = 0; r < ROWS; r += 1) for (let c = 0; c < COLS; c += 1) {
     if (terrain[idx(r, c)] !== T.CLIFF) continue;
     const g = ctx.createLinearGradient(0, r * CELL, 0, r * CELL + CELL);
-    g.addColorStop(0, '#2e6d60'); g.addColorStop(1, '#1c4c44');
+    g.addColorStop(0, '#212b45'); g.addColorStop(1, '#1a2338');
     ctx.fillStyle = g; ctx.fillRect(c * CELL, r * CELL, CELL, CELL);
   }
   // static texture: floor speckles + cliff moss (deterministic per cell — repaints identically)
@@ -5084,20 +5094,20 @@ function drawTerrain(ctx, scale = 1) {
     const t = terrain[idx(r, c)];
     const h = (r * 73856093 ^ c * 19349663) >>> 0;
     if (t === T.FLOOR) {
-      if (h % 5 === 0) { ctx.fillStyle = '#6db6c6'; ctx.fillRect(c * CELL + (h % 17), r * CELL + (h % 13) + 4, 2, 2); }
-      if (h % 7 === 0) { ctx.fillStyle = '#93d5e2'; ctx.fillRect(c * CELL + (h % 11) + 6, r * CELL + (h % 19), 1.6, 1.6); }
+      if (h % 5 === 0) { ctx.fillStyle = '#2b3c60'; ctx.fillRect(c * CELL + (h % 17), r * CELL + (h % 13) + 4, 2, 2); }
+      if (h % 7 === 0) { ctx.fillStyle = '#38507e'; ctx.fillRect(c * CELL + (h % 11) + 6, r * CELL + (h % 19), 1.6, 1.6); }
     } else if (t === T.CLIFF) {
-      if (h % 4 === 0) { ctx.fillStyle = '#2f7263'; ctx.fillRect(c * CELL + (h % 15) + 3, r * CELL + (h % 12) + 5, 2.6, 2.6); }
-      if (h % 9 === 0) { ctx.fillStyle = '#183f38'; ctx.fillRect(c * CELL + (h % 9) + 8, r * CELL + (h % 16) + 2, 2, 2); }
+      if (h % 4 === 0) { ctx.fillStyle = '#33456e'; ctx.fillRect(c * CELL + (h % 15) + 3, r * CELL + (h % 12) + 5, 2.6, 2.6); }
+      if (h % 9 === 0) { ctx.fillStyle = '#0d1322'; ctx.fillRect(c * CELL + (h % 9) + 8, r * CELL + (h % 16) + 2, 2, 2); }
     }
   }
   // buildable grid hint
-  ctx.strokeStyle = '#123f5b22'; ctx.lineWidth = 1;
+  ctx.strokeStyle = '#7fb4ff12'; ctx.lineWidth = 1;
   for (let r = 0; r < ROWS; r += 1) for (let c = 0; c < COLS; c += 1) {
     if (terrain[idx(r, c)] === T.FLOOR) ctx.strokeRect(c * CELL + .5, r * CELL + .5, CELL - 1, CELL - 1);
   }
   // river waves + gate glow
-  ctx.strokeStyle = '#5b91d2aa'; ctx.lineWidth = 2;
+  ctx.strokeStyle = '#8fbdf055'; ctx.lineWidth = 2;
   for (let c = 1; c < COLS - 1; c += 2) {
     const x = c * CELL;
     for (let k = 0; k < RIVER_ROWS; k += 1) {
@@ -5112,7 +5122,7 @@ function drawTerrain(ctx, scale = 1) {
   ctx.strokeRect(DOOR_C0 * CELL + 2, S_GATE_R * CELL + 2, doorW - 4, CELL - 4);
   ctx.setLineDash([]);
   // player build zone tint
-  ctx.fillStyle = '#d8f6ef18';
+  ctx.fillStyle = '#7fe3ff0e';
   for (let r = SOUTH_TOP; r <= S_PILLAR_R1; r += 1) for (let c = 0; c < COLS; c += 1) {
     if (terrain[idx(r, c)] === T.FLOOR) ctx.fillRect(c * CELL, r * CELL, CELL, CELL);
   }
@@ -5120,7 +5130,7 @@ function drawTerrain(ctx, scale = 1) {
   ['north', 'south'].forEach((half) => ['west', 'east'].forEach((side) => ROUTES[half][side].slice(FLAG_START, FLAG_END).forEach((cell, i) => {
     const x = cell.c * CELL, y = cell.r * CELL;
     ctx.fillStyle = '#ffffff30'; ctx.fillRect(x + 1.5, y + 1.5, CELL - 3, CELL - 3);
-    ctx.strokeStyle = '#17325a'; ctx.lineWidth = 1.6;
+    ctx.strokeStyle = '#cfe0ff'; ctx.lineWidth = 1.6;
     ctx.beginPath(); ctx.moveTo(x + 8, y + 20.5); ctx.lineTo(x + 8, y + 4); ctx.stroke();
     ctx.fillStyle = '#ff9f69';
     ctx.beginPath(); ctx.moveTo(x + 9, y + 4); ctx.lineTo(x + 19.5, y + 7.5); ctx.lineTo(x + 9, y + 11); ctx.closePath(); ctx.fill();
@@ -5129,7 +5139,7 @@ function drawTerrain(ctx, scale = 1) {
   })));
   // soft vignette frames the board and lifts the center
   const vg = ctx.createRadialGradient(BOARD_W / 2, BOARD_H / 2, BOARD_H * .25, BOARD_W / 2, BOARD_H / 2, BOARD_H * .62);
-  vg.addColorStop(0, '#00000000'); vg.addColorStop(1, '#0a142033');
+  vg.addColorStop(0, '#00000000'); vg.addColorStop(1, '#04070f66');
   ctx.fillStyle = vg; ctx.fillRect(0, 0, BOARD_W, BOARD_H);
   ctx.restore();
 }
