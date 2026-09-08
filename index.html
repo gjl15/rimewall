@@ -23,7 +23,7 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
 
-:root { color-scheme: dark; --ink:#e9edff; --muted:#8e98b7; --deep:#080c19; --panel:#11182b; --panel-2:#151f37; --line:#273252; --ice:#77d6ff; --fire:#ff875f; --earth:#c6a269; --tech:#80a6ff; --crystal:#c48cff; --poison:#a7e36e; --stone:#a9b3c6; --electric:#ffd86b; }
+:root { color-scheme: dark; --ink:#e9edff; --muted:#8e98b7; --deep:#080c19; --panel:#11182b; --panel-2:#151f37; --line:#273252; --ice:#8adcff; --fire:#ff9068; --earth:#d9b070; --tech:#98acff; --crystal:#cf9dff; --poison:#b4e870; --stone:#bcc6da; --electric:#ffd65e; --gravity:#dc94e4; --beam:#7ff0cf; --ninja:#eef1f8; }
 * { box-sizing: border-box; }
 body { margin:0; min-width:320px; min-height:100vh; background:radial-gradient(circle at 75% 0%,#1b2b4c 0,#0b1020 42%,#060914 100%); color:var(--ink); font-family:Manrope,system-ui,sans-serif; }
 button { font:inherit; color:inherit; cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
@@ -1349,17 +1349,17 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
    loop observed in the referenced gameplay videos. Ranges are source units ÷ 128
    cells; damage is the map's stated tooltip value; sell refund is 75%. */
 const races = [
-  { id:'ice', name:'Ice', title:'Ice Freezer', builder:'Ice Former', symbol:'❄', color:'#77d6ff', desc:'Frost attacks slow everything they touch.', trait:'Slow / control' },
-  { id:'fire', name:'Fire', title:'Forge of Fire', builder:'Fire Minion', symbol:'✹', color:'#ff875f', desc:'Splash damage that punishes crowded waves.', trait:'Splash damage' },
-  { id:'earth', name:'Earth', title:'Earth Gate', builder:"Gaia's Servant", symbol:'◒', color:'#c6a269', desc:'Front-line bombardment with wide area damage.', trait:'Front-line AoE' },
-  { id:'tech', name:'Tech', title:'Tech Center', builder:'Scientist', symbol:'⌁', color:'#80a6ff', desc:'Extreme range artillery against heavy armor.', trait:'Range / artillery' },
-  { id:'crystal', name:'Crystal', title:'Crystal Castle', builder:'Crystal Molder', symbol:'◇', color:'#c48cff', desc:'Expensive chaos-damage towers with brutal scaling.', trait:'Late-game power' },
-  { id:'poison', name:'Poison', title:'Poison Pool', builder:'Alchemist', symbol:'☣', color:'#a7e36e', desc:'Weak bolts that stack a burn. The burn ignores armour entirely.', trait:'Stacking burn' },
-  { id:'stone', name:'Stone', title:'Stone Sanctuary', builder:'Stone Summoner', symbol:'⬟', color:'#a9b3c6', desc:'Short-range crushers that crit for double damage.', trait:'Burst / crits' },
-  { id:'electricity', name:'Electricity', title:'Power Plant', builder:'Spark', symbol:'ϟ', color:'#ffd86b', desc:'Fast attacks, chain lightning, and area shocks.', trait:'Fast / chain' },
-  { id:'gravity', name:'Gravity', title:'Gravity Generator', builder:'Gravity Lord', symbol:'◉', color:'#b48ead', desc:'Reality-bending towers that crush percentages of HP.', trait:'Gimmicks / AoE' },
+  { id:'ice', name:'Ice', title:'Ice Freezer', builder:'Ice Former', symbol:'❄', color:'#8adcff', desc:'Frost attacks slow everything they touch.', trait:'Slow / control' },
+  { id:'fire', name:'Fire', title:'Forge of Fire', builder:'Fire Minion', symbol:'✹', color:'#ff9068', desc:'Splash damage that punishes crowded waves.', trait:'Splash damage' },
+  { id:'earth', name:'Earth', title:'Earth Gate', builder:"Gaia's Servant", symbol:'◒', color:'#d9b070', desc:'Front-line bombardment with wide area damage.', trait:'Front-line AoE' },
+  { id:'tech', name:'Tech', title:'Tech Center', builder:'Scientist', symbol:'⌁', color:'#98acff', desc:'Extreme range artillery against heavy armor.', trait:'Range / artillery' },
+  { id:'crystal', name:'Crystal', title:'Crystal Castle', builder:'Crystal Molder', symbol:'◇', color:'#cf9dff', desc:'Expensive chaos-damage towers with brutal scaling.', trait:'Late-game power' },
+  { id:'poison', name:'Poison', title:'Poison Pool', builder:'Alchemist', symbol:'☣', color:'#b4e870', desc:'Weak bolts that stack a burn. The burn ignores armour entirely.', trait:'Stacking burn' },
+  { id:'stone', name:'Stone', title:'Stone Sanctuary', builder:'Stone Summoner', symbol:'⬟', color:'#bcc6da', desc:'Short-range crushers that crit for double damage.', trait:'Burst / crits' },
+  { id:'electricity', name:'Electricity', title:'Power Plant', builder:'Spark', symbol:'ϟ', color:'#ffd65e', desc:'Fast attacks, chain lightning, and area shocks.', trait:'Fast / chain' },
+  { id:'gravity', name:'Gravity', title:'Gravity Generator', builder:'Gravity Lord', symbol:'◉', color:'#dc94e4', desc:'Reality-bending towers that crush percentages of HP.', trait:'Gimmicks / AoE' },
   { id:'beam', name:'Beam', title:'Lumen Array', builder:'Lightwright', symbol:'⌖', color:'#7ef0d4', desc:'Continuous light at long reach. Tiny damage, never stops.', trait:'Sustained / reach' },
-  { id:'ninja', name:'Ninja', title:'Shadow Dojo', builder:'Shadow', symbol:'刃', color:'#e0e4ec', desc:'Melee only. Enormous damage inside one or two squares, and nothing at all outside them. Every blade takes an elemental imbuing.', trait:'Melee / imbued' }
+  { id:'ninja', name:'Ninja', title:'Shadow Dojo', builder:'Shadow', symbol:'刃', color:'#eef1f8', desc:'Melee only. Enormous damage inside one or two squares, and nothing at all outside them. Every blade takes an elemental imbuing.', trait:'Melee / imbued' }
 ];
 
 /* Six towers per race (Earth has five) + the shared Laser Cannon capstone.
@@ -2982,6 +2982,19 @@ let roster = null;
 // which of the three lane colours this seat wears, given how many seats its half has
 function seatLaneIdx(i, n) { return n <= 1 ? 1 : (n === 2 ? (i === 0 ? 0 : 2) : i); }
 function seatLane(half, i, n) { return LANE_COLORS[half][seatLaneIdx(i, Math.max(1, n))]; }
+/* WHOSE TOWER IS THIS? Only meaningful when a half is shared — the renderer
+   asks for it and paints nothing when it comes back null, so a 1v1 board never
+   carries an ownership mark it has no use for. An ally tower knows its own
+   seat; anything else on my half is mine. */
+function towerLaneColor(tower) {
+  if (!tower) return null;
+  const half = halfOfRow(tower.r);
+  const seats = mp.active ? mpSeatsInPlay(half).length : (typeof defendersPerHalf === 'function' ? defendersPerHalf() : 1);
+  if (seats < 2) return null;
+  const idxSeat = tower.allySeat != null ? tower.allySeat : (mp.active && half === mp.team ? mp.seat : 0);
+  const lane = seatLane(half, idxSeat, seats);
+  return lane ? lane.color : null;
+}
 
 /* The columns a seat is responsible for. One seat holds the whole half; more
    than one and they split it, edges first, so nobody's wall is behind
@@ -5042,39 +5055,39 @@ function drawTerrain(ctx, scale = 1) {
      TEMPERATURE rather than brightness, so neither side looks like the "real"
      one. */
   const baseGrad = ctx.createLinearGradient(0, 0, 0, BOARD_H);
-  baseGrad.addColorStop(0, '#141d33'); baseGrad.addColorStop(.5, '#0f1626'); baseGrad.addColorStop(1, '#121b30');
+  baseGrad.addColorStop(0, '#0c1220'); baseGrad.addColorStop(.5, '#0c1220'); baseGrad.addColorStop(1, '#0c1220');
   ctx.fillStyle = baseGrad; ctx.fillRect(0, 0, BOARD_W, BOARD_H);
-  // north reads faintly violet, south faintly teal: whose ground this is, at a glance
-  ctx.fillStyle = '#5b4c9e12'; ctx.fillRect(0, 0, BOARD_W, RIVER_TOP * CELL);
-  ctx.fillStyle = '#2ea6a012'; ctx.fillRect(0, (RIVER_BOT + 1) * CELL, BOARD_W, BOARD_H - (RIVER_BOT + 1) * CELL);
+  // north reads violet, south teal: whose ground this is, at a glance
+  ctx.fillStyle = '#161a33'; ctx.fillRect(0, 0, BOARD_W, RIVER_TOP * CELL);
+  ctx.fillStyle = '#0e1c28'; ctx.fillRect(0, (RIVER_BOT + 1) * CELL, BOARD_W, BOARD_H - (RIVER_BOT + 1) * CELL);
   for (let r = 0; r < ROWS; r += 1) for (let c = 0; c < COLS; c += 1) {
     const t = terrain[idx(r, c)];
     const x = c * CELL, y = r * CELL;
     if (t === T.HARBOR) { ctx.fillStyle = '#44388f'; ctx.fillRect(x, y, CELL, CELL); }
     else if (t === T.RIVER) {
       const g = ctx.createLinearGradient(0, y, 0, y + CELL);
-      g.addColorStop(0, '#25578f'); g.addColorStop(.5, '#193d6f'); g.addColorStop(1, '#25578f');
+      g.addColorStop(0, '#3b78b8'); g.addColorStop(.5, '#1f4a80'); g.addColorStop(1, '#3b78b8');
       ctx.fillStyle = g; ctx.fillRect(x, y, CELL, CELL);
     }
-    else if (t === T.GATE) { ctx.fillStyle = r >= RIVER_TOP && r <= RIVER_BOT ? '#224e85' : '#1b2740'; ctx.fillRect(x, y, CELL, CELL); }
-    else if (t === T.CLIFF) { ctx.fillStyle = '#1d2740'; ctx.fillRect(x, y, CELL, CELL); }
+    else if (t === T.GATE) { ctx.fillStyle = r >= RIVER_TOP && r <= RIVER_BOT ? '#2c5e9c' : '#1a1f35'; ctx.fillRect(x, y, CELL, CELL); }
+    else if (t === T.CLIFF) { ctx.fillStyle = '#1a1f35'; ctx.fillRect(x, y, CELL, CELL); }
   }
   // cliff bevel edges + cosmetic massif notches like the reference blob
-  ctx.fillStyle = '#4a628f';
+  ctx.fillStyle = '#4a628f';   // lit north edge of the massif, 2px
   for (let r = 0; r < ROWS; r += 1) for (let c = 0; c < COLS; c += 1) {
     if (terrain[idx(r, c)] !== T.CLIFF) continue;
     if (r > 0 && terrain[idx(r - 1, c)] !== T.CLIFF) ctx.fillRect(c * CELL, r * CELL, CELL, 3);
   }
-  ctx.fillStyle = '#080d18';
+  ctx.fillStyle = '#070b15';   // its south edge falls to the app ground
   for (let r = 0; r < ROWS; r += 1) for (let c = 0; c < COLS; c += 1) {
     if (terrain[idx(r, c)] !== T.CLIFF) continue;
     if (r < ROWS - 1 && terrain[idx(r + 1, c)] !== T.CLIFF) ctx.fillRect(c * CELL, r * CELL + CELL - 3, CELL, 3);
   }
-  ctx.fillStyle = '#1d2740';
+  ctx.fillStyle = '#1a1f35';
   // notches mirror exactly: north pokes up into row 10, south pokes down into row 38
   [[10.6, 12], [10.6, 15], [10.6, 18], [38, 12], [38, 15], [38, 18]].forEach(([r, c]) => ctx.fillRect(c * CELL, r * CELL, CELL, CELL * .4));
   // snow drift along the top edge of the river banks + a soft rim on floor near cliffs
-  ctx.fillStyle = '#eef7fb';
+  ctx.fillStyle = '#eef7fb80';
   for (let c = 0; c < COLS; c += 1) {
     for (let r = 1; r < ROWS; r += 1) {
       if (terrain[idx(r, c)] === T.RIVER && terrain[idx(r - 1, c)] !== T.RIVER && terrain[idx(r - 1, c)] !== T.GATE) {
@@ -5086,7 +5099,7 @@ function drawTerrain(ctx, scale = 1) {
   for (let r = 0; r < ROWS; r += 1) for (let c = 0; c < COLS; c += 1) {
     if (terrain[idx(r, c)] !== T.CLIFF) continue;
     const g = ctx.createLinearGradient(0, r * CELL, 0, r * CELL + CELL);
-    g.addColorStop(0, '#212b45'); g.addColorStop(1, '#1a2338');
+    g.addColorStop(0, '#1e2340'); g.addColorStop(1, '#171b2e');
     ctx.fillStyle = g; ctx.fillRect(c * CELL, r * CELL, CELL, CELL);
   }
   // static texture: floor speckles + cliff moss (deterministic per cell — repaints identically)
@@ -5108,9 +5121,14 @@ function drawTerrain(ctx, scale = 1) {
      Every buildable cell is legible again, and the rows you can actually build
      in are brighter still, so "where am I allowed to put this" is answered by
      looking rather than by trying. */
+  /* GRID ONLY WHERE YOU CAN BUILD. Handoff §2: no grid on the massif or the
+     river. A grid line is a promise that a tower can go there, and drawing it
+     over rock and water breaks that promise on two thirds of the board. */
   ctx.lineWidth = 1;
   for (let r = 0; r < ROWS; r += 1) for (let c = 0; c < COLS; c += 1) {
-    if (terrain[idx(r, c)] !== T.FLOOR) continue;
+    const t2 = terrain[idx(r, c)];
+    if (t2 !== T.FLOOR) continue;
+    if (r >= RIVER_TOP && r <= RIVER_BOT) continue;
     const mine = r >= SOUTH_TOP && r <= S_PILLAR_R1;
     ctx.strokeStyle = mine ? '#9ecbff3a' : '#7fb4ff1c';
     ctx.strokeRect(c * CELL + .5, r * CELL + .5, CELL - 1, CELL - 1);
@@ -5154,119 +5172,78 @@ function drawTerrain(ctx, scale = 1) {
 }
 function redrawBoard() { boardCtx.clearRect(0, 0, BOARD_W, BOARD_H); drawTerrain(boardCtx); }
 
-function drawTowerStructure(ctx, tower, stats, building) {
-  // per-element silhouettes, tier scales the build; all local coords, origin = cell center
-  const tier = tower.tier || 0;
-  /* FIT THE CELL, AND SIT IN THE MIDDLE OF IT.
-     Every motif is drawn roughly from y -9 to y +5.5 — taller than it is deep,
-     and hanging well above the origin. At the old 1.12 scale that put a tower
-     15px tall inside a 12px plinth in a 17px cell: the art spilled over the top
-     edge into the row above, which is what reads as "not centred in the cell"
-     and what made the cell borders hard to follow. Scale to fit, then push down
-     by half the motif's own offset so its visual middle lands on the cell's. */
-  const s = .82 + tier * .05;
-  ctx.translate(0, 1.6 * s);
-  const color = stats.color;
-  const seed = (tower.key % 97) * .61;
-  ctx.save();
-  ctx.scale(s, s);
-  // glow core underlay
-  ctx.fillStyle = color + (building ? '14' : '26');
-  ctx.beginPath(); ctx.arc(0, 0, 6.5 + tier, 0, Math.PI * 2); ctx.fill();
-  ctx.lineWidth = 1.3; ctx.strokeStyle = color;
-  const race = stats.special === 'laser' ? 'laser' : tower.raceId;
-  if (race === 'ice') {
-    [[0, -8.5, 3.1], [-4.6, -5.5, 2.3], [4.6, -4.8, 2.1]].forEach(([cx, top, w], i) => {
-      if (i > Math.min(2, tier)) return;
-      ctx.fillStyle = '#bfeaff';
-      ctx.beginPath(); ctx.moveTo(cx, top - tier); ctx.lineTo(cx - w, 5.5); ctx.lineTo(cx + w, 5.5); ctx.closePath(); ctx.fill(); ctx.stroke();
-    });
-    ctx.fillStyle = '#ffffffcc'; ctx.fillRect(-.7, -7.5 - tier, 1.4, 3);
-  } else if (race === 'fire') {
-    ctx.fillStyle = '#3a1d14';
-    ctx.beginPath(); ctx.arc(0, 3.5, 5.6, 0, Math.PI, false); ctx.closePath(); ctx.fill(); ctx.stroke();
-    const fl = Math.sin(simTime * 7 + seed) * 1.6;
-    ctx.fillStyle = color;
-    ctx.beginPath(); ctx.moveTo(0, -7.5 - tier - fl); ctx.quadraticCurveTo(4.4, -1, 0, 3.2); ctx.quadraticCurveTo(-4.4, -1, 0, -7.5 - tier - fl); ctx.fill();
-    ctx.fillStyle = '#ffe08a';
-    ctx.beginPath(); ctx.moveTo(0, -3.4 - fl * .5); ctx.quadraticCurveTo(2, .4, 0, 2.6); ctx.quadraticCurveTo(-2, .4, 0, -3.4 - fl * .5); ctx.fill();
-  } else if (race === 'earth') {
-    ctx.fillStyle = '#5d4a2e';
-    ctx.beginPath(); ctx.arc(0, 1.5, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#7fae62';
-    [[-3, -4.5], [2.5, -6], [.5, -2.5]].forEach(([cx, cy], i) => {
-      if (i > tier * .7) return;
-      ctx.beginPath(); ctx.arc(cx, cy - tier * .5, 2.6, 0, Math.PI * 2); ctx.fill();
-    });
-  } else if (race === 'tech') {
-    ctx.fillStyle = '#2a3a55';
-    ctx.beginPath(); ctx.roundRect(-5.5, -2.5, 11, 8, 2); ctx.fill(); ctx.stroke();
-    ctx.save(); ctx.rotate(-.6);
-    ctx.fillStyle = '#9db4dd'; ctx.fillRect(-1.4, -10 - tier, 2.8, 9);
-    if (tier >= 2) ctx.fillRect(-4, -8 - tier, 2.4, 7);   // second barrel at T2+
-    ctx.restore();
-    // amber status lights — the disambiguator so Tech never reads as Ice-blue
-    const blink = Math.sin(simTime * 6 + seed) > 0 ? 'ff' : '55';
-    ctx.fillStyle = '#ffcf6b' + blink; ctx.beginPath(); ctx.arc(0, .8, 2, 0, Math.PI * 2); ctx.fill();
-    if (tier >= 3) { ctx.strokeStyle = '#9db4dd'; ctx.beginPath(); ctx.moveTo(4.5, -2.5); ctx.lineTo(6.5, -9); ctx.stroke(); ctx.fillStyle = '#ffcf6b'; ctx.beginPath(); ctx.arc(6.5, -9, 1.2, 0, Math.PI * 2); ctx.fill(); }
-  } else if (race === 'crystal') {
-    ctx.fillStyle = '#3a2a5c';
-    ctx.beginPath(); ctx.moveTo(0, -9 - tier); ctx.lineTo(5.4, 0); ctx.lineTo(0, 6.4); ctx.lineTo(-5.4, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.strokeStyle = color + '99';
-    ctx.beginPath(); ctx.moveTo(0, -9 - tier); ctx.lineTo(0, 6.4); ctx.moveTo(-5.4, 0); ctx.lineTo(5.4, 0); ctx.stroke();
-    ctx.fillStyle = '#ffffff88'; ctx.beginPath(); ctx.arc(-1.6, -3.4, 1.1, 0, Math.PI * 2); ctx.fill();
-  } else if (race === 'poison') {
-    ctx.fillStyle = '#22391b';
-    ctx.beginPath(); ctx.roundRect(-5.4, -3, 10.8, 8.6, 3); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = color;
-    ctx.beginPath(); ctx.ellipse(0, -3, 5.4, 2, 0, 0, Math.PI * 2); ctx.fill();
-    const bub = (simTime * 1.4 + seed) % 1;
-    ctx.fillStyle = color + 'bb';
-    ctx.beginPath(); ctx.arc(-2.4, -4 - bub * 6, 1.4 * (1 - bub) + .4, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(2.6, -4 - ((bub + .45) % 1) * 6, 1.1, 0, Math.PI * 2); ctx.fill();
-  } else if (race === 'stone') {
-    ctx.fillStyle = '#55607a';
-    ctx.beginPath(); ctx.roundRect(-6, .5, 12, 6, 1.5); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.roundRect(-4.2, -4.5, 8.4, 5.4, 1.5); ctx.fill(); ctx.stroke();
-    if (tier >= 1) { ctx.beginPath(); ctx.roundRect(-2.4, -9 - tier * .5, 4.8, 5, 1.2); ctx.fill(); ctx.stroke(); }
-  } else if (race === 'electricity') {
-    ctx.fillStyle = '#6a5a2a'; ctx.fillRect(-1.2, -4, 2.4, 10);
-    ctx.fillStyle = color;
-    ctx.beginPath(); ctx.arc(0, -6.5 - tier * .6, 3 + tier * .3, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    if (Math.sin(simTime * 11 + seed) > .55) {
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(0, -6.5); ctx.lineTo(3.5, -2.5); ctx.lineTo(1.5, -2); ctx.lineTo(4.6, 2); ctx.stroke();
-    }
-  } else if (race === 'gravity') {
-    ctx.strokeStyle = color; ctx.lineWidth = 1.4;
-    ctx.beginPath(); ctx.ellipse(0, 0, 7.4, 2.9, -.5, 0, Math.PI * 2); ctx.stroke();
-    if (tier >= 3) { ctx.beginPath(); ctx.ellipse(0, 0, 7.4, 2.9, .5, 0, Math.PI * 2); ctx.stroke(); }  // crossed rings at T3+
-    // near-black void core — reads as a HOLE (darker than the tile), never a bright crystal gem
-    ctx.fillStyle = '#050210';
-    ctx.beginPath(); ctx.arc(0, 0, 3.6 + tier * .3, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#3a2550'; ctx.stroke();
-    const motes = 1 + Math.min(2, Math.floor(tier / 2));
-    ctx.fillStyle = '#e6d8ff';
-    for (let m = 0; m < motes; m += 1) { const a = simTime * 2.2 + seed + m * 2.1; ctx.beginPath(); ctx.arc(Math.cos(a) * 7.4, Math.sin(a) * 2.9 - Math.cos(a) * 1.2, 1.4, 0, Math.PI * 2); ctx.fill(); }
-  } else if (race === 'beam') {
-    ctx.fillStyle = '#16333a';
-    ctx.beginPath(); ctx.roundRect(-5.5, 1.5, 11, 5, 1.8); ctx.fill(); ctx.stroke();
-    ctx.strokeStyle = color; ctx.lineWidth = 1.3;
-    ctx.beginPath(); ctx.moveTo(-4, 1.5); ctx.lineTo(0, -6 - tier * .5); ctx.lineTo(4, 1.5); ctx.stroke();
-    ctx.fillStyle = color; ctx.globalAlpha = .55 + Math.sin(simTime * 6 + seed) * .25;
-    ctx.beginPath(); ctx.arc(0, -6 - tier * .5, 1.7 + tier * .22, 0, Math.PI * 2); ctx.fill();
-    ctx.globalAlpha = 1;
-  } else if (race === 'laser') {
-    ctx.fillStyle = '#2a3a55';
-    ctx.beginPath(); ctx.roundRect(-5, 1, 10, 5.4, 2); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#c9d4ef';
-    ctx.beginPath(); ctx.arc(0, -2.5, 5, Math.PI * .15, Math.PI * .85, true); ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#ff5f7a';
-    ctx.beginPath(); ctx.arc(0, -3.4, 1.8 + Math.sin(simTime * 5 + seed) * .5, 0, Math.PI * 2); ctx.fill();
-  } else {
-    ctx.fillStyle = color; ctx.font = '12px "DM Mono", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(stats.symbol, 0, 1);
+/* ============================================================================
+   TOWER RENDERER — from the phone-first design handoff.
+   The rule it enforces, and the reason it replaced what was here:
+     body shape = element - plinth mass = tier - element colour on the body -
+     ownership colour on the ground. Nothing else on a tower may carry meaning.
+   The old renderer said "element" three times (motif, ground glow, plinth
+   outline) and "tier" three times (scale, buttresses, pip ladder), which is why
+   eleven elements still collapsed into "a coloured mass on a plinth" once the
+   board got busy. Each body below is a flat fill and one dark edge, eight path
+   commands at most; motion may flicker, it may never change the outline.
+   ========================================================================= */
+/* Element palette normalised to one lightness/chroma (oklch ~ L .84 C .13), so
+   no element is louder than another by accident. */
+const RW_ELEMENT = {
+  ice:'#8adcff', fire:'#ff9068', earth:'#d9b070', tech:'#98acff', crystal:'#cf9dff', poison:'#b4e870',
+  stone:'#bcc6da', electricity:'#ffd65e', gravity:'#dc94e4', beam:'#7ff0cf', ninja:'#eef1f8', laser:'#ff5f8f' };
+/* Plinth slabs per tier: [width, height] in cell units (cell = 20u), bottom first. */
+const RW_SLABS = [[], [[10, 2]], [[13, 2.4]], [[14, 2], [10, 2]], [[16, 2.2], [12, 2.2]], [[18, 2], [14, 2], [10, 2]]];
+const RW_SLAB_COL = ['#9aa7c2', '#b6c1d6', '#c9d3e6'];   // bottom -> top; light hits the top step
+function rwBody(ctx, el, a, h, t) {
+  const P = Math.PI;
+  switch (el) {
+    case 'ice':      ctx.beginPath(); ctx.moveTo(-a, 0); ctx.lineTo(0, -h); ctx.lineTo(a, 0); ctx.closePath(); ctx.fill(); ctx.stroke(); break;
+    case 'fire': {   ctx.fillRect(-1.3, -h * .32, 2.6, h * .32);
+                     ctx.beginPath(); ctx.arc(0, -h * .58, a, 0, P, false); ctx.closePath(); ctx.fill(); ctx.stroke();
+                     const fl = Math.sin(t * 7) * .08 * h;
+                     ctx.beginPath(); ctx.moveTo(0, -h - fl); ctx.quadraticCurveTo(a * .55, -h * .75, 0, -h * .5); ctx.quadraticCurveTo(-a * .55, -h * .75, 0, -h - fl); ctx.fill(); break; }
+    case 'earth':    ctx.beginPath(); ctx.ellipse(0, 0, a * 1.35, h * .72, 0, P, 0, false); ctx.closePath(); ctx.fill(); ctx.stroke(); break;
+    case 'tech':     ctx.beginPath(); ctx.rect(-a * .9, -h * .55, a * 1.8, h * .55); ctx.fill(); ctx.stroke();
+                     ctx.beginPath(); ctx.rect(0, -h * .82, a * 2.1, h * .2); ctx.fill(); ctx.stroke(); break;
+    case 'crystal':  ctx.beginPath(); ctx.moveTo(0, -h); ctx.lineTo(a * .8, -h * .38); ctx.lineTo(0, 0); ctx.lineTo(-a * .8, -h * .38); ctx.closePath(); ctx.fill(); ctx.stroke(); break;
+    case 'poison':   ctx.beginPath(); ctx.rect(-a * .3, -h, a * .6, h * .55); ctx.fill(); ctx.stroke();
+                     ctx.beginPath(); ctx.arc(0, -h * .34, a * .95, 0, P * 2); ctx.fill(); ctx.stroke(); ctx.fillRect(-a * .5, -h, a, 1.2); break;
+    case 'stone':    [[1.25, 0, .34], [.85, .34, .33], [.45, .67, .33]].forEach(([w, y, hh]) => { ctx.beginPath(); ctx.rect(-a * w, -h * (y + hh), a * w * 2, h * hh); ctx.fill(); ctx.stroke(); }); break;
+    case 'electricity': ctx.fillRect(-.9, -h, 1.8, h); ctx.fillRect(-a, -h * .82, a * 2, 1.3); ctx.fillRect(-a * .6, -h * .55, a * 1.2, 1.3);
+                     ctx.globalAlpha = Math.sin(t * 9) > 0 ? 1 : .55; ctx.beginPath(); ctx.arc(0, -h, 1.9, 0, P * 2); ctx.fill(); ctx.globalAlpha = 1; break;
+    case 'gravity':  ctx.beginPath(); ctx.arc(0, -h * .5, h * .5, 0, P * 2); ctx.arc(0, -h * .5, h * .26, 0, P * 2, true); ctx.fill('evenodd');
+                     ctx.beginPath(); ctx.arc(0, -h * .5, h * .5, 0, P * 2); ctx.stroke(); break;
+    case 'beam':     ctx.fillRect(-1, -h * .38, 2, h * .38);
+                     ctx.beginPath(); ctx.moveTo(-a * 1.15, -h); ctx.lineTo(-a * .35, -h * .38); ctx.lineTo(a * .35, -h * .38); ctx.lineTo(a * 1.15, -h); ctx.closePath(); ctx.fill(); ctx.stroke();
+                     ctx.globalAlpha = .6 + Math.sin(t * 5) * .3; ctx.beginPath(); ctx.arc(0, -h * .78, 1.4, 0, P * 2); ctx.fill(); ctx.globalAlpha = 1; break;
+    case 'ninja':    ctx.fillRect(-1.2, -h * .1, 2.4, h * .1); ctx.fillRect(-a * .85, -h * .26, a * 1.7, 1.5);
+                     ctx.beginPath(); ctx.moveTo(-1.8, -h * .26); ctx.lineTo(1.8, -h * .26); ctx.quadraticCurveTo(a * .5, -h * .7, a * 1.05, -h); ctx.lineTo(a * .45, -h * .86); ctx.quadraticCurveTo(-1.6, -h * .62, -1.8, -h * .26); ctx.closePath(); ctx.fill(); ctx.stroke(); break;
+    case 'laser':    ctx.beginPath(); ctx.rect(-a * .8, -h * .4, a * 1.6, h * .4); ctx.fill(); ctx.stroke();
+                     ctx.beginPath(); ctx.arc(0, -h * .68, a * .7, 0, P * 2); ctx.fill(); ctx.stroke(); break;
   }
+}
+/* Ownership: an inset outline on the cell and a band under the plinth. Never on
+   the body - the body belongs to the element. Off entirely when a half has one
+   seat, because an ownership mark with nobody to distinguish is just noise. */
+function rwOwnerMark(ctx, laneColor, footW) {
+  if (!laneColor) return;
+  ctx.strokeStyle = laneColor; ctx.lineWidth = 1.4; ctx.strokeRect(-9.2, -9.2, 18.4, 18.4);
+  ctx.fillStyle = laneColor; ctx.fillRect(-footW / 2, 8, footW, 1.6);
+}
+function drawTowerStructure(ctx, tower, stats, building, laneColor) {
+  const tier = tower.tier || 0, s = CELL / 20;
+  const race = stats.special === 'laser' ? 'laser' : tower.raceId;
+  const hex = RW_ELEMENT[race] || stats.color;
+  ctx.save(); ctx.scale(s, s);
+  const slabs = RW_SLABS[Math.max(0, Math.min(RW_SLABS.length - 1, tier))];
+  rwOwnerMark(ctx, laneColor, Math.max(10, slabs[0] ? slabs[0][0] : 0));
+  let bottom = 8;
+  slabs.forEach(([w, h], i) => {
+    bottom -= h;
+    ctx.fillStyle = RW_SLAB_COL[Math.min(2, i + (3 - slabs.length))]; ctx.fillRect(-w / 2, bottom, w, h);
+    if (tier === 5 && i === slabs.length - 1) { ctx.fillStyle = '#fff'; ctx.fillRect(-w / 2, bottom, w, .8); }
+  });
+  ctx.translate(0, bottom);
+  ctx.fillStyle = hex; ctx.strokeStyle = '#0c122099'; ctx.lineWidth = .9; ctx.lineJoin = 'round';
+  if (building) ctx.globalAlpha = .6;
+  rwBody(ctx, race, 5, bottom + 8.5, simTime + (tower.key % 97) * .61);
   ctx.restore();
 }
 function drawTower(ctx, tower) {
@@ -5292,44 +5269,10 @@ function drawTower(ctx, tower) {
   // a watched tower carries the OTHER player's key, so it must never read as
   // one of mine just because the numbers happen to line up
   const selected = !tower.mirror && (tower.key === selectedTowerKey || (selectedGroupKeys && selectedGroupKeys.includes(tower.key)));
-  // element-colored ground glow — this is what tints the TILE by element, replacing the old bright identical frame
-  ctx.fillStyle = stats.color + (building ? '18' : '3a');
-  ctx.beginPath(); ctx.ellipse(0, half * .78, half * .95, half * .42, 0, 0, Math.PI * 2); ctx.fill();
-  /* THE PLINTH CARRIES THE TIER. A tier used to change only the scale of the
-     motif and a row of 2px pips along the bottom edge — which meant a tier-0 and
-     a tier-4 of the same element read as the same tower until you leaned in.
-     The base grows instead: plain stone at 0, corner buttresses from 1, a ring
-     from 3, a full crown at 5. Silhouette first, pips second. */
-  const tier = tower.tier || 0;
-  ctx.fillStyle = '#0b1425e0';
-  ctx.strokeStyle = tier >= 3 ? stats.color + '77' : '#26324c'; ctx.lineWidth = tier >= 3 ? 1.3 : 1;
-  if (building) ctx.setLineDash([4, 3]);
-  ctx.beginPath(); ctx.roundRect(-half + 1.5, -half + 1.5, (half - 1.5) * 2, (half - 1.5) * 2, tier >= 5 ? 2 : 5); ctx.fill(); ctx.stroke();
-  ctx.setLineDash([]);
-  if (!building) {
-    const b = half - 1.5;
-    if (tier >= 1) {   // buttresses at the corners, one pair per tier up to four
-      ctx.fillStyle = stats.color + 'cc';
-      const corners = [[-b, -b], [b, -b], [-b, b], [b, b]].slice(0, Math.min(4, tier + 1));
-      corners.forEach(([cx, cy]) => {
-        ctx.beginPath(); ctx.arc(cx, cy, 1.9, 0, Math.PI * 2); ctx.fill();
-      });
-    }
-    if (tier >= 3) {   // a ring the motif sits inside
-      ctx.strokeStyle = stats.color + '55'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.arc(0, 0, b * .86, 0, Math.PI * 2); ctx.stroke();
-    }
-    if (tier >= 5) {   // a crown of spurs: the top of the ladder is unmistakable
-      ctx.strokeStyle = stats.color; ctx.lineWidth = 1.4;
-      for (let i = 0; i < 8; i += 1) {
-        const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
-        ctx.beginPath();
-        ctx.moveTo(Math.cos(a) * b * .92, Math.sin(a) * b * .92);
-        ctx.lineTo(Math.cos(a) * (b + 2.2), Math.sin(a) * (b + 2.2));
-        ctx.stroke();
-      }
-    }
-  }
+  /* Ownership owns the ground now, and the plinth owns the tier — both live
+     inside drawTowerStructure. What used to be here (an element-coloured ground
+     ellipse, a rounded plinth, corner buttresses, a T3 ring and a T5 crown) all
+     said the same two things twice. Design handoff §1. */
   if (building) {
     const progress = 1 - (tower.buildUntil - simTime) / tower.buildTime;
     ctx.globalAlpha = 1;
@@ -5337,11 +5280,13 @@ function drawTower(ctx, tower) {
     ctx.fillStyle = '#ffd86b'; ctx.fillRect(-half, half + 1, half * 2 * Math.max(0, Math.min(1, progress)), 3);
     ctx.globalAlpha = .6;
   }
-  drawTowerStructure(ctx, tower, stats, building);
-  // tier ladder along the bottom edge (element-colored, shows all 6 — was colorless & capped at 5)
-  ctx.fillStyle = stats.color;
-  for (let i = 0; i < Math.min(6, tower.tier); i += 1) { ctx.fillRect(-half + 2 + i * 2.9, half - 3.5, 2.1, 2); }
-  ctx.fillStyle = '#ffd86b';
+  /* Lane colour only when the half is actually shared — on a 1v1 board there is
+     nobody to tell apart, and an ownership mark that is always on is noise. */
+  const laneSeats = mp.active ? mpSeatsInPlay(halfOfRow(tower.r)).length : (defendersPerHalf ? defendersPerHalf() : 1);
+  const lane = laneSeats >= 2 ? (towerLaneColor ? towerLaneColor(tower) : null) : null;
+  drawTowerStructure(ctx, tower, stats, building, lane);
+  // the level bar stays on the top edge; tier is the plinth's job now
+  ctx.fillStyle = '#ffd45c';
   for (let i = 0; i < (tower.level || 0); i += 1) { ctx.fillRect(-half + 2 + i * 3.4, -half + 2, 2.4, 2); }
   /* BLOCKING MARKER. This tower is what a creep is chewing on because the lane
      has no path around it. Red pulse plus a warning glyph — the one thing you
@@ -5406,7 +5351,7 @@ function rmReduced() {
 }
 function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
 // map a tower/impact tint back to its element so effects can be flavored by color
-const ELEMENT_BY_COLOR = { '#77d6ff':'ice', '#ff875f':'fire', '#c6a269':'earth', '#80a6ff':'tech', '#c48cff':'crystal', '#a7e36e':'poison', '#a9b3c6':'stone', '#ffd86b':'electricity', '#b48ead':'gravity', '#7ef0d4':'beam' };
+const ELEMENT_BY_COLOR = { '#8adcff':'ice', '#ff9068':'fire', '#d9b070':'earth', '#98acff':'tech', '#cf9dff':'crystal', '#b4e870':'poison', '#bcc6da':'stone', '#ffd65e':'electricity', '#dc94e4':'gravity', '#7ff0cf':'beam', '#eef1f8':'ninja' };
 /* THE WAVE HAS TO SURVIVE ITS OWN LIGHT SHOW.
    Creeps are painted first, then projectiles, then effects — so a dense volley
    buries the thing you are trying to read. Gene, on Electricity: "I love the
