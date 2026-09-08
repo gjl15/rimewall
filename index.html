@@ -493,6 +493,32 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
    scrolling; the board fills the display and the wisp carries everything. */
 .arena .app-shell { overflow:hidden; }
 .arena .battle-title-row, .arena .debug-bar, .arena .quick-send, .arena .log-strip, .arena .command-panel, .arena .hint-box { display:none !important; }
+/* ---- once the match is running, the page stops selling the game ---- */
+/* The headline, its eyebrow and the hint box are for someone deciding whether
+   to play. During a match they push the board down the screen and compete with
+   it for attention. Gone on every device; "Change race" survives, moved into
+   the bar above, because leaving a match is a real thing to want. */
+.playing .battle-title-row h2, .playing .battle-title-row .eyebrow, .playing .hint-box { display:none !important; }
+.playing .app-shell { padding-top:12px; }
+.playing .brand-row { display:none; }
+/* One button does not need a row of its own. "Change race" tucks up onto the
+   match strip, which was already spanning the full width with nothing on its
+   left but a mode name. Two bars of chrome become one. */
+.playing .battle-title-row { position:absolute; right:0; top:-46px; margin:0; }
+.playing .battle-content { position:relative; padding-top:46px; }
+.playing .match-state { padding:8px 12px; }
+/* the board is the game: give it the height the headline and the row were using */
+.playing .map-viewport { height:calc(100dvh - 190px); min-height:440px; }
+/* Tools and zoom float ON the board, over cells you are trying to read. Moving
+   them to a row across the top was worse — it blocked a whole band of the
+   board instead of two corners. The real answer is that seven view controls
+   (routes, ranges, inspect, target, and three zoom buttons) want to be one
+   button with a small menu behind it; until then they stay in the corners,
+   smaller and out of the way. */
+.playing .map-toggles { transform:scale(.82); transform-origin:top left; opacity:.72; }
+.playing .map-toggles:hover { opacity:1; }
+.playing .map-zoom-controls { transform:scale(.82); transform-origin:bottom right; opacity:.72; }
+.playing .map-zoom-controls:hover { opacity:1; }
 .arena .battle-content { display:block; padding-top:8px; }
 .arena .map-viewport { height:calc(100dvh - 118px); min-height:300px; }
 .arena .hud { padding:8px 10px; }
@@ -9181,6 +9207,15 @@ function applyUiMode() {
   // board fills the display and the wisp is the master controller
   const arena = touchUI() && battleRunning;
   document.body.classList.toggle('arena', arena);
+  /* A MATCH SHOULD LOOK LIKE A MATCH ON EVERY DEVICE. Arena mode — no page
+     scroll, no marketing copy, the board given the room — was gated on touch,
+     so a phone got a game and a laptop got the landing page with a game
+     embedded in it: a "FORCE 1 VS FORCE 2 / Your defense is the weapon."
+     headline sitting between the HUD and the board while you played, three
+     stacked bars before you reached the board at all, and a hint box under it.
+     Desktop keeps its build panel, because that is where a mouse wants it —
+     it just stops advertising to someone who has already pressed play. */
+  document.body.classList.toggle('playing', !!battleRunning);
   if (arena) { const shell = document.querySelector('.app-shell'); if (shell) shell.scrollTop = 0; }
   const vp = $('map-viewport');
   if (vp) vp.style.touchAction = (arena || mapZoomScale > 1) ? 'none' : 'manipulation';
