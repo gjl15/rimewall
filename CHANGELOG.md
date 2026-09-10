@@ -7,6 +7,83 @@ environment, so every entry here was live the moment it was pushed.
 
 ---
 
+## 2026-09-10 (later) — a second element you can actually buy, and a dojo you can manage
+
+### "How do you purchase a second race" — on a phone, you could not
+
+It costs **2 lumber (500g each, so 1000g)** and it lived in a dropdown plus a
+"License 2nd element" button in the **desktop side panel** — the panel the arena
+layout hides. So on a phone there was no way to buy one, and nothing on screen
+said the option existed. That is not a discoverability problem, it is a missing
+feature on the layout most of the play happens on.
+
+Licensing is now one path both layouts call, and **TOOLS carries it on the
+phone**: `⚗ 2nd element · 2🪵`, showing your lumber count against the price.
+Once you hold two, the same card becomes the build-line switch.
+
+### 36 blades, 6 rungs, 18 presses
+
+*"With ninja I had to make so many and it was impossible to easily and quickly
+group towers to upgrade or imbue them."*
+
+Measured on a played-looking dojo — 36 blades spread across all six rungs.
+**Select all** groups by race **and tier**, which is right for a power ladder
+where the rung *is* the tower, and wrong for Ninja, whose rungs are a weapon
+rack. Covering that board took six separate selections at three presses each,
+and you had to hunt down one blade of every rung yourself first.
+
+**Pressing Select all again now widens to the whole element.** Level and imbue
+already accept mixed groups — levelling charges each tower its own price — so:
+
+    tap a blade, press Select all   ->  5 selected (its rung)
+    press it again                  -> 36 selected (every blade you own)
+    covering all 36 blades          ->  3 presses, was 18
+    one LEVEL press                 -> 36/36 levelled for 752g
+    one IMBUE press                 -> 36/36 imbued
+
+The ring button says which it will do: `ALL 5` for the rung, then `+31` in green
+when the next press takes the rest.
+
+### Box and lasso are on the rail, not behind a drawer
+
+They lived in TOOLS: open the drawer, tap the tool, drag — and the drawer sat
+over the ground you were dragging across. **SELECT** is now a left-rail button.
+One tap arms the box, a second swaps to the lasso, a third puts it away.
+
+### Ninja was priced like a ladder race and is not one
+
+*"Very strong early but weak later unless you're upgrading it."*
+
+Exactly right, and the cause is that **levels are worth +15% to everyone**. That
+suits a race whose rungs cost real money and whose levels are a top-up. Ninja's
+rungs are flat-priced at 5g and levelling *is* its entire power curve — and
+linear +15% over eight levels is only ×2.2.
+
+Gold per dps on one cell, against the field:
+
+| budget | Ninja before | Ninja now | field range |
+|---|---|---|---|
+| 10g | 0.13 | 0.13 | 0.63 – 2.27 |
+| 80g | 0.64 | 0.35 | 0.80 – 3.56 |
+| 200g | 1.14 | 0.53 | 0.62 – 2.93 |
+| 400g | **1.98** | **0.81** | 0.57 – 1.55 |
+
+The defect was the ceiling: a fully-levelled blade stopped at **194 dps for
+~385g** and had nowhere to put another coin, while the field bought 550–690 dps
+for 400g. A race can now set what a level is worth the way it already sets how
+many it gets and what they cost; Ninja's is +55%. Ceiling **194 → 476 dps**.
+
+**Two things to be straight about.** Ninja is now the best value at every budget
+up to 200g, which it was not before — the justification is that it covers
+roughly a thirteenth of the area of a 5.5-reach tower and touches nothing
+outside one or two cells, but that is an argument, not a measurement. And the
+tier list **cannot see this change at all**: it reads towers at their base rung
+with no levelling, which is why Ninja's score is 0.59 before and after. The
+regression is likewise unmoved (median wave 12) because that bot builds wide,
+not tall. Judging a level curve needs a real game.
+
+---
+
 ## 2026-09-10 — a mis-tap can no longer delete a base, and splash stops reaching the sky
 
 ### The base that got sold
