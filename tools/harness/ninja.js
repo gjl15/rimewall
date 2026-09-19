@@ -37,6 +37,21 @@ const base = process.argv[2] || 'http://127.0.0.1:8771/';
       t.buildUntil = 0; t.placedAt = -1000; addTower(t); keys.push(t.key);
     }
     const eligible = keys.filter((k) => boltEligible(towers.get(k))).length;
+    /* REACHABILITY, not just existence. Ten chips existed before; seven of them
+       were clipped out of a 128px column and could never be pressed. Scroll each
+       into view and ask the document whether it is really on top there. */
+    selectedTowerKey = keys[0]; selectedGroupKeys = [keys[0]];
+    renderTowerDetails(); if (touchUI()) { wispTab = 'inspect'; renderWispPanel('inspect'); railTab = 'tower'; renderRails(); }
+    const chips = [...document.querySelectorAll('[data-bolt]')];
+    const reach = [];
+    chips.forEach((c) => {
+      c.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      const r = c.getBoundingClientRect();
+      if (r.width < 4 || r.height < 4) return;
+      const at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      if (at && (at === c || c.contains(at) || at.contains(c))) reach.push(c.dataset.bolt);
+    });
+    const reachable = [...new Set(reach)];
 
     // one tap selects them all, the next imbues every one
     selectedTowerKey = keys[0]; selectedGroupKeys = [keys[0]];
@@ -53,7 +68,7 @@ const base = process.argv[2] || 'http://127.0.0.1:8771/';
 
     matchOver = true; battleRunning = false;
     return { ladder, unlocked, placed: keys.length, eligible, selected, imbued, spent, swapped,
-      mods: BOLT_MODS.map((m) => m.name) };
+      mods: BOLT_MODS.map((m) => m.name), totalMods: BOLT_MODS.length, reachable };
   });
 
   const p = (s, n) => String(s).padEnd(n);
@@ -67,8 +82,11 @@ const base = process.argv[2] || 'http://127.0.0.1:8771/';
   console.log('  one imbue press fitted Ice to: ' + out.imbued + ' for ' + out.spent + 'g');
   console.log('  one more press swapped all of them to Toxic: ' + out.swapped);
   console.log('  imbuings available: ' + out.mods.join(', '));
+  console.log('  imbuements a finger can actually press: ' + out.reachable.length + ' of ' + out.totalMods
+    + '  ' + JSON.stringify(out.reachable));
   const ok = out.unlocked && out.eligible === out.placed && out.selected === out.placed
-    && out.imbued === out.placed && out.swapped === out.placed;
+    && out.imbued === out.placed && out.swapped === out.placed
+    && out.reachable.length === out.totalMods;
   console.log('\n' + (ok ? 'PASS — a dozen blades are re-imbued in two presses' : 'FAIL'));
   if (errs.length) console.log('ERRORS', errs.slice(0, 3));
   await browser.close();

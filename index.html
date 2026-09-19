@@ -216,7 +216,7 @@ body.reduce-motion .mp-spin { animation:none; border-top-color:#8ee89f55; }
 .rl-btn:active { transform:scale(.94); }
 .rl-btn.rl-alarm { border-color:#ff5f6e; background:#2a1219; color:#ffc6cf; }
 .rl-btn i { font-style:normal; font:700 7px 'DM Mono',monospace; color:#ffd86b; }
-.rl-scroll { flex:1; overflow-y:auto; overflow-x:hidden; display:flex; flex-direction:column; gap:5px; padding:1px; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+.rl-scroll { flex:1; overflow-y:auto; overflow-x:clip; display:flex; flex-direction:column; gap:5px; padding:1px; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
 .rl-scroll::-webkit-scrollbar { display:none; }
 .rl-head { position:sticky; top:0; z-index:2; padding:4px 5px; border-radius:7px; background:#0b1020f2; color:#8995b4; font:600 7px 'DM Mono',monospace; letter-spacing:.14em; }
 .rl-card { display:flex; flex-direction:column; gap:1px; padding:6px; border:1px solid #2a3654; border-left:3px solid var(--tint,#2a3654); border-radius:9px; background:#111a30; color:#e9edff; text-align:left; }
@@ -324,7 +324,7 @@ body.reduce-motion .mp-spin { animation:none; border-top-color:#8ee89f55; }
 .resource.gold em { font-size:16px; font-weight:700; }
 .resource b { font-size:11px; }
 .resource em { font-style:normal; }
-.battle-content { display:grid; grid-template-columns:minmax(0,1fr) 310px; gap:20px; padding-top:38px; }
+.battle-content { display:grid; grid-template-columns:minmax(0,1fr) 275px; gap:18px; padding-top:38px; }
 .battle-content > * { min-width:0; }   /* never let panel content (e.g. the tower strip) inflate the layout */
 .battle-title-row { justify-content:space-between; margin-bottom:22px; }
 h2 { margin-top:7px; font-size:clamp(23px,3vw,36px); letter-spacing:-.06em; }
@@ -418,8 +418,19 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
 .sheet-chip b i { font-style:normal; color:#8ee89f; margin-left:3px; }
 /* bolt mods — tech line + any race's Laser Cannon */
 .bolt-rack { margin-top:9px; padding:8px; border:1px solid #2a3654; border-radius:10px; background:#0d1424; }
-.bolt-row { display:flex; gap:5px; margin-top:6px; }
-.bolt-chip { flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; min-height:46px; padding:5px 3px; border:1.5px solid #2e3b5c; border-radius:9px; background:#131b30; color:#cfd8ee; }
+/* TEN IMBUEMENTS, ONE SCROLLING ROW. Gene: "you can only imbue 3-4 out of the
+   11." Measured cause: ten chips at flex:1 cannot shrink below their min-content
+   width (the word "Piercing" at 8px), so the row needs ~490px — and in the rail
+   it sits inside a 128px column with overflow-x:hidden, which clips the other
+   seven out of existence rather than scrolling to them. Fixed width per chip,
+   no shrinking, and the row scrolls. */
+.bolt-row { display:flex; gap:5px; margin-top:6px; overflow-x:auto; overflow-y:hidden; flex-wrap:nowrap; scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch; scrollbar-width:thin; padding-bottom:3px; }
+.bolt-row::-webkit-scrollbar { height:4px; }
+.bolt-row::-webkit-scrollbar-thumb { border-radius:2px; background:#2e3b5c; }
+/* the edge fade is the affordance: it says there is more to the right */
+.bolt-rack { position:relative; }
+.bolt-rack::after { content:''; position:absolute; right:8px; top:34px; bottom:11px; width:18px; pointer-events:none; background:linear-gradient(90deg, #0d142400, #0d1424); }
+.bolt-chip { flex:0 0 52px; scroll-snap-align:start; display:flex; flex-direction:column; align-items:center; gap:2px; min-height:46px; padding:5px 3px; border:1.5px solid #2e3b5c; border-radius:9px; background:#131b30; color:#cfd8ee; }
 .bolt-chip span { font-size:15px; line-height:1.1; color:var(--bolt); }
 .bolt-chip small { font-size:8px; letter-spacing:.04em; }
 .bolt-chip.on { border-color:var(--bolt); background:color-mix(in srgb, var(--bolt) 16%, #131b30); color:#f2f6ff; box-shadow:inset 0 0 0 1px var(--bolt); }
@@ -553,6 +564,12 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
 .tower-row { display:flex; justify-content:space-between; gap:10px; padding:10px; border:1px solid #273554; border-radius:8px; background:#10182b; }.tower-row strong { display:block; font-size:11px; }.tower-row small { display:block; margin-top:3px; color:#8590ae; font-size:9px; }.tower-row b { align-self:center; color:#f5d36d; font:11px 'DM Mono',monospace; }.tower-row.selected { border-color:var(--race); box-shadow:inset 0 0 0 1px var(--race); }
 .action-button { width:100%; margin-top:12px; padding:12px 13px; font-size:11px; }.action-button:disabled { opacity:.45; cursor:not-allowed; }.send-action { background:#ff8a9a; }.send-card { width:100%; justify-content:space-between; text-align:left; gap:8px; margin-bottom:8px; padding:10px; border:1px solid #2a3654; border-radius:8px; background:#10182b; color:inherit; }.send-card:hover { border-color:#ff8a9a; }
 .tower-stats { color:#6f7c9e !important; font:500 8px 'DM Mono',monospace !important; }
+/* the paragraph on the OPEN card only: why you would want this tower, as prose */
+.tower-why { margin-top:4px !important; color:#9aa6c4 !important; font-size:9px !important; line-height:1.45 !important; }
+/* The chrome pass sets .tower-row b to gold Playfair for the COST. The special
+   name is also a <b>, inside the mono stat line, and was inheriting the serif —
+   so "deepfreeze" rendered like a price. Keep it mono; colour alone carries it. */
+.tower-stats b { font:700 8px 'DM Mono',monospace !important; letter-spacing:.06em; }
 .send-stats { color:#6f7c9e !important; font:500 8px 'DM Mono',monospace !important; }
 .air-tag { margin-left:4px; padding:1px 4px; border:1px solid #9fd8ff88; border-radius:4px; color:#9fd8ff; background:#9fd8ff14; font:700 7px 'DM Mono',monospace; letter-spacing:.08em; font-style:normal; vertical-align:1px; }
 .atk-tag { margin-left:4px; padding:1px 4px; border:1px solid #ff9faf88; border-radius:4px; color:#ff9faf; background:#ff9faf14; font:700 7px 'DM Mono',monospace; letter-spacing:.08em; font-style:normal; vertical-align:1px; }
@@ -583,8 +600,15 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
 .gold b { color:#f5d36d; }.income b { color:#84d8a6; }.lives b { color:#ff8a9a; }.enemy b,.enemy em { color:#c48cff; }
 .tower-details { margin-top:12px; padding:12px; border:1px solid var(--race,#77d6ff); border-radius:11px; background:#0c1526; }
 .td-head { display:flex; align-items:center; gap:10px; }
-.td-head strong { display:block; font-size:13px; }
-.td-head small { display:block; margin-top:2px; color:#8590ae; font-size:9px; }
+/* THE HEAD MAY NOT GROW. A tier upgrade renames the tower — "Frostflick" to
+   "Snowball Launcher" — and on a 275px panel the longer name wrapped to a
+   second line, pushing the action grid down by a row while a finger was coming
+   down on it. sellguard.js caught exactly this: td-tier and td-sell moved.
+   One line each, ellipsis if it will not fit; the full name is on the card. */
+.td-head { min-height:38px; }
+.td-head > div { min-width:0; flex:1; }
+.td-head strong { display:block; overflow:hidden; font-size:13px; white-space:nowrap; text-overflow:ellipsis; }
+.td-head small { display:block; overflow:hidden; margin-top:2px; color:#8590ae; font-size:9px; white-space:nowrap; text-overflow:ellipsis; }
 .td-head .ghost-button { margin-left:auto; padding:4px 8px; }
 .td-rune { display:grid; place-items:center; width:32px; height:32px; border:1px solid var(--race,#77d6ff); border-radius:9px; color:var(--race,#77d6ff); background:#77d6ff10; font-size:16px; }
 .td-desc { margin-top:9px !important; color:#93a0be; font-size:10px; line-height:1.5; }
@@ -605,7 +629,11 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
 .td-actions { display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:52px; gap:8px; margin-top:8px; }
 .td-actions .td-wide { grid-column:1 / -1; }
 .td-hint { color:#7f8db0; font-style:italic; }
-.td-actions button { display:flex; align-items:center; justify-content:center; overflow:hidden; width:auto; height:52px; min-height:0; margin:0; padding:6px 8px; font-size:11px; line-height:1.2; text-align:center; }.send-card > div { flex:1; }.send-card strong,.send-card small { display:block; }.send-card strong { font-size:10px; }.send-card small { margin-top:3px; color:#8995b4; font-size:9px; }.send-card b { color:#f5d36d; font:10px 'DM Mono',monospace; }.send-icon { display:grid; place-items:center; width:28px; height:28px; border-radius:7px; color:#ff9faf; background:#ff8a9a16; }.hint-box { margin-top:22px; padding:12px; border-left:2px solid #77d6ff; background:#0c1526; }.hint-box span { color:#77d6ff; font:500 9px 'DM Mono',monospace; letter-spacing:.13em; }.hint-box p { margin-top:7px; color:#93a0be; font-size:10px; line-height:1.5; }
+/* The row height is fixed on purpose — a growing row is what slid Sell under a
+   finger mid-press. So a long label has to fit INSIDE it rather than push it:
+   "→ Snowball Launcher 40g" needs three lines in a 119px column, and at the old
+   11px/1.2 the third was clipped. 10px/1.1 leaves room with the padding. */
+.td-actions button { display:flex; align-items:center; justify-content:center; overflow:hidden; width:auto; height:52px; min-height:0; margin:0; padding:4px 6px; font-size:10px; line-height:1.12; text-align:center; }.send-card > div { flex:1; }.send-card strong,.send-card small { display:block; }.send-card strong { font-size:10px; }.send-card small { margin-top:3px; color:#8995b4; font-size:9px; }.send-card b { color:#f5d36d; font:10px 'DM Mono',monospace; }.send-icon { display:grid; place-items:center; width:28px; height:28px; border-radius:7px; color:#ff9faf; background:#ff8a9a16; }.hint-box { margin-top:22px; padding:12px; border-left:2px solid #77d6ff; background:#0c1526; }.hint-box span { color:#77d6ff; font:500 9px 'DM Mono',monospace; letter-spacing:.13em; }.hint-box p { margin-top:7px; color:#93a0be; font-size:10px; line-height:1.5; }
 .income-callout { margin:0 0 10px; padding:9px; border:1px solid #385848; border-radius:8px; background:#12271f; }.income-callout strong,.income-callout span { display:block; }.income-callout strong { color:#9de4b5; font-size:10px; }.income-callout span { margin-top:3px; color:#779d89; font-size:9px; line-height:1.35; }
 @media (max-width:900px) { .race-grid { grid-template-columns:repeat(2,1fr); }.battle-content { grid-template-columns:1fr; }.battle-main { min-width:0; }.map-viewport { height:600px; } }
 @media (max-width:560px) { .app-shell { padding:16px max(14px, env(safe-area-inset-left)) max(24px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-right)); }.brand-row { margin-bottom:16px; align-items:flex-start; } h1 { font-size:34px; } .lede { display:none; } .setup-bar .selection-actions { flex-wrap:wrap; }.version-pill { font-size:8px; padding:8px; }.race-grid { gap:8px; }.race-card { min-height:126px; padding:14px; }.race-symbol { margin-bottom:12px; }.race-card strong { font-size:14px; }.selection-bar { align-items:flex-start; flex-direction:column; }.primary-button { width:100%; }
@@ -6115,10 +6143,27 @@ function renderRing() {
      rebuild under the finger. */
   let mode = null, cell = null, tower = null;
   if (ghost && battleRunning) { mode = 'ghost'; cell = ghost; }
-  else if (selectedGroupKeys.length === 1 && battleRunning) {
-    tower = towers.get(selectedGroupKeys[0]);
-    if (isMine(tower)) { mode = fullRefund(tower) ? 'construction' : 'built'; cell = tower; }
+  /* A GROUP GETS A RING TOO. This required a selection of exactly one, which
+     had two consequences: the ring's own Select all button hid the ring the
+     moment you pressed it, and on a phone — where there is no side panel — a
+     box-selected group had NO way to be acted on at all. Measured before the
+     change: six towers selected, zero reachable controls.
+     A group anchors its ring on the tower you tapped first; every action here
+     already operates on the whole selection. */
+  else if (selectedGroupKeys.length >= 1 && battleRunning) {
+    tower = towers.get(selectedTowerKey) || towers.get(selectedGroupKeys[0]);
+    // a batch is never "under construction": that face is the single-tower undo
+    if (isMine(tower)) { mode = (selectedGroupKeys.length === 1 && fullRefund(tower)) ? 'construction' : 'built'; cell = tower; }
   }
+  /* DESKTOP BUILT TOWERS HAVE NO RING. Gene: "the plus sign arrangements around
+     the towers ... is making it harder to select other towers to upgrade."
+     Measured why: at radius 56 with 46px discs, each button covers the band of
+     cells roughly 2.5 to 6 away in its direction — four stripes of board you
+     cannot click through, and the board's pointerdown explicitly bails over
+     them. On a desktop the side panel is right there and does the same job
+     without touching the board, so the ring keeps only the two jobs the panel
+     cannot do: confirming a placement, and undoing a fresh one. */
+  if (mode === 'built' && !touchUI()) { ring.classList.add('hidden'); ring._sig = ''; return; }
   if (!mode) { ring.classList.add('hidden'); ring._sig = ''; return; }
   const cr = $('fx-canvas').getBoundingClientRect();
   const vr = $('map-viewport').getBoundingClientRect();
@@ -6139,8 +6184,14 @@ function renderRing() {
      is two separate taps, too fast and the first has not finished opening what
      the second lands in. A button cannot be mistimed. The diagonal keeps the
      four you press constantly exactly where they have always been. */
-  const DIAG = Math.round(RAD * .72);
-  const slots = { right:[RAD, 0], left:[-RAD, 0], top:[0, -RAD], bottom:[0, RAD], topleft:[-DIAG, -DIAG] };
+  /* On touch the ring stays, but off the cardinals. A maze is built in rows and
+     columns, so the cells due N/S/E/W of a tower are the ones you reach for
+     next; the diagonals are the cheapest board to cover. Select all sits due
+     north on its own, where a fifth diagonal does not exist. */
+  const DIAG = Math.round(RAD * .74);
+  const slots = touchUI()
+    ? { right:[DIAG, DIAG], left:[-DIAG, DIAG], top:[-DIAG, -DIAG], bottom:[DIAG, -DIAG], topleft:[0, -RAD] }
+    : { right:[RAD, 0], left:[-RAD, 0], top:[0, -RAD], bottom:[0, RAD], topleft:[-DIAG, -DIAG] };
   let btns = [], label = '';
   if (mode === 'ghost') {
     const def = towerDef(currentBuildRaceId(), selectedTowerTier);
@@ -6513,8 +6564,13 @@ function railBody(tab) {
     return `<div class="rl-head">BUILD — tap, then tap the board</div>` + towerListFor(raceId).map((def, tier) => {
       const d = towerDef(raceId, tier);
       const laser = d.name === 'Laser Cannon';
+      /* The rail was the thinnest build surface of the three — damage, range and
+         nothing else, so on a phone you picked a tower without being told what
+         it did. towerStatLine already carries range · dps · special (or NO AIR
+         when that is the more urgent fact), which is the same sentence the other
+         surfaces print. */
       return card(`data-rail-tower="${tier}"`, d.color, d.name,
-        `${d.dmg} dmg · ${d.range.toFixed(1)} range${d.groundOnly ? ' · NO AIR' : ''}`,
+        `${d.dmg} dmg · ${towerStatLine(d)}`,
         `${d.cost}g${laser ? '+🪵' : ''}`, tier === selectedTowerTier, player.gold < d.cost);
     }).join('');
   }
@@ -6782,18 +6838,22 @@ function renderTowerList() {
     const def = towerDef(raceId, tier);
     const isLaser = def.name === 'Laser Cannon';
     const lum = def.lumber || (isLaser ? 1 : 0);
-    /* A CARD YOU CAN SCAN, NOT READ. Each of these carried its description, a
-       four-part stat line, and the whole armour matrix — four lines of mono
-       text per tower, eight towers deep, which is a wall you skim past rather
-       than a list you choose from. The line you choose on is damage, reach and
-       rate; the prose and the matrix are why you chose, and they belong on the
-       card you open, not on all eight at once. The selected one still shows
-       everything, because that is the one you are actually asking about. */
+    /* WHAT IT DOES ON EVERY CARD; WHY YOU'D WANT IT ON THE OPEN ONE.
+       I collapsed these to one line to stop the list being a wall of mono, and
+       took the abilities with it — Gene: "towers are not listing their stats and
+       abilities". That was the wrong axis to cut on. You cannot choose between
+       eight towers on damage alone, because the choice is which ARMOUR they
+       answer and which special they carry; that is decision data and belongs on
+       all of them. What genuinely belongs to the open card is the prose: the
+       flavour line and the full rules text for the special. So every card now
+       carries two lines — the numbers, then the special and the armour matrix —
+       and the selected one adds the paragraph. */
     const chosen = tier === selectedTowerTier;
     return `<button class="tower-row ${chosen ? 'selected' : ''} ${isLaser ? 'laser-row' : ''}" data-tower="${tier}">
       <span><strong>${def.name}</strong>
-      <small class="tower-stats">${def.dmg} dmg • ${def.range.toFixed(1)} reach • ${effectiveDps(def).toFixed(0)} dps${def.groundOnly ? ' • NO AIR' : ''}</small>
-      ${chosen ? `<small>${def.desc}</small><small class="tower-stats">${attackSpeedText(def)}${def.special && def.special !== 'basic' ? ' • ' + def.special : ''}${def.raceId === 'poison' ? ' • venom' : ''}</small><small class="tower-stats profile-line">${attackProfileText(raceId, def)}</small>` : ''}</span><b>${def.cost}g${lum ? ` +${lum}🪵` : ''}</b></button>`;
+      <small class="tower-stats">${def.dmg} dmg • ${def.range.toFixed(1)} reach • ${attackSpeedText(def)} • ${effectiveDps(def).toFixed(0)} dps${def.groundOnly ? ' • NO AIR' : ''}</small>
+      <small class="tower-stats profile-line">${def.special && def.special !== 'basic' ? `<b style="color:${def.color || 'inherit'}">${def.special}</b> · ` : ''}${attackProfileText(raceId, def)}${def.raceId === 'poison' ? ' · venom' : ''}</small>
+      ${chosen ? `<small class="tower-why">${def.desc} ${specialBlurbs[def.special] || ''}</small>` : ''}</span><b>${def.cost}g${lum ? ` +${lum}🪵` : ''}</b></button>`;
   }).join('');
   document.querySelectorAll('[data-tower]').forEach((button) => button.addEventListener('click', () => {
     selectedTowerTier = Number(button.dataset.tower);
@@ -7012,8 +7072,36 @@ function boltPanelHtml(group) {
       const on = !mixed && current?.id === m.id;
       return `<button class="bolt-chip ${on ? 'on' : ''}" data-bolt="${m.id}" style="--bolt:${m.color}" title="${m.name} — ${BOLT_BLURB[m.id]}"><span>${m.glyph}</span><small>${m.name.split(' ')[0]}</small></button>`;
     }).join('')}</div>
-    <p class="bolt-note">${mixed ? 'Mixed bolts in this selection.' : current ? `${current.glyph} ${current.name} — ${BOLT_BLURB[current.id]}` : 'No bolt fitted. One per tower; it carries through tier upgrades.'}</p>
+    <p class="bolt-note" data-bolt-note>${mixed ? 'Mixed bolts in this selection.' : current ? `${current.glyph} ${current.name} — ${BOLT_BLURB[current.id]}` : 'No bolt fitted. One per tower; it carries through tier upgrades.'}</p>
   </div>`;
+}
+/* WHAT DOES THIS ONE DO, BEFORE I BUY IT. Each chip carried a title attribute,
+   which a phone never shows — so the only way to learn an imbuement was to fit
+   it. One delegated listener: hovering or touching a chip writes its rules into
+   the note under the rack, and leaving puts the fitted one back. Delegated
+   because the rack is rendered from three different panels and this should not
+   have to be wired in each. */
+function setupBoltPreview() {
+  if (document.body._boltPreview) return;
+  document.body._boltPreview = true;
+  const noteFor = (el) => el.closest('.bolt-rack')?.querySelector('[data-bolt-note]');
+  const show = (e) => {
+    const chip = e.target.closest?.('[data-bolt]');
+    if (!chip) return;
+    const note = noteFor(chip), mod = BOLT_BY_ID[chip.dataset.bolt];
+    if (!note || !mod) return;
+    if (note._restore == null) note._restore = note.textContent;
+    note.textContent = `${mod.glyph} ${mod.name} — ${BOLT_BLURB[mod.id]}`;
+  };
+  const restore = (e) => {
+    const chip = e.target.closest?.('[data-bolt]');
+    if (!chip) return;
+    const note = noteFor(chip);
+    if (note && note._restore != null) { note.textContent = note._restore; note._restore = null; }
+  };
+  document.addEventListener('pointerover', show);
+  document.addEventListener('pointerout', restore);
+  document.addEventListener('focusin', show);
 }
 function renderTowerDetails() {
   const panel = $('tower-details');
@@ -7051,7 +7139,7 @@ function renderTowerDetails() {
   const sig = [tower.key, group.map((t) => t.key).join(','), tower.level, tower.tier, tower.priority,
     tower.raceId, isYours, upgradable.length, tierable.length, alike > 1].join('|');
   if (panel._sig === sig && panel._built) {
-    // the ring owns these now, so the panel may legitimately have none of them
+    // still optional-chained: a rival's tower renders the readout with no actions
     const setBtn = (id, off, text) => { const b = $(id); if (!b) return; b.disabled = !!off; if (text != null && b.textContent !== text) b.textContent = text; };
     setBtn('td-level', levelBlocked, !upgradable.length ? 'Max level' : many ? `Upgrade all • ${levelCostAll}g` : `Upgrade level ${levelCostAll}g`);
     setBtn('td-tier', tierBlocked, !tierable.length ? 'Max tier'
@@ -7072,9 +7160,21 @@ function renderTowerDetails() {
           profile line once per-tower strengths were added to it. Anything that
           can reflow now lives underneath the buttons, where it cannot push
           them. */''}
-    ${/* No action buttons here either. The ring around the tower is the one
-          place these live now — see the note in the rail's tower panel. */''}
-    ${isYours ? `<p class="td-desc td-hint">Level, tier, target and sell are on the ring around the tower.</p>` : ''}
+    ${/* THE PANEL ACTS AGAIN. I moved these to the ring on the theory that one
+          surface beats four, and that was half right: the DUPLICATION was worth
+          removing, the buttons were not. Gene: "the UI on the right is nice…
+          also include options to upgrade rank and tier". On a desktop this panel
+          is where the hand already is, and the ring's discs sit on the very
+          cells you want to click next.
+          They stay ABOVE the prose below, on fixed-height grid rows, because
+          that is what stopped a reflow moving Sell under a finger mid-press. */''}
+    ${isYours ? `<div class="td-actions">
+      <button id="td-level" class="action-button" ${levelBlocked ? 'disabled' : ''}>${!upgradable.length ? 'Max level' : many ? `Upgrade all • ${levelCostAll}g` : `Upgrade level ${levelCostAll}g`}</button>
+      <button id="td-tier" class="action-button td-tier" ${tierBlocked ? 'disabled' : ''}>${!tierable.length ? 'Max tier' : `→ ${towerTierUp(tower)?.next.name || 'next tier'}${many ? ` all • ${tierCostAll}g` : ` ${tierCostAll}g`}${laserNext ? ' +1🪵' : ''}`}</button>
+      <button id="td-priority" class="ghost-button">Target: ${tower.priority}</button>
+      <button id="td-sell" class="ghost-button td-sell-danger ${sellArmed ? 'td-sell-armed' : ''}">${sellLabel}</button>
+      ${alike > 1 ? `<button id="td-selectall" class="ghost-button td-wide">⧉ Select all ${alike}${many ? ` · ${group.length} selected` : ''}</button>` : ''}
+    </div>` : ''}
     <p class="td-desc">${many ? 'Double-tap selected every like tower.' : `${stats.desc} ${specialBlurbs[stats.special] || ''}`}</p>
     <div class="td-stats"><span>DMG <b>${stats.dmg}</b></span><span>RANGE <b>${stats.range.toFixed(1)}</b></span><span>SPEED <b>${attackSpeedText(stats)}</b></span><span>DPS <b>${effectiveDps(stats, tower.raceId).toFixed(0)}</b></span><span>HP <b>${Math.max(0, Math.round(tower.blockHp))}/${tower.blockMaxHp}</b></span></div>
     <p class="td-desc profile-line">${attackProfileText(tower.raceId, stats)}</p>
@@ -9711,11 +9811,26 @@ const SPECIAL_NAME = { smallsplash:'small splash', frostnova:'frost nova', machi
   warppulse:'warp pulse', gravslam:'grav slam', blackhole:'black hole', skyhunter:'sky hunter', deepfreeze:'deep freeze' };
 function specialName(id) { return SPECIAL_NAME[id] || id || 'basic'; }
 function hideCardInfo() { $('card-info')?.classList.add('hidden'); }
+/* Every cell on the straight line from a to b, b included. Pointer events arrive
+   every few frames, not every pixel, so a sweep across the board reports a
+   handful of scattered cells; without filling the gaps a fast drag lays a dotted
+   line rather than a wall. Plain DDA — the board is small and this runs on a
+   gesture, not a frame. */
+function cellsBetween(a, b) {
+  const dr = b.r - a.r, dc = b.c - a.c;
+  const steps = Math.max(Math.abs(dr), Math.abs(dc));
+  if (steps <= 0) return [b];
+  const out = [];
+  for (let i = 1; i <= steps; i += 1) {
+    out.push({ r: Math.round(a.r + (dr * i) / steps), c: Math.round(a.c + (dc * i) / steps) });
+  }
+  return out;
+}
 function wireTowerCard(card) {
   // single tap = select + show its detail above the card; drag UP = place on the board
   const tier = Number(card.dataset.barTower);
-  let start = null;
-  card.addEventListener('pointerdown', (event) => { start = { x:event.clientX, y:event.clientY }; dragGhost = null; try { card.setPointerCapture(event.pointerId); } catch (e) {} });
+  let start = null, painted = null, lastCell = null;
+  card.addEventListener('pointerdown', (event) => { start = { x:event.clientX, y:event.clientY }; dragGhost = null; painted = null; lastCell = null; try { card.setPointerCapture(event.pointerId); } catch (e) {} });
   card.addEventListener('pointermove', (event) => {
     if (!start) return;
     const dx = event.clientX - start.x, dy = event.clientY - start.y;
@@ -9723,11 +9838,32 @@ function wireTowerCard(card) {
     if (dy < -20 && Math.abs(dy) > Math.abs(dx)) {
       const cell = cellFromEvent(event);
       dragGhost = cell ? { r:cell.r, c:cell.c, tier, valid: terrainAt(cell.r, cell.c) === T.FLOOR && isPlayerBuildRow(cell.r) && !towers.has(idx(cell.r, cell.c)) && !protectedCells.has(idx(cell.r, cell.c)) } : null;
+      /* DRAG A LINE OF TOWERS. Gene asked for it, and the board itself cannot
+         host the gesture — a bare drag there already means pan, and with a
+         modifier it means box-select. This card drag is free: you are already
+         dragging from the card onto the board to place one, so keep going and
+         it lays a wall. Cells are interpolated between move events, or a quick
+         sweep skips half of them. buildAt refuses a lane-sealing cell without
+         charging, so the wall can never seal your own maze. */
+      if (cell && painted) {
+        const line = lastCell ? cellsBetween(lastCell, cell) : [cell];
+        line.forEach((c) => {
+          const key = idx(c.r, c.c);
+          if (painted.has(key)) return;
+          painted.add(key);
+          if (player.gold < towerDef(currentBuildRaceId(), tier).cost) return;
+          const wasTier = selectedTowerTier; selectedTowerTier = tier;
+          buildAt(c);
+          selectedTowerTier = wasTier;
+        });
+      }
+      if (cell) { if (!painted) painted = new Set(); lastCell = cell; }
     } else dragGhost = null;
   });
   card.addEventListener('pointerup', (event) => {
     if (!start) return;
     const dx = event.clientX - start.x, dy = event.clientY - start.y; start = null; dragGhost = null;
+    const swept = painted; painted = null; lastCell = null;
     selectedTowerTier = tier; SFX.play('tap');
     card.parentNode.querySelectorAll('.bar-card.on').forEach((c) => c.classList.remove('on'));
     card.classList.add('on');
@@ -9741,7 +9877,9 @@ function wireTowerCard(card) {
           hideCardInfo(); barStructKey = ''; renderCommandBar();
           log(`${towerDef(currentBuildRaceId(), tier).name} staged — ✓ builds, ✖ cancels.`);
         } else {
-          ghost = null; hideCardInfo(); buildAt(cell);   // drag-to-deploy: build immediately
+          // a swept cell is already built; only a straight drag-and-release builds here
+          ghost = null; hideCardInfo();
+          if (!swept || !swept.has(idx(cell.r, cell.c))) buildAt(cell);
           barStructKey = ''; renderCommandBar();
         }
       }
@@ -10552,6 +10690,7 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) window.add
 window.addEventListener('beforeunload', () => { if (mp.transport) mpSend({ t:'bye' }); });
 setupMapZoom();
 setupRivalStrip();
+setupBoltPreview();
 setupPanicReset();
 document.getElementById('team-select')?.addEventListener('change', renderTeamRoster);
 renderRaceCards();
