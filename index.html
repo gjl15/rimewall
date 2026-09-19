@@ -3311,7 +3311,26 @@ function updateCreep(creep, dt) {
     if (nonLethalDps) applyDamage(creep, nonLethalDps * dt, null, true, { nonLethal:true });
   }
   if (creep.venom > 0) {
-    if (now >= creep.venomUntil) { creep.venom = 0; creep.venomShown = 0; }   // nothing has poisoned it for a while
+    if (now >= creep.venomUntil) {
+      /* THE POOL PAYS OUT; IT IS NOT DELETED.
+         This used to zero the pool the moment nothing had poisoned the creep for
+         poisonDur seconds — and because the pool decays exponentially, exactly
+         one time-constant in, e^-1 of it is still unspent. Measured by injecting
+         a known 1000 damage and touching nothing else: 633.7 landed and 366.3
+         was thrown away, against the 63.2% that decay over one time-constant
+         predicts. With the cutoff lifted the same pool delivers 997.6.
+         It never showed up in a firing test because every hit refreshes
+         venomUntil, so the cutoff only bites on the LAST hit — when the creep
+         walks out of range, or the tower retargets, or the wave ends. That is
+         precisely the case Poison exists for.
+         Worse, the inspect readout prints venom * poisonDur as "damage left in
+         the pool", so the game stated a number and then discarded a third of it.
+         Now it lands. The decay stays — it is what stops sustained poison
+         stacking without limit — and the tooltip becomes a promise that is
+         kept. */
+      if (creep.venom > 0) applyDamage(creep, creep.venom * TRAIT.poisonDur, null, true);
+      creep.venom = 0; creep.venomShown = 0;
+    }
     else {
       applyDamage(creep, creep.venom * dt, null, true);
       /* THE VENOM WAS INVISIBLE. It ticked every frame in fractions of a point,

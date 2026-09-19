@@ -1,17 +1,15 @@
-/* What does venom ACTUALLY deliver, against what the card promises?
+/* Does venom deliver what it says it will?
 
-   Gene asked for "diagnostics on dot damage". Two mechanisms were suspected of
-   swallowing it silently:
-     (a) the pool decays at 1/poisonDur a second while also being spent, and
-     (b) each hit's contribution is clamped to the tower's own bolt damage.
-   (a) is not obviously a loss — a pool that decays at 1/D while paying out
-   delivers its whole chunk given infinite time; the loss is the venomUntil
-   CUTOFF, which stops the clock at D seconds with e^-1 of the pool unpaid.
-   (b) is deliberate and documented — it stops a 10g barb matching a 390g vent.
+   Gene asked for "diagnostics on dot damage", and this file exists because the
+   first answer was wrong. Measuring a tower FIRING gave 108-120% of the ladder
+   figure and looked healthy — but every hit refreshes venomUntil, so a firing
+   test can never see the cutoff. The loss happened only on the LAST hit, which
+   is exactly the case Poison exists for: the creep that walks out of range and
+   dies to the venom afterwards.
 
-   So measure rather than argue: park a real poison tower next to a creep too fat
-   to die, run it, and compare venom damage actually applied against the ladder
-   figure the card quotes.
+   So the assertion here is the ISOLATED one: inject a known pool, touch nothing
+   else, and count what lands. The firing measurement is kept underneath it as
+   context, not as the test.
    node tools/harness/poison.js <url> */
 const { chromium, CHROME } = require('./lib');
 const base = process.argv[2] || 'http://127.0.0.1:8771/';
@@ -28,9 +26,35 @@ const base = process.argv[2] || 'http://127.0.0.1:8771/';
   const out = await page.evaluate(() => {
     document.querySelectorAll('.coach-card').forEach((c) => c.remove());
     SFX.play = () => {};
-    const SECONDS = 20;
+    const D = TRAIT.poisonDur;
 
-    const run = (tier, creepHp) => {
+    const fresh = () => {
+      resetMatchState(); battleRunning = true; battlePaused = false; matchOver = false;
+      towers.clear(); towersVersion += 1; creeps.length = 0;
+      spawnCreep(waveDefFor(3), 'south', 'west');
+      const c = creeps[creeps.length - 1];
+      c.hp = c.maxHp = 5e8; c.spd = 0; c.slowPct = 0; c.armor = 0;
+      return c;
+    };
+
+    /* ---- the assertion: one known injection, then left alone -------------
+       Injected exactly the way applyHitEffects does it, so this measures the
+       real pool rather than a model of it. */
+    const CHUNK = 1000;
+    const isolate = (seconds) => {
+      const c = fresh();
+      c.venom = CHUNK / D;
+      c.venomUntil = simTime + D;
+      const before = c.hp;
+      for (let i = 0; i < seconds * 30; i += 1) simulate(1 / 30);
+      return { dealt: +(before - c.hp).toFixed(1), left: +(c.venom * D).toFixed(1) };
+    };
+    const atCutoff = isolate(D);
+    const settled = isolate(D * 4);
+
+    /* ---- context: a real tower firing for a while ----------------------- */
+    const firing = (tier) => {
+      const SEC = 20;
       resetMatchState(); battleRunning = true; battlePaused = false; matchOver = false;
       towers.clear(); towersVersion += 1; creeps.length = 0;
       const row = SOUTH_TOP + 6, col = 12;
@@ -39,48 +63,43 @@ const base = process.argv[2] || 'http://127.0.0.1:8771/';
       const def = towerDef('poison', tier);
       spawnCreep(waveDefFor(6), 'south', 'west');
       const c = creeps[creeps.length - 1];
-      c.hp = c.maxHp = creepHp; c.spd = 0; c.slowPct = 0; c.armor = 0;
+      c.hp = c.maxHp = 5e6; c.spd = 0; c.slowPct = 0; c.armor = 0;
       c.x = col + 1; c.y = row;
       const before = c.hp;
-      for (let i = 0; i < SECONDS * 30; i += 1) simulate(1 / 30);
-      const dealt = before - c.hp;
-      /* What the ladder says it should be: each shot injects min(3% of max HP,
-         the tower's own damage), and the tower fires SECONDS/cd times. */
-      const shots = Math.floor(SECONDS / def.cd);
-      const perShot = Math.min(creepHp * TRAIT.poisonStackPct, def.dmg);
-      const advertisedVenom = shots * perShot;
-      const advertisedBolt = shots * def.dmg;
-      matchOver = true; battleRunning = false;
-      return { tier, name: def.name, cost: def.cost, dmg: def.dmg, cd: def.cd, creepHp,
-        shots, dealt: Math.round(dealt), advertised: Math.round(advertisedBolt + advertisedVenom),
-        venomShare: +(advertisedVenom / (advertisedBolt + advertisedVenom)).toFixed(2),
-        ratio: +(dealt / Math.max(1, advertisedBolt + advertisedVenom)).toFixed(2),
-        clamped: creepHp * TRAIT.poisonStackPct > def.dmg };
+      for (let i = 0; i < SEC * 30; i += 1) simulate(1 / 30);
+      const shots = Math.floor(SEC / def.cd);
+      const advertised = shots * (def.dmg + Math.min(c.maxHp * TRAIT.poisonStackPct, def.dmg));
+      return { name: def.name, dmg: def.dmg, shots,
+        dealt: Math.round(before - c.hp), advertised: Math.round(advertised),
+        ratio: +((before - c.hp) / Math.max(1, advertised)).toFixed(2) };
     };
 
-    const rows = [];
-    // the same tower against a thin creep and a fat one: the clamp only bites on the fat one
-    /* The creep must not die, or "dealt" is just its HP and the ratio measures
-       nothing. Fat enough that 3% of max HP always exceeds the bolt, so the
-       clamp is the binding term for every rung — which is the case the clamp
-       was written for. */
-    [0, 2, 5].forEach((tier) => rows.push(run(tier, 5e6)));
-    return { rows, stackPct: TRAIT.poisonStackPct, dur: TRAIT.poisonDur, seconds: SECONDS };
+    return { dur: D, chunk: CHUNK, atCutoff, settled,
+      firing: [0, 2, 5].map(firing),
+      theory: +((1 - Math.exp(-1)) * 100).toFixed(1) };
   });
 
+  const pct = (d) => ((d.dealt / out.chunk) * 100).toFixed(1) + '%';
+  console.log(`ISOLATED — one injection of ${out.chunk} damage, poisonDur ${out.dur}s\n`);
+  console.log('  by the cutoff at ' + out.dur + 's        ' + String(out.atCutoff.dealt).padEnd(9) + pct(out.atCutoff)
+    + '   (pool holding ' + out.atCutoff.left + ')');
+  console.log('  once settled             ' + String(out.settled.dealt).padEnd(9) + pct(out.settled)
+    + '   (pool holding ' + out.settled.left + ')');
+  console.log('\n  Exponential decay over one time-constant leaves ' + (100 - out.theory).toFixed(1)
+    + '% unspent at the cutoff.');
+  console.log('  That share used to be DELETED. It is paid out now, so settled must read 100%.');
+
   const p = (s, n) => String(s).padEnd(n);
-  console.log(`venom over ${out.seconds}s — pool decays at 1/${out.dur}s, each hit injects min(${out.stackPct * 100}% of max HP, bolt damage)\n`);
-  console.log('  ' + p('tower', 16) + p('bolt', 7) + p('creep HP', 10) + p('shots', 7)
-    + p('advertised', 12) + p('dealt', 9) + p('delivered', 11) + 'clamp bites');
-  out.rows.forEach((r) => console.log('  ' + p(r.name, 16) + p(r.dmg, 7) + p(r.creepHp.toLocaleString(), 10)
-    + p(r.shots, 7) + p(r.advertised.toLocaleString(), 12) + p(r.dealt.toLocaleString(), 9)
-    + p((r.ratio * 100).toFixed(0) + '%', 11) + (r.clamped ? 'yes' : 'no')));
-  const worst = Math.min(...out.rows.map((r) => r.ratio));
-  console.log('\n  worst delivery: ' + (worst * 100).toFixed(0) + '% of the advertised figure');
-  console.log('  (100% means the card and the engine agree. MEASURED: 108-120%, i.e. venom delivers');
-  console.log('   everything it advertises and a little more, because the pool is still paying out');
-  console.log('   from earlier shots when the window closes. There is no silent loss here — the');
-  console.log('   suspicion that decay was deleting half the damage does not survive measurement.)');
-  if (errs.length) console.log('\nERRORS', errs.slice(0, 3));
+  console.log('\nFIRING (context only — every hit refreshes the timer, so this cannot see the cutoff)\n');
+  console.log('  ' + p('tower', 16) + p('bolt', 7) + p('shots', 7) + p('advertised', 12) + p('dealt', 10) + 'delivered');
+  out.firing.forEach((r) => console.log('  ' + p(r.name, 16) + p(r.dmg, 7) + p(r.shots, 7)
+    + p(r.advertised.toLocaleString(), 12) + p(r.dealt.toLocaleString(), 10) + (r.ratio * 100).toFixed(0) + '%'));
+
+  const ok = out.settled.dealt >= out.chunk * .99;
+  console.log('\n' + (ok
+    ? 'PASS — the pool delivers everything it advertises'
+    : `FAIL — ${(100 - (out.settled.dealt / out.chunk) * 100).toFixed(1)}% of the pool is destroyed unspent`));
+  if (errs.length) { console.log('ERRORS', errs.slice(0, 3)); process.exit(1); }
   await browser.close();
+  process.exit(ok ? 0 : 1);
 })().catch((e) => { console.error('FAILED', String(e).slice(0, 300)); process.exit(1); });
