@@ -1736,7 +1736,7 @@ const TRAIT = {
   /* Beam's pierce: how wide the ray counts as, in cells, and what a creep caught
      along it takes compared with the mark. .55 is a little over half a cell, so
      a line of creeps in one lane is caught and the next lane over is not. */
-  beamLineR:.55, beamLineMult:.45,
+  beamLineR:.55, beamLineMult:.45, beamLineBehind:2,   // cells the lance carries on past its mark
   /* What a ground blast does to a flier caught in it. 1 was the old behaviour
      (air no different from ground); 0 made an air flock unanswerable for the
      splash half of the roster. See the note at the splash loop. */
@@ -3461,7 +3461,26 @@ function applyDamage(creep, amount, tower, isDot = false, opts) {
   if (!isDot) creep.hitAt = simTime;
   /* §6: a damage numeral is set in the serif at max(9, cell*.62), rises 14px
      and fades over 500ms — and a crit reads gold rather than merely larger. */
-  if (!isDot && dmg >= 60) pushFx({ kind:'num', x:creep.x, y:creep.y - .4, text:String(Math.round(dmg)), until:simTime + .5, serif:true });
+  /* SMALL HITS HAVE TO REGISTER TOO. Gene, on Stone: "most of the time damage
+     was not calculated or the creep wasn't affected." It was — the numeral was
+     not. This printed only hits of 60 or more, while the CRIT numeral below has
+     no floor at all, so Cairn (14 damage) and Boulder Maw (43) showed nothing on
+     an ordinary hit and gold on a crit: the race read as landing nothing but
+     crits. The floor exists for a real reason — a 4-shots-a-second blade would
+     otherwise bury the board in ones — so bank small hits per creep and float
+     the total when it amounts to something, exactly as venom already does.
+     Threshold scales with the creep so it stays meaningful as waves fatten. */
+  if (!isDot) {
+    const floor = Math.max(6, creep.maxHp * .004);
+    if (dmg >= floor) pushFx({ kind:'num', x:creep.x, y:creep.y - .4, text:String(Math.round(dmg)), until:simTime + .5, serif:true });
+    else {
+      creep.dmgShown = (creep.dmgShown || 0) + dmg;
+      if (creep.dmgShown >= floor) {
+        pushFx({ kind:'num', x:creep.x, y:creep.y - .4, text:String(Math.round(creep.dmgShown)), until:simTime + .5, serif:true });
+        creep.dmgShown = 0;
+      }
+    }
+  }
   if (creep.hp <= 0) {
     creep.hp = 0;
     /* An ally's kill pays the ALLY, not the human on its half. Otherwise a
@@ -3916,15 +3935,20 @@ function firePulse(tower, stats) {
   eligible.forEach((creep, rank) => {
     if (stats.special === 'thunder') {
       creep.shield = 0; creep.shieldHitAt = simTime;                       // strip shields
-      if (rng() < TRAIT.elecStasis * tierPot(tower)) tryStasis(creep, simTime + TRAIT.elecStasisDur);
       const floor = creep.maxHp * TRAIT.thunderFloor;                       // chip down to 75% max, ≤25% max per pulse
       if (creep.hp > floor) creep.hp -= Math.min(creep.hp - floor, creep.maxHp * TRAIT.thunderCap);
+      // the stasis roll used to be inlined here; applyHitEffects already owns it
+      if (creep.hp > 0) applyHitEffects(creep, tower, stats);
     } else if (isGravity) {
       const lead = rank === 0;
       applyDamage(creep, stats.dmg * (lead ? 1 : TRAIT.gravPulseMult), tower);   // Warp damage (respects matrix)
       if (!lead) return;                                                    // the control kit rides the lead creep only
       if (creep.hp > 0 && rng() < TRAIT.gravSlowChance * tierPot(tower)) gravityImpulse(creep, tower, stats);
-    } else applyDamage(creep, stats.dmg || 550, tower, true);
+      if (creep.hp > 0) applyHitEffects(creep, tower, stats);
+    } else {
+      applyDamage(creep, stats.dmg || 550, tower, true);
+      if (creep.hp > 0) applyHitEffects(creep, tower, stats);
+    }
   });
   return true;
 }
@@ -4009,6 +4033,21 @@ function updateTower(tower, dt) {
     if (!mark) { tower.beamTo = null; return; }
     const tick = beamStats.dmg / beamStats.cd * dt;
     applyDamage(mark, tick, tower);
+    /* A BEAM HAS A KIT NOW. applyHitEffects had exactly two call sites, both
+       inside resolveProjectileHit — so nothing that was not a projectile ever
+       applied a race effect or a bolt imbuing. Two whole features were dead of
+       it: every Beam tower fought with no on-hit kit at all, and Ninja's Spear,
+       the one rung routed through this branch, silently ignored whatever you
+       imbued it with.
+       It cannot be called per frame, though: this branch runs every tick, and
+       frost stacks or fire charges applied 60 times a second are a different
+       game. Bank the time and fire the kit at the tower's own cadence, which is
+       exactly what the card promises. */
+    tower.beamAcc = (tower.beamAcc || 0) + dt;
+    if (tower.beamAcc >= beamStats.cd) {
+      tower.beamAcc = Math.min(tower.beamAcc - beamStats.cd, beamStats.cd);
+      if (mark.hp > 0) applyHitEffects(mark, tower, beamStats);
+    }
     /* A LANCE CUTS THROUGH WHAT IS IN THE WAY. Beam was the only element in the
        game whose every rung touched exactly one creep, which is what put it
        bottom of the tier list — and "cuts a line across the lane" was already
@@ -4023,8 +4062,19 @@ function updateTower(tower, dt) {
         for (const other of creeps) {
           if (other === mark || other.hp <= 0 || other.half !== mark.half) continue;
           if (beamStats.groundOnly && other.air) continue;
-          // how far off the tower->mark segment this creep sits
-          const t = Math.max(0, Math.min(1, ((other.x - tx) * dx + (other.y - ty) * dy) / len2));
+          /* IT PIERCES BEHIND THE MARK, NOT IN FRONT OF IT.
+             t was clamped to [0,1] — the tower-to-mark segment — so this caught
+             creeps standing BETWEEN the tower and its target, and the ones
+             behind projected to exactly t=1 and were only ever caught if they
+             were within half a cell of the mark itself. Every card in the game
+             that mentions this promises the opposite ("runs through whatever
+             stands behind its mark"), and Gene reported it as the spear doing
+             nothing but channelling. The line now extends past the mark by
+             TRAIT.beamLineBehind cells and keeps its width the whole way. */
+          // t is measured in mark-lengths, so N cells past the mark is N/len of them
+          const len = Math.sqrt(len2) || .001;
+          const reach = 1 + TRAIT.beamLineBehind / len;
+          const t = Math.max(0, Math.min(reach, ((other.x - tx) * dx + (other.y - ty) * dy) / len2));
           if (Math.hypot(other.x - (tx + dx * t), other.y - (ty + dy * t)) <= TRAIT.beamLineR) {
             applyDamage(other, tick * TRAIT.beamLineMult, tower);
           }
