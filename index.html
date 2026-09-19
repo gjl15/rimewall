@@ -1333,7 +1333,7 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
           <button id="undo-slot" class="test-button undo-slot" disabled>↩ UNDO</button>
           <div class="resources">
             <span class="resource gold"><b>GOLD</b><em id="gold-label">30</em></span>
-            <span class="resource lumber" title="Lumber — buys shrine upgrades, a second element, or a Laser Cannon"><b>LUM</b><em id="lumber-label">0</em></span>
+            <span class="resource lumber" title="Lumber — buys shrine upgrades, a second element, tower wards, and attacker sends. Attackers pay a slow lumber income back.><b>LUM</b><em id="lumber-label">0</em></span>
             <span class="resource income" title="Gold you are paid on each income tick, and the seconds until the next one"><b>INC</b><em id="income-label">+24</em><i id="income-eta" class="income-eta">25s</i></span><span class="resource rival-income" title="Ally / rival income"><b>R</b><em id="rival-income-label">+0</em></span>
             <span class="resource lives" title="Your lifeforce"><b>YOU</b><em id="lives-label">100</em></span>
             <span class="vs-mark">/</span>
@@ -1641,8 +1641,37 @@ const LASER_TOWER = { name:'Laser Cannon', cost:650, dmg:300, cd:.2, range:20, s
    without attackers, and is the obvious buy in one with them. Lumber-gated so
    it competes with a shrine level, and available to every element because a
    wall is not an element. */
-const BULWARK_TOWER = { name:'Bulwark Stake', cost:120, lumber:1, dmg:0, cd:1, range:0, special:'bulwark', hpMult:14,
-  desc:'No attack at all — a post that soaks attackers. Fourteen times the hit points of an ordinary tower.' };
+/* THE STAKE IS CHEAP; THE WARD IS WHAT COSTS.
+   Gene: "Bulwark tower ... make available for all builders, lower the cost to
+   < 5g, upgradable via lumber to improve hp, hp regen, thorns dmg, slowing
+   aura, enhancements to other towers."
+   It was 120g + 1 lumber, which is a strange price for a post that deals no
+   damage — you were paying a tower's worth for a speed bump. At 4g it is what
+   it should be: something you plant in front of the wall without thinking, and
+   the interesting decision moves to the WARD you carve into it.
+   One ward per stake, bought with lumber, exclusive — the same shape as a bolt
+   on a tower, which is a pattern this UI already knows how to render. */
+const WARDS = [
+  { id:'reinforce', name:'Reinforced', glyph:'▤', color:'#bcc6da' },
+  { id:'mend',      name:'Mending',    glyph:'✚', color:'#8fe6b8' },
+  { id:'thorns',    name:'Thorned',    glyph:'✵', color:'#ff9068' },
+  { id:'chill',     name:'Chilling',   glyph:'❄', color:'#8adcff' },
+  { id:'banner',    name:'Bannered',   glyph:'⚑', color:'#ffd65e' },
+];
+const WARD_BY_ID = Object.fromEntries(WARDS.map((w) => [w.id, w]));
+const WARD = { reinforceHp:1.6, mendPct:.04, thornsPct:.45, chillR:2.2, chillPct:25, bannerR:1.6, bannerDmg:.12 };
+const WARD_BLURB = {
+  reinforce:`+${Math.round((WARD.reinforceHp - 1) * 100)}% hit points — the stake simply takes longer to chew through.`,
+  mend:     `Repairs ${Math.round(WARD.mendPct * 100)}% of its hit points a second while nothing is hitting it.`,
+  thorns:   `Anything striking the stake takes ${Math.round(WARD.thornsPct * 100)}% of its own swing back.`,
+  chill:    `Slows every creep within ${WARD.chillR} cells by ${WARD.chillPct}%. It never attacks; it just makes the ground difficult.`,
+  banner:   `Your towers within ${WARD.bannerR} cells deal +${Math.round(WARD.bannerDmg * 100)}% damage.`,
+};
+function wardEligible(tower) { return !!tower && towerDef(tower.raceId, tower.tier).special === 'bulwark'; }
+function wardOf(tower) { return tower && tower.ward ? WARD_BY_ID[tower.ward] : null; }
+function wardCost() { return 1; }   // one lumber, whichever ward — the choice is the cost
+const BULWARK_TOWER = { name:'Bulwark Stake', cost:4, dmg:0, cd:1, range:0, special:'bulwark', hpMult:14,
+  desc:'No attack at all — a post that soaks attackers. Fourteen times the hit points of an ordinary tower, and it takes a ward.' };
 function towerListFor(raceId) { return [...(TOWERS[raceId] || TOWERS.ice), LASER_TOWER, BULWARK_TOWER]; }
 /* HIT POINTS, AS A REAL NUMBER YOU CAN BUILD AROUND.
    A tower used to take a flat 4 + tier swings, each swing a hard-coded 1. With
@@ -1653,6 +1682,25 @@ function towerListFor(raceId) { return [...(TOWERS[raceId] || TOWERS.ice), LASER
    tier-0 tower), and LEVELS ADD HIT POINTS — a levelled front row genuinely
    tanks, which is the strategy this is meant to open up. */
 const SWING_DMG = 12;
+/* A BANNERED STAKE LIFTS ITS NEIGHBOURS. towerLiveStats runs for every tower
+   every frame, so this cannot rescan the board each time — the set of bannered
+   stakes only changes when towers do, which towersVersion already tracks. */
+let bannerCache = null, bannerCacheVersion = -1;
+function bannerBonus(tower) {
+  if (!tower || towerDef(tower.raceId, tower.tier).special === 'bulwark') return 1;
+  if (bannerCacheVersion !== towersVersion) {
+    bannerCacheVersion = towersVersion;
+    bannerCache = [];
+    towers.forEach((t) => { if (t.ward === 'banner' && towerDef(t.raceId, t.tier).special === 'bulwark') bannerCache.push(t); });
+  }
+  if (!bannerCache.length) return 1;
+  for (const b of bannerCache) {
+    if (b.owner !== tower.owner) continue;
+    if (Math.abs(b.r - tower.r) <= WARD.bannerR && Math.abs(b.c - tower.c) <= WARD.bannerR) return 1 + WARD.bannerDmg;
+  }
+  return 1;
+}
+function wardHpMult(tower) { return tower && tower.ward === 'reinforce' ? WARD.reinforceHp : 1; }
 function towerMaxHp(def, tier, level) {
   const base = (4 + tier) * SWING_DMG * (def && def.hpMult ? def.hpMult : 1);
   return Math.round(base * (1 + .35 * (level || 0)));
@@ -2005,7 +2053,7 @@ function grantTowerXp(tower, amount) {
 function towerLiveStats(tower) {
   const def = towerDef(tower.raceId, tower.tier);
   const level = tower.level || 0;
-  const stats = { ...def, dmg:Math.round(def.dmg * (1 + levelDmgStep(tower.raceId) * level + RANK_DMG * towerRank(tower))), range:def.range + .25 * level };
+  const stats = { ...def, dmg:Math.round(def.dmg * (1 + levelDmgStep(tower.raceId) * level + RANK_DMG * towerRank(tower)) * bannerBonus(tower)), range:def.range + .25 * level };
   if (tower.bolt) {
     stats.bolt = tower.bolt;
     // piercing is the only bolt that touches the tower's own numbers
@@ -2451,9 +2499,9 @@ const SENDS = [
      currency as a shrine level or a second element: sending one is giving up
      real progress to take a wall down. They walk to the nearest tower in their
      way and hit it instead of filing past it. */
-  { id:'breaker', name:'Wallbreaker', symbol:'🜛', cost:6000, income:0, lumber:1, attacker:true, breakPower:3,
+  { id:'breaker', name:'Wallbreaker', symbol:'🜛', cost:6000, income:0, lumber:1, woodIncome:.6, attacker:true, breakPower:3,
     hp:5200, spd:2.2, armor:18, aClass:'fortified', shrine:4 },
-  { id:'ruiner', name:'Siege Ruiner', symbol:'⛏', cost:16000, income:0, lumber:2, attacker:true, breakPower:8,
+  { id:'ruiner', name:'Siege Ruiner', symbol:'⛏', cost:16000, income:0, lumber:2, woodIncome:1.6, attacker:true, breakPower:8,
     hp:13500, spd:2.0, armor:24, aClass:'fortified', role:'juggernaut', shrine:5 }
 ];
 const SHRINE_MAX = 5, LUMBER_PRICE = 500;
@@ -2923,7 +2971,7 @@ function resetMatchState() {
   const lives = startingLives();
   // the seat you took in the lobby decides your lane colour and home ground
   const mySeats = seatsOn(PLAYER_HALF), mySeat = humanSeatIndex();
-  player = { gold:START_GOLD, income:0, lives, kills:0, lumber:0, shrine:1, races:[selectedRace.id], lumberSpent:0, startLives:lives,
+  player = { gold:START_GOLD, income:0, lives, kills:0, lumber:0, woodIncome:0, woodBank:0, shrine:1, races:[selectedRace.id], lumberSpent:0, startLives:lives,
     seat:mySeat, lane:seatLane(PLAYER_HALF, mySeat, mySeats), zone:seatZone(PLAYER_HALF, mySeat, mySeats) };
   const questGold = mp.active ? 0 : 25 * (ensureDaily().done.length || 0);
   if (questGold) { player.gold += questGold; log(`🗒 Daily quest reward: +${questGold}g starting gold.`); }
@@ -3040,7 +3088,7 @@ function applyGlobalPriority(next) {
 function makeTower(r, c, raceId, tier, owner) {
   const def = towerDef(raceId, tier);
   const buildTime = 1.2 + tier * .4;   // classic-style construction; canceling during it refunds fully
-  return { key:idx(r, c), r, c, raceId, tier, level:0, owner, cooldown:0, priority:owner === 'player' ? globalPriority : 'first', kills:0, rank:0, xp:0, invested:def.cost, placedAt:simTime, buildTime, buildUntil:simTime + buildTime, blockHp:towerMaxHp(def, tier, 0), blockMaxHp:towerMaxHp(def, tier, 0), underAttack:0 };
+  return { key:idx(r, c), r, c, raceId, tier, level:0, owner, cooldown:0, priority:owner === 'player' ? globalPriority : 'first', kills:0, rank:0, xp:0, invested:def.cost, placedAt:simTime, buildTime, buildUntil:simTime + buildTime, ward:null, blockHp:towerMaxHp(def, tier, 0), blockMaxHp:towerMaxHp(def, tier, 0), underAttack:0 };
 }
 /* Two timestamps the renderer reads for §6's feel moments: when this tower
    appeared, and when it last gained a tier. Both are one number and neither is
@@ -3369,8 +3417,11 @@ function updateCreep(creep, dt) {
     creep.attackClock -= dt;
     if (creep.attackClock <= 0) {
       creep.attackClock = .5;
-      tower.blockHp -= SWING_DMG * (creep.breakPower || 1);
+      const swing = SWING_DMG * (creep.breakPower || 1);
+      tower.blockHp -= swing;
       tower.underAttack = now + .6;
+      // THORNS: what it hits the stake with, it takes a share of back
+      if (tower.ward === 'thorns') applyDamage(creep, swing * WARD.thornsPct, tower);
       pushFx({ kind:'towerhit', x:tower.c + .5, y:tower.r + .5, until:now + .25 });
       if (tower.blockHp <= 0) {
         const name = towerDef(tower.raceId, tower.tier).name;
@@ -4064,6 +4115,23 @@ function projectileFlightTime(special) {
 }
 function updateTower(tower, dt) {
   if (underConstruction(tower)) return;   // still building — inert but blocks the maze
+  /* A STAKE NEVER SHOOTS. Its ward is its whole behaviour, so it is handled
+     here and returns before any of the firing code below. */
+  if (tower.ward && towerDef(tower.raceId, tower.tier).special === 'bulwark') {
+    if (tower.ward === 'mend' && tower.blockHp < tower.blockMaxHp && simTime > (tower.underAttack || 0)) {
+      tower.blockHp = Math.min(tower.blockMaxHp, tower.blockHp + tower.blockMaxHp * WARD.mendPct * dt);
+    }
+    if (tower.ward === 'chill') {
+      const cx = tower.c + .5, cy = tower.r + .5, half = halfOfRow(tower.r);
+      creeps.forEach((creep) => {
+        if (creep.hp <= 0 || creep.half !== half) return;
+        if (Math.hypot(creep.x - cx, creep.y - cy) > WARD.chillR) return;
+        creep.slowUntil = Math.max(creep.slowUntil, simTime + .35);
+        creep.slowPct = Math.max(creep.slowPct || 0, WARD.chillPct);
+      });
+    }
+  }
+  if (towerDef(tower.raceId, tower.tier).special === 'bulwark') return;
   const beamStats = towerLiveStats(tower);
   if (beamStats.raceId === 'gravity' && !gravPulses(beamStats.special)) {
     // single-target gravity: an ordinary shot that carries the tier's impulse
@@ -4737,6 +4805,19 @@ function payIncome() {
   const due = levelPayDue; levelPayDue = 0;   // wave pay rides this tick
   const paid = BASE_INCOME + incomePayout(player.income) + due;
   player.gold += paid;
+  /* LUMBER PAYS ITSELF BACK, SLOWLY. Lumber had exactly one faucet — 500 gold —
+     and six sinks now that wards exist, which would make wards unbuyable.
+     Attackers are the second faucet, as Gene asked: "sending attackers awards
+     lumber income. The lumber ROI should be low."
+     Deliberately low: a Wallbreaker at 6000g + 1 lumber returns .6 lumber a
+     tick, so it repays its own LUMBER in two ticks and its GOLD never. You send
+     attackers to break a wall; the wood is a consolation. The remainder banks
+     rather than rounding away, or a .6 drip would floor to nothing forever. */
+  if (player.woodIncome > 0) {
+    player.woodBank = (player.woodBank || 0) + player.woodIncome;
+    const whole = Math.floor(player.woodBank);
+    if (whole > 0) { player.lumber += whole; player.woodBank -= whole; }
+  }
   enemy.gold += (BASE_INCOME + incomePayout(enemy.income)) * rivalGoldMult() + due;
   // allies fund themselves — an ally never spends gold its human teammate earned
   allies.forEach((a) => {
@@ -6703,7 +6784,7 @@ function railBody(tab) {
       + `<div class="rl-card"><small>${st.dmg} dmg · ${attackSpeedText(st)} · ${effectiveDps(st, t0.raceId).toFixed(0)} dps · ${st.range.toFixed(1)} reach`
       + `<br>${Math.max(0, Math.round(t0.blockHp))}/${t0.blockMaxHp} HP · ${attackProfileText(t0.raceId, st)}`
       + `<br><b style="color:#8fe6b8">Tap the tower on the board</b> to level, tier, retarget or sell it.</small></div>`
-      + boltPanelHtml(sel);
+      + boltPanelHtml(sel) + wardPanelHtml(sel);
   }
   const on = (v) => v ? 'on' : '';
   return `<div class="rl-head">TOOLS</div>`
@@ -6850,7 +6931,16 @@ function renderHud() {
     incomeEta.textContent = `${left}s`;
     incomeEta.classList.toggle('due', left <= 3);
   }
-  $('lumber-label').textContent = player.lumber;
+  /* show the lumber DRIP beside the stock once there is one, the same way gold
+     shows its income — otherwise the only faucet a player can see is the 500g
+     button and the attacker's whole economic point is invisible. */
+  // optional-chained like the rest of this block: renderHud runs before the
+  // arena markup exists in some paths, and a null here took the whole HUD down
+  const lumberLabel = $('lumber-label');
+  if (lumberLabel) {
+    lumberLabel.textContent = player.woodIncome > 0
+      ? `${player.lumber} +${player.woodIncome.toFixed(1)}` : String(player.lumber);
+  }
   // keep economy buttons in step with live gold/lumber
   const buyLumber = $('buy-lumber');
   if (buyLumber) { buyLumber.disabled = player.gold < LUMBER_PRICE; buyLumber.textContent = `Buy 1 lumber — ${LUMBER_PRICE}g (you have ${player.lumber}🪵)`; }
@@ -7036,7 +7126,34 @@ function towerAction(kind) {
     group = ready;   // never upgrade a tower mid-construction; selling still refunds
   }
   if (!group.length) return;
-  if (kind.startsWith('bolt:')) {
+  if (kind.startsWith('ward:')) {
+    /* Carving a ward costs lumber, not gold — which is the whole point of the
+       stake being 4g. It is the cheapest thing on the board and the upgrade is
+       the expensive part, so a wall of stakes is easy and a wall of WARDED
+       stakes is a real commitment against shrines and second elements. */
+    const id = kind.slice(5);
+    const ward = WARD_BY_ID[id];
+    if (!ward) return;
+    const fits = group.filter((t) => wardEligible(t) && t.ward !== id);
+    if (!fits.length) { log(`Wards are carved into Bulwark Stakes${group.some((t) => t.ward === id) ? ` — these already carry the ${ward.name} ward` : '.'}`); return; }
+    let done = 0, spent = 0;
+    for (const t of fits) {
+      const cost = wardCost();
+      if (player.lumber < cost) break;
+      player.lumber -= cost; player.lumberSpent += cost;
+      t.ward = id;
+      // reinforcing changes what the stake can take, so its bar has to follow
+      const was = t.blockMaxHp || 1;
+      const next = Math.round(towerMaxHp(towerDef(t.raceId, t.tier), t.tier, t.level || 0) * wardHpMult(t));
+      t.blockHp = Math.round((t.blockHp / was) * next); t.blockMaxHp = next;
+      done += 1; spent += cost;
+    }
+    if (done) {
+      if (player.lumberSpent >= 3) award('lumberjack');
+      SFX.play('build');
+      log(`${ward.glyph} ${ward.name} ward carved into ${done} stake${done > 1 ? 's' : ''} for ${spent}🪵. ${WARD_BLURB[id]}`);
+    } else log(`Carving a ${ward.name} ward costs ${wardCost()}🪵 — buy lumber first.`);
+  } else if (kind.startsWith('bolt:')) {
     const id = kind.slice(5);
     const mod = BOLT_BY_ID[id];
     const eligible = group.filter((t) => boltEligible(t) && t.bolt !== id);
@@ -7167,6 +7284,23 @@ function selectionTowers() {
 /* The bolt rack, shared by the desktop detail panel and the mobile sheet. Shows
    nothing at all for a selection no bolt can fit, so it never adds noise to the
    eight races that do not use them. */
+/* The ward rack is the bolt rack with a different table behind it — same
+   markup, so it inherits the scrolling row, the edge fade and the hover preview
+   without any of that being written twice. */
+function wardPanelHtml(group) {
+  const fits = group.filter(wardEligible);
+  if (!fits.length) return '';
+  const current = wardOf(fits[0]);
+  const mixed = fits.some((t) => t.ward !== fits[0].ward);
+  return `<div class="bolt-rack">
+    <span class="panel-heading">WARD${fits.length > 1 ? ` • ${fits.length} STAKES • ${fits.length * wardCost()}\u{1FAB5}` : ` • ${wardCost()}\u{1FAB5}`}</span>
+    <div class="bolt-row">${WARDS.map((w) => {
+      const on = !mixed && current?.id === w.id;
+      return `<button class="bolt-chip ${on ? 'on' : ''}" data-bolt="${w.id}" data-ward="1" style="--bolt:${w.color}" title="${w.name} — ${WARD_BLURB[w.id]}"><span>${w.glyph}</span><small>${w.name.split(' ')[0]}</small></button>`;
+    }).join('')}</div>
+    <p class="bolt-note" data-bolt-note>${mixed ? 'Mixed wards in this selection.' : current ? `${current.glyph} ${current.name} — ${WARD_BLURB[current.id]}` : 'No ward carved. One per stake; lumber, not gold.'}</p>
+  </div>`;
+}
 function boltPanelHtml(group) {
   const fits = group.filter(boltEligible);
   if (!fits.length) return '';
@@ -7195,10 +7329,11 @@ function setupBoltPreview() {
   const show = (e) => {
     const chip = e.target.closest?.('[data-bolt]');
     if (!chip) return;
-    const note = noteFor(chip), mod = BOLT_BY_ID[chip.dataset.bolt];
+    const isWard = !!chip.dataset.ward;
+    const note = noteFor(chip), mod = isWard ? WARD_BY_ID[chip.dataset.bolt] : BOLT_BY_ID[chip.dataset.bolt];
     if (!note || !mod) return;
     if (note._restore == null) note._restore = note.textContent;
-    note.textContent = `${mod.glyph} ${mod.name} — ${BOLT_BLURB[mod.id]}`;
+    note.textContent = `${mod.glyph} ${mod.name} — ${(isWard ? WARD_BLURB : BOLT_BLURB)[mod.id]}`;
   };
   const restore = (e) => {
     const chip = e.target.closest?.('[data-bolt]');
@@ -7290,10 +7425,10 @@ function renderTowerDetails() {
     <div class="td-stats"><span>DMG <b>${stats.dmg}</b></span><span>RANGE <b>${stats.range.toFixed(1)}</b></span><span>SPEED <b>${attackSpeedText(stats)}</b></span><span>DPS <b>${effectiveDps(stats, tower.raceId).toFixed(0)}</b></span><span>HP <b>${Math.max(0, Math.round(tower.blockHp))}/${tower.blockMaxHp}</b></span>${towerRank(tower) || !canLevel(tower) ? `<span>RANK <b>${towerRank(tower)}${towerRank(tower) >= RANK_MAX ? ' MAX' : `/${RANK_MAX}`}</b></span>` : ''}</div>
     ${!canLevel(tower) && towerRank(tower) < RANK_MAX ? `<p class="td-desc td-hint">Fully upgraded — it earns rank from here: +${Math.round(RANK_DMG * 100)}% damage each, ${Math.round(tower.xp || 0)}/${rankNeed(towerRank(tower))} to the next.</p>` : ''}
     <p class="td-desc profile-line">${attackProfileText(tower.raceId, stats)}</p>
-    ${isYours ? boltPanelHtml(group) : ''}`;
+    ${isYours ? boltPanelHtml(group) + wardPanelHtml(group) : ''}`;
   $('td-close').addEventListener('click', () => { selectedTowerKey = null; selectedGroupKeys = []; renderTowerDetails(); });
   if (!isYours) return;
-  panel.querySelectorAll('[data-bolt]').forEach((b) => b.addEventListener('click', () => towerAction(`bolt:${b.dataset.bolt}`)));
+  panel.querySelectorAll('[data-bolt]').forEach((b) => b.addEventListener('click', () => towerAction(`${b.dataset.ward ? 'ward' : 'bolt'}:${b.dataset.bolt}`)));
   $('td-level')?.addEventListener('click', () => towerAction('level'));
   $('td-tier')?.addEventListener('click', () => towerAction('tier'));
   $('td-sell')?.addEventListener('click', () => towerAction('sell'));
@@ -7311,7 +7446,7 @@ function renderSendPanel() {
   $('send-list').innerHTML = SENDS.map((send) => `
     <button class="send-card" data-send="${send.id}"><span class="send-icon">${send.air ? '🐉' : send.symbol}</span>
       <div><strong>${send.name}${send.air ? ' <em class="air-tag">AIR</em>' : ''}${send.attacker ? ' <em class="atk-tag">ATTACKER</em>' : ''}</strong>
-      <small data-send-note="${send.id}">${send.attacker ? `<b style="color:#ff9faf">no income</b> • breaks towers · ${SWING_DMG * send.breakPower} damage a swing` : `+${send.income} income`}</small>
+      <small data-send-note="${send.id}">${send.attacker ? `<b style="color:#ff9faf">no income</b> • breaks towers · ${SWING_DMG * send.breakPower} dmg a swing${send.woodIncome ? ` · <b style="color:#b9a877">+${send.woodIncome}🪵</b>` : ''}` : `+${send.income} income`}</small>
       <small class="send-stats">${sendShownHp(send)} HP • ${send.spd.toFixed(1)} spd • ${send.armor} armor (${send.aClass})</small></div><b>${send.cost}g${send.lumber ? ` +${send.lumber}🪵` : ''}</b></button>`).join('');
   document.querySelectorAll('[data-send]').forEach((button) => button.addEventListener('click', () => {
     const send = SENDS.find((item) => item.id === button.dataset.send);
@@ -7321,6 +7456,7 @@ function renderSendPanel() {
     if (send.lumber && player.lumber < send.lumber) return log(`${send.name} costs ${send.cost}g + ${send.lumber}🪵 — and pays no income. Buy lumber first.`);
     const incWas = BASE_INCOME + incomePayout(player.income);
     player.gold -= send.cost; player.income += send.income; SFX.play('send'); Coach.notify('send'); track('send', { id: send.id });
+    if (send.woodIncome) player.woodIncome = (player.woodIncome || 0) + send.woodIncome;
     if (send.lumber) { player.lumber -= send.lumber; player.lumberSpent += send.lumber; renderTowerList(); }
     logSend(send.id); if (matchStats) matchStats.sends += 1;
     const incNow = BASE_INCOME + incomePayout(player.income);
@@ -10275,7 +10411,7 @@ function renderCommandSheet() {
               upgrade — new name, new description, new blurb — and anything above
               the action row moves that row while a finger is coming down on it.
               That is how a batch upgrade turned into a batch sell. */''}
-        <div class="sheet-detail">${stats.desc} ${specialBlurbs[stats.special] || ''}<br><em>${stats.dmg} dmg • ${stats.range.toFixed(1)} range • ${attackSpeedText(stats)} • ${effectiveDps(stats, t0.raceId).toFixed(0)} dps • ${attackProfileText(t0.raceId, stats)}</em>${many ? '' : ` • ${t0.kills} kills`}</div>${boltPanelHtml(sel)}`;
+        <div class="sheet-detail">${stats.desc} ${specialBlurbs[stats.special] || ''}<br><em>${stats.dmg} dmg • ${stats.range.toFixed(1)} range • ${attackSpeedText(stats)} • ${effectiveDps(stats, t0.raceId).toFixed(0)} dps • ${attackProfileText(t0.raceId, stats)}</em>${many ? '' : ` • ${t0.kills} kills`}</div>${boltPanelHtml(sel) + wardPanelHtml(sel)}`;
     }
   } else if (sheetTab === 'log') {
     body = recordsContent();
@@ -10321,7 +10457,7 @@ function renderCommandSheet() {
     sheetKey = ''; renderCommandSheet();
   }));
   sheet.querySelectorAll('[data-sheet-act]').forEach((b) => b.addEventListener('click', () => towerAction(b.dataset.sheetAct)));
-  sheet.querySelectorAll('[data-bolt]').forEach((b) => b.addEventListener('click', () => { towerAction(`bolt:${b.dataset.bolt}`); sheetKey = ''; renderCommandSheet(); }));
+  sheet.querySelectorAll('[data-bolt]').forEach((b) => b.addEventListener('click', () => { towerAction(`${b.dataset.ward ? 'ward' : 'bolt'}:${b.dataset.bolt}`); sheetKey = ''; renderCommandSheet(); }));
   $('log-copy')?.addEventListener('click', () => {
     // export YOUR games; re-exporting the pool would bounce shared logs around
     const payload = JSON.stringify({ exported:new Date().toISOString(), audit:raceAudit(), matches:loadOwnLog() }, null, 1);
@@ -10434,7 +10570,7 @@ function renderWispPanel(mode) {
      phone. "I don't understand how to upgrade the units" was literally that:
      the four sub-upgrades existed and had no button on the screen he was
      looking at. */
-  panel.querySelectorAll('[data-bolt]').forEach((b) => b.addEventListener('click', () => { towerAction(`bolt:${b.dataset.bolt}`); renderWispPanel('inspect'); }));
+  panel.querySelectorAll('[data-bolt]').forEach((b) => b.addEventListener('click', () => { towerAction(`${b.dataset.ward ? 'ward' : 'bolt'}:${b.dataset.bolt}`); renderWispPanel('inspect'); }));
 }
 function renderWispInspect() {
   const ie = inspectEntity;
@@ -10492,7 +10628,7 @@ function renderWispInspect() {
     ${/* The ring owns level, tier, target and sell — this panel used to offer
           all four again, which is how the same action ended up in three places
           at once. Readout and imbuing only. */''}
-    <div class="wp-detail">${stats.dmg} dmg · ${attackSpeedText(stats)} · ${effectiveDps(stats, t0.raceId).toFixed(0)} dps · ${attackProfileText(t0.raceId, stats)}<br>${specialBlurbs[stats.special]||stats.desc||''}${up?`<br><i>→ ${up.next.name}: ${up.next.dmg} dmg · ${up.next.range} range (full ${up.cost}g)</i>`:'<br><i>max tier</i>'}</div>${boltPanelHtml(sel)}`;
+    <div class="wp-detail">${stats.dmg} dmg · ${attackSpeedText(stats)} · ${effectiveDps(stats, t0.raceId).toFixed(0)} dps · ${attackProfileText(t0.raceId, stats)}<br>${specialBlurbs[stats.special]||stats.desc||''}${up?`<br><i>→ ${up.next.name}: ${up.next.dmg} dmg · ${up.next.range} range (full ${up.cost}g)</i>`:'<br><i>max tier</i>'}</div>${boltPanelHtml(sel) + wardPanelHtml(sel)}`;
 }
 function setupWisp() {
   const wisp = $('wisp');

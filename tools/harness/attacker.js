@@ -20,14 +20,21 @@ const base = process.argv[2] || 'http://127.0.0.1:8771/';
   const out = await page.evaluate(() => {
     document.querySelectorAll('.coach-card').forEach((c) => c.remove());
     SFX.play = () => {};
-    const list = SENDS.filter((s) => s.attacker).map((s) => ({ id: s.id, name: s.name, cost: s.cost, lumber: s.lumber, income: s.income, breakPower: s.breakPower, shrine: s.shrine }));
+    const list = SENDS.filter((s) => s.attacker).map((s) => ({ id: s.id, name: s.name, cost: s.cost, lumber: s.lumber, income: s.income, breakPower: s.breakPower, shrine: s.shrine, woodIncome: s.woodIncome }));
 
     // the economy half: buying one must cost lumber and grant no income
     player.shrine = 5; player.gold = 1e6; player.lumber = 5; player.income = 400;
     renderSendPanel();
     const before = { gold: player.gold, lumber: player.lumber, income: player.income };
     document.querySelector('[data-send="breaker"]')?.click();
-    const after = { gold: player.gold, lumber: player.lumber, income: player.income };
+    const after = { gold: player.gold, lumber: player.lumber, income: player.income,
+      woodIncome: player.woodIncome || 0 };
+    /* And the lumber it pays BACK. One faucet (500g) against six sinks made
+       wards unbuyable; attackers are the second faucet, at a deliberately poor
+       return. Run enough income ticks to see whole lumber arrive from the drip. */
+    const woodBefore = player.lumber;
+    for (let i = 0; i < 4; i += 1) payIncome();
+    const woodAfter = player.lumber;
 
     // refuse when the lumber is not there
     player.lumber = 0;
@@ -73,24 +80,28 @@ const base = process.argv[2] || 'http://127.0.0.1:8771/';
       nearestTowerDist: Math.min(...mine.filter((k) => towers.has(k)).map((k) => { const t = towers.get(k); return Math.hypot(t.c + .5 - atk.x, t.r + .5 - atk.y); })) };
     matchOver = true; battleRunning = false;
 
-    return { list, before, after, refusedWithoutLumber, isAttacker, power, towersBefore, towersAfter, diag };
+    return { list, before, after, refusedWithoutLumber, isAttacker, power, towersBefore, towersAfter, diag,
+      woodBefore, woodAfter };
   });
 
   console.log('attacker sends on the ladder:');
-  out.list.forEach((s) => console.log('  ' + s.name.padEnd(15) + s.cost + 'g + ' + s.lumber + ' lumber   income ' + s.income
-    + '   ' + s.breakPower + ' hits a swing   shrine ' + s.shrine));
+  out.list.forEach((s) => console.log('  ' + s.name.padEnd(15) + s.cost + 'g + ' + s.lumber + ' lumber   gold income ' + s.income
+    + '   lumber income ' + (s.woodIncome || 0) + '   ' + s.breakPower + ' hits a swing   shrine ' + s.shrine));
   console.log('\nbuying a Wallbreaker');
   console.log('  gold   ' + out.before.gold.toLocaleString() + ' -> ' + out.after.gold.toLocaleString());
   console.log('  lumber ' + out.before.lumber + ' -> ' + out.after.lumber + (out.after.lumber < out.before.lumber ? '   (spent)' : '   *** lumber not taken ***'));
   console.log('  income ' + out.before.income + ' -> ' + out.after.income + (out.after.income === out.before.income ? '   (none granted)' : '   *** it paid income ***'));
   console.log('  refused when you have no lumber: ' + out.refusedWithoutLumber);
+  console.log('  lumber income granted: +' + out.after.woodIncome + ' a tick'
+    + '  ->  stock ' + out.woodBefore + ' -> ' + out.woodAfter + ' over 4 ticks');
   console.log('\na Siege Ruiner walking into a 10-tower wall');
   console.log('  flagged as an attacker: ' + out.isAttacker + '   swing power: ' + out.power);
   console.log('  towers standing: ' + out.towersBefore + ' -> ' + out.towersAfter
     + (out.towersAfter < out.towersBefore ? '   (it broke the wall)' : '   *** it walked past ***'));
   console.log('  creep at the end: ' + JSON.stringify(out.diag));
   const ok = out.after.lumber < out.before.lumber && out.after.income === out.before.income
-    && out.refusedWithoutLumber && out.isAttacker && out.towersAfter < out.towersBefore;
+    && out.refusedWithoutLumber && out.isAttacker && out.towersAfter < out.towersBefore
+    && out.after.woodIncome > 0 && out.woodAfter > out.woodBefore;
   console.log('\n' + (ok ? 'PASS' : 'FAIL'));
   if (errs.length) console.log('ERRORS', errs.slice(0, 3));
   await browser.close();
