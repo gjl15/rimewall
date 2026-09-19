@@ -1977,10 +1977,35 @@ function boltOf(tower) { return tower && tower.bolt ? BOLT_BY_ID[tower.bolt] : n
    The cap was the defect: past ~385g a ninja cell had nowhere to put gold. */
 const LEVEL_DMG_DEFAULT = .15;
 function levelDmgStep(raceId) { return raceId === 'ninja' ? .55 : LEVEL_DMG_DEFAULT; }
+/* EARNED RANKS, ON TOP OF BOUGHT LEVELS.
+   Gene: "Tower kills or hits after max lvl up will earn exp to lvl further ...
+   These lvls are less impactful than the ones you purchase. 1% increase per lvl
+   from gaining exp from hits/kills rather than the 10% from the first few
+   purchasable lvls."
+   So a rank is worth a fiftieth of a bought level and cannot be bought at all:
+   it is what a tower that has run out of upgrades does with the rest of the
+   match. Experience comes from both, as he asked — a trickle for landing a hit,
+   a real payment for the kill, scaled by what the creep was worth, so holding a
+   lane against heavy waves ranks a tower faster than farming light ones.
+   Only a tower with nothing left to buy earns: ranks are the reward for being
+   finished, not a second currency running alongside the first. */
+const RANK_DMG = .01, RANK_MAX = 25, RANK_HIT_XP = .1;
+function rankNeed(rank) { return 25 + rank * 25; }
+function towerRank(tower) { return Math.min(RANK_MAX, tower.rank || 0); }
+function grantTowerXp(tower, amount) {
+  if (!tower || !amount || towerRank(tower) >= RANK_MAX) return;
+  if (canLevel(tower)) return;          // buy your levels first; ranks come after
+  tower.xp = (tower.xp || 0) + amount;
+  while (tower.rank < RANK_MAX && tower.xp >= rankNeed(tower.rank || 0)) {
+    tower.xp -= rankNeed(tower.rank || 0);
+    tower.rank = (tower.rank || 0) + 1;
+    tower.rankAt = simTime;
+  }
+}
 function towerLiveStats(tower) {
   const def = towerDef(tower.raceId, tower.tier);
   const level = tower.level || 0;
-  const stats = { ...def, dmg:Math.round(def.dmg * (1 + levelDmgStep(tower.raceId) * level)), range:def.range + .25 * level };
+  const stats = { ...def, dmg:Math.round(def.dmg * (1 + levelDmgStep(tower.raceId) * level + RANK_DMG * towerRank(tower))), range:def.range + .25 * level };
   if (tower.bolt) {
     stats.bolt = tower.bolt;
     // piercing is the only bolt that touches the tower's own numbers
@@ -3015,7 +3040,7 @@ function applyGlobalPriority(next) {
 function makeTower(r, c, raceId, tier, owner) {
   const def = towerDef(raceId, tier);
   const buildTime = 1.2 + tier * .4;   // classic-style construction; canceling during it refunds fully
-  return { key:idx(r, c), r, c, raceId, tier, level:0, owner, cooldown:0, priority:owner === 'player' ? globalPriority : 'first', kills:0, invested:def.cost, placedAt:simTime, buildTime, buildUntil:simTime + buildTime, blockHp:towerMaxHp(def, tier, 0), blockMaxHp:towerMaxHp(def, tier, 0), underAttack:0 };
+  return { key:idx(r, c), r, c, raceId, tier, level:0, owner, cooldown:0, priority:owner === 'player' ? globalPriority : 'first', kills:0, rank:0, xp:0, invested:def.cost, placedAt:simTime, buildTime, buildUntil:simTime + buildTime, blockHp:towerMaxHp(def, tier, 0), blockMaxHp:towerMaxHp(def, tier, 0), underAttack:0 };
 }
 /* Two timestamps the renderer reads for §6's feel moments: when this tower
    appeared, and when it last gained a tier. Both are one number and neither is
@@ -3515,7 +3540,7 @@ function applyDamage(creep, amount, tower, isDot = false, opts) {
       if (profile.totalKills >= 500) award('kills_500');
       if (creep.boss && !creep.sent) award('boss_slain');
     }
-    if (tower) tower.kills += 1;
+    if (tower) { tower.kills += 1; grantTowerXp(tower, Math.max(2, creep.bounty || 0)); }
     pushFx({ kind:'death', x:creep.x, y:creep.y, color:roleColors[creep.role] || '#ff9faf', until:simTime + .35 });
     /* DEATH PAYLOADS: killing one of these is not purely good news — it mends or
        armours whatever was walking beside it, so the order you focus a pack in
@@ -3633,6 +3658,7 @@ function applyHitEffects(creep, tower, stats) {
   if (special === 'pause' && !creep.boss) creep.stunUntil = simTime + 3.5;
   if (special === 'armorshred') creep.armorShred = Math.min(creep.armor, creep.armorShred + 5);
   applyBoltEffects(creep, tower, stats);
+  grantTowerXp(tower, RANK_HIT_XP);
 }
 /* The borrowed element a bolt mod bolts onto a tech tower or a Laser Cannon.
    Deliberately weaker than the race that owns each effect: Ice's own frost
@@ -5484,7 +5510,7 @@ function drawTower(ctx, tower) {
   }
   /* §6 TIER-UP: a light sweeps down the tower once. A tier is the biggest
      single thing you buy and it used to happen in silence. */
-  const ta = simTime - (tower.tierAt ?? -9);
+  const ta = Math.min(simTime - (tower.tierAt ?? -9), simTime - (tower.rankAt ?? -9));
   if (ta >= 0 && ta < .35) {
     ctx.save();
     ctx.fillStyle = '#fff'; ctx.globalAlpha = .8 * (1 - ta / .35);
@@ -7198,8 +7224,12 @@ function renderTowerDetails() {
      structural changed; when only gold moved, patch the labels and the disabled
      flags on the buttons that are already there. renderCommandSheet has done
      this for a while — the same guard, arrived at the same way. */
+  /* rank and a coarse bucket of xp ride the signature too, or the "x/y to the
+     next rank" line would be written once and then never move again — the guard
+     exists to stop the panel rebuilding five times a second, not to freeze it. */
   const sig = [tower.key, group.map((t) => t.key).join(','), tower.level, tower.tier, tower.priority,
-    tower.raceId, isYours, upgradable.length, tierable.length, alike > 1].join('|');
+    tower.raceId, isYours, upgradable.length, tierable.length, alike > 1,
+    towerRank(tower), Math.floor((tower.xp || 0) / 5)].join('|');
   if (panel._sig === sig && panel._built) {
     // still optional-chained: a rival's tower renders the readout with no actions
     const setBtn = (id, off, text) => { const b = $(id); if (!b) return; b.disabled = !!off; if (text != null && b.textContent !== text) b.textContent = text; };
@@ -7213,7 +7243,7 @@ function renderTowerDetails() {
   panel._sig = sig; panel._built = true;
   panel.innerHTML = `
     <div class="td-head"><span class="td-rune" style="--race:${stats.color}">${stats.symbol}</span>
-      <div><strong>${many ? `${group.length} × ` : ''}${stats.name}</strong><small>${isYours ? (many ? 'Batch selection — actions apply to all' : `Level ${(tower.level || 0) + 1} • ${tower.kills} kills`) : towerOwnerLabel(tower)}</small></div>
+      <div><strong>${many ? `${group.length} × ` : ''}${stats.name}</strong><small>${isYours ? (many ? 'Batch selection — actions apply to all' : `Level ${(tower.level || 0) + 1}${towerRank(tower) ? ` · rank ${towerRank(tower)}` : ''} • ${tower.kills} kills`) : towerOwnerLabel(tower)}</small></div>
       <button id="td-close" class="ghost-button" aria-label="Close tower details">✕</button></div>
     ${/* THE ACTIONS SIT DIRECTLY UNDER THE HEAD, ABOVE EVERY VARIABLE-HEIGHT
           BLOCK. The description, the stat row and the attack-profile line all
@@ -7238,7 +7268,8 @@ function renderTowerDetails() {
       ${alike > 1 ? `<button id="td-selectall" class="ghost-button td-wide">⧉ Select all ${alike}${many ? ` · ${group.length} selected` : ''}</button>` : ''}
     </div>` : ''}
     <p class="td-desc">${many ? 'Double-tap selected every like tower.' : `${stats.desc} ${specialBlurbs[stats.special] || ''}`}</p>
-    <div class="td-stats"><span>DMG <b>${stats.dmg}</b></span><span>RANGE <b>${stats.range.toFixed(1)}</b></span><span>SPEED <b>${attackSpeedText(stats)}</b></span><span>DPS <b>${effectiveDps(stats, tower.raceId).toFixed(0)}</b></span><span>HP <b>${Math.max(0, Math.round(tower.blockHp))}/${tower.blockMaxHp}</b></span></div>
+    <div class="td-stats"><span>DMG <b>${stats.dmg}</b></span><span>RANGE <b>${stats.range.toFixed(1)}</b></span><span>SPEED <b>${attackSpeedText(stats)}</b></span><span>DPS <b>${effectiveDps(stats, tower.raceId).toFixed(0)}</b></span><span>HP <b>${Math.max(0, Math.round(tower.blockHp))}/${tower.blockMaxHp}</b></span>${towerRank(tower) || !canLevel(tower) ? `<span>RANK <b>${towerRank(tower)}${towerRank(tower) >= RANK_MAX ? ' MAX' : `/${RANK_MAX}`}</b></span>` : ''}</div>
+    ${!canLevel(tower) && towerRank(tower) < RANK_MAX ? `<p class="td-desc td-hint">Fully upgraded — it earns rank from here: +${Math.round(RANK_DMG * 100)}% damage each, ${Math.round(tower.xp || 0)}/${rankNeed(towerRank(tower))} to the next.</p>` : ''}
     <p class="td-desc profile-line">${attackProfileText(tower.raceId, stats)}</p>
     ${isYours ? boltPanelHtml(group) : ''}`;
   $('td-close').addEventListener('click', () => { selectedTowerKey = null; selectedGroupKeys = []; renderTowerDetails(); });
