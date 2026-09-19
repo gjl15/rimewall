@@ -572,6 +572,7 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
 .tower-stats b { font:700 8px 'DM Mono',monospace !important; letter-spacing:.06em; }
 .send-stats { color:#6f7c9e !important; font:500 8px 'DM Mono',monospace !important; }
 .air-tag { margin-left:4px; padding:1px 4px; border:1px solid #9fd8ff88; border-radius:4px; color:#9fd8ff; background:#9fd8ff14; font:700 7px 'DM Mono',monospace; letter-spacing:.08em; font-style:normal; vertical-align:1px; }
+.send-split { margin-top:14px !important; }
 .atk-tag { margin-left:4px; padding:1px 4px; border:1px solid #ff9faf88; border-radius:4px; color:#ff9faf; background:#ff9faf14; font:700 7px 'DM Mono',monospace; letter-spacing:.08em; font-style:normal; vertical-align:1px; }
 .resource.lumber b { font-size:12px; }
 .resource.lumber em { color:#c6a269; }
@@ -2480,6 +2481,35 @@ const SENDS = [
   { id:'bonecaller', name:'Bonecaller', symbol:'♻', cost:700, income:78, hp:620, spd:2.3, armor:8, aClass:'medium', role:'deathheal', shrine:2 },
   { id:'matureddragon', name:'Elder Drake', symbol:'▲', cost:800, income:90, hp:825, spd:2.9, armor:12, aClass:'light', air:true, shrine:2 },
   { id:'ramhulk', name:'Ram Hulk', symbol:'⬓', cost:1450, income:165, hp:1500, spd:2.2, armor:13, aClass:'fortified', shrine:2 },
+  /* LADDER GAPS, MEASURED AND FILLED. Counting the ladder by armour class and
+     shrine level turned up holes a defender could simply ignore: no medium send
+     above shrine 2, no light at 3 or 4, no heavy below 3, and air that was only
+     ever light or heavy — so a builder strong against, say, fortified never had
+     to answer for it past the early game. These six close every one of them.
+     Priced on the ladder's own shape: income is about 11% of cost. */
+  /* ATTACKERS ANSWER TO EVERY BUILDER. Gene: "should have the armor type that
+     each builder does at least 1.0 dmg." Both were FORTIFIED, which Tech hits
+     for 0.4 and Ninja for 0.45 — so the two elements least able to shift one
+     were the two whose walls it was tearing down, and there was nothing they
+     could build about it. Their class is 'siege', which appears in no race's
+     matrix; the lookup already falls back to 1.0 for a class it does not know,
+     so every builder does full damage without a single matrix edited. Armour
+     VALUE still applies, so they stay hard to kill — just not unanswerable. */
+  { id:'ironpilgrim', name:'Iron Pilgrim', symbol:'⬢', cost:1700, income:190, hp:1450, spd:2.2, armor:12, aClass:'heavy', shrine:2 },
+  { id:'duskrunner', name:'Dusk Runner', symbol:'➤', cost:2600, income:290, hp:1900, spd:3.4, armor:9, aClass:'light', shrine:3 },
+  /* The healing send Gene asked for. The warden role has existed in the engine
+     the whole time — it heals everything within 3 cells — and appeared on
+     exactly one neutral wave and no send at all, so nobody could ever buy it. */
+  { id:'grovetender', name:'Grove Tender', symbol:'⚕', cost:3600, income:400, hp:2300, spd:2.4, armor:12, aClass:'medium', role:'warden', shrine:3 },
+  { id:'mirebrute', name:'Mire Brute', symbol:'◈', cost:7600, income:850, hp:5200, spd:2.5, armor:16, aClass:'medium', shrine:4 },
+  { id:'skybarge', name:'Sky Barge', symbol:'▲', cost:5400, income:600, hp:4100, spd:2.3, armor:18, aClass:'fortified', air:true, shrine:4 },
+  { id:'stormherald', name:'Storm Herald', symbol:'▲', cost:13000, income:1400, hp:8200, spd:3.0, armor:22, aClass:'medium', air:true, shrine:5 },
+  { id:'thornsprinter', name:'Thorn Sprinter', symbol:'➤', cost:6800, income:760, hp:4400, spd:3.5, armor:11, aClass:'light', shrine:4 },
+  { id:'directhulk', name:'Adamant Hulk', symbol:'⬢', cost:14500, income:1550, hp:11000, spd:2.3, armor:24, aClass:'heavy', shrine:5 },
+  /* The swarm: many cheap bodies at once rather than one expensive one. Splash
+     eats it and single-target chokes on it, which is the point — it is the send
+     that punishes a wall built entirely out of snipers. */
+  { id:'hornetflight', name:'Hornet Flight', symbol:'∴', cost:4200, income:470, hp:520, spd:3.2, armor:8, aClass:'light', air:true, role:'swarm', bodies:5, shrine:4 },
   { id:'totem', name:'Idol Bearer', symbol:'⬢', cost:3995, income:450, hp:2500, spd:3.0, armor:15, aClass:'heavy', shrine:3 },
   { id:'juggernaut', name:'Bulwark', symbol:'◆', cost:4600, income:520, hp:2200, spd:2.6, armor:14, aClass:'heavy', role:'juggernaut', shrine:3 },
   { id:'unholy', name:'Dread Knight', symbol:'♞', cost:5330, income:600, hp:2875, spd:3.1, armor:15, aClass:'heavy', shrine:3 },
@@ -2500,9 +2530,9 @@ const SENDS = [
      real progress to take a wall down. They walk to the nearest tower in their
      way and hit it instead of filing past it. */
   { id:'breaker', name:'Wallbreaker', symbol:'🜛', cost:6000, income:0, lumber:1, woodIncome:.6, attacker:true, breakPower:3,
-    hp:5200, spd:2.2, armor:18, aClass:'fortified', shrine:4 },
+    hp:5200, spd:2.2, armor:18, aClass:'siege', shrine:4 },
   { id:'ruiner', name:'Siege Ruiner', symbol:'⛏', cost:16000, income:0, lumber:2, woodIncome:1.6, attacker:true, breakPower:8,
-    hp:13500, spd:2.0, armor:24, aClass:'fortified', role:'juggernaut', shrine:5 }
+    hp:13500, spd:2.0, armor:24, aClass:'siege', role:'juggernaut', shrine:5 }
 ];
 const SHRINE_MAX = 5, LUMBER_PRICE = 500;
 
@@ -2669,6 +2699,14 @@ const SEND_GROWTH_PERIOD = Number(window.__SEND_GROWTH__ ?? 150);   // seconds p
 function sendGrowth() {
   if (matchMode !== 'classic' || !SEND_GROWTH_PERIOD) return 1;
   return Math.pow(2, Math.max(0, simTime) / SEND_GROWTH_PERIOD);
+}
+/* ONE PURCHASE, ONE BODY A LANE — unless the send is a swarm. The engine has
+   had a swarm role since the wave table was written and no send ever carried
+   it, because a send spawns exactly once per lane. This is the whole difference:
+   a swarm puts `bodies` down each lane instead of one. */
+function spawnSend(send, half, side) {
+  const bodies = Math.max(1, send.bodies || 1);
+  for (let i = 0; i < bodies; i += 1) spawnCreep(sendCreepDef(send), half, side, true);
 }
 function sendCreepDef(send) {
   // killing a send pays the defender exactly the income it granted its sender
@@ -7443,11 +7481,20 @@ function renderSendPanel() {
       ${player.shrine < SHRINE_MAX ? `<button id="shrine-upgrade" class="ghost-button" ${player.lumber < 1 ? 'disabled' : ''}>Upgrade to L${player.shrine + 1} • 1🪵</button>` : ''}`;
     $('shrine-upgrade')?.addEventListener('click', upgradeShrine);
   }
-  $('send-list').innerHTML = SENDS.map((send) => `
+  /* TWO LISTS, BECAUSE THEY DO OPPOSITE JOBS. Attackers sat in the middle of the
+     income ladder, which is where you scan for "what raises my economy" — and
+     they raise none of it. They cost lumber, they pay no gold income, and their
+     whole purpose is to knock a wall down. Grouped apart so the send list stays
+     a ladder you read top to bottom and the attackers read as the separate,
+     expensive decision they are. */
+  const card = (send) => `
     <button class="send-card" data-send="${send.id}"><span class="send-icon">${send.air ? '🐉' : send.symbol}</span>
       <div><strong>${send.name}${send.air ? ' <em class="air-tag">AIR</em>' : ''}${send.attacker ? ' <em class="atk-tag">ATTACKER</em>' : ''}</strong>
       <small data-send-note="${send.id}">${send.attacker ? `<b style="color:#ff9faf">no income</b> • breaks towers · ${SWING_DMG * send.breakPower} dmg a swing${send.woodIncome ? ` · <b style="color:#b9a877">+${send.woodIncome}🪵</b>` : ''}` : `+${send.income} income`}</small>
-      <small class="send-stats">${sendShownHp(send)} HP • ${send.spd.toFixed(1)} spd • ${send.armor} armor (${send.aClass})</small></div><b>${send.cost}g${send.lumber ? ` +${send.lumber}🪵` : ''}</b></button>`).join('');
+      <small class="send-stats">${sendShownHp(send)}${send.bodies > 1 ? ` HP × ${send.bodies}` : ' HP'} • ${send.spd.toFixed(1)} spd • ${send.armor} armor (${send.aClass})</small></div><b>${send.cost}g${send.lumber ? ` +${send.lumber}🪵` : ''}</b></button>`;
+  const economy = SENDS.filter((s) => !s.attacker), attackers = SENDS.filter((s) => s.attacker);
+  $('send-list').innerHTML = economy.map(card).join('')
+    + (attackers.length ? `<p class="panel-heading send-split">ATTACKERS — lumber, no income, break the wall</p>` + attackers.map(card).join('') : '');
   document.querySelectorAll('[data-send]').forEach((button) => button.addEventListener('click', () => {
     const send = SENDS.find((item) => item.id === button.dataset.send);
     if (!battleRunning) return log('Start a match before sending.');
@@ -7469,12 +7516,12 @@ function renderSendPanel() {
       log(`${send.name} × 2 away at ${mpSeatName(target)}.`);
       // if I am the host and it is aimed at one of my bots, I spawn it myself
       if (mpHostRunsBots() && target && mpBotSeatKeys().includes(target)) {
-        spawnCreep(sendCreepDef(send), ENEMY_HALF, 'west', true);
-        spawnCreep(sendCreepDef(send), ENEMY_HALF, 'east', true);
+        spawnSend(send, ENEMY_HALF, 'west');
+        spawnSend(send, ENEMY_HALF, 'east');
       }
     } else {
-      spawnCreep(sendCreepDef(send), ENEMY_HALF, 'west', true);
-      spawnCreep(sendCreepDef(send), ENEMY_HALF, 'east', true);
+      spawnSend(send, ENEMY_HALF, 'west');
+      spawnSend(send, ENEMY_HALF, 'east');
     }
     if (player.income >= 300) award('income_300');
     if (send.air) { profile.dragonsSent += 1; if (profile.dragonsSent >= 10) award('dragon_rider'); saveProfile(); }
@@ -9587,12 +9634,12 @@ function mpOnMessage(msg) {
     // client that simulates the bots. Anything else is somebody else's problem
     // and must not spawn here — that is how a send used to hit a teammate.
     if (target === mpMySeatKey() || (!target && !mpHostRunsBots())) {
-      spawnCreep(sendCreepDef(send), PLAYER_HALF, 'west', true);
-      spawnCreep(sendCreepDef(send), PLAYER_HALF, 'east', true);
+      spawnSend(send, PLAYER_HALF, 'west');
+      spawnSend(send, PLAYER_HALF, 'east');
       log(`${(from && from.name) || mp.oppName || 'Opponent'} sent ${send.name} × 2 at your lanes!${send.air ? ' They fly over your maze!' : ''}`);
     } else if (mpHostRunsBots() && target && mpBotSeatKeys().includes(target)) {
-      spawnCreep(sendCreepDef(send), ENEMY_HALF, 'west', true);
-      spawnCreep(sendCreepDef(send), ENEMY_HALF, 'east', true);
+      spawnSend(send, ENEMY_HALF, 'west');
+      spawnSend(send, ENEMY_HALF, 'east');
     }
   } else if (msg.t === 'leaks' || msg.t === 'lives') {
     if (!mp.active || !battleRunning || matchOver) return;
