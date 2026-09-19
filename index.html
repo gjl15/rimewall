@@ -1627,7 +1627,7 @@ const TOWERS = {
   ],
   gravity:[
     { name:'Gravity Well', cost:10, dmg:9, cd:.95, range:5.5, special:'warp', desc:'A single warped slug that drags its target to a crawl.' },
-    { name:"Gravity's Pull", cost:50, dmg:40, cd:1.0, range:3.9, special:'gravslam', desc:'Single heavy pull that slams its target to the ground.' },
+    { name:"Gravity's Pull", cost:50, dmg:40, cd:1.0, range:3.9, special:'gravslam', desc:'An area pull that slams the lead creep to the ground.' },
     { name:'Psi Emitter', cost:150, dmg:120, cd:1.0, range:5.5, special:'warppulse', desc:'Where the AREA pulse begins — the lead creep takes it all, a few behind take less.' },
     { name:'Collapsar', cost:280, dmg:70, cd:.35, range:5.0, special:'repulse', desc:'Very fast pulses that mostly shove the lead creep back down the lane.' },
     { name:'Singularity Mortar', cost:280, dmg:220, cd:1.4, range:6.25, special:'liftoff', desc:'Heavy pulses that mostly hurl the lead creep into the air.' },
@@ -1789,6 +1789,10 @@ const TRAIT = {
 };
 function pointInPoly(x, y, poly) { let hit = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { if ((poly[i].y > y) !== (poly[j].y > y) && x < (poly[j].x - poly[i].x) * (y - poly[i].y) / (poly[j].y - poly[i].y) + poly[i].x) hit = !hit; } return hit; }
 function tierPot(tower) { return Math.min(1, .55 + .09 * (tower.tier || 0)); }
+/* Several signature odds are multiplied by tierPot, so the headline figure is
+   only true at the TOP of a ladder — Stone's "25% of hits crit" is really 13.75%
+   on a Cairn. Cards that quote one of those print the range instead. */
+function pctTier(p) { return `${Math.round(p * .55 * 100)}–${Math.round(p * 100)}%`; }
 function isChaos(tower, stats) { return !!(ATTACK_PROFILE[tower.raceId] && ATTACK_PROFILE[tower.raceId].chaos) || tower.raceId === 'crystal' || stats.special === 'laser'; }
 function attackProfileText(raceId, def) {
   const p = ATTACK_PROFILE[raceId];
@@ -1827,7 +1831,7 @@ function gravOdds(special) {
 }
 function specialBlurb(sp) {
   const pct = (v) => Math.round(v * 100) + '%';
-  const gravTail = ` One impulse on ${pct(TRAIT.gravSlowChance)} of hits: ${gravOdds(sp)}. A creep can be displaced once every ${TRAIT.gravPushCD}s, and shoved back ${GRAV_BACK_LIMIT === 1 ? 'once only' : `${GRAV_BACK_LIMIT} times`} in its life; a blocked impulse slows instead. Bosses resist displacement.`;
+  const gravTail = ` One impulse on ${pctTier(TRAIT.gravSlowChance)} of hits (tier 0 to tier 5): ${gravOdds(sp)}. A creep can be displaced once every ${TRAIT.gravPushCD}s, and shoved back ${GRAV_BACK_LIMIT === 1 ? 'once only' : `${GRAV_BACK_LIMIT} times`} in its life; a blocked impulse slows instead. Bosses resist displacement.`;
   const table = {
     slow:`Every hit slows the target. Frost slows deepen as they stack, up to ${TRAIT.frostMax}%.`,
     snowball:`Every shot bursts: everything within 1.5 cells takes 45% and is frost-chilled too.`,
@@ -1839,7 +1843,7 @@ function specialBlurb(sp) {
     meteor:`A slow, heavy shot: everything within 2.5 cells takes 60%.`,
     rocket:`Artillery: everything within 2.5 cells takes 60%.`,
     machinegun:`Single target, no splash — it just fires faster than anything else.`,
-    crit:`${pct(TRAIT.stoneCritChance)} of hits deal ${TRAIT.stoneCritMult}x damage. Crits print in gold.`,
+    crit:`${pctTier(TRAIT.stoneCritChance)} of hits deal ${TRAIT.stoneCritMult}x damage — the low end at tier 0, the high end at tier 5. Crits print in gold.`,
     chain:`Every shot arcs to 3 more creeps, each hop at 70% of the last.`,
     thunder:`An area pulse every shot: strips shields outright, chips everything toward ${pct(TRAIT.thunderFloor)} of max HP (at most ${pct(TRAIT.thunderCap)} a pulse), and can stun.`,
     poison:`Every hit adds venom worth ${pct(TRAIT.poisonStackPct)} of the target's max HP per second to one pool, refreshing a ${TRAIT.poisonDur}s timer. Every poison tower feeds the same pool. The venom ignores armour value.`,
@@ -1863,7 +1867,7 @@ function specialBlurb(sp) {
     beam:`A continuous ray rather than a volley: damage lands every frame, so the rate holds at any framerate.`,
     beamline:`A continuous ray that PIERCES: full damage to its mark, and ${pct(TRAIT.beamLineMult)} to every creep the ray passes through on the way there.`,
     warp:`A single warped slug that drags its target to a crawl.` + gravTail,
-    gravslam:`Single heavy pull that slams its target to the ground.` + gravTail,
+    gravslam:`An AREA pulse: full damage to the lead creep and ${pct(TRAIT.gravPulseMult)} to those behind it.` + gravTail,
     warppulse:`An AREA pulse: full damage to the lead creep and ${pct(TRAIT.gravPulseMult)} to at most ${TRAIT.gravPulseCap} more.` + gravTail,
     repulse:`Very fast area pulses that mostly shove the lead creep back down the lane.` + gravTail,
     liftoff:`Heavy area pulses that mostly hurl the lead creep into the air.` + gravTail,
@@ -2672,6 +2676,10 @@ deriveEconomy();   // WAVE_PRESSURE has to exist first, so the seeding happens h
    a pure builder's wall by about 6x at wave 40 rather than 3.4x. If sends now
    run away, the lever is creep HP or send prices, not a hidden haircut on a
    number the HUD is quoting to you. */
+/* INCOME_EXP 1 makes incomePayout an identity — income pays exactly what it
+   says, which is what Gene asked for. Anything that TELLS the player about
+   compression has to test this constant, not just the soft cap, or it announces
+   a haircut that is not being taken. */
 const INCOME_SOFT = 200, INCOME_EXP = 1;
 function incomePayout(raw) {
   const r = Math.max(0, raw || 0);
@@ -7024,9 +7032,13 @@ function towerAction(kind) {
     for (const t of group.sort((a, b) => (towerTierUp(a)?.cost ?? 1e9) - (towerTierUp(b)?.cost ?? 1e9))) {
       const up = towerTierUp(t);
       if (!up || player.gold < up.cost) continue;
-      if (up.next.name === 'Laser Cannon') {
-        if (player.lumber < 1) { log('Upgrading into a Laser Cannon costs its 1 lumber too.'); continue; }
-        player.lumber -= 1; player.lumberSpent += 1; if (player.lumberSpent >= 3) award('lumberjack');
+      /* Any rung can carry a lumber price, not just the Laser — the Bulwark
+          Stake does too, and this checked the Laser BY NAME, so tier-upgrading
+          into a Bulwark cost its gold and no lumber at all. */
+      const upLumber = up.next.lumber || (up.next.name === 'Laser Cannon' ? 1 : 0);
+      if (upLumber) {
+        if (player.lumber < upLumber) { log(`Upgrading into a ${up.next.name} costs its ${upLumber} lumber too.`); continue; }
+        player.lumber -= upLumber; player.lumberSpent += upLumber; if (player.lumberSpent >= 3) award('lumberjack');
       }
       player.gold -= up.cost; t.invested = up.cost;   // old investment forfeit — the space premium
       t.tier += 1; t.level = 0; t.tierAt = simTime;
@@ -10142,14 +10154,14 @@ function learnContent() {
     <p class="sheet-heading">ARMOR BY WAVE — plan your build and time your sends</p>
     <div class="learn-list">${Object.entries(classWaves).map(([cls, waves]) => `<div class="learn-row"><span>${cls}</span><small>waves ${waves.join(', ')}</small></div>`).join('')}</div>
     <p class="sheet-heading">EVERY TOWER — dmg · dps · range · spell</p>
-    ${races.map((race) => `<div class="learn-block"><b style="color:${race.color}">${race.symbol} ${race.name}</b>${towerListFor(race.id).map((t) => `<div class="learn-row"><span>${t.name}</span><small>${t.cost}g · ${t.dmg} dmg · ${effectiveDps(t, race.id).toFixed(0)} dps${race.id === 'poison' ? ' (venom)' : ''} · ${t.range} range · ${(t.cost/effectiveDps(t, race.id)).toFixed(2)} g/dps${t.special?' · '+t.special:''}${t.groundOnly?' · <b style="color:#ff9faf">NO AIR</b>':''}</small></div>`).join('')}</div>`).join('')}
+    ${races.map((race) => `<div class="learn-block"><b style="color:${race.color}">${race.symbol} ${race.name}</b>${towerListFor(race.id).map((t) => `<div class="learn-row"><span>${t.name}</span><small>${t.cost}g · ${t.dmg} dmg · ${effectiveDps(t, race.id).toFixed(0)} dps${race.id === 'poison' ? ' (venom)' : ''} · ${t.range} range · ${effectiveDps(t, race.id) > 0 ? (t.cost / effectiveDps(t, race.id)).toFixed(2) + ' g/dps' : 'no attack'}${t.special?' · '+t.special:''}${t.groundOnly?' · <b style="color:#ff9faf">NO AIR</b>':''}</small></div>`).join('')}</div>`).join('')}
     <p class="sheet-heading">EVERY WAVE — hp · armor · class · trait</p>
     <div class="learn-list">${WAVES.map((w, i) => `<div class="learn-row"><span>${i+1}. ${w.name}</span><small>${Math.round((w.hp||0)*(w.boss?1:TRAIT.hpScaleNeutral*waveHpMult(i+1))*(w.role==='juggernaut'?2.4:1))} hp · ${(w.armor||0)+(w.boss?0:TRAIT.armorBonus)} armor · ${w.aClass}${w.air?' · air':''}${w.role&&w.role!=='standard'?' · '+w.role:''}</small></div>`).join('')}</div>
     <p class="sheet-heading">EVERY SEND — cost · income · hp · armor</p>
     <div class="learn-list">${SENDS.map((sd) => `<div class="learn-row"><span>${sd.name} <em>(L${sd.shrine})</em></span><small>${sd.cost}g +${sd.income} · ${sendShownHp(sd)} hp · ${sd.armor||0} armor · ${sd.aClass||'?'}${sd.air?' · air':''}${sd.role&&sd.role!=='standard'?' · '+sd.role:''}</small></div>`).join('')}</div>
     <p class="sheet-heading">BOLT MODS — tech line + any race's Laser Cannon</p>
     <div class="learn-list">${BOLT_MODS.map((m) => `<div class="learn-row"><span style="color:${m.color}">${m.glyph} ${m.name}</span><small>${BOLT_BLURB[m.id]}</small></div>`).join('')}
-      <div class="learn-row"><span>Fitting</span><small>one bolt per tower, 60% of the tower's tier cost; it carries through tier upgrades, and swapping pays again</small></div></div>
+      <div class="learn-row"><span>Fitting</span><small>one bolt per tower, 40% of the tower's tier cost (floor 10g); it carries through tier upgrades, and swapping pays again</small></div></div>
     <p class="sheet-heading">RULES OF THUMB</p>
     <div class="learn-list">
       <div class="learn-row"><span>Chaos</span><small>Crystal and the Laser Cannon ignore armor entirely; Crystal also does +100% to shields</small></div>
@@ -10183,7 +10195,7 @@ function renderCommandSheet() {
       <div class="sheet-grid">${SENDS.map((send) => { const inc = sendIncomeLabel(send); return `
       <button class="sheet-chip ${player.shrine < send.shrine ? 'locked' : ''} ${player.gold < send.cost ? 'poor' : ''}" data-sheet-send="${send.id}" title="${send.name} — ${send.cost}g, ladder +${send.income} income${inc.cut ? `, ${inc.text} after diminishing returns` : ''}">
         <span>${send.air ? '🐉' : send.symbol}</span><small>${send.name.split(' ')[0]}</small><b>${send.cost}g<i class="${inc.cut ? 'inc-cut' : ''}">${inc.text}</i></b></button>`; }).join('')}</div>
-      <p class="sheet-hint">Sends run both rival lanes and raise your income. You are paid <b>${BASE_INCOME + incomePayout(player.income)}g</b> every ${INCOME_PERIOD}s; each chip shows what it would add to that.${player.income > INCOME_SOFT ? ` Past ${INCOME_SOFT} raw income the payout is compressed, so the amber figures are below their ladder value.` : ''} ${player.shrine < SHRINE_MAX ? 'Higher shrine levels unlock the elite tiers.' : 'Shrine is maxed.'}</p>`;
+      <p class="sheet-hint">Sends run both rival lanes and raise your income. You are paid <b>${BASE_INCOME + incomePayout(player.income)}g</b> every ${INCOME_PERIOD}s; each chip shows what it would add to that.${player.income > INCOME_SOFT && INCOME_EXP < 1 ? ` Past ${INCOME_SOFT} raw income the payout is compressed, so the amber figures are below their ladder value.` : ''} ${player.shrine < SHRINE_MAX ? 'Higher shrine levels unlock the elite tiers.' : 'Shrine is maxed.'}</p>`;
   } else if (sheetTab === 'tower') {
     const sel = selectionTowers().filter(isMine);
     if (!sel.length) { body = '<p class="sheet-hint">Tap one of your towers on the board — or use ▭ Box select — to inspect it here.</p>'; }
