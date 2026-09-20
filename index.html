@@ -4122,7 +4122,26 @@ function venomReadout(creep) {
     · one hit adds ${Math.round(creep.boss ? TRAIT.poisonStackPct * TRAIT.poisonBossMult * 100 : TRAIT.poisonStackPct * 100)}% of max HP (${Math.round(perHit)}) over ${TRAIT.poisonDur}s${creep.boss ? ', boss resists' : ''}
     · ${Math.round(creep.venom * TRAIT.poisonDur)} damage left in the pool</small>`;
 }
+/* "SOME TOWERS ARE NOT DAMAGING MOBS." Reported independently by Gene and Abdy,
+   both naming Tech. Measured cause: Rocket Rack is groundOnly and deals
+   literally zero to air — and it is the natural 85g tier-2 buy, so an air wave
+   arrives and a third of the wall goes quiet with no explanation on screen.
+   The rule is deliberate (a rocket volley into a blast radius should not catch
+   a flier) but a silent rule is indistinguishable from a broken tower. So the
+   tower says so: when the only creeps it can reach are ones it may not shoot,
+   it is marked. The card already carried NO AIR; this is the same fact at the
+   moment it actually costs you something. */
 function pickTarget(tower, stats) {
+  if (stats.groundOnly) {
+    const cx = tower.c + .5, cy = tower.r + .5, half = halfOfRow(tower.r);
+    let air = 0, ground = 0;
+    creeps.forEach((creep) => {
+      if (creep.hp <= 0 || creep.half !== half) return;
+      if (Math.hypot(creep.x - cx, creep.y - cy) > stats.range) return;
+      if (creep.air) air += 1; else ground += 1;
+    });
+    tower.airBlocked = air > 0 && ground === 0;
+  }
   const inRange = creeps.filter((creep) => creep.hp > 0 && halfOfRow(tower.r) === creep.half
     && !(stats.groundOnly && creep.air)
     && Math.hypot(creep.x - (tower.c + .5), creep.y - (tower.r + .5)) <= stats.range);
@@ -5658,6 +5677,18 @@ function drawTower(ctx, tower) {
   // the level bar stays on the top edge; tier is the plinth's job now
   ctx.fillStyle = '#ffd45c';
   for (let i = 0; i < (tower.level || 0); i += 1) { ctx.fillRect(-half + 2 + i * 3.4, -half + 2, 2.4, 2); }
+  /* CANNOT REACH WHAT IS THERE. A groundOnly tower with nothing but fliers in
+     range is not broken, but it looks exactly like it — so it says so, rather
+     than sitting silent while the player wonders why a third of the wall
+     stopped firing. */
+  if (tower.airBlocked && !building) {
+    ctx.save();
+    ctx.globalAlpha = .5 + .3 * Math.sin(simTime * 4);
+    ctx.strokeStyle = '#ff9faf'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.arc(0, -half - 4.5, 4.2, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-3, -half - 7.5); ctx.lineTo(3, -half - 1.5); ctx.stroke();
+    ctx.restore();
+  }
   /* BLOCKING MARKER. This tower is what a creep is chewing on because the lane
      has no path around it. Red pulse plus a warning glyph — the one thing you
      want to see instantly, because it is both the cause and the fix. */
