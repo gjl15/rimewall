@@ -55,7 +55,20 @@ const pressure = process.argv[6] ? Number(process.argv[6]) : null;
         simulate(1 / 20);
         if (towers.size > peakTowers) peakTowers = towers.size;
       }
-      rows.push({ race:races.find((r) => r.id === raceId).name, wave:Math.min(wave, maxWave), lives:Math.round(player.lives), towers:peakTowers, capped:wave > maxWave });
+      /* "died wave 16, 80 lives left" is not a death and reading it as one is
+         how Tech and Ninja got mistaken for merely weak. The loop ends on three
+         different things and they mean opposite outcomes: out of lives is a
+         loss; past the wave cap is a win; out of SIM BUDGET with lives in hand
+         means the wall held but killed nothing, so the wave never cleared and
+         the next never spawned. That third one is the worst of the three in a
+         real match — you cannot lose, and you cannot progress either. */
+      const outcome = player.lives <= 0 ? 'lost' : wave > maxWave ? 'survived' : 'stalled';
+      const tierMix = {};
+      towers.forEach((t) => { if (t.owner === 'player') tierMix[t.tier] = (tierMix[t.tier] || 0) + 1; });
+      rows.push({ race:races.find((r) => r.id === raceId).name, wave:Math.min(wave, maxWave),
+        lives:Math.round(player.lives), towers:peakTowers, capped:wave > maxWave, outcome,
+        backlog:creeps.filter((c) => c.hp > 0).length,
+        mix:Object.keys(tierMix).sort((x, y) => x - y).map((k) => `T${k}x${tierMix[k]}`).join(' ') });
       matchOver = true; battleRunning = false;
     }
     return { rows, econ:+ECON_SCALE.toFixed(2), hpScale:+(typeof CREEP_HP_SCALE === 'number' ? CREEP_HP_SCALE : 1).toFixed(2) };
@@ -64,8 +77,11 @@ const pressure = process.argv[6] ? Number(process.argv[6]) : null;
   const waves = out.rows.map((r) => r.wave).sort((a, b) => a - b);
   const median = waves.length % 2 ? waves[(waves.length - 1) / 2] : (waves[waves.length / 2 - 1] + waves[waves.length / 2]) / 2;
   console.log(`ECON_SCALE ${out.econ}  CREEP_HP_SCALE ${out.hpScale}  cap wave ${maxWave}`);
-  console.log(p('race', 14) + p('died wave', 11) + p('lives left', 12) + 'peak towers');
-  out.rows.forEach((r) => console.log(p(r.race, 14) + p(r.wave + (r.capped ? '+' : ''), 11) + p(r.lives, 12) + r.towers));
+  console.log(p('race', 14) + p('wave', 7) + p('outcome', 10) + p('lives', 7) + p('towers', 8) + p('backlog', 9) + 'tier mix at the end');
+  out.rows.forEach((r) => console.log(p(r.race, 14) + p(r.wave + (r.capped ? '+' : ''), 7) + p(r.outcome, 10)
+    + p(r.lives, 7) + p(r.towers, 8) + p(r.backlog, 9) + r.mix));
+  const stalled = out.rows.filter((r) => r.outcome === 'stalled');
+  if (stalled.length) console.log('\nSTALLED — held the line but could not kill the wave: ' + stalled.map((r) => r.race).join(', '));
   console.log(`median death wave ${median}   worst ${waves[0]}   best ${waves[waves.length - 1]}`);
   if (errs.length) console.log('ERRORS', errs.slice(0, 4));
   await browser.close();

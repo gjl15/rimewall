@@ -1574,7 +1574,7 @@ const TOWERS = {
     { name:'Monolith', cost:100, dmg:170, cd:1.2, range:4.0, special:'splash', desc:'Crushing stone waves break over the creeps in front of it.' },
     { name:'Runestone Seer', cost:200, dmg:350, cd:1.1, range:3.9, special:'armorshred', desc:'Faerie fire strips armor for every tower.' },
     { name:'Quakebreaker', cost:285, dmg:420, cd:.95, range:4.2, special:'crit', desc:'The only stone tower with real range.' },
-    { name:'Petrifier', cost:350, dmg:60, cd:6.0, range:4.2, special:'paralyze', desc:'Drops a creep to 11 HP, then crits it. Bosses resist.' }
+    { name:'Petrifier', cost:350, dmg:60, cd:6.0, range:4.2, special:'paralyze', desc:'Finisher — a creep under 35% health drops to 11 HP, then crits. Bosses resist.' }
   ],
   electricity:[
     { name:'Static Post', cost:10, dmg:6, cd:.6, range:4.7, special:'chain', desc:'Fast shocks that arc to a couple of nearby creeps — worth keeping all game.' },
@@ -1840,6 +1840,16 @@ const TRAIT = {
   deathPayloadRadius:3.2, deathHealPct:.18, deathShieldPct:.25,
   snipeMult:1.4, focusStep:.08, dischargeIdle:2, dischargeMult:2.5, shatterMult:1.5,
   splinterMult:.35, entangleDur:1.6,
+  /* PETRIFY IS A FINISHER, NOT A DELETE BUTTON. It used to set hp to 11 on every
+     hit at any health, which is not an execute — it is a full-health creep
+     removed by one 350g tower regardless of armour, class, or how much hit
+     point inflation the wave table had applied. Measured against a 3,000 HP
+     creep the Petrifier read 12,857 dps against every armour class identically,
+     while every other capstone in the game sat between 100 and 500. It carried
+     Stone to 2,334 average dps against a field whose next best was 394.
+     Below the threshold it still drops the target to 11 and crits it, which is
+     the card's whole fantasy; above it, the tower deals its ordinary damage. */
+  petrifyBelow:.35,
   shieldRegenDelay:4
 };
 function pointInPoly(x, y, poly) { let hit = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { if ((poly[i].y > y) !== (poly[j].y > y) && x < (poly[j].x - poly[i].x) * (y - poly[i].y) / (poly[j].y - poly[i].y) + poly[i].x) hit = !hit; } return hit; }
@@ -1904,7 +1914,7 @@ function specialBlurb(sp) {
     poison:`Every hit adds venom worth ${pct(TRAIT.poisonStackPct)} of the target's max HP per second to one pool, refreshing a ${TRAIT.poisonDur}s timer. Every poison tower feeds the same pool. The venom ignores armour value.`,
     halve:`Cuts the target's CURRENT hit points in half. Every hit. Bosses resist.`,
     mind:`Removes 30% of the target's current hit points. Every hit. Bosses resist.`,
-    paralyze:`Drops the target to 11 HP and then crits it. Every hit. Bosses resist.`,
+    paralyze:`A finisher. A target already under 35% health drops to 11 HP and is then crit. Above that it takes ordinary damage. Bosses resist.`,
     armorshred:`Strips 5 armour from the target, for every tower shooting it.`,
     ion:`+500 flat damage while the target is above 500 HP — an opener, not a finisher.`,
     laser:`Crits, slows and poisons on every hit, and ignores armour.`,
@@ -3591,6 +3601,7 @@ function applyDamage(creep, amount, tower, isDot = false, opts) {
     if (raw <= 0) { creep.hitAt = simTime; return; }
   }
   let dmg = raw;
+  let resisted = 0;
   if (!isDot && tower) {
     const stats = towerLiveStats(tower);
     const profile = ATTACK_PROFILE[tower.raceId] || { vs:{} };
@@ -3613,6 +3624,19 @@ function applyDamage(creep, amount, tower, isDot = false, opts) {
       const effectiveArmor = Math.max(0, creep.armor - creep.armorShred - pierce);
       dmg *= 1 - armorReduction(effectiveArmor);
     }
+    /* WHY THE COMPLAINT WAS ALWAYS "IT DOES NO DAMAGE".
+       Both Gene and Abdy reported towers doing nothing — first Stone, then
+       Tech. Stone was a numeral floor and is fixed. Tech is not a bug at all:
+       Pierce meets fortified at 0.4 and a 6-damage Bolt Turret behind 20 armour
+       lands under one point a shot. That is the matrix working exactly as
+       designed, and the design is good — Earth and Stone crack plate precisely
+       because Tech and Ninja cannot. What was missing is that NOTHING ON SCREEN
+       SAID SO at the moment it happened. The class table lives in a panel you
+       read before the wave, not during it, so a wall quietly failing looks
+       identical to a wall that is broken. A hit landing at 0.6x or worse now
+       carries its own mark, and you learn the matrix by watching it. */
+    const total = dmg / Math.max(raw, 1e-6);
+    if (total <= .6 && raw > 0) resisted = total;
   }
   // NON-LETHAL: chips a creep down but can never land the killing blow, so it
   // never steals a bounty or a kill credit from the tower that earned it.
@@ -3632,11 +3656,13 @@ function applyDamage(creep, amount, tower, isDot = false, opts) {
      Threshold scales with the creep so it stays meaningful as waves fatten. */
   if (!isDot) {
     const floor = Math.max(6, creep.maxHp * .004);
-    if (dmg >= floor) pushFx({ kind:'num', x:creep.x, y:creep.y - .4, text:String(Math.round(dmg)), until:simTime + .5, serif:true });
+    // a resisted hit reads slate and wears a shield; an ordinary one is unchanged
+    const tint = resisted ? { color:'#8fa0bd', resist:true } : {};
+    if (dmg >= floor) pushFx({ kind:'num', x:creep.x, y:creep.y - .4, text:String(Math.round(dmg)), until:simTime + .5, serif:true, ...tint });
     else {
       creep.dmgShown = (creep.dmgShown || 0) + dmg;
       if (creep.dmgShown >= floor) {
-        pushFx({ kind:'num', x:creep.x, y:creep.y - .4, text:String(Math.round(creep.dmgShown)), until:simTime + .5, serif:true });
+        pushFx({ kind:'num', x:creep.x, y:creep.y - .4, text:String(Math.round(creep.dmgShown)), until:simTime + .5, serif:true, ...tint });
         creep.dmgShown = 0;
       }
     }
@@ -3902,7 +3928,10 @@ function resolveProjectileHit(projectile) {
     }
     if (stats.special === 'halve' && !target.boss) target.hp = Math.max(1, target.hp * .5);
     if (stats.special === 'mind' && !target.boss) target.hp = Math.max(1, target.hp * .7);
-    if (stats.special === 'paralyze' && !target.boss) { target.hp = Math.min(target.hp, 11); pushFx({ kind:'num', x:target.x, y:target.y - .6, text:'11!', until:simTime + .9, color:'#a9b3c6' }); }
+    if (stats.special === 'paralyze' && !target.boss && target.hp <= target.maxHp * TRAIT.petrifyBelow) {
+      target.hp = Math.min(target.hp, 11);
+      pushFx({ kind:'num', x:target.x, y:target.y - .6, text:'11!', until:simTime + .9, color:'#a9b3c6' });
+    }
     applyDamage(target, dmg, tower);
     // the non-pulsing gravity tiers carry their impulse on the shot instead
     if (tower && tower.raceId === 'gravity' && target.hp > 0 && rng() < TRAIT.gravSlowChance * tierPot(tower)) gravityImpulse(target, tower, stats);
@@ -6269,6 +6298,24 @@ function drawEffect(ctx, effect) {
     }
     ctx.fillStyle = effect.color || '#fff';
     ctx.fillText(effect.text, nx, ny);
+    /* RESISTED. A hit landing at 0.6x or worse wears a small shield beside its
+       numeral, so the wall that is quietly failing looks different from the
+       wall that is working. This is the whole answer to "some towers do no
+       damage": they do, the matrix is eating it, and now you can see that. */
+    if (effect.resist) {
+      const sw = ctx.measureText(effect.text).width;
+      const sx = nx + sw / 2 + Math.max(4, CELL * .16), sy = ny - Math.max(3, CELL * .14);
+      const r = Math.max(2.4, CELL * .16);
+      ctx.beginPath();
+      ctx.moveTo(sx, sy - r);
+      ctx.lineTo(sx + r * .82, sy - r * .5);
+      ctx.lineTo(sx + r * .82, sy + r * .25);
+      ctx.quadraticCurveTo(sx, sy + r * 1.15, sx - r * .82, sy + r * .25);
+      ctx.lineTo(sx - r * .82, sy - r * .5);
+      ctx.closePath();
+      ctx.fillStyle = '#5b6b88'; ctx.fill();
+      ctx.lineWidth = Math.max(.7, CELL * .035); ctx.strokeStyle = '#a9bcd8'; ctx.stroke();
+    }
   } else if (effect.kind === 'skybolt') {
     ctx.strokeStyle = '#e8f4ff'; ctx.globalAlpha = Math.min(1, remain / .15) * .8; ctx.lineWidth = 1.6;
     jaggedLine(ctx, effect.x * CELL + (Math.random() - .5) * 4, effect.y * CELL - 46, effect.x * CELL, effect.y * CELL);
