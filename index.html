@@ -6447,6 +6447,9 @@ function ringAction(act) {
     const t = towers.get(selectedGroupKeys[0]);
     if (t) sellTowerAt({ r:t.r, c:t.c });
     selectedGroupKeys = []; selectedTowerKey = null; renderTowerDetails();
+  } else if (act === 't-imbue') {
+    // the rack lives in the wisp panel; this is the one press that finds it
+    wispTab = 'inspect'; renderWispPanel('inspect');
   } else towerAction(act.slice(2));
   renderRing();
 }
@@ -6509,8 +6512,8 @@ function renderRing() {
      north on its own, where a fifth diagonal does not exist. */
   const DIAG = Math.round(RAD * .74);
   const slots = touchUI()
-    ? { right:[DIAG, DIAG], left:[-DIAG, DIAG], top:[-DIAG, -DIAG], bottom:[DIAG, -DIAG], topleft:[0, -RAD] }
-    : { right:[RAD, 0], left:[-RAD, 0], top:[0, -RAD], bottom:[0, RAD], topleft:[-DIAG, -DIAG] };
+    ? { right:[DIAG, DIAG], left:[-DIAG, DIAG], top:[-DIAG, -DIAG], bottom:[DIAG, -DIAG], topleft:[0, -RAD], bottomright:[0, RAD + 16] }
+    : { right:[RAD, 0], left:[-RAD, 0], top:[0, -RAD], bottom:[0, RAD], topleft:[-DIAG, -DIAG], bottomright:[DIAG, DIAG] };
   let btns = [], label = '';
   if (mode === 'ghost') {
     const def = towerDef(currentBuildRaceId(), selectedTowerTier);
@@ -6538,6 +6541,23 @@ function renderRing() {
     if (alike > 1 || elemSet.length > 1) btns.push({ slot:'topleft', glyph:'⧉',
       tag:widens ? `+${elemSet.length - rungSet.length}` : (many ? `${selectedGroupKeys.length}` : `ALL ${alike}`),
       color:widens ? '#8fe6b8' : '#c9b6ff', act:'t-selectall' });
+    /* IMBUING WAS UNREACHABLE ON A PHONE, which is where this game is played.
+       Measured with a Spear Sentinel selected at 390x844: the rack rendered
+       0 of its 10 chips, because the phone's tower surface is this ring and the
+       rack only ever lived in the side panel and the wisp panel — two surfaces
+       a player who taps a tower never learns exist. For Ninja that is not a
+       missing convenience, it is the entire power curve of the race: the
+       regression built 195 blades and fitted zero bolts, and a bolt is 10g on a
+       5g tower. Tech is eligible at every rung too.
+       Due south, where the fifth diagonal is not, and only when the tower can
+       actually take one — it opens the rack rather than cycling ten bolts under
+       a thumb. Shows the fitted glyph once there is one. */
+    if (boltEligible(tower)) {
+      const fitted = boltOf(tower);
+      btns.push({ slot:'bottomright', glyph:fitted ? fitted.glyph : '✧',
+        tag:fitted ? fitted.name.split(' ')[0].toUpperCase().slice(0, 5) : `${boltCost(tower)}g`,
+        color:fitted ? fitted.color : '#c9b6ff', act:'t-imbue' });
+    }
   }
   ring.innerHTML = btns.map((b) => `<button class="ring-btn" style="--rc:${b.color}; left:${slots[b.slot][0]}px; top:${slots[b.slot][1]}px" data-ring="${b.act}">${b.glyph}${b.tag ? `<i>${b.tag}</i>` : ''}</button>`).join('')
     + (label ? `<span class="ring-label" style="left:0; top:${-RAD - 34}px">${label}</span>` : '');
@@ -7461,12 +7481,12 @@ function boltPanelHtml(group) {
   const current = boltOf(fits[0]);
   const mixed = fits.some((t) => t.bolt !== fits[0].bolt);
   return `<div class="bolt-rack">
-    <span class="panel-heading">BOLT MOD${fits.length > 1 ? ` • ${fits.length} TOWERS • ${cost}g` : ` • ${cost}g`}</span>
+    <span class="panel-heading">IMBUING${fits.length > 1 ? ` • ${fits.length} TOWERS • ${cost}g` : ` • ${cost}g`}</span>
     <div class="bolt-row">${BOLT_MODS.map((m) => {
       const on = !mixed && current?.id === m.id;
       return `<button class="bolt-chip ${on ? 'on' : ''}" data-bolt="${m.id}" style="--bolt:${m.color}" title="${m.name} — ${BOLT_BLURB[m.id]}"><span>${m.glyph}</span><small>${m.name.split(' ')[0]}</small></button>`;
     }).join('')}</div>
-    <p class="bolt-note" data-bolt-note>${mixed ? 'Mixed bolts in this selection.' : current ? `${current.glyph} ${current.name} — ${BOLT_BLURB[current.id]}` : 'No bolt fitted. One per tower; it carries through tier upgrades.'}</p>
+    <p class="bolt-note" data-bolt-note>${mixed ? 'Mixed imbuings in this selection.' : current ? `${current.glyph} ${current.name} — ${BOLT_BLURB[current.id]}` : 'Not imbued. One per tower, and it carries through every tier upgrade — for a ninja blade this is where the damage comes from.'}</p>
   </div>`;
 }
 /* WHAT DOES THIS ONE DO, BEFORE I BUY IT. Each chip carried a title attribute,
