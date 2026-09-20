@@ -596,6 +596,12 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
    towers themselves for something bought two or three times a match */
 .lumber-button { width:100%; margin:8px 0 0; padding:9px; color:#b9a877; border-color:#3d3524; background:#14120c; font-size:10px; }
 .lumber-button:disabled { opacity:.5; }
+.shrine-row { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:8px;
+  padding:7px 9px; border:1px solid #2c3f63; border-radius:9px; background:#10182b; font-size:11px; color:#c6d4ef; }
+.shrine-row b { color:#e8d9ff; }
+.shrine-row small { display:block; color:#7f90b2; font-size:9.5px; margin-top:1px; }
+.shrine-row .ghost-button { white-space:nowrap; flex:0 0 auto; }
+.shrine-row.maxed { justify-content:center; color:#9aa8c6; }
 .shrine-status { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; }
 .shrine-status .ghost-button { white-space:nowrap; }
 .gold b { color:#f5d36d; }.income b { color:#84d8a6; }.lives b { color:#ff8a9a; }.enemy b,.enemy em { color:#c48cff; }
@@ -2686,7 +2692,8 @@ function leakDiagnostic() {
    the ladder an attacker was paying 1.5x to 3.7x what the defender paid to stop
    it, so no income curve could ever convert into a leak.
    Sends now double in HP on a timer, the way waves double on a loop. */
-const SEND_GROWTH_PERIOD = Number(window.__SEND_GROWTH__ ?? 150);   // seconds per doubling
+const SEND_GROWTH_PERIOD = Number(window.__SEND_GROWTH__ ?? 240);   // seconds per doubling
+const SEND_GROWTH_CAP = Number(window.__SEND_GROWTH_CAP__ ?? 8);    // and it stops there
 /* 150s is a FIRST calibration off a noisy measurement (the rival's race is drawn
    at random, so single runs swing hard) — three runs each: with no growth the
    match ends 100L-100L every time, at 220s the rival finishes on 89/82/100
@@ -2697,8 +2704,20 @@ const SEND_GROWTH_PERIOD = Number(window.__SEND_GROWTH__ ?? 150);   // seconds p
    gold gap is the other half of this and wants real play to tune, not a
    simulated builder. */
 function sendGrowth() {
+  /* Abdy: "the income generating send mobs ... their health should not increase
+     as the game goes on. Only the waves health armor, etc., should increase."
+     In SKIRMISH that is already true and always has been — measured, a Fang
+     Outrider is 400 HP at minute 0 and 400 HP at minute 20. This only ever
+     applied to Classic Wars, which has no waves at all, so sends are its only
+     source of pressure; without it three full twenty-minute runs ended 100 lives
+     to 100 with zero leaks in either direction and Classic could not be won.
+     But an uncapped doubling every 150s is indefensible in the other direction:
+     that same Outrider reached 102,400 HP by minute 20, seventeen times a
+     wave-20 creep. Slower and bounded — 240s a doubling, stopping at 8x, which
+     tops out around a wave-20 creep rather than lapping it. That ceiling is a
+     calibration, not a measurement; it wants real games to confirm. */
   if (matchMode !== 'classic' || !SEND_GROWTH_PERIOD) return 1;
-  return Math.pow(2, Math.max(0, simTime) / SEND_GROWTH_PERIOD);
+  return Math.min(SEND_GROWTH_CAP, Math.pow(2, Math.max(0, simTime) / SEND_GROWTH_PERIOD));
 }
 /* ONE PURCHASE, ONE BODY A LANE — unless the send is a swarm. The engine has
    had a swarm role since the wave table was written and no send ever carried
@@ -7154,6 +7173,23 @@ function renderBuildExtras() {
     html += `<div class="license-row"><select id="license-select" aria-label="Second element">${options}</select><button id="license-button" class="ghost-button" ${player.lumber < 2 ? 'disabled' : ''}>License 2nd element • 2🪵</button></div>`;
   }
   html += `<button id="buy-lumber" class="ghost-button lumber-button" ${player.gold < LUMBER_PRICE ? 'disabled' : ''}>Buy 1 lumber — ${LUMBER_PRICE}g (you have ${player.lumber}🪵)</button>`;
+  /* Abdy: "Intergrate the shrine into the menu."
+     The phone tray already carried a Shrine chip next to Lumber. The desktop
+     panel did not: the shrine lived under the SEND tab while the lumber that
+     pays for it lived under BUILD, so one decision — gold, to lumber, to
+     shrine level — was split across two tabs and you could not see both halves
+     at once. It sits under the lumber button now, on the same column, and says
+     what the next level actually buys rather than only its number. */
+  if (player.shrine >= SHRINE_MAX) {
+    html += `<div class="shrine-row maxed"><span>⛩ Shrine <b>L${SHRINE_MAX}</b> — every send unlocked</span></div>`;
+  } else {
+    const next = player.shrine + 1;
+    const opens = SENDS.filter((send) => send.shrine === next);
+    const names = opens.slice(0, 2).map((send) => send.name).join(', ');
+    html += `<div class="shrine-row"><span>⛩ Shrine <b>L${player.shrine}</b>${opens.length
+      ? ` — L${next} opens ${opens.length} send${opens.length > 1 ? 's' : ''}<small>${names}${opens.length > 2 ? ` +${opens.length - 2} more` : ''}</small>`
+      : ''}</span><button id="shrine-upgrade-build" class="ghost-button" ${player.lumber < 1 ? 'disabled' : ''}>L${next} • 1🪵</button></div>`;
+  }
   box.innerHTML = html;
   document.querySelectorAll('[data-chip]').forEach((chip) => chip.addEventListener('click', () => {
     buildRaceIdx = Number(chip.dataset.chip);
@@ -7161,6 +7197,7 @@ function renderBuildExtras() {
     renderTowerList();
   }));
   $('buy-lumber')?.addEventListener('click', buyLumber);
+  $('shrine-upgrade-build')?.addEventListener('click', upgradeShrine);
   $('license-button')?.addEventListener('click', () => licenseSecondElement($('license-select')?.value));
 }
 /* ONE licence path for both layouts. This used to live entirely inside the
