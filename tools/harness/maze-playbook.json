@@ -1,0 +1,52 @@
+{
+  "measuredAt": "2026-09-21",
+  "budget": 90,
+  "baseline": [
+    61,
+    61
+  ],
+  "ranking": [
+    {
+      "name": "spiralband",
+      "perTower": 1.356,
+      "placed": 90,
+      "total": 122
+    },
+    {
+      "name": "spiral",
+      "perTower": 1.133,
+      "placed": 90,
+      "total": 102
+    },
+    {
+      "name": "rows",
+      "perTower": 0.733,
+      "placed": 90,
+      "total": 66
+    },
+    {
+      "name": "comb",
+      "perTower": 0.3,
+      "placed": 90,
+      "total": 27
+    },
+    {
+      "name": "chevron",
+      "perTower": 0.078,
+      "placed": 90,
+      "total": 7
+    },
+    {
+      "name": "helix",
+      "perTower": 0.064,
+      "placed": 78,
+      "total": 5
+    },
+    {
+      "name": "funnel",
+      "perTower": 0,
+      "placed": 90,
+      "total": 0
+    }
+  ]
+}

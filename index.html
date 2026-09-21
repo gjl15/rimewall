@@ -4469,37 +4469,110 @@ function updateProjectile(projectile, dt) {
 const LANE_WEST = [1, PILLAR_C0 - 1], LANE_EAST = [PILLAR_C1 + 1, COLS - 2];
 const BAND_R0 = S_PILLAR_R1 + 1, BAND_R1 = S_GATE_R - 1;   // the open band, 100..122
 let mazeOrderCache = null;
+/* ---------------- THE MAZE PLAYBOOK ----------------
+   Gene: "we also need the AI to actually maze like we do, a spiral around the
+   flag, or some kinda rows that a natural person would build in TDs, we should
+   test realistic different kinds of mazes, not the incorrect AI ones, but also
+   use AI to discover different maze patterns and store them in the playbook."
+
+   So the shapes live here as named builders and the RANKING is measured rather
+   than asserted. tools/harness/mazes.js lays each one at a fixed ninety-tower
+   budget and scores it on the only thing a maze is for — extra cells of walk
+   bought per tower spent. Add a shape to MAZE_SHAPES, re-run the harness, paste
+   its number into MAZE_RANKING, and the rival builds the new winner. That is
+   what makes this a playbook rather than a constant.
+
+   Measured 2026-09-20, 90 towers, 41-wide board:
+
+     spiralband  1.36 cells a tower    <- what the rival builds
+     spiral      1.13
+     rows        0.73   <- what it used to build, and it tried to seal
+     comb        0.30
+     chevron     0.08
+     helix       0.06
+     funnel      0.00
+
+   A shape that seals a lane is not scored for it: the harness refuses the
+   placement exactly the way buildAt refuses it in play. */
+const MAZE_RANKING = [
+  { name:'spiralband', perTower:1.36 },
+  { name:'spiral',     perTower:1.13 },
+  { name:'rows',       perTower:0.73 },
+  { name:'comb',       perTower:0.30 },
+];
+const MAZE_SHAPES = {
+  /* The coil, wound around the shared checkpoint flag — the one cell every creep
+     on this half has to touch, so a creep that enters it walks it back out.
+     Three walls a ring and the fourth left open, or it is not a maze, it is a
+     seal; the mouth rotates each ring so the walk switchbacks. */
+  spiral(add) {
+    const flag = sharedFlagCell(PLAYER_HALF);
+    let r0 = flag.r - 1, r1 = flag.r + 1, c0 = flag.c - 1, c1 = flag.c + 1, turn = 0;
+    while (r1 - r0 < 26 && c1 - c0 < 26) {
+      const gap = turn % 4;
+      if (gap !== 0) for (let c = c0; c <= c1; c += 1) add(r0, c);
+      if (gap !== 1) for (let r = r0; r <= r1; r += 1) add(r, c1);
+      if (gap !== 2) for (let c = c1; c >= c0; c -= 1) add(r1, c);
+      if (gap !== 3) for (let r = r1; r >= r0; r -= 1) add(r, c0);
+      r0 -= 2; r1 += 2; c0 -= 2; c1 += 2; turn += 1;
+    }
+  },
+  /* THE AIR LANE FIRST, AND IT MEASURED BETTER RATHER THAN COSTING ANYTHING.
+     Air ignores the maze completely and flies straight down the door column
+     through a massif nothing can be built on, so the band in front of the door
+     is the only ground that ever reaches it — without this every race died to
+     the wave-14 air pack with a full wall standing. Nine cells a row for three
+     rows, nearest the door column outward, then the coil. */
+  spiralband(add) {
+    for (let r = BAND_R1; r >= BAND_R1 - 4; r -= 2) {
+      const row = [];
+      for (let c = 3; c <= COLS - 2; c += 1) row.push({ r, c });
+      row.sort((a, b) => Math.abs(a.c - DOOR_C) - Math.abs(b.c - DOOR_C));
+      row.slice(0, 9).forEach((cell) => add(cell.r, cell.c));
+    }
+    MAZE_SHAPES.spiral(add);
+  },
+  /* The beginner's wall: solid lines with the gap at alternating ends. Kept
+     because it is the honest control — it is what the rival built before, and
+     what a person builds on their first game. */
+  rows(add) {
+    let n = 0;
+    for (let r = BAND_R1; r >= BAND_R0; r -= 2) {
+      const gapWest = n % 2 === 0; n += 1;
+      const row = [];
+      for (let c = 1; c <= COLS - 2; c += 1) { if (gapWest ? c <= 2 : c >= COLS - 3) continue; row.push({ r, c }); }
+      row.sort((a, b) => Math.abs(a.c - DOOR_C) - Math.abs(b.c - DOOR_C));
+      row.forEach((cell) => add(cell.r, cell.c));
+    }
+  },
+  /* Teeth off a spine — the classic switchback. Scores badly on this board
+     because the lanes are wide enough to walk around a tooth. */
+  comb(add) {
+    for (let c = 2; c <= COLS - 3; c += 2) {
+      const down = (c / 2) % 2 === 0;
+      for (let i = 0; i < 9; i += 1) add(down ? BAND_R0 + i : BAND_R1 - i, c);
+    }
+  },
+};
+function bestMazeShape() {
+  const top = MAZE_RANKING.slice().sort((a, b) => b.perTower - a.perTower)
+    .find((r) => typeof MAZE_SHAPES[r.name] === 'function');
+  return top ? top.name : 'rows';
+}
 function mazeOrderSouth() {
-  /* Memoised: the comb comes from terrain and the bare route (solved with towers
-     ignored), neither of which moves during a match — but enemySpots() falls
-     back to rebuilding it inside a 1.6s build tick, and the route solve alone is
-     eight A* calls. Computing it once per load costs nothing; computing it on a
-     tick would have quietly put ~28ms into every rival build. */
   if (mazeOrderCache) return mazeOrderCache.map((c) => ({ r:c.r, c:c.c }));
   const south = [];
-  /* THE BAND IN FRONT OF THE DOOR COMES FIRST, from the door outward. It used to
-     come last, after both side lanes — which was harmless on the old board where
-     everything was within one tower's range of everything else, and fatal on
-     this one. Both ground lanes converge here, and it is the only ground that
-     can reach the AIR waves: they ignore the maze and fly straight down the
-     door's column, through a 31-wide massif nothing can be built on, so the band
-     is the single stretch where they are ever in range. Building the lanes first
-     left the nearest tower 17 cells off the flight line against a 5.5 range, and
-     every race died on the wave-14 air pack with a full wall standing. */
-  let n = 0;
-  for (let r = BAND_R1; r >= BAND_R0; r -= 2) {
-    const gapWest = n % 2 === 0; n += 1;
-    const row = [];
-    for (let c = 1; c <= COLS - 2; c += 1) { if (gapWest ? c <= 2 : c >= COLS - 3) continue; row.push({ r, c }); }
-    row.sort((a, b) => Math.abs(a.c - DOOR_C) - Math.abs(b.c - DOOR_C));   // cover the door column before the flanks
-    south.push(...row);
-  }
-  for (const [c0, c1] of [LANE_WEST, LANE_EAST]) { let b = 0;
+  const add = (r, c) => { if (isBuildableCell(r, c, PLAYER_HALF)) south.push({ r, c }); };
+  MAZE_SHAPES[bestMazeShape()](add);
+  /* The outer lanes once the shape is laid, so a rival with more gold than the
+     coil can absorb keeps building something rather than stopping. */
+  for (const [lc0, lc1] of [LANE_WEST, LANE_EAST]) { let b = 0;
     for (let r = S_PILLAR_R1 - 1; r >= S_PILLAR_R0 + 2; r -= 2) { const gapLeft = b % 2 === 0; b += 1;
-      for (let c = c0; c <= c1; c += 1) { if (gapLeft ? c === c0 : c === c1) continue; south.push({ r, c }); } } }
+      for (let c = lc0; c <= lc1; c += 1) { if (gapLeft ? c === lc0 : c === lc1) continue; add(r, c); } } }
   mazeOrderCache = sortByRouteProximity(south);
   return mazeOrderCache.map((c) => ({ r:c.r, c:c.c }));
 }
+
 /* KEEP THE COMB, BUT WALK IT FROM THE ROUTE OUTWARD.
    The comb pattern is what turns a wall into a maze, so it stays — but the ORDER
    it is laid in decided whether short-range races could play at all. Lanes on
