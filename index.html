@@ -2552,6 +2552,54 @@ const SENDS = [
 ];
 const SHRINE_MAX = 5, LUMBER_PRICE = 500;
 
+/* ---------------- THE LADDER HAS TO BE WORTH CLIMBING ----------------
+   Gene: "the send hp should never scale, otherwise theres no point in upgrading
+   the shrine." The growth clock is gone, so the shrine is now the only thing
+   that makes a sender stronger — and measured, it was making them WEAKER.
+   tools/harness/shrineval.js, before this pass:
+
+     shrine   effHP/gold   payback
+     L1       8.56         4.8 ticks
+     L2       3.21         8.9
+     L3       2.95         8.9
+     L4       3.31         9.1
+     L5       3.90         9.3
+
+   A shrine-1 rung bought two and a half times the pressure per gold of a
+   shrine-5 rung AND repaid itself in half the ticks. Every lumber spent on the
+   shrine made your gold worse on both axes, which is exactly the "no point"
+   Gene named.
+
+   THE SCALE IS BY LEVEL, AND COST MOVES WITH INCOME. Cutting price alone would
+   have made high rungs better economy as well as better pressure, which is a
+   different change and a much larger one — the income curve is Abdy's open
+   complaint and does not want a second hand on it. Scaling cost and income
+   TOGETHER leaves payback exactly where it was on every rung, so the economy is
+   untouched and the only thing that climbs is how much creep a gold buys.
+
+   Target: effHP/gold rising 4.5 -> 7.0 across the five levels. Applied here
+   rather than hand-edited into 34 rows, so the intent stays legible and the
+   next retune is one line per level instead of sixty-eight numbers. */
+const SHRINE_PRICE_SCALE = { 1:1.90, 2:0.64, 3:0.53, 4:0.53, 5:0.56 };
+SENDS.forEach((send) => {
+  if (send.attacker) return;                       // attackers are priced in lumber, below
+  const k = SHRINE_PRICE_SCALE[send.shrine] || 1;
+  send.cost = Math.max(5, Math.round(send.cost * k));
+  send.income = Math.max(1, Math.round(send.income * k));
+});
+
+/* ATTACKERS COST LUMBER, NOT GOLD. Gene: "attackers shouldnt cost gold, but
+   lumber." They already carried a lumber component on top of a large gold
+   price, which made them the most expensive thing on the ladder in both
+   currencies and meant a sender who wanted one paid for it twice. Lumber alone
+   is the sharper version of what they already were: the send you buy INSTEAD of
+   a shrine level or a second element, priced in the currency those cost. */
+SENDS.forEach((send) => {
+  if (!send.attacker) return;
+  send.lumber = send.id === 'ruiner' ? 4 : 2;
+  send.cost = 0;
+});
+
 /* ---------------- Player profile, achievements, and race unlocks ----------------
    Persistent (per-browser) meta-progression: four elements start unlocked and
    the other five are earned through play. Achievements toast when earned. */
@@ -2692,43 +2740,26 @@ function leakDiagnostic() {
   const where = w > e * 1.5 ? 'the west lane' : e > w * 1.5 ? 'the east lane' : 'both lanes';
   return `${tot} creep${tot > 1 ? 's' : ''} leaked through ${where} — lengthen the maze there.`;
 }
-/* CLASSIC WARS: SENDS HAVE TO GROW, BECAUSE WALLS DO.
-   Skirmish scales its pressure — waveDefFor doubles creep HP every loop of the
-   wave table. Classic has no waves, so the only pressure in the mode was a send
-   ladder frozen at its card value forever, while the wall it had to beat
-   compounded all match. Measured: fifteen minutes of 1v1, 100 lives against 100
-   lives, not a single leak on either side — and a World Titan, the 15,000g top
-   of the ladder, dying to twenty tier-2 towers (about 1,900g of wall). Across
-   the ladder an attacker was paying 1.5x to 3.7x what the defender paid to stop
-   it, so no income curve could ever convert into a leak.
-   Sends now double in HP on a timer, the way waves double on a loop. */
-const SEND_GROWTH_PERIOD = Number(window.__SEND_GROWTH__ ?? 240);   // seconds per doubling
-const SEND_GROWTH_CAP = Number(window.__SEND_GROWTH_CAP__ ?? 8);    // and it stops there
-/* 150s is a FIRST calibration off a noisy measurement (the rival's race is drawn
-   at random, so single runs swing hard) — three runs each: with no growth the
-   match ends 100L-100L every time, at 220s the rival finishes on 89/82/100
-   lives, at 180s on 86/74/92, at 150s on 31/82/50 and at 120s on 34/15/78.
-   150 is where every run showed real pressure without the late game exploding.
-   It still takes ~13 minutes to the first leak, because growth is slowest
-   exactly when both walls are small; closing the 1.5x-3.7x attack-to-defence
-   gold gap is the other half of this and wants real play to tune, not a
-   simulated builder. */
-function sendGrowth() {
-  /* Abdy: "the income generating send mobs ... their health should not increase
-     as the game goes on. Only the waves health armor, etc., should increase."
-     In SKIRMISH that is already true and always has been — measured, a Fang
-     Outrider is 400 HP at minute 0 and 400 HP at minute 20. This only ever
-     applied to Classic Wars, which has no waves at all, so sends are its only
-     source of pressure; without it three full twenty-minute runs ended 100 lives
-     to 100 with zero leaks in either direction and Classic could not be won.
-     But an uncapped doubling every 150s is indefensible in the other direction:
-     that same Outrider reached 102,400 HP by minute 20, seventeen times a
-     wave-20 creep. Slower and bounded — 240s a doubling, stopping at 8x, which
-     tops out around a wave-20 creep rather than lapping it. That ceiling is a
-     calibration, not a measurement; it wants real games to confirm. */
-  if (matchMode !== 'classic' || !SEND_GROWTH_PERIOD) return 1;
-  return Math.min(SEND_GROWTH_CAP, Math.pow(2, Math.max(0, simTime) / SEND_GROWTH_PERIOD));
-}
+/* SENDS DO NOT SCALE WITH THE CLOCK. THE SHRINE IS THE LADDER.
+
+   This grew in Classic for a real measured reason: Classic has no waves, so a
+   send ladder frozen at its card value was the only pressure in the mode while
+   the wall it had to beat compounded all match, and three twenty-minute runs
+   ended 100 lives to 100 with zero leaks. The fix was to double send HP on a
+   timer, later bounded to 8x.
+
+   Gene, rejecting it outright, with the better argument: "the send hp should
+   never scale, otherwise theres no point in upgrading the shrine." That is
+   right and it is the part I had missed. A timer that fattens every send makes
+   the cheap shrine-1 rung grow into the job the shrine-5 rung was sold for, so
+   the thing you spend lumber on stops being the thing that buys you pressure.
+   The clock was doing the shrine's work, and doing it for free.
+
+   So the clock is gone and the ladder has to carry it — which means the ladder
+   itself has to be worth climbing. tools/harness/shrineval.js measures exactly
+   that: effective hit points bought per gold, rung by rung, so "is a shrine
+   upgrade worth lumber" is a number rather than a hope. */
+function sendGrowth() { return 1; }
 /* ONE PURCHASE, ONE BODY A LANE — unless the send is a swarm. The engine has
    had a swarm role since the wave table was written and no send ever carried
    it, because a send spawns exactly once per lane. This is the whole difference:
@@ -6969,8 +7000,8 @@ function renderQuickSend() {
   if (key === quickSendKey) return;
   quickSendKey = key;
   bar.innerHTML = usable.map((send, i) => { const inc = sendIncomeLabel(send); return `
-    <button class="qs-chip ${player.gold < send.cost ? 'qs-poor' : ''}" data-qsend="${send.id}" title="${send.name} — ${send.cost}g, ${inc.text} income${inc.cut ? ` (ladder +${send.income}, trimmed by diminishing returns)` : ''} [key ${i + 1}]">
-      <span>${send.air ? '🐉' : send.symbol}</span><b>${send.cost}</b></button>`; }).join('');
+    <button class="qs-chip ${sendAffordable(send) ? '' : 'qs-poor'}" data-qsend="${send.id}" title="${send.name} — ${sendPriceText(send)}, ${inc.text} income${inc.cut ? ` (ladder +${send.income}, trimmed by diminishing returns)` : ''} [key ${i + 1}]">
+      <span>${send.air ? '🐉' : send.symbol}</span><b>${sendPriceText(send, true)}</b></button>`; }).join('');
   bar.querySelectorAll('[data-qsend]').forEach((chip) => chip.addEventListener('click', (event) => {
     event.stopPropagation();
     document.querySelector(`[data-send="${chip.dataset.qsend}"]`)?.click();
@@ -7626,7 +7657,7 @@ function renderSendPanel() {
     <button class="send-card" data-send="${send.id}"><span class="send-icon">${send.air ? '🐉' : send.symbol}</span>
       <div><strong>${send.name}${send.air ? ' <em class="air-tag">AIR</em>' : ''}${send.attacker ? ' <em class="atk-tag">ATTACKER</em>' : ''}</strong>
       <small data-send-note="${send.id}">${send.attacker ? `<b style="color:#ff9faf">no income</b> • breaks towers · ${SWING_DMG * send.breakPower} dmg a swing${send.woodIncome ? ` · <b style="color:#b9a877">+${send.woodIncome}🪵</b>` : ''}` : `+${send.income} income`}</small>
-      <small class="send-stats">${sendShownHp(send)}${send.bodies > 1 ? ` HP × ${send.bodies}` : ' HP'} • ${send.spd.toFixed(1)} spd • ${send.armor} armor (${send.aClass})</small></div><b>${send.cost}g${send.lumber ? ` +${send.lumber}🪵` : ''}</b></button>`;
+      <small class="send-stats">${sendShownHp(send)}${send.bodies > 1 ? ` HP × ${send.bodies}` : ' HP'} • ${send.spd.toFixed(1)} spd • ${send.armor} armor (${send.aClass})</small></div><b>${sendPriceText(send)}</b></button>`;
   const economy = SENDS.filter((s) => !s.attacker), attackers = SENDS.filter((s) => s.attacker);
   $('send-list').innerHTML = economy.map(card).join('')
     + (attackers.length ? `<p class="panel-heading send-split">ATTACKERS — lumber, no income, break the wall</p>` + attackers.map(card).join('') : '');
@@ -7634,8 +7665,8 @@ function renderSendPanel() {
     const send = SENDS.find((item) => item.id === button.dataset.send);
     if (!battleRunning) return log('Start a match before sending.');
     if (player.shrine < send.shrine) return log(`${send.name} needs Shrine level ${send.shrine}.`);
-    if (player.gold < send.cost) return log(`Not enough gold — ${send.name} costs ${send.cost}g.`);
-    if (send.lumber && player.lumber < send.lumber) return log(`${send.name} costs ${send.cost}g + ${send.lumber}🪵 — and pays no income. Buy lumber first.`);
+    if (player.gold < send.cost) return log(`Not enough gold — ${send.name} costs ${sendPriceText(send)}.`);
+    if (send.lumber && player.lumber < send.lumber) return log(`${send.name} costs ${sendPriceText(send)}${send.income ? '' : ' — and pays no income'}. Buy lumber first.`);
     const incWas = BASE_INCOME + incomePayout(player.income);
     player.gold -= send.cost; player.income += send.income; SFX.play('send'); Coach.notify('send'); track('send', { id: send.id });
     if (send.woodIncome) player.woodIncome = (player.woodIncome || 0) + send.woodIncome;
@@ -10124,8 +10155,8 @@ function renderCommandBar() {
       <button id="bar-auto" class="bar-card ${autoSend.on ? 'toggle-on' : ''}"><span>🔁</span><small>AUTO</small><b>${autoSend.on ? 'ON' : 'off'}</b></button>
       ${matchMode === 'classic' ? '' : `<button id="bar-wager" class="bar-card ${wagerReady ? '' : 'poor'}"><span>⏩</span><small>Rush</small><b>×${wager.tokens}</b></button>`}
       ${SENDS.filter((send) => player.shrine >= send.shrine).map((send) => `
-      <button class="bar-card has-stats ${player.gold < send.cost ? 'poor' : ''}" data-bar-send="${send.id}">
-        <span>${send.air ? '🐉' : send.symbol}</span><small>${send.name.split(' ')[0]}</small><b>${send.cost}g +${send.income}</b><i class="bar-stats">${sendStatLine(send)}</i></button>`).join('')}`;
+      <button class="bar-card has-stats ${sendAffordable(send) ? '' : 'poor'}" data-bar-send="${send.id}">
+        <span>${send.air ? '🐉' : send.symbol}</span><small>${send.name.split(' ')[0]}</small><b>${sendPriceText(send)}${send.income ? ` +${send.income}` : ''}</b><i class="bar-stats">${sendStatLine(send)}</i></button>`).join('')}`;
     $('bar-auto').addEventListener('click', () => { autoSend.on = !autoSend.on; log(autoSend.on ? `AUTO-send on — repeats your last send each wave${autoSend.last ? '' : ' (send one to arm it)'}.` : 'AUTO-send off.'); renderCommandBar(); });
     $('bar-wager')?.addEventListener('click', proposeWager);
     sendBody.querySelectorAll('[data-bar-send]').forEach((b) => wireSendCard(b));
@@ -10185,6 +10216,17 @@ function towerStatLine(def) {
 // rounds in the same ORDER spawnCreep does, via sendCreepDef, or the biggest
 // rungs disagree with themselves by a point
 function sendShownHp(sd) { return Math.round(Math.round((sd.hp || 0) * sendGrowth()) * TRAIT.hpScaleSend * CREEP_HP_SCALE); }
+/* ONE PRICE STRING FOR FOUR SURFACES. Attackers cost lumber and no gold now, and
+   every send card built its own label out of the gold price — so all four would
+   read "0g +2 lumber" the moment the price moved off gold. */
+function sendPriceText(send, short) {
+  const wood = send.lumber ? `${send.lumber}🪵` : '';
+  if (!send.cost) return wood || 'free';
+  return short ? `${send.cost}` : `${send.cost}g${wood ? ` +${wood}` : ''}`;
+}
+function sendAffordable(send) {
+  return player.gold >= (send.cost || 0) && player.lumber >= (send.lumber || 0);
+}
 function sendStatLine(sd) {
   const tag = [sd.air ? 'air' : '', sd.role && sd.role !== 'standard' ? sd.role : ''].filter(Boolean).join(' ');
   // the armour CLASS decides whether a wall can hurt this at all, and it was
@@ -10561,8 +10603,8 @@ function renderCommandSheet() {
       : wagerReady ? `both bank +${wagerBonus()}g if accepted` : `ready in ${Math.max(1, Math.ceil(wager.cooldownUntil - simTime))}s`;
     body = `${matchMode === 'classic' ? '' : `<button id="sheet-wager" class="wager-chip ${wagerReady ? '' : 'cooling'}"><span>⏩</span><b>Rush the wave</b><small>${wagerLine}</small><i>×${wager.tokens}</i></button>`}
       <div class="sheet-grid">${SENDS.map((send) => { const inc = sendIncomeLabel(send); return `
-      <button class="sheet-chip ${player.shrine < send.shrine ? 'locked' : ''} ${player.gold < send.cost ? 'poor' : ''}" data-sheet-send="${send.id}" title="${send.name} — ${send.cost}g, ladder +${send.income} income${inc.cut ? `, ${inc.text} after diminishing returns` : ''}">
-        <span>${send.air ? '🐉' : send.symbol}</span><small>${send.name.split(' ')[0]}</small><b>${send.cost}g<i class="${inc.cut ? 'inc-cut' : ''}">${inc.text}</i></b></button>`; }).join('')}</div>
+      <button class="sheet-chip ${player.shrine < send.shrine ? 'locked' : ''} ${sendAffordable(send) ? '' : 'poor'}" data-sheet-send="${send.id}" title="${send.name} — ${sendPriceText(send)}, ladder +${send.income} income${inc.cut ? `, ${inc.text} after diminishing returns` : ''}">
+        <span>${send.air ? '🐉' : send.symbol}</span><small>${send.name.split(' ')[0]}</small><b>${sendPriceText(send)}<i class="${inc.cut ? 'inc-cut' : ''}">${inc.text}</i></b></button>`; }).join('')}</div>
       <p class="sheet-hint">Sends run both rival lanes and raise your income. You are paid <b>${BASE_INCOME + incomePayout(player.income)}g</b> every ${INCOME_PERIOD}s; each chip shows what it would add to that.${player.income > INCOME_SOFT && INCOME_EXP < 1 ? ` Past ${INCOME_SOFT} raw income the payout is compressed, so the amber figures are below their ladder value.` : ''} ${player.shrine < SHRINE_MAX ? 'Higher shrine levels unlock the elite tiers.' : 'Shrine is maxed.'}</p>`;
   } else if (sheetTab === 'tower') {
     const sel = selectionTowers().filter(isMine);
