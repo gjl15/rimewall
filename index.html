@@ -595,6 +595,16 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
    towers themselves for something bought two or three times a match */
 .lumber-button { width:100%; margin:8px 0 0; padding:9px; color:#b9a877; border-color:#3d3524; background:#14120c; font-size:10px; }
 .lumber-button:disabled { opacity:.5; }
+.weapon-chip u { grid-column:1 / -1; grid-row:3; margin-top:3px; text-decoration:none;
+  font:400 10.5px/1.45 system-ui,sans-serif; color:#9aa8c6; }
+.bolt-chip { flex-direction:column; align-items:flex-start; }
+.bolt-chip u { display:block; margin-top:2px; text-decoration:none;
+  font:400 9.5px/1.4 system-ui,sans-serif; color:#8590ae; white-space:normal; }
+.td-next { margin:8px 0 0; padding:9px 11px; border:1px solid #2c3f63; border-left:3px solid var(--race,#8adcff);
+  border-radius:9px; background:#10182b; }
+.td-next b { display:block; font:600 11.5px 'DM Mono',monospace; color:#dfe9ff; }
+.td-next span { display:block; margin-top:2px; font:400 10px 'DM Mono',monospace; color:#8590ae; }
+.td-next em { display:block; margin-top:4px; font-style:normal; font:400 11px/1.45 system-ui,sans-serif; color:#a9b7d6; }
 .wisp-panel .wp-act.wp-poor { opacity:.45; }
 .wisp-panel .wp-act.wp-armed { border-color:#ff6b81; color:#ff9faf; background:#2a1420; }
 .wisp-panel .wp-act.wp-arm { border-color:#ffb86b; color:#ffd8a8; background:#241c10; }
@@ -935,7 +945,7 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 .wisp-radial button.on { background:#173a2b; border-color:#8fe6b8; color:#8fe6b8; }
 .wisp-radial button:active { transform:scale(.9); }
 @keyframes radial-pop { from { opacity:0; transform:scale(.4); } to { opacity:1; transform:scale(1); } }
-.wisp-panel { position:fixed; z-index:182; width:min(330px,92vw); max-height:52vh; overflow-y:auto; padding:12px; border:1px solid #34497a; border-radius:14px; background:#0d1424f7; box-shadow:0 12px 40px #000b; }
+.wisp-panel { position:fixed; z-index:182; width:min(330px,92vw); max-height:52vh; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; padding:12px; border:1px solid #34497a; border-radius:14px; background:#0d1424f7; box-shadow:0 12px 40px #000b; }
 .wisp-panel.hidden { display:none; }
 .wisp-panel .wp-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:9px; font:700 14px 'DM Mono',monospace; color:#fff; }
 .wisp-panel .wp-head button { width:36px; height:36px; border:1px solid #2c4a7a; border-radius:7px; background:#111a30; color:#bcd2ff; }
@@ -1010,6 +1020,15 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 .wisp-panel .wp-tool { display:flex; align-items:center; gap:8px; padding:11px; border:1px solid #2c4a7a; border-radius:10px; background:#111a30; color:#eafcff; font:700 11px 'DM Mono',monospace; }
 .wisp-panel .wp-tool.on { border-color:#8fe6b8; color:#8fe6b8; background:#0f2b1f; }
 .wisp-panel .wp-learn { max-height:34vh; overflow-y:auto; font:500 10px/1.45 'DM Mono',monospace; color:#bcd2ff; }
+/* ON A PHONE THIS IS THE ONLY TOWER SURFACE, so 52vh was starving it. Measured
+   on a 390x844 screen with a ninja selected: 1,345px of content in a 439px box,
+   which put every weapon chip below the fold — elementFromPoint at a chip's own
+   coordinates returned the CANVAS, because the chip was clipped out of the
+   scroll region entirely. You could not reach the rack without knowing to
+   scroll a panel that gives no sign it scrolls. */
+@media (hover: none) and (pointer: coarse) {
+  .wisp-panel { max-height:76vh; }
+}
 .wisp-panel .wp-learn .sheet-heading { color:#ffd86b; font-weight:700; margin:8px 0 4px; letter-spacing:.06em; }
 .wisp-panel .wp-learn .learn-row { display:flex; justify-content:space-between; gap:10px; padding:3px 0; border-bottom:1px dashed #17233d; }
 .wisp-panel .wp-inspect-ico { font-size:15px; margin-right:5px; }
@@ -1175,127 +1194,105 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
 
 /* ================= THE LOOK PASS =================
    Gene: "i wanted to see the improvement in the menu ... while keeping the
-   format as is we like it for now", and then "do the menu look yourself".
+   format as is we like it for now", then "do the menu look yourself", then
+   "i dont see the menu fixes live yet?"
 
-   The first attempt at this was handed out and came back changing layout — the
-   Change-race button collided with the element dropdown, the licence row
-   clipped, and the eleven race cards ended up FLATTER than they started. It was
-   reverted. So the rule this pass holds itself to is narrow and checkable: it
-   only ever sets colour, border, shadow, transform, opacity and transition.
-   Nothing here touches width, height, padding, margin, position, grid or flex,
-   because the format is the part that was liked.
+   It WAS live — and it may well have rendered as nothing. The first version of
+   this leaned on color-mix() twenty-seven times to tint each card with its own
+   element hue. color-mix is a single point of failure for exactly the thing it
+   was doing: a browser that does not know the function throws away the WHOLE
+   declaration, silently, so every tinted background, every accented border and
+   every glow falls back to the plain dark card it was replacing. The screens
+   would look untouched, which is precisely what was reported.
 
-   What it fixes, from the screenshots:
+   There is no color-mix in here now. The accent is carried by pseudo-element
+   overlays painted in var(--race) at an opacity, which has worked in every
+   browser for fifteen years, and the result is the same picture.
 
-   1. EVERYTHING WAS ONE VALUE. Panel, card, button and background were all dark
-      slate with a 1px border, so the primary action and a disabled row carried
-      identical weight and the eye had no order to follow.
-   2. IT DID NOT MOVE. Nothing acknowledged a hover, a press or a panel opening.
-   3. THE RACE CARDS WERE THE WORST OF IT, and they are the first thing anyone
-      sees. Eleven elements each with a strong signature hue rendered as eleven
-      near-black rectangles: the accent existed only on hover and as a 12%
-      blurred blob in one corner. Locked ones sat at .55 opacity and .4
-      saturation on top of that, which is past invisible.
-   4. ELEVEN HUES, MONOCHROME INTERFACE. The accent is the game's own
-      RW_ELEMENT palette and it was doing nothing. */
+   The rule this pass holds itself to is otherwise unchanged and still narrow:
+   only colour, border, shadow, transform, opacity and transition. Nothing
+   touches width, height, padding, margin, grid or flow, because the format is
+   the part that was liked — the previous outsourced attempt broke layout and
+   was reverted.
+
+   What it fixes: panel, card, button and background were all one value, so the
+   primary action and a disabled row carried identical weight; nothing
+   acknowledged a hover or a press; and eleven elements with eleven strong
+   signature hues rendered as eleven near-black rectangles on the first screen
+   anybody sees. */
 
 /* ---- 1. the race cards, which are the showpiece ---- */
-/* The accent lives in the RESTING state now. A tint of the element's own hue
-   through the card, the corner glow lifted off 12% and given room, and a hair
-   line along the top edge so a row of eleven reads as eleven things. */
-.race-card {
-  background:
-    radial-gradient(120% 90% at 82% 108%, color-mix(in srgb, var(--race) 26%, transparent), transparent 62%),
-    linear-gradient(150deg, #1a2440, #0e1423);
-  border-color: color-mix(in srgb, var(--race) 26%, #273252);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--race) 30%, transparent);
-  transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease;
-}
-.race-card::after { opacity:.3; filter:blur(10px); }
-.race-card .race-symbol {
-  color: var(--race);
-  text-shadow: 0 0 16px color-mix(in srgb, var(--race) 55%, transparent);
-  transition: transform .16s ease;
-}
-.race-card strong { color:#f2f6ff; }
-.race-card small { color: color-mix(in srgb, var(--race) 48%, #8995b4); }
+.race-card { background:linear-gradient(150deg,#1a2440,#0e1423); border-color:#2b3757;
+  transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
+/* the element's own hue, as a wash behind the content */
+.race-card::before { content:''; position:absolute; inset:0; z-index:0;
+  background:var(--race); opacity:.13; transition:opacity .16s ease; pointer-events:none; }
+/* and again as a corner glow, which was there at 12% and invisible */
+.race-card::after { opacity:.34; filter:blur(12px); z-index:0; }
+/* keep the text and icon above both washes */
+.race-card > * { position:relative; z-index:1; }
+.race-card .race-symbol { color:var(--race); transition:transform .16s ease; }
+.race-card strong { color:#f3f7ff; }
+.race-card small { color:#9fb0d4; }
 
 .race-card:hover { transform:translateY(-3px); }
 .race-card:hover .race-symbol { transform:scale(1.08); }
-.race-card:hover, .race-card.selected {
-  border-color: var(--race);
-  box-shadow:
-    0 14px 34px #0006,
-    inset 0 0 0 1px var(--race),
-    0 0 26px -6px color-mix(in srgb, var(--race) 70%, transparent);
-}
-.race-card.selected {
-  background:
-    radial-gradient(120% 90% at 82% 108%, color-mix(in srgb, var(--race) 40%, transparent), transparent 64%),
-    linear-gradient(150deg, #1e2a4b, #101728);
-}
+.race-card:hover::before, .race-card.selected::before { opacity:.24; }
+.race-card:hover::after, .race-card.selected::after { opacity:.5; }
+.race-card:hover, .race-card.selected { border-color:var(--race);
+  box-shadow:0 14px 34px #0006, inset 0 0 0 1px var(--race); }
 .race-card:active { transform:translateY(-1px); }
 
-/* LOCKED SHOULD READ AS LOCKED, not as absent. It was .55 opacity on top of .4
+/* LOCKED SHOULD READ AS LOCKED, NOT AS ABSENT. It was .55 opacity on top of .4
    saturation on top of an already near-black card — four of the eleven were
-   effectively blank tiles. Legible, clearly inert, and still showing which
-   element it is. */
-.race-card.locked {
-  opacity:1;
-  filter:none;
-  background: linear-gradient(150deg, #141a29, #0d1220);
-  border-color:#212c46;
-  box-shadow:none;
-}
+   effectively blank tiles. Legible, clearly inert, still showing its element. */
+.race-card.locked { opacity:1; filter:none; background:linear-gradient(150deg,#141a29,#0d1220);
+  border-color:#212c46; box-shadow:none; }
+.race-card.locked::before { opacity:.05; }
 .race-card.locked::after { opacity:.08; }
-.race-card.locked .race-symbol { color:#55617f; text-shadow:none; }
-.race-card.locked strong { color:#79839f; }
-.race-card.locked small { color:#5b6683; letter-spacing:.06em; }
+.race-card.locked .race-symbol { color:#5b6683; }
+.race-card.locked strong { color:#7d87a3; }
+.race-card.locked small { color:#616c8a; letter-spacing:.06em; }
 
 /* ---- 2. a hierarchy: what lifts, what sits flat, what recedes ---- */
-/* The primary action is the only thing on the screen that glows. */
-.action-button {
-  box-shadow: 0 6px 18px -6px color-mix(in srgb, var(--ice) 65%, transparent);
-  transition: transform .14s ease, box-shadow .14s ease, filter .14s ease;
-}
+/* the primary action is the only thing on screen that glows */
+.action-button { box-shadow:0 6px 18px -6px #8adcffa8;
+  transition:transform .14s ease, box-shadow .14s ease, filter .14s ease; }
 .action-button:hover:not(:disabled) { transform:translateY(-1px); filter:brightness(1.06); }
 .action-button:active:not(:disabled) { transform:translateY(1px); box-shadow:none; }
 .action-button:disabled { box-shadow:none; }
 
-/* Secondary reads as secondary: no glow, a border that answers on hover. */
-.ghost-button { transition: border-color .14s ease, color .14s ease, background .14s ease; }
+/* secondary reads as secondary: no glow, a border that answers */
+.ghost-button { transition:border-color .14s ease, color .14s ease, background .14s ease; }
 .ghost-button:hover:not(:disabled) { border-color:#4a5c8c; color:#dbe3ff; background:#16203a; }
 .ghost-button:active:not(:disabled) { background:#0d1424; }
 
-/* The panel is a surface things sit ON, so it recedes rather than competing. */
-.command-panel { box-shadow: inset 0 1px 0 #ffffff0c, 0 18px 40px -24px #000a; }
-
-/* Tabs: the active one is lit, the inactive one is genuinely quieter. */
-.panel-tabs button { transition: background .14s ease, color .14s ease; }
+/* the panel is a surface things sit ON, so it recedes rather than competing */
+.command-panel { box-shadow:inset 0 1px 0 #ffffff0c, 0 18px 40px -24px #000a; }
+.panel-tabs button { transition:background .14s ease, color .14s ease; }
 .panel-tabs button:hover:not(.active) { background:#1a243c; color:#aab6d8; }
 
 /* ---- 3. the build list carries the element it belongs to ---- */
-.tower-row { transition: border-color .14s ease, background .14s ease, transform .14s ease; }
+.tower-row { position:relative; transition:border-color .14s ease, background .14s ease; }
 .tower-row:hover { border-color:#3a4b74; background:#131d33; }
-.tower-row.selected {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--race) 12%, #10182b), #10182b);
-  box-shadow: inset 0 0 0 1px var(--race), 0 0 20px -8px color-mix(in srgb, var(--race) 70%, transparent);
-}
-.race-chip { transition: border-color .14s ease, background .14s ease; }
-.race-chip.active { box-shadow: inset 0 0 0 1px var(--race); }
+.tower-row.selected::before { content:''; position:absolute; inset:0; z-index:0; border-radius:8px;
+  background:var(--race); opacity:.12; pointer-events:none; }
+.tower-row.selected { box-shadow:inset 0 0 0 1px var(--race); }
+.tower-row > * { position:relative; z-index:1; }
+.race-chip { transition:border-color .14s ease, background .14s ease; }
+.race-chip.active { box-shadow:inset 0 0 0 1px var(--race); }
 
 /* ---- 4. things arrive rather than blink ---- */
 @keyframes rwRise { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
-.wisp-panel:not(.hidden), .tower-details:not(.hidden) { animation: rwRise .17s ease-out both; }
+.wisp-panel:not(.hidden) { animation:rwRise .17s ease-out both; }
 
 /* ---- 5. and none of it happens if the reader asked it not to ---- */
 @media (prefers-reduced-motion: reduce) {
-  .race-card, .race-card .race-symbol, .action-button, .ghost-button,
-  .tower-row, .panel-tabs button, .race-chip { transition:none !important; }
-  .race-card:hover, .race-card:active, .action-button:hover:not(:disabled),
-  .action-button:active:not(:disabled), .race-card:hover .race-symbol { transform:none !important; }
-  .wisp-panel:not(.hidden), .tower-details:not(.hidden) { animation:none !important; }
+  .race-card, .race-card .race-symbol, .race-card::before, .race-card::after,
+  .action-button, .ghost-button, .tower-row, .panel-tabs button, .race-chip { transition:none !important; }
+  .race-card:hover, .race-card:active, .race-card:hover .race-symbol,
+  .action-button:hover:not(:disabled), .action-button:active:not(:disabled) { transform:none !important; }
+  .wisp-panel:not(.hidden) { animation:none !important; }
 }
 </style>
 </head>
@@ -8604,7 +8601,7 @@ function wardPanelHtml(group) {
     <span class="panel-heading">WARD${fits.length > 1 ? ` • ${fits.length} STAKES • ${fits.length * wardCost()}\u{1FAB5}` : ` • ${wardCost()}\u{1FAB5}`}</span>
     <div class="bolt-row">${WARDS.map((w) => {
       const on = !mixed && current?.id === w.id;
-      return `<button class="bolt-chip ${on ? 'on' : ''}" data-bolt="${w.id}" data-ward="1" style="--bolt:${w.color}" title="${w.name} — ${WARD_BLURB[w.id]}"><span>${w.glyph}</span><small>${w.name.split(' ')[0]}</small></button>`;
+      return `<button class="bolt-chip ${on ? 'on' : ''}" data-bolt="${w.id}" data-ward="1" style="--bolt:${w.color}" title="${w.name} — ${WARD_BLURB[w.id]}"><span>${w.glyph}</span><small>${w.name.split(' ')[0]}</small><u>${WARD_BLURB[w.id]}</u></button>`;
     }).join('')}</div>
     <p class="bolt-note" data-bolt-note>${mixed ? 'Mixed wards in this selection.' : current ? `${current.glyph} ${current.name} — ${WARD_BLURB[current.id]}` : 'No ward carved. One per stake; lumber, not gold.'}</p>
   </div>`;
@@ -8651,8 +8648,14 @@ function weaponPanelHtml(group) {
          80 and 88 dps inside 1.5 to 3.2 cells and the five chips were
          indistinguishable. Cadence and behaviour are the ninja differentiators,
          so the line carries them too. */
+      /* AND WHAT IT ACTUALLY DOES. Gene: "it should show the full descriptions
+         of what they do not just the base stats right now the only way we see
+         what the skills do is on the shrine." Numbers tell you which is bigger;
+         they do not tell you that the ballista splinters into anything within a
+         cell of its mark, and that is the thing you are choosing between. */
       return `<button class="weapon-chip ${player.gold < cost ? 'poor' : ''}" data-weapon="${tier}" style="--wc:${def.color || '#98acff'}">
-        <b>${def.name}</b><i>${def.range.toFixed(1)} reach · ${(1 / def.cd).toFixed(1)}/s · ${effectiveDps(def).toFixed(0)} dps${weaponTrait(def)}</i><em>${cost}g</em></button>`;
+        <b>${def.name}</b><i>${def.range.toFixed(1)} reach · ${(1 / def.cd).toFixed(1)}/s · ${effectiveDps(def).toFixed(0)} dps${weaponTrait(def)}</i><em>${cost}g</em>
+        <u>${def.desc || specialBlurbs[def.special] || ''}</u></button>`;
     }).join('')}</div>
     <p class="weapon-note">${here.weapon
       ? `Fitted with the ${here.name}. Swapping charges the difference.`
@@ -8667,9 +8670,14 @@ function boltPanelHtml(group) {
   const mixed = fits.some((t) => t.bolt !== fits[0].bolt);
   return `<div class="bolt-rack">
     <span class="panel-heading">IMBUING${fits.length > 1 ? ` • ${fits.length} TOWERS • ${cost}g` : ` • ${cost}g`}</span>
+    ${/* THE BLURB WAS ONLY EVER IN A title ATTRIBUTE AND A HOVER PREVIEW, and a
+          phone has neither — so on the surface where this rack actually lives,
+          the only way to learn what an imbuing did was to buy it and read the
+          log. Every row carries its own rules now. */''}
     <div class="bolt-row">${BOLT_MODS.map((m) => {
       const on = !mixed && current?.id === m.id;
-      return `<button class="bolt-chip ${on ? 'on' : ''}" data-bolt="${m.id}" style="--bolt:${m.color}" title="${m.name} — ${BOLT_BLURB[m.id]}"><span>${m.glyph}</span><small>${m.name.split(' ')[0]}</small></button>`;
+      return `<button class="bolt-chip ${on ? 'on' : ''}" data-bolt="${m.id}" style="--bolt:${m.color}">
+        <span>${m.glyph}</span><small>${m.name.split(' ')[0]}</small><u>${BOLT_BLURB[m.id]}</u></button>`;
     }).join('')}</div>
     <p class="bolt-note" data-bolt-note>${mixed ? 'Mixed imbuings in this selection.' : current ? `${current.glyph} ${current.name} — ${BOLT_BLURB[current.id]}` : 'Not imbued. One per tower, and it carries through every tier upgrade — for a ninja blade this is where the damage comes from.'}</p>
   </div>`;
@@ -8812,6 +8820,19 @@ function renderTowerDetails() {
       ${alike > 1 ? `<button id="td-selectall" class="ghost-button td-wide">⧉ Select all ${alike}${many ? ` · ${group.length} selected` : ''}</button>` : ''}
     </div>` : ''}
     <p class="td-desc">${many ? 'Double-tap selected every like tower.' : `${stats.desc} ${specialBlurbs[stats.special] || ''}`}</p>
+    ${/* WHAT THE NEXT RUNG WOULD BE, in words rather than two numbers. The tier
+          button said "-> Snowball Launcher 40g" and the panel showed the CURRENT
+          tower's rules, so the one thing you needed in order to decide — what
+          you are buying — was the one thing not on screen. */''}
+    ${(() => {
+      if (many) return '';
+      const nx = towerTierUp(tower);
+      if (!nx) return '';
+      const n = nx.next;
+      return `<p class="td-next"><b>→ ${n.name} · ${nx.cost}g</b>
+        <span>${n.dmg} dmg · ${n.range.toFixed(1)} reach · ${attackSpeedText(n)}${n.groundOnly ? ' · NO AIR' : ''}</span>
+        <em>${n.desc || specialBlurbs[n.special] || ''}</em></p>`;
+    })()}
     <div class="td-stats"><span>DMG <b>${stats.dmg}</b></span><span>RANGE <b>${stats.range.toFixed(1)}</b></span><span>SPEED <b>${attackSpeedText(stats)}</b></span><span>DPS <b>${effectiveDps(stats, tower.raceId).toFixed(0)}</b></span><span>HP <b>${Math.max(0, Math.round(tower.blockHp))}/${tower.blockMaxHp}</b></span>${towerRank(tower) || !canLevel(tower) ? `<span>RANK <b>${towerRank(tower)}${towerRank(tower) >= RANK_MAX ? ' MAX' : `/${RANK_MAX}`}</b></span>` : ''}</div>
     ${!canLevel(tower) && towerRank(tower) < RANK_MAX ? `<p class="td-desc td-hint">Fully upgraded — it earns rank from here: +${Math.round(RANK_DMG * 100)}% damage each, ${Math.round(tower.xp || 0)}/${rankNeed(towerRank(tower))} to the next.</p>` : ''}
     <p class="td-desc profile-line">${attackProfileText(tower.raceId, stats)}</p>
@@ -8996,12 +9017,34 @@ function handleBoardTap(event) {
     chipAutoHideAt = 0;
     inspectEntity = { kind:'tower' };
     renderTowerDetails(); renderRing();
-    /* ON A PHONE THE RING IS THE TOWER UI. Opening the full inspect panel here
-       as well put a half-screen box over the board — the thing that was
-       "blocking spaces to build" — and over the ring itself. The ring carries
-       the same four actions at the tower, so raise that and the rail; the
-       panel is still one tap away on the wisp when the numbers are wanted. */
-    if (touchUI() && document.body.classList.contains('arena')) { railTab = 'tower'; renderRails(); }
+    /* THIS USED TO SAY "ON A PHONE THE RING IS THE TOWER UI", and it was right
+       until the ring was removed. Gene: "upgrades arent working for anything
+       really btw lets primarily work for moble." Measured on a 390px phone,
+       tapping a tower and pressing whatever appeared:
+
+         race   selected   panel   level         tier
+         ice    1          SHUT    NO CONTROL    NO CONTROL
+         fire   1          SHUT    NO CONTROL    NO CONTROL
+         tech   1          SHUT    NO CONTROL    tier 0 -> 2
+         ninja  1          SHUT    NO CONTROL    tier 0 -> 1
+
+       The tower selected and nothing to do with it appeared. Tech and Ninja
+       only looked alive because their weapon rack happens to render on a
+       surface that was already up — no race could be LEVELLED at all.
+       The panel this line declined to open is now the only place the four
+       actions live, so on touch, selecting a tower opens it. */
+    if (touchUI() && document.body.classList.contains('arena')) {
+      /* ONE TOWER SURFACE ON A PHONE, NOT TWO. Raising the rail's tower tab as
+         well put a SECOND weapon rack on a 390px screen — measured, two visible
+         .weapon-rack blocks at once, one in the wisp panel at y=377 and one in
+         the rail at y=260, overlapping. Duplicated controls are the thing that
+         has made this confusing to use: you press the one you can see and the
+         other one is on top of it. The wisp panel carries level, tier, target,
+         sell and both racks, so it is the surface; the rail goes back to being
+         build and send. */
+      railClose();
+      wispTab = 'inspect'; renderWispPanel('inspect');
+    }
     return;
   }
   // not on a tower — a creep tapped directly gets inspected (works on sends, bosses, rivals)
@@ -12101,7 +12144,13 @@ function renderWispInspect() {
   }
   return close + `<div class="wp-title"><b>${sel.length>1?sel.length+'× ':''}${stats.name}${t0.level?(' +'+t0.level):''}</b> · ${stats.dmg} dmg · ${stats.range.toFixed(1)} range</div>
     <div class="wp-actions">${actions.join('')}</div>
-    <div class="wp-detail">${stats.dmg} dmg · ${attackSpeedText(stats)} · ${effectiveDps(stats, t0.raceId).toFixed(0)} dps · ${attackProfileText(t0.raceId, stats)}<br>${specialBlurbs[stats.special]||stats.desc||''}${up?`<br><i>→ ${up.next.name}: ${up.next.dmg} dmg · ${up.next.range} range (full ${up.cost}g)</i>`:'<br><i>max tier</i>'}</div>${weaponPanelHtml(sel) + boltPanelHtml(sel) + wardPanelHtml(sel)}`;
+    ${weaponPanelHtml(sel) + boltPanelHtml(sel) + wardPanelHtml(sel)}
+    ${/* THE RACKS SIT ABOVE THE PROSE ON PURPOSE. This panel is the only tower
+          surface a phone has, and the prose is three paragraphs of rules text —
+          leaving it in the middle pushed the weapon rack past the bottom of the
+          screen. What you came here to press goes first; what you came here to
+          read goes after it. */''}
+    <div class="wp-detail">${stats.dmg} dmg · ${attackSpeedText(stats)} · ${effectiveDps(stats, t0.raceId).toFixed(0)} dps · ${attackProfileText(t0.raceId, stats)}<br>${specialBlurbs[stats.special]||stats.desc||''}${up?`<br><i>→ ${up.next.name}: ${up.next.dmg} dmg · ${up.next.range} range (full ${up.cost}g)</i>`:'<br><i>max tier</i>'}</div>`;
 }
 function setupWisp() {
   const wisp = $('wisp');
