@@ -1516,19 +1516,50 @@ const TOWERS = {
     { name:'Worldheart', cost:350, dmg:580, cd:1.0, range:3.8, special:'meteor', desc:'The living world drops mountains on whatever is next to it.' },
     { name:'Bramble Speck', cost:170, dmg:20, cd:5.0, range:9.5, special:'entangle', desc:'Long reach, barely any damage: roots its target for 1.6s and goes for BOSSES first.' }
   ],
+  /* TECH IS AN ARSENAL, NOT A POWER LADDER.
+     Gene: "perhaps we explore a new way for tech, similar to ninja, as bolt is
+     the only tower, but through it you can upgrade into different types of
+     towers like the siege tank, or a ballista which is good vs fortified as
+     well, but a cheaper or first tier option of the siege tank."
+
+     The measured reason this had to change: Pierce meets fortified at 0.40, and
+     the CHEAPEST rung was the one that failed hardest — a 6-damage Bolt Turret
+     behind 20 armour lands under a point a shot, one damage numeral in twenty
+     seconds. The ally AI built fifty-three of them out of ninety-seven towers
+     and stalled at wave 16 with eighty lives in hand, because the natural build
+     was the losing build. A rack fixes that at the root: the bolt is a chassis
+     you convert, not a tower you spam, and two of the things you convert it into
+     answer plate.
+
+     So the rungs are WEAPONS AT A FLAT PRICE, which is what makes ninja a rack
+     rather than a ladder: two cheap chassis rungs to get you started, then four
+     guns that all cost about the same and are chosen for the wave in front of
+     you rather than climbed in order. Range stays the element's identity
+     everywhere except the tank, which trades every cell of it for a shell.
+
+     Levels stay the standard three at +15%. The first cut gave Tech six levels
+     like a weapon rack and that was the wrong lever: measured, it tripled the
+     all-in price and moved damage by +90%, dropping Tech to 0.120 damage per
+     gold against a field whose next worst was 0.282. The conversion IS the
+     progression here — the levels are not supposed to be where the money goes. */
   tech:[
-    /* TECH IS THE ANTI-AIR ELEMENT. Now that a ground blast no longer reaches a
-       flier, somebody has to, and Pierce's long guns are the ones that track:
-       these two shoot up, and they are cheap enough to be the answer you buy
-       when the air wave is announced rather than a tier you had to plan for.
-       Rocket Rack stays ground-only — a rocket volley into a blast radius is
-       exactly the thing that should not hit a flier. */
-    { name:'Bolt Turret', cost:8, dmg:6, cd:1.7, range:12.5, special:'pierce', armorPierce:4, airBonus:1.5, desc:'Cheap long-range arrows that ignore 4 armor, and track a flier for +50% — a keeper for chipping armored runners.' },
-    { name:'Longshot Nest', cost:25, dmg:21, cd:1.75, range:13.0, special:'snipe', airBonus:1.5, desc:'+40% against whichever creep is furthest along the route, +50% against anything airborne.' },
-    { name:'Rocket Rack', cost:85, dmg:100, cd:2.2, range:15, special:'rocket', groundOnly:true, vs:{ fortified:1.9, heavy:1.5 }, desc:'Long-range rockets with splash, built to crack plate: Pierce is weak into fortified, this rung is not. Ground only.' },
-    { name:'Ion Array', cost:145, dmg:300, cd:3.0, range:15, special:'ion', desc:'Ion beam; +500 bonus damage to healthy targets.' },
-    { name:'Seeker Launcher', cost:215, dmg:760, cd:4.5, range:17, special:'rocket', desc:'Cruise missiles with an enormous blast.' },
-    { name:'Doomsday Silo', cost:265, dmg:860, cd:7.0, range:17, special:'rocket', desc:'Slow reload. City-block splash radius.' }
+    { name:'Bolt Turret', cost:8, dmg:6, cd:1.7, range:12.5, special:'pierce', armorPierce:4, airBonus:1.5, desc:'The chassis. Cheap long-range arrows that ignore 4 armor and track a flier for +50% — convert it into the weapon the wave calls for.' },
+    { name:'Long Bolt', cost:25, dmg:21, cd:1.75, range:14.5, special:'snipe', airBonus:1.5, desc:'A longer barrel on the same chassis: +40% against whichever creep is furthest along the route, +50% against anything airborne.' },
+    /* THE BALLISTA, to Gene's note verbatim: "Only applicable with bolt and
+       longbolt towers. Drastically increase range and damage at the cost of
+       attacking speed. Adds low amount of AoE within 1 cell radius." That is
+       smallsplash exactly — radius 1.2, 40% to neighbours — on the longest reach
+       in the game and the slowest cadence Tech has. The cheap answer to plate. */
+    { name:'Ballista', cost:120, dmg:300, cd:3.6, range:19, special:'smallsplash', armorPierce:6, vs:{ fortified:1.8, heavy:1.4 }, desc:'Enormous reach and a heavy bolt, reloaded slowly. Splinters into anything within a cell of the mark, and punches plate that Pierce cannot.' },
+    /* THE SIEGE TANK: very close range, heavy damage into fortified, major
+       splash. It gives up every bit of Tech's reach — 5.2 cells against a line
+       that runs to 19 — so it has to be built IN the maze like a ninja blade,
+       not behind it. Ground only, for the same reason the rocket rack was: a
+       shell fired flat into a blast radius is the one thing that should not
+       reach a flier. */
+    { name:'Siege Tank', cost:120, dmg:420, cd:2.4, range:5.2, special:'splash', groundOnly:true, vs:{ fortified:2.1, heavy:1.6 }, desc:'Point blank and enormous: the heaviest anti-plate gun Tech has, with a wide blast. Almost no range, and it cannot elevate to hit air.' },
+    { name:'Ion Array', cost:140, dmg:300, cd:3.0, range:15, special:'ion', desc:'The energy weapon: an ion beam that adds +500 against a target still near full health.' },
+    { name:'Doomsday Silo', cost:160, dmg:860, cd:7.0, range:17, special:'rocket', desc:'Slow reload, city-block splash. The widest blast in the arsenal.' }
   ],
   crystal:[
     { name:'Shardcaster', cost:10, dmg:10, cd:.9, range:5.9, special:'splinter', desc:'Chaos bolts that ignore armor and splinter into one creep beside the target.' },

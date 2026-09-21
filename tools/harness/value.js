@@ -49,11 +49,19 @@ const base = process.argv[2] || 'http://127.0.0.1:8771/';
       { key:'air',       aClass:'light',     armor:6,  air:true },
     ];
     const CREEP_HP = 3000, SECONDS = 20;
+    /* PRICE AND DAMAGE HAVE TO BE TAKEN AT THE SAME LEVEL. This priced every
+       rung at its ceiling and then measured a LEVEL 0 tower, which is only
+       harmless while every race has the same number of levels. The moment Tech
+       went to six levels like a weapon rack, its all-in price tripled and its
+       measured damage did not move — it read 0.068 and last by a factor of two,
+       which measured the harness. The tower is levelled to its own ceiling
+       before it fires. */
     const measure = (raceId, tier, target) => {
       resetMatchState(); battleRunning = true; battlePaused = false; matchOver = false;
       towers.clear(); towersVersion += 1; creeps.length = 0;
       const row = SOUTH_TOP + 6, col = 12;
       const t = makeTower(row, col, raceId, tier, 'player');
+      t.level = towerMaxLevel(t);
       t.buildUntil = 0; addTower(t);
       spawnCreep(waveDefFor(4), 'south', 'west');
       const c = creeps[creeps.length - 1];
