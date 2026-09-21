@@ -1666,17 +1666,28 @@ const TOWERS = {
        different weapons another 5 gold and then u can upgrade their dmg."
 
        So the rungs are not a power ladder, they are a WEAPON RACK at a flat
-       price: five gold to place a ninja, five more to step to the weapon you
-       want. Power comes from levelling — eight levels at a real price — and the
+       price: five gold to place a ninja, five more to fit the weapon you want.
+       Power comes from levelling — eight levels at a real price — and the
        imbuing is a third, separate choice. A maxed spear runs about 385g all in,
        which buys roughly what a 350g tier-5 tower does elsewhere, with a third
        of the reach.
+
+       AND IT IS NOW ACTUALLY A RACK. Gene: "do the same rack for ninja
+       weapons." The blades used to sit in the BUILD list as six separate
+       purchases and be reached by walking the tier button up — which is a
+       ladder, and made you pick a weapon on an empty cell before you knew what
+       was coming. You place a Shadow Initiate and fit it from the panel, the
+       same way a bolt turret becomes a ballista. Swapping keeps the tower's
+       levels, its imbuing and its kills, and costs the difference rather than
+       the full price: a maxed blade can answer a wave it was not built for
+       without throwing eight levels away, which is exactly the flexibility the
+       race is supposed to be for.
        Reach is still the identity: 1.5 covers the eight cells around the blade,
        and nothing beyond them. */
-    { name:'Shadow Initiate', cost:5, levelCost:10, maxLevel:8, dmg:8, cd:.30, range:1.5, special:'basic', desc:'Bare hands. Five gold, barely dangerous, and the start of every blade.' },
-    { name:'Dagger Adept', cost:5, levelCost:10, maxLevel:8, dmg:20, cd:.25, range:1.5, special:'basic', desc:'The fastest weapon in the game. One square, and everything in it bleeds.' },
-    { name:'Sword Ronin', cost:5, levelCost:10, maxLevel:8, dmg:34, cd:.40, range:2.3, special:'basic', desc:'Two squares of reach and still quicker than any mace.' },
-    { name:'Mace Breaker', cost:5, levelCost:10, maxLevel:8, dmg:60, cd:.70, range:2.3, special:'smallsplash', desc:'Slow and heavy: the swing catches everything crowded around the target.' },
+    { name:'Shadow Initiate', chassis:true, cost:5, levelCost:10, maxLevel:8, dmg:8, cd:.30, range:1.5, special:'basic', desc:'Bare hands. Five gold, barely dangerous, and the mount every blade is fitted to.' },
+    { name:'Dagger Adept', weapon:true, cost:5, levelCost:10, maxLevel:8, dmg:20, cd:.25, range:1.5, special:'basic', desc:'The fastest weapon in the game. One square, and everything in it bleeds.' },
+    { name:'Sword Ronin', weapon:true, cost:5, levelCost:10, maxLevel:8, dmg:34, cd:.40, range:2.3, special:'basic', desc:'Two squares of reach and still quicker than any mace.' },
+    { name:'Mace Breaker', weapon:true, cost:5, levelCost:10, maxLevel:8, dmg:60, cd:.70, range:2.3, special:'smallsplash', desc:'Slow and heavy: the swing catches everything crowded around the target.' },
     /* A SPEAR IS THROWN. Gene: "ninja spear shouldnt be the same as beam, it
        should be a a spear literally being thrown." It carried special:'beamline'
        — the same continuous-ray primitive Beam's whole identity is built on — so
@@ -1684,8 +1695,8 @@ const TOWERS = {
        effect, and there was no projectile in flight to look at because a ray is
        instantaneous. 'spearthrow' is a real projectile with a real flight time
        that pierces past its mark on impact, which is what the card always said. */
-    { name:'Spear Sentinel', cost:5, levelCost:10, maxLevel:8, dmg:75, cd:.85, range:3.2, special:'spearthrow', desc:'The longest reach a ninja gets. Hurled, and it runs on through whatever stands behind its mark.' },
-    { name:'Shadow Master', cost:5, levelCost:14, maxLevel:8, dmg:26, cd:.30, range:2.3, special:'basic', desc:'A blur inside two squares. Nothing kills faster at this range — and it levels dearer than the rest.' }
+    { name:'Spear Sentinel', weapon:true, cost:5, levelCost:10, maxLevel:8, dmg:75, cd:.85, range:3.2, special:'spearthrow', desc:'The longest reach a ninja gets. Hurled, and it runs on through whatever stands behind its mark.' },
+    { name:'Shadow Master', weapon:true, cost:5, levelCost:14, maxLevel:8, dmg:26, cd:.30, range:2.3, special:'basic', desc:'A blur inside two squares. Nothing kills faster at this range — and it levels dearer than the rest.' }
   ],
   gravity:[
     { name:'Gravity Well', cost:10, dmg:9, cd:.95, range:5.5, special:'warp', desc:'A single warped slug that drags its target to a crawl.' },
@@ -8220,6 +8231,21 @@ function wardPanelHtml(group) {
    volley — because the decision is which question the wave is asking, not which
    number is bigger. Swapping a fitted weapon charges the difference rather than
    the full price; the alternative is selling a 120g tower to change your mind. */
+/* The one thing a weapon does that its neighbours do not, in two or three
+   words — the chips are a choice between behaviours, not a leaderboard. */
+const WEAPON_TRAIT = {
+  smallsplash:'splash', splash:'wide blast', rocket:'huge blast',
+  spearthrow:'pierces behind', multishot:'3 targets', ion:'anti-healthy',
+  snipe:'hits the leader', pierce:'ignores 4 armour', basic:'',
+};
+function weaponTrait(def) {
+  const bits = [];
+  if (def.groundOnly) bits.push('NO AIR');
+  const t = WEAPON_TRAIT[def.special];
+  if (t) bits.push(t);
+  if (def.vs && def.vs.fortified > 1.2) bits.push('cracks plate');
+  return bits.length ? ' · ' + bits.join(' · ') : '';
+}
 function weaponPanelHtml(group) {
   const fits = group.filter((t) => weaponsFor(t).length);
   if (!fits.length) return '';
@@ -8232,8 +8258,14 @@ function weaponPanelHtml(group) {
     <span class="panel-heading">WEAPON${many ? ` • ${fits.length} TOWERS` : ''}${here.weapon ? ` • now ${here.name}` : ''}</span>
     <div class="weapon-row">${options.map(({ def, tier }) => {
       const cost = total(tier);
+      /* WHAT IS DIFFERENT ABOUT THIS ONE, not what is true of all of them.
+         Reach and dps alone read fine for tech, whose guns run from 5.2 cells to
+         19 — and said nothing at all for ninja, where every blade landed between
+         80 and 88 dps inside 1.5 to 3.2 cells and the five chips were
+         indistinguishable. Cadence and behaviour are the ninja differentiators,
+         so the line carries them too. */
       return `<button class="weapon-chip ${player.gold < cost ? 'poor' : ''}" data-weapon="${tier}" style="--wc:${def.color || '#98acff'}">
-        <b>${def.name}</b><i>${def.range.toFixed(1)} reach · ${effectiveDps(def).toFixed(0)} dps${def.groundOnly ? ' · NO AIR' : ''}</i><em>${cost}g</em></button>`;
+        <b>${def.name}</b><i>${def.range.toFixed(1)} reach · ${(1 / def.cd).toFixed(1)}/s · ${effectiveDps(def).toFixed(0)} dps${weaponTrait(def)}</i><em>${cost}g</em></button>`;
     }).join('')}</div>
     <p class="weapon-note">${here.weapon
       ? `Fitted with the ${here.name}. Swapping charges the difference.`
