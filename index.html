@@ -595,7 +595,10 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
    towers themselves for something bought two or three times a match */
 .lumber-button { width:100%; margin:8px 0 0; padding:9px; color:#b9a877; border-color:#3d3524; background:#14120c; font-size:10px; }
 .lumber-button:disabled { opacity:.5; }
-.weapon-rack { margin-top:10px; }
+.weapon-rack { margin-top:10px; border-radius:10px; }
+@keyframes rackFlash { from { box-shadow:0 0 0 2px #ffb86bcc; } to { box-shadow:0 0 0 2px #ffb86b00; } }
+.rack-flash { animation:rackFlash .7s ease-out 1; }
+@media (prefers-reduced-motion:reduce){ .rack-flash { animation:none; } }
 .weapon-row { display:flex; flex-direction:column; gap:5px; margin-top:6px; }
 .weapon-chip { display:grid; grid-template-columns:1fr auto; align-items:baseline; gap:4px 10px;
   padding:7px 10px; border:1px solid #2c3f63; border-left:3px solid var(--wc); border-radius:8px;
@@ -7174,8 +7177,8 @@ function ringAction(act) {
     const t = towers.get(selectedGroupKeys[0]);
     if (t) sellTowerAt({ r:t.r, c:t.c });
     selectedGroupKeys = []; selectedTowerKey = null; renderTowerDetails();
-  } else if (act === 't-imbue') {
-    // the rack lives in the wisp panel; this is the one press that finds it
+  } else if (act === 't-imbue' || act === 't-weapon') {
+    // both racks live in the wisp panel; this is the one press that finds them
     wispTab = 'inspect'; renderWispPanel('inspect');
   } else towerAction(act.slice(2));
   renderRing();
@@ -7222,7 +7225,11 @@ function renderRing() {
   x = Math.min(vr.width - pad - RAD, Math.max(pad + RAD, x));
   y = Math.min(vr.height - pad - RAD, Math.max(pad + RAD, y));
   ring.style.left = `${x}px`; ring.style.top = `${y}px`;
-  const sig = [mode, tower ? `${tower.key}:${tower.level}:${tower.tier}:${tower.priority}` : `g${cell.r},${cell.c}:${selectedTowerTier}`,
+  /* raceId belongs in this signature. The buttons a ring shows depend on the
+     race — a rack race gets ARM where a ladder race gets TIER — and without it
+     two towers that share a cell key, a tier and a level render each other's
+     ring out of the cache. */
+  const sig = [mode, tower ? `${tower.key}:${tower.raceId}:${tower.level}:${tower.tier}:${tower.priority}` : `g${cell.r},${cell.c}:${selectedTowerTier}`,
     Math.floor(player.gold / 10), selectedGroupKeys.length, pendingSell ? 1 : 0].join('|');
   if (ring._sig === sig) { ring.classList.remove('hidden'); return; }
   ring._sig = sig;
@@ -7259,9 +7266,22 @@ function renderRing() {
     const widens = rungHeld && elemSet.length > rungSet.length;   // next press takes the whole element
     const many = selectedGroupKeys.length > 1;
     const armed = many && pendingSell && pendingSell.sig === selectionSig(selectionTowers().filter(isMine)) && simTime - pendingSell.at < SELL_CONFIRM_WINDOW;
+    /* ON A RACK RACE THE TIER BUTTON LEADS NOWHERE, AND SAID SO.
+       Gene: "thers a bug in upgrading tech and ninja." Measured, and it was
+       worse than a wrong label: towerTierUp refuses to step onto a weapon, so a
+       placed Shadow Initiate on a phone had NO route forward at all — the ring
+       read "Max tier" and the weapon rack lives in the wisp panel, which the
+       ring never opened. A 5g tower you could not do anything with. Tech was
+       the same bug one rung later: the bolt could still step to the long bolt,
+       and then nothing on the phone could ever reach a ballista.
+       Where there is no tier but there are weapons, this slot becomes the rack
+       instead of a dead end. */
+    const rackHere = !towerTierUp(tower) && weaponsFor(tower).length;
     btns = [
       { slot:'top', glyph:'⬆', tag:'LVL', color:'#8fe6b8', act:'t-level' },
-      { slot:'right', glyph:'⏫', tag:'TIER', color:'#77d6ff', act:'t-tier' },
+      rackHere
+        ? { slot:'right', glyph:'⚒', tag:'ARM', color:'#ffb86b', act:'t-weapon' }
+        : { slot:'right', glyph:'⏫', tag:'TIER', color:'#77d6ff', act:'t-tier' },
       { slot:'left', glyph:armed ? '⚠' : '💰', tag:armed ? 'SURE?' : `+${towerSellValue(tower)}`, color:armed ? '#ff6b81' : '#ff9faf', act:'t-sell' },
       { slot:'bottom', glyph:'🎯', tag:tower.priority.toUpperCase().slice(0, 5), color:'#ffd86b', act:'t-priority' },
     ];
@@ -8335,7 +8355,11 @@ function renderTowerDetails() {
   const sellArmed = many && pendingSell && pendingSell.sig === selectionSig(group) && simTime - pendingSell.at < SELL_CONFIRM_WINDOW;
   const sellLabel = sellArmed ? `⚠ Confirm — sell all ${group.length}` : `Sell${many ? ' all' : ''} ${sellAll}g${graceNote}`;
   const woodNext = towerTierUp(tower)?.next.lumber || 0;
-  const tierBlocked = !tierable.length || player.gold < (many ? 1 : tierCostAll) || (woodNext && player.lumber < woodNext);
+  /* A rack race has no tier to take and is not "max" — it has five weapons
+     sitting in the panel below. Saying Max tier there is the label lying. */
+  const rackInstead = !tierable.length && group.some((t) => weaponsFor(t).length);
+  const tierBlocked = rackInstead ? false
+    : (!tierable.length || player.gold < (many ? 1 : tierCostAll) || (woodNext && player.lumber < woodNext));
   const levelBlocked = !upgradable.length || player.gold < (many ? 1 : levelCostAll);
 
   /* REBUILDING THIS PANEL FIVE TIMES A SECOND IS WHY UPGRADE SOLD YOUR TOWER.
@@ -8359,7 +8383,7 @@ function renderTowerDetails() {
     // still optional-chained: a rival's tower renders the readout with no actions
     const setBtn = (id, off, text) => { const b = $(id); if (!b) return; b.disabled = !!off; if (text != null && b.textContent !== text) b.textContent = text; };
     setBtn('td-level', levelBlocked, !upgradable.length ? 'Max level' : many ? `Upgrade all • ${levelCostAll}g` : `Upgrade level ${levelCostAll}g`);
-    setBtn('td-tier', tierBlocked, !tierable.length ? 'Max tier'
+    setBtn('td-tier', tierBlocked, rackInstead ? '\u2692 Fit a weapon below' : !tierable.length ? 'Max tier'
       : `→ ${towerTierUp(tower)?.next.name || 'next tier'}${many ? ` all • ${tierCostAll}g` : ` ${tierCostAll}g`}${woodNext ? ` +${woodNext}🪵` : ''}`);
     setBtn('td-sell', false, sellLabel);
     $('td-sell')?.classList.toggle('td-sell-armed', !!sellArmed);
@@ -8387,7 +8411,7 @@ function renderTowerDetails() {
           that is what stopped a reflow moving Sell under a finger mid-press. */''}
     ${isYours ? `<div class="td-actions">
       <button id="td-level" class="action-button" ${levelBlocked ? 'disabled' : ''}>${!upgradable.length ? 'Max level' : many ? `Upgrade all • ${levelCostAll}g` : `Upgrade level ${levelCostAll}g`}</button>
-      <button id="td-tier" class="action-button td-tier" ${tierBlocked ? 'disabled' : ''}>${!tierable.length ? 'Max tier' : `→ ${towerTierUp(tower)?.next.name || 'next tier'}${many ? ` all • ${tierCostAll}g` : ` ${tierCostAll}g`}${woodNext ? ` +${woodNext}🪵` : ''}`}</button>
+      <button id="td-tier" class="action-button td-tier" ${tierBlocked ? 'disabled' : ''}>${rackInstead ? '\u2692 Fit a weapon below' : !tierable.length ? 'Max tier' : `→ ${towerTierUp(tower)?.next.name || 'next tier'}${many ? ` all • ${tierCostAll}g` : ` ${tierCostAll}g`}${woodNext ? ` +${woodNext}🪵` : ''}`}</button>
       <button id="td-priority" class="ghost-button">Target: ${tower.priority}</button>
       <button id="td-sell" class="ghost-button td-sell-danger ${sellArmed ? 'td-sell-armed' : ''}">${sellLabel}</button>
       ${alike > 1 ? `<button id="td-selectall" class="ghost-button td-wide">⧉ Select all ${alike}${many ? ` · ${group.length} selected` : ''}</button>` : ''}
@@ -8401,7 +8425,19 @@ function renderTowerDetails() {
   if (!isYours) return;
   panel.querySelectorAll('[data-bolt]').forEach((b) => b.addEventListener('click', () => towerAction(`${b.dataset.ward ? 'ward' : 'bolt'}:${b.dataset.bolt}`)));
   $('td-level')?.addEventListener('click', () => towerAction('level'));
-  $('td-tier')?.addEventListener('click', () => towerAction('tier'));
+  $('td-tier')?.addEventListener('click', () => {
+    // on a rack race this button IS the way to the rack, so point it there
+    const lead = selectionTowers().filter(isMine)[0];
+    if (lead && !towerTierUp(lead) && weaponsFor(lead).length) {
+      const rack = document.querySelector('.weapon-rack');
+      if (rack) {
+        rack.scrollIntoView({ block:'nearest', behavior:rmReduced() ? 'auto' : 'smooth' });
+        rack.classList.remove('rack-flash'); void rack.offsetWidth; rack.classList.add('rack-flash');
+      }
+      return;
+    }
+    towerAction('tier');
+  });
   $('td-sell')?.addEventListener('click', () => towerAction('sell'));
   $('td-priority')?.addEventListener('click', () => towerAction('priority'));
   $('td-selectall')?.addEventListener('click', () => towerAction('selectall'));
