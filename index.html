@@ -595,6 +595,17 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
    towers themselves for something bought two or three times a match */
 .lumber-button { width:100%; margin:8px 0 0; padding:9px; color:#b9a877; border-color:#3d3524; background:#14120c; font-size:10px; }
 .lumber-button:disabled { opacity:.5; }
+.weapon-rack { margin-top:10px; }
+.weapon-row { display:flex; flex-direction:column; gap:5px; margin-top:6px; }
+.weapon-chip { display:grid; grid-template-columns:1fr auto; align-items:baseline; gap:4px 10px;
+  padding:7px 10px; border:1px solid #2c3f63; border-left:3px solid var(--wc); border-radius:8px;
+  background:#10182b; color:#dfe9ff; text-align:left; cursor:pointer; font:inherit; }
+.weapon-chip:hover { background:#16203a; border-color:#3d5486; }
+.weapon-chip b { grid-column:1; font:600 12.5px/1.3 'DM Mono',monospace; color:#fff; }
+.weapon-chip i { grid-column:1; grid-row:2; font-style:normal; font-size:10px; color:#8590ae; }
+.weapon-chip em { grid-column:2; grid-row:1 / span 2; font-style:normal; font:600 12px/1 'DM Mono',monospace; color:#ffd86b; align-self:center; white-space:nowrap; }
+.weapon-chip.poor { opacity:.5; }
+.weapon-note { margin:6px 0 0; font-size:10.5px; color:#8590ae; line-height:1.45; }
 .imbue-line { color:#c9b6ff !important; }
 .imbue-line b { color:#e6dcff; }
 .shrine-row { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:8px;
@@ -1545,23 +1556,28 @@ const TOWERS = {
      gold against a field whose next worst was 0.282. The conversion IS the
      progression here — the levels are not supposed to be where the money goes. */
   tech:[
-    { name:'Bolt Turret', cost:8, dmg:6, cd:1.7, range:12.5, special:'pierce', armorPierce:4, airBonus:1.5, desc:'The chassis. Cheap long-range arrows that ignore 4 armor and track a flier for +50% — convert it into the weapon the wave calls for.' },
-    { name:'Long Bolt', cost:25, dmg:21, cd:1.75, range:14.5, special:'snipe', airBonus:1.5, desc:'A longer barrel on the same chassis: +40% against whichever creep is furthest along the route, +50% against anything airborne.' },
+    { name:'Bolt Turret', chassis:true, cost:8, dmg:6, cd:1.7, range:12.5, special:'pierce', armorPierce:4, airBonus:1.5, desc:'The chassis. Cheap long-range arrows that ignore 4 armor and track a flier for +50% — build this, then fit the weapon the wave calls for.' },
+    { name:'Long Bolt', chassis:true, cost:25, dmg:21, cd:1.75, range:14.5, special:'snipe', airBonus:1.5, desc:'A longer barrel on the same chassis: +40% against whichever creep is furthest along the route, +50% against anything airborne. Takes every weapon the bolt does.' },
     /* THE BALLISTA, to Gene's note verbatim: "Only applicable with bolt and
        longbolt towers. Drastically increase range and damage at the cost of
        attacking speed. Adds low amount of AoE within 1 cell radius." That is
        smallsplash exactly — radius 1.2, 40% to neighbours — on the longest reach
        in the game and the slowest cadence Tech has. The cheap answer to plate. */
-    { name:'Ballista', cost:120, dmg:300, cd:3.6, range:19, special:'smallsplash', armorPierce:6, vs:{ fortified:1.8, heavy:1.4 }, desc:'Enormous reach and a heavy bolt, reloaded slowly. Splinters into anything within a cell of the mark, and punches plate that Pierce cannot.' },
+    { name:'Ballista', weapon:true, cost:120, dmg:300, cd:3.6, range:19, special:'smallsplash', armorPierce:6, vs:{ fortified:1.8, heavy:1.4 }, desc:'Enormous reach and a heavy bolt, reloaded slowly. Splinters into anything within a cell of the mark, and punches plate that Pierce cannot.' },
+    /* MULTISHOT, the weapon Gene named alongside the ballista. It keeps the
+       chassis cadence and splits the volley: three bolts a shot at a third
+       each, so it is the answer to a crowd of small bodies where the ballista
+       is the answer to one large one. Same price, different question. */
+    { name:'Multishot', weapon:true, cost:120, dmg:96, cd:1.1, range:14, special:'multishot', shots:3, armorPierce:4, airBonus:1.4, desc:'Three bolts a volley instead of one. Each picks its own target, so a wave of small bodies is torn up where a single heavy one shrugs it off.' },
     /* THE SIEGE TANK: very close range, heavy damage into fortified, major
        splash. It gives up every bit of Tech's reach — 5.2 cells against a line
        that runs to 19 — so it has to be built IN the maze like a ninja blade,
        not behind it. Ground only, for the same reason the rocket rack was: a
        shell fired flat into a blast radius is the one thing that should not
        reach a flier. */
-    { name:'Siege Tank', cost:120, dmg:420, cd:2.4, range:5.2, special:'splash', groundOnly:true, vs:{ fortified:2.1, heavy:1.6 }, desc:'Point blank and enormous: the heaviest anti-plate gun Tech has, with a wide blast. Almost no range, and it cannot elevate to hit air.' },
-    { name:'Ion Array', cost:140, dmg:300, cd:3.0, range:15, special:'ion', desc:'The energy weapon: an ion beam that adds +500 against a target still near full health.' },
-    { name:'Doomsday Silo', cost:160, dmg:860, cd:7.0, range:17, special:'rocket', desc:'Slow reload, city-block splash. The widest blast in the arsenal.' }
+    { name:'Siege Tank', weapon:true, cost:120, dmg:420, cd:2.4, range:5.2, special:'splash', groundOnly:true, vs:{ fortified:2.1, heavy:1.6 }, desc:'Point blank and enormous: the heaviest anti-plate gun Tech has, with a wide blast. Almost no range, and it cannot elevate to hit air.' },
+    { name:'Ion Array', weapon:true, cost:140, dmg:300, cd:3.0, range:15, special:'ion', desc:'The energy weapon: an ion beam that adds +500 against a target still near full health.' },
+    { name:'Doomsday Silo', weapon:true, cost:160, dmg:860, cd:7.0, range:17, special:'rocket', desc:'Slow reload, city-block splash. The widest blast in the arsenal.' }
   ],
   crystal:[
     { name:'Shardcaster', cost:10, dmg:10, cd:.9, range:5.9, special:'splinter', desc:'Chaos bolts that ignore armor and splinter into one creep beside the target.' },
@@ -1726,6 +1742,35 @@ function wardCost() { return 1; }   // one lumber, whichever ward — the choice
 const BULWARK_TOWER = { name:'Bulwark Stake', cost:4, dmg:0, cd:1, range:0, special:'bulwark', hpMult:14,
   desc:'No attack at all — a post that soaks attackers. Fourteen times the hit points of an ordinary tower, and it takes a ward.' };
 function towerListFor(raceId) { return [...(TOWERS[raceId] || TOWERS.ice), BULWARK_TOWER]; }
+/* WHAT YOU CAN PLACE ON AN EMPTY CELL, which is not the same as what exists.
+   Gene: "thers ballista here which is not what we wanted on the selct tower we
+   want to build a bolt tower, and then on the right panel teher should be an
+   easy to navigate way to change into ballista or multi shot."
+
+   A weapon rack means the RACK is a fitting, not a purchase — you buy a chassis
+   and then decide what it becomes, in front of the wave you are actually
+   looking at. Listing all six as separate builds made the decision happen on an
+   empty cell before you knew what was coming, which is the opposite of the
+   point, and buried the two cheap rungs under four you cannot afford yet. */
+function buildableListFor(raceId) {
+  return towerListFor(raceId).map((def, tier) => ({ def, tier })).filter(({ def }) => !def.weapon);
+}
+/* The weapons a placed tower can be fitted with. A chassis takes any of them; a
+   tower that already carries one can swap, because the alternative is selling a
+   120g tower to change your mind. */
+function weaponsFor(tower) {
+  if (!tower) return [];
+  const list = towerListFor(tower.raceId);
+  const here = list[tower.tier];
+  if (!here || !(here.chassis || here.weapon)) return [];
+  return list.map((def, tier) => ({ def, tier })).filter(({ def, tier }) => def.weapon && tier !== tower.tier);
+}
+function weaponCost(tower, tier) {
+  const to = towerDef(tower.raceId, tier);
+  const from = towerDef(tower.raceId, tower.tier);
+  // swapping one weapon for another only charges the difference, never less than a quarter
+  return from.weapon ? Math.max(Math.round(to.cost * .25), to.cost - from.cost) : to.cost;
+}
 /* HIT POINTS, AS A REAL NUMBER YOU CAN BUILD AROUND.
    A tower used to take a flat 4 + tier swings, each swing a hard-coded 1. With
    attackers on the ladder that had to become something a person can plan
@@ -2141,6 +2186,12 @@ function towerTierUp(tower) {
   const list = towerListFor(tower.raceId);
   if (tower.tier >= list.length - 1) return null;
   const next = towerDef(tower.raceId, tower.tier + 1);
+  /* A WEAPON IS FITTED, NOT CLIMBED. On a rack line the next index is a
+     different gun rather than a bigger one, so walking the tier button up it
+     would march a bolt through the ballista into the siege tank one press at a
+     time. Tiering now only ever steps between chassis rungs; everything else is
+     the weapon rack on the panel. */
+  if (next.weapon) return null;
   return { next, cost:next.cost };   // full price — you pay for the space; the old tower's value is forfeit
 }
 function underConstruction(tower) { return typeof simTime === 'number' && simTime < (tower.buildUntil ?? 0); }
@@ -4415,6 +4466,26 @@ function updateTower(tower, dt) {
   const target = pickTarget(tower, stats);
   if (!target) { tower.cooldown = .08; return; }
   tower.cooldown = stats.cd;
+  /* MULTISHOT SPLITS THE VOLLEY ACROSS SEPARATE TARGETS. One bolt at a third
+     damage into three different creeps is a different weapon from one bolt at
+     full damage, and the point of it against a crowd — so it picks the leaders
+     it is not already shooting rather than stacking the same body. */
+  if (stats.special === 'multishot' && (stats.shots || 1) > 1) {
+    const reach = stats.range;
+    const cx = tower.c + .5, cy = tower.r + .5;
+    const half = halfOfRow(tower.r);
+    const others = creeps.filter((c) => c !== target && c.hp > 0 && c.half === half
+      && !(stats.groundOnly && c.air)
+      && Math.hypot(c.x - cx, c.y - cy) <= reach)
+      .sort((a, b) => creepProgress(b) - creepProgress(a))
+      .slice(0, (stats.shots || 1) - 1);
+    [target, ...others].forEach((mark) => {
+      projectiles.push({ tower, stats, target:mark, half, style:'machinegun',
+        x:cx, y:cy, sx:cx, sy:cy, tx:mark.x, ty:mark.y, t:0, dur:projectileFlightTime('machinegun') });
+    });
+    if (half === PLAYER_HALF) mpEmitShot(tower, stats, target);
+    return;
+  }
   projectiles.push({
     tower, stats, target, half:halfOfRow(tower.r), style:stats.special || 'bolt',
     x:tower.c + .5, y:tower.r + .5, sx:tower.c + .5, sy:tower.r + .5,
@@ -7545,7 +7616,7 @@ function railBody(tab) {
       <b>${title}</b>${cost ? `<span class="rl-cost">${cost}</span>` : ''}${sub ? `<small>${sub}</small>` : ''}</button>`;
   if (tab === 'build') {
     const raceId = currentBuildRaceId();
-    return `<div class="rl-head">BUILD — tap, then tap the board</div>` + towerListFor(raceId).map((def, tier) => {
+    return `<div class="rl-head">BUILD — tap, then tap the board</div>` + buildableListFor(raceId).map(({ def, tier }) => {
       const d = towerDef(raceId, tier);
       const woodCost = d.lumber || 0;
       /* The rail was the thinnest build surface of the three — damage, range and
@@ -7584,7 +7655,7 @@ function railBody(tab) {
       + `<div class="rl-card"><small>${st.dmg} dmg · ${attackSpeedText(st)} · ${effectiveDps(st, t0.raceId).toFixed(0)} dps · ${st.range.toFixed(1)} reach`
       + `<br>${Math.max(0, Math.round(t0.blockHp))}/${t0.blockMaxHp} HP · ${attackProfileText(t0.raceId, st)}`
       + `<br><b style="color:#8fe6b8">Tap the tower on the board</b> to level, tier, retarget or sell it.</small></div>`
-      + boltPanelHtml(sel) + wardPanelHtml(sel);
+      + weaponPanelHtml(sel) + boltPanelHtml(sel) + wardPanelHtml(sel);
   }
   const on = (v) => v ? 'on' : '';
   return `<div class="rl-head">TOOLS</div>`
@@ -7827,7 +7898,7 @@ function currentBuildRaceId() { return player?.races?.[buildRaceIdx] || selected
 function renderTowerList() {
   const raceId = currentBuildRaceId();
   renderBuildExtras();
-  $('tower-list').innerHTML = towerListFor(raceId).map((entry, tier) => {
+  $('tower-list').innerHTML = buildableListFor(raceId).map(({ def: entry, tier }) => {
     const def = towerDef(raceId, tier);
     const lum = def.lumber || 0;
     /* WHAT IT DOES ON EVERY CARD; WHY YOU'D WANT IT ON THE OPEN ONE.
@@ -7944,6 +8015,29 @@ function towerAction(kind) {
     group = ready;   // never upgrade a tower mid-construction; selling still refunds
   }
   if (!group.length) return;
+  if (kind.startsWith('weapon:')) {
+    /* FITTING A WEAPON IS NOT A TIER UP. It keeps the tower's levels, its
+       imbuing and its kills — you are changing the gun on a mount you already
+       paid for, and losing eight levels of rank because the wave turned into
+       fliers would make the rack unusable. */
+    const tier = Number(kind.slice(7));
+    const fits = group.filter((t) => weaponsFor(t).some((w) => w.tier === tier));
+    if (!fits.length) { log('Only a bolt chassis or a fitted weapon can be re-armed.'); return; }
+    let done = 0, spent = 0;
+    for (const t of fits) {
+      const cost = weaponCost(t, tier);
+      if (player.gold < cost) break;
+      player.gold -= cost; spent += cost; t.invested = (t.invested || 0) + cost;
+      t.tier = tier; t.cooldown = 0; done += 1;
+    }
+    if (!done) { log(`Not enough gold — fitting the ${towerDef(fits[0].raceId, tier).name} costs ${weaponCost(fits[0], tier)}g.`); return; }
+    towersVersion += 1;
+    SFX.play('build');
+    const def = towerDef(fits[0].raceId, tier);
+    log(`${def.name} fitted to ${done} tower${done > 1 ? 's' : ''} for ${spent}g. ${def.desc}`);
+    renderHud(); renderTowerDetails(); renderTowerList(); renderCommandBar();
+    return;
+  }
   if (kind.startsWith('ward:')) {
     /* Carving a ward costs lumber, not gold — which is the whole point of the
        stake being 4g. It is the cheapest thing on the board and the upgrade is
@@ -8117,6 +8211,35 @@ function wardPanelHtml(group) {
     <p class="bolt-note" data-bolt-note>${mixed ? 'Mixed wards in this selection.' : current ? `${current.glyph} ${current.name} — ${WARD_BLURB[current.id]}` : 'No ward carved. One per stake; lumber, not gold.'}</p>
   </div>`;
 }
+/* THE WEAPON RACK — what a placed chassis can become.
+   Gene: "on the right panel teher should be an easy to navigate way to change
+   into ballista or multi shot, right now its too hard ot navigte and control."
+
+   So it is one row of chips beside the imbuing rack it already lives next to,
+   each showing its price and a one-line note on what it is FOR — reach, blast,
+   volley — because the decision is which question the wave is asking, not which
+   number is bigger. Swapping a fitted weapon charges the difference rather than
+   the full price; the alternative is selling a 120g tower to change your mind. */
+function weaponPanelHtml(group) {
+  const fits = group.filter((t) => weaponsFor(t).length);
+  if (!fits.length) return '';
+  const lead = fits[0];
+  const here = towerDef(lead.raceId, lead.tier);
+  const options = weaponsFor(lead);
+  const many = fits.length > 1;
+  const total = (tier) => fits.reduce((sum, t) => sum + weaponCost(t, tier), 0);
+  return `<div class="weapon-rack">
+    <span class="panel-heading">WEAPON${many ? ` • ${fits.length} TOWERS` : ''}${here.weapon ? ` • now ${here.name}` : ''}</span>
+    <div class="weapon-row">${options.map(({ def, tier }) => {
+      const cost = total(tier);
+      return `<button class="weapon-chip ${player.gold < cost ? 'poor' : ''}" data-weapon="${tier}" style="--wc:${def.color || '#98acff'}">
+        <b>${def.name}</b><i>${def.range.toFixed(1)} reach · ${effectiveDps(def).toFixed(0)} dps${def.groundOnly ? ' · NO AIR' : ''}</i><em>${cost}g</em></button>`;
+    }).join('')}</div>
+    <p class="weapon-note">${here.weapon
+      ? `Fitted with the ${here.name}. Swapping charges the difference.`
+      : 'A chassis. Fit it with the weapon the wave in front of you is asking for.'}</p>
+  </div>`;
+}
 function boltPanelHtml(group) {
   const fits = group.filter(boltEligible);
   if (!fits.length) return '';
@@ -8241,7 +8364,7 @@ function renderTowerDetails() {
     <div class="td-stats"><span>DMG <b>${stats.dmg}</b></span><span>RANGE <b>${stats.range.toFixed(1)}</b></span><span>SPEED <b>${attackSpeedText(stats)}</b></span><span>DPS <b>${effectiveDps(stats, tower.raceId).toFixed(0)}</b></span><span>HP <b>${Math.max(0, Math.round(tower.blockHp))}/${tower.blockMaxHp}</b></span>${towerRank(tower) || !canLevel(tower) ? `<span>RANK <b>${towerRank(tower)}${towerRank(tower) >= RANK_MAX ? ' MAX' : `/${RANK_MAX}`}</b></span>` : ''}</div>
     ${!canLevel(tower) && towerRank(tower) < RANK_MAX ? `<p class="td-desc td-hint">Fully upgraded — it earns rank from here: +${Math.round(RANK_DMG * 100)}% damage each, ${Math.round(tower.xp || 0)}/${rankNeed(towerRank(tower))} to the next.</p>` : ''}
     <p class="td-desc profile-line">${attackProfileText(tower.raceId, stats)}</p>
-    ${isYours ? boltPanelHtml(group) + wardPanelHtml(group) : ''}`;
+    ${isYours ? weaponPanelHtml(group) + boltPanelHtml(group) + wardPanelHtml(group) : ''}`;
   $('td-close').addEventListener('click', () => { selectedTowerKey = null; selectedGroupKeys = []; renderTowerDetails(); });
   if (!isYours) return;
   panel.querySelectorAll('[data-bolt]').forEach((b) => b.addEventListener('click', () => towerAction(`${b.dataset.ward ? 'ward' : 'bolt'}:${b.dataset.bolt}`)));
@@ -8250,6 +8373,7 @@ function renderTowerDetails() {
   $('td-sell')?.addEventListener('click', () => towerAction('sell'));
   $('td-priority')?.addEventListener('click', () => towerAction('priority'));
   $('td-selectall')?.addEventListener('click', () => towerAction('selectall'));
+  document.querySelectorAll('[data-weapon]').forEach((b) => b.addEventListener('click', () => towerAction(`weapon:${b.dataset.weapon}`)));
 }
 
 function renderSendPanel() {
@@ -10752,7 +10876,7 @@ function renderCommandBar() {
       ? `<button id="bar-undo" class="bar-card toggle-on"><span>↩</span><small>UNDO</small><b>+${lastT.invested}g</b></button>`
       : sellUndoLive() ? `<button id="bar-undo" class="bar-card toggle-on"><span>↩</span><small>UNSELL</small><b>−${lastSold.refund}g</b></button>` : '';
     const econ = `<button id="cb-lumber" class="bar-card ${player.gold < LUMBER_PRICE ? 'poor' : ''}"><span>🪵</span><small>Lumber</small><b>${LUMBER_PRICE}g</b></button>${player.shrine < SHRINE_MAX ? `<button id="cb-shrine" class="bar-card ${player.lumber < 1 ? 'poor' : ''}"><span>⛩</span><small>Shrine L${player.shrine}</small><b>1🪵</b></button>` : `<span class="bar-card locked"><span>⛩</span><small>Shrine</small><b>MAX</b></span>`}`;
-    buildBody.innerHTML = undoChip + econ + towerListFor(raceId).map((def, tier) => `
+    buildBody.innerHTML = undoChip + econ + buildableListFor(raceId).map(({ def, tier }) => `
       <button class="bar-card ${tier === selectedTowerTier ? 'on' : ''} ${player.gold < def.cost ? 'poor' : ''}" data-bar-tower="${tier}">
         <span>${towerDef(raceId, tier).symbol}</span><small>${def.name.split(' ')[0]}</small><b>${def.cost}g</b><i class="bar-stats">${towerStatLine(towerDef(raceId, tier))}</i></button>`).join('');
     buildBody.querySelectorAll('[data-bar-tower]').forEach((c) => wireTowerCard(c));
@@ -11212,7 +11336,7 @@ function renderCommandSheet() {
   let body = '';
   if (sheetTab === 'towers') {
     const sel = towerDef(raceId, selectedTowerTier);
-    body = `<div class="sheet-grid">${towerListFor(raceId).map((def, tier) => `
+    body = `<div class="sheet-grid">${buildableListFor(raceId).map(({ def, tier }) => `
       <button class="sheet-chip ${tier === selectedTowerTier ? 'on' : ''} ${player.gold < def.cost ? 'poor' : ''}" data-sheet-tower="${tier}">
         <span>${towerDef(raceId, tier).symbol}</span><small>${def.name.split(' ')[0]}</small><b>${def.cost}g</b></button>`).join('')}</div>
       <div class="sheet-detail"><strong>${sel.name}</strong> — ${sel.desc} ${specialBlurbs[sel.special] || ''}<br><em>${sel.dmg} dmg • ${sel.range.toFixed(1)} range • ${attackSpeedText(sel)} • ${effectiveDps(sel, raceId).toFixed(0)} dps • ${attackProfileText(raceId, sel)}</em></div>
@@ -11256,7 +11380,7 @@ function renderCommandSheet() {
               upgrade — new name, new description, new blurb — and anything above
               the action row moves that row while a finger is coming down on it.
               That is how a batch upgrade turned into a batch sell. */''}
-        <div class="sheet-detail">${stats.desc} ${specialBlurbs[stats.special] || ''}<br><em>${stats.dmg} dmg • ${stats.range.toFixed(1)} range • ${attackSpeedText(stats)} • ${effectiveDps(stats, t0.raceId).toFixed(0)} dps • ${attackProfileText(t0.raceId, stats)}</em>${many ? '' : ` • ${t0.kills} kills`}</div>${boltPanelHtml(sel) + wardPanelHtml(sel)}`;
+        <div class="sheet-detail">${stats.desc} ${specialBlurbs[stats.special] || ''}<br><em>${stats.dmg} dmg • ${stats.range.toFixed(1)} range • ${attackSpeedText(stats)} • ${effectiveDps(stats, t0.raceId).toFixed(0)} dps • ${attackProfileText(t0.raceId, stats)}</em>${many ? '' : ` • ${t0.kills} kills`}</div>${weaponPanelHtml(sel) + boltPanelHtml(sel) + wardPanelHtml(sel)}`;
     }
   } else if (sheetTab === 'log') {
     body = recordsContent();
@@ -11416,6 +11540,7 @@ function renderWispPanel(mode) {
      the four sub-upgrades existed and had no button on the screen he was
      looking at. */
   panel.querySelectorAll('[data-bolt]').forEach((b) => b.addEventListener('click', () => { towerAction(`${b.dataset.ward ? 'ward' : 'bolt'}:${b.dataset.bolt}`); renderWispPanel('inspect'); }));
+  panel.querySelectorAll('[data-weapon]').forEach((b) => b.addEventListener('click', () => { towerAction(`weapon:${b.dataset.weapon}`); renderWispPanel('inspect'); }));
 }
 function renderWispInspect() {
   const ie = inspectEntity;
@@ -11473,7 +11598,7 @@ function renderWispInspect() {
     ${/* The ring owns level, tier, target and sell — this panel used to offer
           all four again, which is how the same action ended up in three places
           at once. Readout and imbuing only. */''}
-    <div class="wp-detail">${stats.dmg} dmg · ${attackSpeedText(stats)} · ${effectiveDps(stats, t0.raceId).toFixed(0)} dps · ${attackProfileText(t0.raceId, stats)}<br>${specialBlurbs[stats.special]||stats.desc||''}${up?`<br><i>→ ${up.next.name}: ${up.next.dmg} dmg · ${up.next.range} range (full ${up.cost}g)</i>`:'<br><i>max tier</i>'}</div>${boltPanelHtml(sel) + wardPanelHtml(sel)}`;
+    <div class="wp-detail">${stats.dmg} dmg · ${attackSpeedText(stats)} · ${effectiveDps(stats, t0.raceId).toFixed(0)} dps · ${attackProfileText(t0.raceId, stats)}<br>${specialBlurbs[stats.special]||stats.desc||''}${up?`<br><i>→ ${up.next.name}: ${up.next.dmg} dmg · ${up.next.range} range (full ${up.cost}g)</i>`:'<br><i>max tier</i>'}</div>${weaponPanelHtml(sel) + boltPanelHtml(sel) + wardPanelHtml(sel)}`;
 }
 function setupWisp() {
   const wisp = $('wisp');
