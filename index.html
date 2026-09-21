@@ -5647,6 +5647,65 @@ function importMatchLog(text) {
   playbookStamp = -1;   // force every playbook to be re-derived
   return { ok:true, added, skipped, total:loadMatchLog().length };
 }
+/* ---------------- MOVING A LOG BETWEEN DEVICES ----------------
+   Gene: "lets merge the practice game logs across devices."
+
+   The pooling this replaces was copy a JSON blob, paste a JSON blob. Measured
+   at a full log — 120 matches, each carrying up to 260 build entries — that
+   blob is 428 kb. Nobody is moving 428 kb through a clipboard between a phone
+   and a laptop, which is why the logs have never actually been pooled: the
+   feature existed and the act was impossible.
+
+   A file is the thing that crosses devices without a backend. It AirDrops, it
+   attaches to a mail, it sits in Files or Drive, and it does not care how big it
+   is. Gzipped through CompressionStream, which is native and needs no library,
+   so the project stays dependency-free and buildless.
+
+   Every path still funnels into importMatchLog, so the dedupe by match key and
+   the "your own records stay separate" rule are unchanged — merging the same
+   file twice adds nothing the second time. */
+const LOG_FILE_MAGIC = 'RWLOG1';
+
+function logExportPayload() {
+  // your own games only — re-exporting the pool would bounce shared logs around
+  return JSON.stringify({ exported:new Date().toISOString(), app:'rimewall',
+    audit:raceAudit(), matches:loadOwnLog() });
+}
+async function gzipText(text) {
+  if (typeof CompressionStream !== 'function') return null;
+  const cs = new CompressionStream('gzip');
+  const stream = new Blob([text]).stream().pipeThrough(cs);
+  return new Response(stream).arrayBuffer();
+}
+async function gunzipToText(buf) {
+  if (typeof DecompressionStream !== 'function') return null;
+  const ds = new DecompressionStream('gzip');
+  const stream = new Blob([buf]).stream().pipeThrough(ds);
+  return new Response(stream).text();
+}
+/* The file is a tiny magic header then gzip, so a wrong file is refused with a
+   sentence rather than a JSON parse error, and a future format can be told
+   apart from this one. */
+async function buildLogFile() {
+  const text = logExportPayload();
+  const gz = await gzipText(text);
+  if (!gz) return { blob:new Blob([text], { type:'application/json' }), ext:'json', bytes:text.length, raw:text.length };
+  const head = new TextEncoder().encode(LOG_FILE_MAGIC);
+  const out = new Uint8Array(head.length + gz.byteLength);
+  out.set(head, 0); out.set(new Uint8Array(gz), head.length);
+  return { blob:new Blob([out], { type:'application/octet-stream' }), ext:'rwlog', bytes:out.length, raw:text.length };
+}
+async function readLogFile(file) {
+  const buf = await file.arrayBuffer();
+  const head = new TextDecoder().decode(new Uint8Array(buf.slice(0, LOG_FILE_MAGIC.length)));
+  if (head === LOG_FILE_MAGIC) {
+    const text = await gunzipToText(buf.slice(LOG_FILE_MAGIC.length));
+    if (!text) return { ok:false, why:'This browser cannot unpack a compressed log. Use Copy JSON instead.' };
+    return importMatchLog(text);
+  }
+  // a plain .json export, from this game or from the old copy-paste flow
+  return importMatchLog(new TextDecoder().decode(buf));
+}
 function saveMatchLog(list) {
   try { localStorage.setItem(MATCH_LOG_KEY, JSON.stringify(list.slice(-MATCH_LOG_CAP))); } catch (e) { /* per-browser only */ }
 }
@@ -11760,9 +11819,22 @@ function leaderboardHtml(log, limit = 8) {
 function recordsContent() {
   const log = loadMatchLog();
   const sharedCount = log.filter((m) => m.src === 'shared').length;
+  /* THE EMPTY STATE STILL NEEDS THE BUTTONS. This returned the "no matches
+     yet" line and nothing else, which put Load log file behind having a log —
+     so the one device that needs to import, a fresh one, was the one device
+     that could not. The actions render either way now. */
+  const actions = `<div class="sheet-grid sheet-actions">
+      <button class="sheet-chip" id="log-save"><span>💾</span><small>Save log file</small><b>device</b></button>
+      <button class="sheet-chip" id="log-load"><span>📂</span><small>Load log file</small><b>merge</b></button>
+      <button class="sheet-chip" id="log-copy"><span>⧉</span><small>Copy JSON</small><b>share</b></button>
+      <button class="sheet-chip" id="log-import"><span>⤵</span><small>Import log</small><b>pool</b></button>
+      <button class="sheet-chip sell-chip" id="log-clear"><span>🗑</span><small>Clear mine</small><b>${Math.max(0, log.length - sharedCount)}</b></button>
+    </div>`;
   if (!log.length) {
     return `<p class="sheet-heading">MATCH RECORDS</p>
-      <p class="sheet-hint">No matches recorded yet. Every match you finish is logged here — race, wave reached, gold earned and spent, and the wave you first leaked on. Play a few and the per-race audit below fills in.</p>`;
+      <p class="sheet-hint">No matches recorded yet. Every match you finish is logged here — race, wave reached, gold earned and spent, and the wave you first leaked on. Play a few and the per-race audit below fills in.</p>
+      <p class="sheet-hint">Already played on another device? <b>Save log file</b> there, send yourself the file, and <b>Load log file</b> here — the games pool and your rival learns from all of them.</p>
+      ${actions}`;
   }
   const audit = raceAudit(log);
   const recent = log.slice(-12).reverse();
@@ -11796,11 +11868,7 @@ function recordsContent() {
       const when = new Date(m.at).toLocaleDateString(undefined, { month:'short', day:'numeric' });
       return `<div class="learn-row"><span style="color:${race?.color || '#fff'}">${m.result === 'victory' ? '★' : '☠'} ${race?.name || m.race}</span><small>${when} · ${m.mode} ${m.team}v${m.team} vs ${m.rival || '?'} · wave ${m.wave} · ${m.kills} kills · ${m.livesLost} leaked · ${fmt(m.goldEarned)}g earned / ${fmt(m.goldSpent)}g spent · peak income ${fmt(m.peakIncome)}${m.bolts ? ` · ${m.bolts} bolts` : ''}</small></div>`;
     }).join('')}</div>
-    <div class="sheet-grid sheet-actions">
-      <button class="sheet-chip" id="log-copy"><span>⧉</span><small>Copy JSON</small><b>share</b></button>
-      <button class="sheet-chip" id="log-import"><span>⤵</span><small>Import log</small><b>pool</b></button>
-      <button class="sheet-chip sell-chip" id="log-clear"><span>🗑</span><small>Clear mine</small><b>${log.length - sharedCount}</b></button>
-    </div>`;
+    ${actions}`;
 }
 function learnContent() {
   const classWaves = {};
@@ -11932,9 +12000,33 @@ function renderCommandSheet() {
   }));
   sheet.querySelectorAll('[data-sheet-act]').forEach((b) => b.addEventListener('click', () => towerAction(b.dataset.sheetAct)));
   sheet.querySelectorAll('[data-bolt]').forEach((b) => b.addEventListener('click', () => { towerAction(`${b.dataset.ward ? 'ward' : 'bolt'}:${b.dataset.bolt}`); sheetKey = ''; renderCommandSheet(); }));
+  $('log-save')?.addEventListener('click', async () => {
+    const f = await buildLogFile();
+    const name = `rimewall-log-${new Date().toISOString().slice(0, 10)}.${f.ext}`;
+    const url = URL.createObjectURL(f.blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click();
+    a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+    const kb = (n) => (n / 1024).toFixed(0) + 'kb';
+    showToast(`<b>${name}</b><span>${kb(f.bytes)}${f.ext === 'rwlog' ? ` packed from ${kb(f.raw)}` : ''} — open it on your other device and Load log file.</span>`);
+  });
+  $('log-load')?.addEventListener('click', () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.rwlog,.json,application/json,application/octet-stream';
+    input.addEventListener('change', async () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      const res = await readLogFile(file).catch((e) => ({ ok:false, why:String(e).slice(0, 120) }));
+      if (!res.ok) { log('Could not read that log — ' + res.why); return; }
+      showToast(`<b>${res.added} match${res.added === 1 ? '' : 'es'} merged</b><span>${res.skipped} already known · the pool is ${res.total} games</span>`);
+      sheetKey = ''; renderCommandSheet();
+    });
+    input.click();
+  });
   $('log-copy')?.addEventListener('click', () => {
     // export YOUR games; re-exporting the pool would bounce shared logs around
-    const payload = JSON.stringify({ exported:new Date().toISOString(), audit:raceAudit(), matches:loadOwnLog() }, null, 1);
+    const payload = logExportPayload();
     navigator.clipboard?.writeText(payload)
       .then(() => showToast('<b>Match log copied</b><span>Paste it anywhere to share the race audit.</span>'))
       .catch(() => log('Clipboard blocked — the log is in localStorage under ' + MATCH_LOG_KEY));
