@@ -63,6 +63,15 @@ clientWidth`. The check now compares vertical centres and reports clean.
 
 If a contract fires on every render, suspect the contract.
 
+## Art
+
+`ART-DIRECTION.md` holds the current direction for the visual work, what the
+measurements say, and what the r/VibeCodeDevs racer post is and is not worth
+copying. `node tools/harness/readability.js` is the check behind it: it renders
+every sprite at the board's own cell and reports hue spread, confusable pairs
+and how much more ink a top rung covers than a first one. Judge art at board
+scale — a contact sheet at 46px flatters silhouettes that vanish at 21px.
+
 ## House rules
 
 - No Warcraft III assets, extracted or redistributed. Original code and art only.
