@@ -1659,7 +1659,14 @@ const TOWERS = {
     { name:'Dagger Adept', cost:5, levelCost:10, maxLevel:8, dmg:20, cd:.25, range:1.5, special:'basic', desc:'The fastest weapon in the game. One square, and everything in it bleeds.' },
     { name:'Sword Ronin', cost:5, levelCost:10, maxLevel:8, dmg:34, cd:.40, range:2.3, special:'basic', desc:'Two squares of reach and still quicker than any mace.' },
     { name:'Mace Breaker', cost:5, levelCost:10, maxLevel:8, dmg:60, cd:.70, range:2.3, special:'smallsplash', desc:'Slow and heavy: the swing catches everything crowded around the target.' },
-    { name:'Spear Sentinel', cost:5, levelCost:10, maxLevel:8, dmg:75, cd:.85, range:3.2, special:'beamline', desc:'The longest reach a ninja gets, and it runs through whatever stands behind its mark.' },
+    /* A SPEAR IS THROWN. Gene: "ninja spear shouldnt be the same as beam, it
+       should be a a spear literally being thrown." It carried special:'beamline'
+       — the same continuous-ray primitive Beam's whole identity is built on — so
+       the game's melee assassin and its long-range laser race drew the identical
+       effect, and there was no projectile in flight to look at because a ray is
+       instantaneous. 'spearthrow' is a real projectile with a real flight time
+       that pierces past its mark on impact, which is what the card always said. */
+    { name:'Spear Sentinel', cost:5, levelCost:10, maxLevel:8, dmg:75, cd:.85, range:3.2, special:'spearthrow', desc:'The longest reach a ninja gets. Hurled, and it runs on through whatever stands behind its mark.' },
     { name:'Shadow Master', cost:5, levelCost:14, maxLevel:8, dmg:26, cd:.30, range:2.3, special:'basic', desc:'A blur inside two squares. Nothing kills faster at this range — and it levels dearer than the rest.' }
   ],
   gravity:[
@@ -1967,6 +1974,7 @@ function specialBlurb(sp) {
     bulwark:`No attack at all. It exists to be hit: ${BULWARK_TOWER.hpMult}x the hit points of an ordinary tower, so the front row can soak attackers while the towers behind keep firing.`,
     beam:`A continuous ray rather than a volley: damage lands every frame, so the rate holds at any framerate.`,
     beamline:`A continuous ray that PIERCES: full damage to its mark, and ${pct(TRAIT.beamLineMult)} to every creep the ray passes through on the way there.`,
+    spearthrow:`A thrown spear: full damage to its mark, and ${pct(TRAIT.beamLineMult)} to anything it runs through — including the ${TRAIT.beamLineBehind} cells BEHIND the target.`,
     warp:`A single warped slug that drags its target to a crawl.` + gravTail,
     gravslam:`An AREA pulse: full damage to the lead creep and ${pct(TRAIT.gravPulseMult)} to those behind it.` + gravTail,
     warppulse:`An AREA pulse: full damage to the lead creep and ${pct(TRAIT.gravPulseMult)} to at most ${TRAIT.gravPulseCap} more.` + gravTail,
@@ -3966,6 +3974,28 @@ function resolveProjectileHit(projectile) {
         .sort((a, b) => creepProgress(b) - creepProgress(a))[0];
       if (lead === target) dmg *= TRAIT.snipeMult;
     }
+    /* THE SPEAR RUNS ON PAST WHAT IT HITS. Same geometry the lance uses, but
+       resolved once on impact instead of every frame, because this is one throw
+       and not a channel. t is allowed past 1 so the line extends BEHIND the
+       mark — creeps in front of it were never the thing the card promised. */
+    if (stats.special === 'spearthrow') {
+      const tx = projectile.sx, ty = projectile.sy;
+      const dx = impactX - tx, dy = impactY - ty;
+      const len2 = dx * dx + dy * dy;
+      if (len2 > 1e-6) {
+        const len = Math.sqrt(len2);
+        const reach = 1 + TRAIT.beamLineBehind / len;
+        for (const other of creeps) {
+          if (other === target || other.hp <= 0 || other.half !== projectile.half) continue;
+          if (stats.groundOnly && other.air) continue;
+          const t = Math.max(0, Math.min(reach, ((other.x - tx) * dx + (other.y - ty) * dy) / len2));
+          if (Math.hypot(other.x - (tx + dx * t), other.y - (ty + dy * t)) <= TRAIT.beamLineR) {
+            applyDamage(other, stats.dmg * TRAIT.beamLineMult, tower);
+            applyHitEffects(other, tower, stats);
+          }
+        }
+      }
+    }
     if (stats.special === 'focus') {
       // hits on the SAME creep ramp; switching target resets the stack
       if (tower.focusId === target.id) tower.focusHits = Math.min(5, (tower.focusHits || 0) + 1);
@@ -4283,6 +4313,8 @@ function pickTarget(tower, stats) {
 }
 function projectileFlightTime(special) {
   if (special === 'chain') return .09;
+  // long enough to read as a throw, short enough that a .85s cadence still lands
+  if (special === 'spearthrow') return .16;
   if (special === 'meteor') return .5;
   if (special === 'rocket') return .55;
   if (special === 'machinegun') return .12;
@@ -5677,32 +5709,344 @@ const RW_ELEMENT = {
 /* Plinth slabs per tier: [width, height] in cell units (cell = 20u), bottom first. */
 const RW_SLABS = [[], [[10, 2]], [[13, 2.4]], [[14, 2], [10, 2]], [[16, 2.2], [12, 2.2]], [[18, 2], [14, 2], [10, 2]]];
 const RW_SLAB_COL = ['#9aa7c2', '#b6c1d6', '#c9d3e6'];   // bottom -> top; light hits the top step
-function rwBody(ctx, el, a, h, t) {
-  const P = Math.PI;
-  switch (el) {
-    case 'ice':      ctx.beginPath(); ctx.moveTo(-a, 0); ctx.lineTo(0, -h); ctx.lineTo(a, 0); ctx.closePath(); ctx.fill(); ctx.stroke(); break;
-    case 'fire': {   ctx.fillRect(-1.3, -h * .32, 2.6, h * .32);
-                     ctx.beginPath(); ctx.arc(0, -h * .58, a, 0, P, false); ctx.closePath(); ctx.fill(); ctx.stroke();
-                     const fl = Math.sin(t * 7) * .08 * h;
-                     ctx.beginPath(); ctx.moveTo(0, -h - fl); ctx.quadraticCurveTo(a * .55, -h * .75, 0, -h * .5); ctx.quadraticCurveTo(-a * .55, -h * .75, 0, -h - fl); ctx.fill(); break; }
-    case 'earth':    ctx.beginPath(); ctx.ellipse(0, 0, a * 1.35, h * .72, 0, P, 0, false); ctx.closePath(); ctx.fill(); ctx.stroke(); break;
-    case 'tech':     ctx.beginPath(); ctx.rect(-a * .9, -h * .55, a * 1.8, h * .55); ctx.fill(); ctx.stroke();
-                     ctx.beginPath(); ctx.rect(0, -h * .82, a * 2.1, h * .2); ctx.fill(); ctx.stroke(); break;
-    case 'crystal':  ctx.beginPath(); ctx.moveTo(0, -h); ctx.lineTo(a * .8, -h * .38); ctx.lineTo(0, 0); ctx.lineTo(-a * .8, -h * .38); ctx.closePath(); ctx.fill(); ctx.stroke(); break;
-    case 'poison':   ctx.beginPath(); ctx.rect(-a * .3, -h, a * .6, h * .55); ctx.fill(); ctx.stroke();
-                     ctx.beginPath(); ctx.arc(0, -h * .34, a * .95, 0, P * 2); ctx.fill(); ctx.stroke(); ctx.fillRect(-a * .5, -h, a, 1.2); break;
-    case 'stone':    [[1.25, 0, .34], [.85, .34, .33], [.45, .67, .33]].forEach(([w, y, hh]) => { ctx.beginPath(); ctx.rect(-a * w, -h * (y + hh), a * w * 2, h * hh); ctx.fill(); ctx.stroke(); }); break;
-    case 'electricity': ctx.fillRect(-.9, -h, 1.8, h); ctx.fillRect(-a, -h * .82, a * 2, 1.3); ctx.fillRect(-a * .6, -h * .55, a * 1.2, 1.3);
-                     ctx.globalAlpha = Math.sin(t * 9) > 0 ? 1 : .55; ctx.beginPath(); ctx.arc(0, -h, 1.9, 0, P * 2); ctx.fill(); ctx.globalAlpha = 1; break;
-    case 'gravity':  ctx.beginPath(); ctx.arc(0, -h * .5, h * .5, 0, P * 2); ctx.arc(0, -h * .5, h * .26, 0, P * 2, true); ctx.fill('evenodd');
-                     ctx.beginPath(); ctx.arc(0, -h * .5, h * .5, 0, P * 2); ctx.stroke(); break;
-    case 'beam':     ctx.fillRect(-1, -h * .38, 2, h * .38);
-                     ctx.beginPath(); ctx.moveTo(-a * 1.15, -h); ctx.lineTo(-a * .35, -h * .38); ctx.lineTo(a * .35, -h * .38); ctx.lineTo(a * 1.15, -h); ctx.closePath(); ctx.fill(); ctx.stroke();
-                     ctx.globalAlpha = .6 + Math.sin(t * 5) * .3; ctx.beginPath(); ctx.arc(0, -h * .78, 1.4, 0, P * 2); ctx.fill(); ctx.globalAlpha = 1; break;
-    case 'ninja':    ctx.fillRect(-1.2, -h * .1, 2.4, h * .1); ctx.fillRect(-a * .85, -h * .26, a * 1.7, 1.5);
-                     ctx.beginPath(); ctx.moveTo(-1.8, -h * .26); ctx.lineTo(1.8, -h * .26); ctx.quadraticCurveTo(a * .5, -h * .7, a * 1.05, -h); ctx.lineTo(a * .45, -h * .86); ctx.quadraticCurveTo(-1.6, -h * .62, -1.8, -h * .26); ctx.closePath(); ctx.fill(); ctx.stroke(); break;
+/* ---------------- TOWER SILHOUETTES ----------------
+   Gene: "we need to improve everything including the towers themselves they are
+   way too basic and boring."
+
+   The reason they were: rwBody TOOK NO TIER. Every tier of a race drew the
+   identical body — a tier-5 Ice tower was the same triangle as a tier-0 — and
+   only the stone plinth underneath grew. Six purchases, one silhouette, eleven
+   times over.
+
+   It takes `tier` now and every element changes shape as it climbs. Same
+   contract otherwise: the context arrives scaled to a twenty-unit cell with the
+   origin at the top of the plinth, y negative upward, fillStyle already set to
+   the element colour and strokeStyle to the dark outline.
+
+   No Math.random anywhere — idle animation comes from `t` alone, so towers do
+   not vibrate and a screenshot test sees the same frame twice. Authored with
+   codex against tools/harness BRIEF-towers.
+*/
+function rwBody(ctx, el, a, h, t, tier) {
+  const hex = ctx.fillStyle;
+  const k = Math.max(0, Math.min(5, Math.floor(tier || 0)));
+  const time = Number.isFinite(t) ? t : 0;
+  const dark = '#192536';
+  const metal = '#526478';
+  const light = '#e8faff';
+  const gold = '#e6bd70';
+  const height = 5.6 + k * 0.89;
+  const width = 2.5 + k * 0.36;
+
+  // Coordinates are in the caller's twenty-unit cell; animation never scales it.
+  ctx.save();
+  ctx.scale(a / 5, h / 8.5);
+  ctx.globalAlpha = 1;
+
+  function rwb_poly(points, color, outline) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(points[0], points[1]);
+    for (let i = 2; i < points.length; i += 2) {
+      ctx.lineTo(points[i], points[i + 1]);
+    }
+    ctx.closePath();
+    ctx.fill();
+    if (outline) ctx.stroke();
   }
+
+  function rwb_oval(x, y, rx, ry, color, outline) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+    ctx.fill();
+    if (outline) ctx.stroke();
+  }
+
+  function rwb_rect(x, y, w, height, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, w, height);
+  }
+
+  function rwb_line(points, color, thickness) {
+    const oldStroke = ctx.strokeStyle;
+    const oldWidth = ctx.lineWidth;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = thickness;
+    ctx.beginPath();
+    ctx.moveTo(points[0], points[1]);
+    for (let i = 2; i < points.length; i += 2) {
+      ctx.lineTo(points[i], points[i + 1]);
+    }
+    ctx.stroke();
+    ctx.strokeStyle = oldStroke;
+    ctx.lineWidth = oldWidth;
+  }
+
+  switch (el) {
+    // Ice: a split glacial spear acquires successively taller side shards and a frost crown.
+    case 'ice': {
+      const crown = k === 5;
+      rwb_poly([
+        -width, -0.55, -width - 0.5, -3.3,
+        k >= 2 ? -5.4 : -2.5, k >= 2 ? -6.4 - k * 0.3 : -3.8,
+        -1.7, -4.4, crown ? -2.1 : -1.1, crown ? -9.1 : -4.7,
+        0, -height, 1.25, -5.1,
+        k >= 3 ? 4.5 : 2.2, k >= 3 ? -7.9 - (k - 3) * 0.6 : -3.8,
+        3.25, -2.8, k >= 4 ? 5.7 : width, k >= 4 ? -5.1 : -2.6,
+        width, -0.55
+      ], hex, true);
+      rwb_poly([0, -height + 0.45, -0.65, -1.1, 1.45, -2.5], light, false);
+      rwb_poly([-width, -0.55, -1.7, -4.4, -0.65, -1.1, width, -0.55], '#3b748b', false);
+      if (k >= 1) rwb_line([-2.1, -2.5, -0.5, -3.1, 1.7, -2.9], light, 0.45);
+      if (crown) rwb_poly([-5.5, -2.8, -6.1, -4.6, -3.9, -3.5], light, true);
+      break;
+    }
+
+    // Fire: a coal brazier grows handles, a furnace skirt, and a three-tongued inferno.
+    case 'fire': {
+      if (k >= 2) rwb_poly([-width + 0.5, -1.1, -5.5, -3.8, -5.5, -5.1, -4.2, -4.3, -3, -2.5], metal, true);
+      if (k >= 3) rwb_poly([width - 0.5, -1.1, 5.5, -3.8, 5.5, -5.1, 4.2, -4.3, 3, -2.5], metal, true);
+      rwb_poly([-2, -0.55, -width, -3.8, width, -3.8, 2, -0.55], hex, true);
+      rwb_poly([-1.2, -0.6, -2.2, -3.5, 2.4, -3.5, 1.25, -0.6], dark, false);
+      if (k >= 1) rwb_rect(-width - 0.3, -3.8, width * 2 + 0.6, 0.7, gold);
+      if (k >= 4) rwb_poly([-3.9, -0.5, -3.4, -2.2, 3.4, -2.2, 3.9, -0.5], metal, true);
+      const sway = Math.sin(time * 2.4 + 0.7) * (0.1 + k * 0.025);
+      ctx.fillStyle = hex;
+      ctx.beginPath();
+      ctx.moveTo(-2.25 - k * 0.19, -3.9);
+      ctx.bezierCurveTo(-4.1, -5.1, -2.3, -6.2, -2.5, -height + 1.3);
+      ctx.bezierCurveTo(-1.9, -height + 2.5, -1.35, -5.1, -0.6, -6.1);
+      ctx.bezierCurveTo(0.25, -7, -0.9, -height + 0.7, sway + 0.65, -height);
+      ctx.bezierCurveTo(0.15, -height + 2, 2.2, -height + 1.8, 1.8, -5.5);
+      ctx.bezierCurveTo(2.8, -5.7, 3, k === 5 ? -9 : -6.4, 3.2, -6.4);
+      ctx.bezierCurveTo(4.3, -4.9, 2.4, -3.8, 1.3, -3.9);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      rwb_poly([-1.25, -4, 0.3 + sway, -7.1 - k * 0.25, 1.4, -4], '#fff0ad', false);
+      if (k === 5) rwb_rect(-0.4, -1.8, 0.8, 1.1, hex);
+      break;
+    }
+
+    // Earth: a broad siege ram gains stone tusks, shoulder armour, and a crowned fault line.
+    case 'earth': {
+      rwb_poly([-width - 0.8, -0.6, -width - 1.3, -3.4,
+        -width, -height + 1.6, -1.5, -height, 1.5, -height,
+        width, -height + 1.6, width + 1.3, -3.4, width + 0.8, -0.6], hex, true);
+      rwb_poly([-width - 0.8, -0.6, -width, -height + 1.6, -1.2, -3.1, 0, -0.6], '#6c6650', false);
+      rwb_poly([-1.4, -height + 0.4, 1.3, -height + 0.4, 2.3, -3.6, -1.2, -3.1], '#c1ba85', false);
+      if (k >= 1) rwb_poly([-3.2, -0.8, -5, -2.3, -5.5, -5.6, -3.5, -3.5], gold, true);
+      if (k >= 2) rwb_poly([3.2, -0.8, 5, -2.3, 5.5, -5.6, 3.5, -3.5], gold, true);
+      if (k >= 3) rwb_rect(-5.8, -4.4, 1.6, 2.6, dark);
+      if (k >= 4) rwb_rect(4.2, -4.4, 1.6, 2.6, dark);
+      rwb_line([0.5, -height + 0.9, -0.7, -5.2, 1, -3.7, -0.3, -1.2], dark, 0.65);
+      rwb_rect(-2.5, -4.6, 1.5, 0.65, dark);
+      rwb_rect(1, -4.6, 1.5, 0.65, dark);
+      if (k === 5) rwb_poly([-3, -7.2, -3.5, -9.5, -1.4, -8.9, 0, -10.45, 1.4, -8.9, 3.5, -9.5, 3, -7.2], hex, true);
+      break;
+    }
+
+    // Tech: a single artillery tube becomes a braced twin-barrel rail cannon with targeting optics.
+    case 'tech': {
+      if (k >= 4) rwb_poly([-5.7, -0.5, -4, -3.9, 2.7, -3.9, 5, -0.5, 3.2, -0.5, 1.8, -2.4, -2.8, -2.4, -4, -0.5], metal, true);
+      rwb_poly([-2.8, -0.55, -3.6, -3.6, -1.3, -5.2, 2.5, -3.7, 3, -0.55], hex, true);
+      if (k >= 1) rwb_rect(-4.8, -4.7, 2.3, 2, metal);
+      if (k >= 3) rwb_poly([0, -3.5, 3.9, -8.8, 5.6, -7.5, 2.3, -2.7], metal, true);
+      rwb_poly([-1.9, -3.1, -2.6, -4.8, 1.2 + k * 0.44, -height,
+        3.1 + k * 0.38, -height + 1.2, 0.4, -2.5], hex, true);
+      rwb_line([-1.4, -4.3, 1.75 + k * 0.41, -height + 0.75], light, 0.6);
+      rwb_line([1.2 + k * 0.44, -height, 3.1 + k * 0.38, -height + 1.2], dark, 1.1);
+      if (k >= 2) rwb_line([0, -6.4, 1.9, -5.15], gold, 1.1);
+      rwb_oval(-0.6, -2.2, 1, 1, metal, true);
+      if (k === 5) {
+        rwb_rect(-4.4, -8.4, 0.7, 3.7, metal);
+        rwb_poly([-5.1, -8.7, -3.8, -10.1, -2.2, -9, -3.5, -7.8], hex, true);
+        rwb_rect(-4, -9.2, 0.8, 0.8, light);
+      }
+      break;
+    }
+
+    // Crystal: a hovering gem develops an open cradle, satellite gems, and a splintered crown.
+    case 'crystal': {
+      const bob = Math.sin(time * 1.6 + 2.1) * 0.16;
+      const top = -height + bob;
+      const center = (top - 2.1) / 2;
+      rwb_poly([-2.4, -0.5, -3, -2.7, -1.5, -1.4, 1.5, -1.4, 3, -2.7, 2.4, -0.5], metal, true);
+      if (k >= 2) rwb_poly([-4.2, -1.5, -5.1, -4.9, -3.8, -6.3, -2.8, -4.9], hex, true);
+      if (k >= 3) rwb_poly([4.2, -1.5, 5.1, -4.9, 3.8, -6.3, 2.8, -4.9], hex, true);
+      rwb_poly([0, top, width * 0.78, center, 0, -2.1 + bob, -width * 0.78, center], hex, true);
+      rwb_poly([0, top + 0.4, 0.3, center, -width * 0.67, center], light, false);
+      rwb_poly([0.3, center, width * 0.67, center, 0, -2.5 + bob], '#674c92', false);
+      if (k >= 1) rwb_line([-width * 0.67, center, 0.3, center, 0, -2.5 + bob], light, 0.4);
+      if (k >= 4) rwb_poly([-2.5, -6.9, -4, -9, -2.4, -10.1, -1.5, -8.7], hex, true);
+      if (k === 5) rwb_poly([2.5, -6.9, 4, -9, 2.4, -10.1, 1.5, -8.7], light, true);
+      break;
+    }
+
+    // Poison: a stoppered venom flask gains distillation pipes, a second neck, and escaping bubbles.
+    case 'poison': {
+      const neck = -height + 0.6;
+      if (k >= 2) rwb_line([-2.9, -1.6, -5.1, -2.7, -5.1, -6.2, -2.6, -6.2], dark, 1.9);
+      if (k >= 2) rwb_line([-2.9, -1.6, -5.1, -2.7, -5.1, -6.2, -2.6, -6.2], hex, 0.85);
+      if (k >= 3) rwb_line([2.8, -2.1, 4.9, -3.2, 4.9, -7.7, 2.6, -7.7], metal, 1.6);
+      rwb_poly([-width + 0.5, -0.55, -width, -2.9, -1.1, -5,
+        -1.1, neck, 1.1, neck, 1.1, -5, width, -2.9, width - 0.5, -0.55], hex, true);
+      rwb_poly([-width + 0.7, -2.7, width - 0.7, -2.7, width - 1, -1, -width + 1, -1], dark, false);
+      rwb_rect(-1.5, neck - 0.5, 3, 0.9, k >= 1 ? gold : metal);
+      rwb_line([-0.55, neck + 1.2, -0.55, -4.6, -2.4, -2.8], light, 0.5);
+      if (k >= 1) rwb_oval(0.9, -2, 0.55, 0.55, hex, false);
+      if (k >= 4) {
+        rwb_poly([1.4, -4.2, 2.1, -8.5, 3.7, -8.5, 3.4, -4.7], hex, true);
+        rwb_rect(1.9, -8.9, 2, 0.65, gold);
+      }
+      if (k === 5) {
+        rwb_oval(3.1, -9.85 + Math.sin(time * 1.7) * 0.13, 0.55, 0.55, hex, true);
+        rwb_oval(5.3, -8.75 + Math.cos(time * 1.7) * 0.18, 0.4, 0.4, light, false);
+      }
+      break;
+    }
+
+    // Stone: a squat square keep gains buttresses, battlements, an iron belt, and a fortified crown.
+    case 'stone': {
+      if (k >= 1) rwb_poly([-width - 1.2, -0.55, -width - 0.8, -4.5, -width + 0.6, -4.5, -width + 0.6, -0.55], metal, true);
+      if (k >= 2) rwb_poly([width + 1.2, -0.55, width + 0.8, -4.5, width - 0.6, -4.5, width - 0.6, -0.55], metal, true);
+      const roof = -height + (k >= 3 ? 1.3 : 0);
+      rwb_poly([-width, -0.55, -width, -height, -width + 1.4, -height,
+        -width + 1.4, roof, -0.7, roof, -0.7, -height,
+        0.7, -height, 0.7, roof, width - 1.4, roof,
+        width - 1.4, -height, width, -height, width, -0.55], hex, true);
+      rwb_rect(width - 1.2, roof + 0.4, 0.8, -roof - 1, '#536072');
+      rwb_rect(-width + 0.45, -3, width * 2 - 0.9, 0.45, dark);
+      rwb_rect(-0.3, -2.6, 0.45, 2, dark);
+      rwb_rect(-1.5, roof + 1, 0.55, 1.5, dark);
+      rwb_rect(0.95, roof + 1, 0.55, 1.5, dark);
+      if (k >= 4) {
+        rwb_rect(-width - 0.2, -4.4, width * 2 + 0.4, 1, metal);
+        rwb_rect(-width + 0.4, -4.15, 0.5, 0.5, gold);
+        rwb_rect(width - 0.9, -4.15, 0.5, 0.5, gold);
+      }
+      if (k === 5) rwb_poly([-1.2, -5.2, -1.2, -7.2, 1.2, -7.2, 1.2, -5.2, 0, -4.4], gold, true);
+      break;
+    }
+
+    // Electricity: a copper Tesla spindle acquires coils, paired terminals, and a bridged lightning crown.
+    case 'electricity': {
+      rwb_poly([-2.4, -0.55, -1.5, -2.2, -0.85, -height + 1,
+        0.85, -height + 1, 1.5, -2.2, 2.4, -0.55], metal, true);
+      for (let i = 0; i < 2 + Math.floor(k / 2); i++) {
+        rwb_rect(-1.9, -2.7 - i * 1.2, 3.8, 0.65, hex);
+      }
+      if (k >= 2) rwb_line([-1.7, -1.3, -4.5, -2.6, -4.5, -6.5], metal, 1.4);
+      if (k >= 3) rwb_line([1.7, -1.3, 4.5, -2.6, 4.5, -6.5], metal, 1.4);
+      if (k >= 2) rwb_oval(-4.5, -6.9, 1, 0.85, hex, true);
+      if (k >= 3) rwb_oval(4.5, -6.9, 1, 0.85, hex, true);
+      rwb_oval(0, -height + 0.8, 1.35 + k * 0.15, 0.85, hex, true);
+      if (k >= 1) rwb_rect(-0.3, -height - 0.35, 0.6, 1.3, light);
+      if (k >= 4) rwb_line([-4.5, -7.7, -3.5, -8.4, -2.8, -7.9, -1.6, -8.5], light, 0.55);
+      if (k === 5) {
+        const shift = Math.sin(time * 3) * 0.12;
+        rwb_line([1.6, -8.5, 2.6, -9 + shift, 3.3, -8, 4.5, -7.7], light, 0.55);
+        rwb_rect(-0.35, -1.9, 0.7, 1, gold);
+      }
+      break;
+    }
+
+    // Gravity: an empty containment ring grows a yoke, orbiting weights, and a second stabilizing ring.
+    case 'gravity': {
+      const cy = -3.5 - k * 0.5;
+      const rx = 2.35 + k * 0.4;
+      const ry = 2.05 + k * 0.37;
+      rwb_poly([-2.5, -0.55, -1.3, cy + 1.5, 1.3, cy + 1.5, 2.5, -0.55], metal, true);
+      if (k >= 2) rwb_poly([-5.5, -0.55, -5.9, cy - 0.5, -4.8, cy - 1.3, -4.4, -1.7, 4.4, -1.7, 4.8, cy - 1.3, 5.9, cy - 0.5, 5.5, -0.55], dark, true);
+      /* Opposite winding leaves a real transparent hole, regardless of backdrop.
+         The annulus was 0.9 units across a 2.35 radius, which on the dark board
+         read as a hairline — gravity was the one element you could not pick out
+         of the contact sheet. Wider, and the rim is lit so the ring has an edge
+         rather than just an outline. */
+      ctx.fillStyle = hex;
+      ctx.beginPath();
+      ctx.ellipse(0, cy, rx, ry, 0, 0, Math.PI * 2);
+      ctx.moveTo(rx - 1.5, cy);
+      ctx.ellipse(0, cy, rx - 1.5, ry - 1.3, 0, 0, Math.PI * 2, true);
+      ctx.fill();
+      ctx.stroke();
+      const gOldS = ctx.strokeStyle, gOldW = ctx.lineWidth;
+      ctx.strokeStyle = light; ctx.lineWidth = .5; ctx.globalAlpha = .55;
+      ctx.beginPath(); ctx.ellipse(0, cy, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1; ctx.strokeStyle = gOldS; ctx.lineWidth = gOldW;
+      if (k >= 1) rwb_oval(0, cy, 0.6 + k * 0.09, 0.6 + k * 0.09, dark, true);
+      if (k >= 3) {
+        const phase = time * 0.65;
+        const ox = Math.cos(phase) * rx;
+        const oy = Math.sin(phase) * ry;
+        rwb_oval(ox, cy + oy, 0.55, 0.55, light, true);
+        if (k >= 4) rwb_oval(-ox, cy - oy, 0.55, 0.55, gold, true);
+      }
+      if (k === 5) {
+        const oldStroke = ctx.strokeStyle;
+        const oldWidth = ctx.lineWidth;
+        ctx.strokeStyle = light;
+        ctx.lineWidth = 0.55;
+        ctx.beginPath();
+        ctx.ellipse(0, cy, 5.65, 1.65, -0.38, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = oldStroke;
+        ctx.lineWidth = oldWidth;
+      }
+      break;
+    }
+
+    // Beam: a lens between opposed mirrors develops wider reflectors, a focusing rail, and a prism crown.
+    case 'beam': {
+      const cy = -3.8 - k * 0.54;
+      rwb_poly([-2.6, -0.55, -1.3, cy + 1.5, 1.3, cy + 1.5, 2.6, -0.55], metal, true);
+      rwb_poly([-1.5, -1.3, -4.1 - k * 0.22, cy - 0.3,
+        -2.6 - k * 0.2, -height, -1.3 - k * 0.16, -height + 0.55,
+        -2.75 - k * 0.16, cy - 0.25, -0.6, -2], hex, true);
+      rwb_poly([1.5, -1.3, 4.1 + k * 0.22, cy - 0.3,
+        2.6 + k * 0.2, -height, 1.3 + k * 0.16, -height + 0.55,
+        2.75 + k * 0.16, cy - 0.25, 0.6, -2], hex, true);
+      rwb_line([-1.5 - k * 0.16, -height + 0.8, -2.75 - k * 0.16, cy - 0.25, -0.8, -2], light, 0.55);
+      if (k >= 1) rwb_line([1.5 + k * 0.16, -height + 0.8, 2.75 + k * 0.16, cy - 0.25, 0.8, -2], light, 0.55);
+      if (k >= 2) rwb_rect(-0.4, cy - 1.4, 0.8, -cy - 0.3, gold);
+      if (k >= 3) rwb_line([-3, cy, 3, cy], light, 0.55);
+      rwb_oval(0, cy, 0.8 + k * 0.13, 1.1 + k * 0.12, light, true);
+      if (k >= 4) rwb_poly([-0.95, -1, -1.55, -2.5, 0, -3.4, 1.55, -2.5, 0.95, -1], hex, true);
+      if (k === 5) rwb_poly([0, -10.45, 1.15, -9.05, 0, -7.7, -1.15, -9.05], gold, true);
+      break;
+    }
+
+    // Ninja: a lone katana on a rack gains a crossed blade, wider supports, and a shuriken crest.
+    case 'ninja': {
+      if (k >= 2) rwb_rect(-4.7, -6.4, 0.85, 5.9, dark);
+      if (k >= 3) rwb_rect(3.85, -6.4, 0.85, 5.9, dark);
+      rwb_poly([-2, -0.55, -1.5, -4.2, 1.5, -4.2, 2, -0.55], metal, true);
+      if (k >= 1) rwb_poly([2.7, -1.1, 1.5, -1.1, -3.8, -7.6 - k * 0.37,
+        -4.5, -8 - k * 0.37, -4.3, -6.1, 1.9, -0.7], hex, true);
+      rwb_poly([-2.7, -1, -1.5, -0.8, 3.45 + k * 0.24, -height + 1.6,
+        3.85 + k * 0.2, -height, 2.6 + k * 0.2, -height + 0.8], hex, true);
+      rwb_line([-1.2, -2.7, 2.9 + k * 0.2, -height + 1.5, 3.6 + k * 0.2, -height + 0.35], light, 0.5);
+      rwb_line([-2.8, -4, 0.1, -2.1], gold, 0.8);
+      if (k >= 1) rwb_line([-0.1, -2.1, 2.8, -4], gold, 0.8);
+      rwb_rect(-3.2 - k * 0.34, -3.8, 6.4 + k * 0.68, 0.8, dark);
+      rwb_rect(-0.45, -3.8, 0.9, 2.7, hex);
+      if (k >= 4) rwb_poly([0, -9.7, 0.75, -7.9, 2.5, -7.5, 0.75, -6.75,
+        0, -5, -0.75, -6.75, -2.5, -7.5, -0.75, -7.9], metal, true);
+      if (k === 5) {
+        rwb_oval(0, -7.45, 0.6, 0.6, gold, true);
+        rwb_poly([-5.7, -1, -6, -3.6, -4.8, -3.6, -4.5, -1], hex, true);
+        rwb_poly([5.7, -1, 6, -3.6, 4.8, -3.6, 4.5, -1], hex, true);
+      }
+      break;
+    }
+  }
+
+  ctx.restore();
+  ctx.fillStyle = hex;
+  ctx.globalAlpha = 1;
 }
+
 /* Ownership: an inset outline on the cell and a band under the plinth. Never on
    the body - the body belongs to the element. Off entirely when a half has one
    seat, because an ownership mark with nobody to distinguish is just noise. */
@@ -5727,7 +6071,7 @@ function drawTowerStructure(ctx, tower, stats, building, laneColor) {
   ctx.translate(0, bottom);
   ctx.fillStyle = hex; ctx.strokeStyle = '#0c122099'; ctx.lineWidth = .9; ctx.lineJoin = 'round';
   if (building) ctx.globalAlpha = .6;
-  rwBody(ctx, race, 5, bottom + 8.5, simTime + (tower.key % 97) * .61);
+  rwBody(ctx, race, 5, bottom + 8.5, simTime + (tower.key % 97) * .61, tier);
   ctx.restore();
 }
 function drawTower(ctx, tower) {
@@ -6100,112 +6444,278 @@ function drawCreep(ctx, creep) {
 }
 // Per-element signature body for the common (non-trajectory-special) projectiles.
 // race drives the look; color is the tower tint; reduced dampens random particles.
-function drawElementBolt(ctx, p, race, color, x, y, k, reduced) {
-  ctx.save(); ctx.translate(x, y); ctx.scale(FX_SCALE, FX_SCALE); ctx.translate(-x, -y);
-  const dx = p.tx - p.sx, dy = p.ty - p.sy;
-  const len = Math.hypot(dx, dy) || 1;
-  const ux = dx / len, uy = dy / len;                 // unit travel direction
-  const angle = Math.atan2(dy, dx);
-  const ph = p.sx * 4.7 + p.sy * 8.3;                 // stable per-shot phase (deterministic)
-  const flick = Math.sin(p.t * 34 + ph);
-  if (race === 'ice') {
-    // crystalline shard with a frosty trail
-    if (!reduced) {
-      ctx.fillStyle = '#dff4ff55';
-      for (let i = 1; i <= 3; i += 1) { const t = i / 3; ctx.beginPath(); ctx.arc(x - ux * i * 3, y - uy * i * 3, Math.max(0, 2.4 - t * 1.6), 0, Math.PI * 2); ctx.fill(); }
-    } else { ctx.fillStyle = '#dff4ff55'; ctx.beginPath(); ctx.arc(x - ux * 3, y - uy * 3, Math.max(0, 1.6), 0, Math.PI * 2); ctx.fill(); }
-    ctx.save(); ctx.translate(x, y); ctx.rotate(angle + p.t * 2.5);
-    ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(0, -3); ctx.lineTo(-3.5, 0); ctx.lineTo(0, 3); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = '#eafaff'; ctx.lineWidth = .8; ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(-3.5, 0); ctx.stroke();
-    ctx.fillStyle = '#ffffffcc'; ctx.beginPath(); ctx.arc(1.4, 0, Math.max(0, 1), 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-  } else if (race === 'fire') {
-    // flaming bolt with an ember trail
-    const embers = reduced ? 1 : 4;
-    for (let i = 1; i <= embers; i += 1) {
-      const t = i / embers;
-      const jx = reduced ? 0 : Math.sin(p.t * 50 + i * 2 + ph) * 1.5;
-      const jy = reduced ? 0 : Math.cos(p.t * 47 + i * 3 + ph) * 1.5;
-      ctx.globalAlpha = clamp01((1 - t) * .8); ctx.fillStyle = i % 2 ? '#ffcf6b' : '#ff6b3c';
-      ctx.beginPath(); ctx.arc(x - ux * i * 3 + jx, y - uy * i * 3 + jy, Math.max(0, 2.6 - t * 1.8), 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-    ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
-    const wob = reduced ? 0 : flick * .6;
-    ctx.fillStyle = '#ff7a3c'; ctx.beginPath(); ctx.moveTo(4.5, 0); ctx.quadraticCurveTo(0, 3 + wob, -4, 0); ctx.quadraticCurveTo(0, -3 - wob, 4.5, 0); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#ffd98a'; ctx.beginPath(); ctx.arc(1.2, 0, Math.max(0, 1.8), 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#fff6d8'; ctx.beginPath(); ctx.arc(2, 0, Math.max(0, .9), 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-  } else if (race === 'earth') {
-    // tumbling rock kicking up dust
-    if (!reduced) { ctx.fillStyle = '#c6a26955'; for (let i = 1; i <= 3; i += 1) { ctx.beginPath(); ctx.arc(x - ux * i * 3, y - uy * i * 3, Math.max(0, 2.6 - i * .6), 0, Math.PI * 2); ctx.fill(); } }
-    ctx.save(); ctx.translate(x, y); ctx.rotate(p.t * 7 + ph);
-    ctx.fillStyle = color; ctx.strokeStyle = '#5c452a'; ctx.lineWidth = .8; ctx.beginPath();
-    for (let i = 0; i < 5; i += 1) { const a = i / 5 * Math.PI * 2; const rr = 3.4 + (i % 2 ? -.9 : .7); const px = Math.cos(a) * rr, py = Math.sin(a) * rr; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
-    ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#00000033'; ctx.beginPath(); ctx.arc(-1, 1, Math.max(0, 1), 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-  } else if (race === 'tech') {
-    // sleek missile tracer
-    ctx.strokeStyle = color; ctx.globalAlpha = .8; ctx.lineWidth = 1.4;
-    ctx.beginPath(); ctx.moveTo(x - ux * 7, y - uy * 7); ctx.lineTo(x, y); ctx.stroke();
-    ctx.strokeStyle = '#eaf1ff'; ctx.lineWidth = .7; ctx.globalAlpha = 1;
-    ctx.beginPath(); ctx.moveTo(x - ux * 5, y - uy * 5); ctx.lineTo(x, y); ctx.stroke();
-    ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
-    ctx.fillStyle = '#eaf1ff'; ctx.beginPath(); ctx.moveTo(3, 0); ctx.lineTo(-1.5, -1.6); ctx.lineTo(-1.5, 1.6); ctx.closePath(); ctx.fill();
-    if (!reduced) { ctx.fillStyle = '#9fd0ff'; ctx.globalAlpha = clamp01(.5 + .5 * Math.abs(flick)); ctx.beginPath(); ctx.arc(-2, 0, Math.max(0, 1.2), 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
-    ctx.restore();
-  } else if (race === 'crystal') {
-    // prismatic shard with refracting chromatic fringes
-    ctx.save(); ctx.translate(x, y); ctx.rotate(angle + p.t * 2);
-    const shard = (col, ox) => { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(6 + ox, 0); ctx.lineTo(ox, -3); ctx.lineTo(-3 + ox, 0); ctx.lineTo(ox, 3); ctx.closePath(); ctx.fill(); };
-    if (!reduced) { ctx.globalAlpha = .55; shard('#ff5d8f', -1.2); shard('#5dff9f', 0); shard('#5d9fff', 1.2); ctx.globalAlpha = 1; }
-    shard(color, 0);
-    ctx.fillStyle = '#ffffffdd'; ctx.beginPath(); ctx.arc(1.5, 0, Math.max(0, 1), 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-    if (!reduced && flick > .7) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, y, Math.max(0, 1.4), 0, Math.PI * 2); ctx.fill(); }
-  } else if (race === 'poison') {
-    // bubbling glob with a drip, lobbing gently
-    const arc = Math.sin(k * Math.PI) * 12; const gx = x, gy = y - arc;
-    ctx.fillStyle = color + 'aa'; ctx.beginPath(); ctx.moveTo(gx - 1.4, gy); ctx.quadraticCurveTo(gx, gy + 6, gx + 1.4, gy); ctx.closePath(); ctx.fill();
-    const wob = reduced ? 0 : Math.sin(p.t * 20 + ph) * .5;
-    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(gx, gy, Math.max(0, 3.4 + wob), 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#eaffce'; ctx.beginPath(); ctx.arc(gx - 1.2, gy - 1.2, Math.max(0, 1.1), 0, Math.PI * 2); ctx.fill();
-    if (!reduced) { ctx.globalAlpha = .7; ctx.beginPath(); ctx.arc(gx + 1.4 + wob, gy - .6, Math.max(0, .8), 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
-  } else if (race === 'stone') {
-    // heavy boulder chip, spinning fast
-    if (!reduced) { ctx.fillStyle = '#7f8794'; ctx.beginPath(); ctx.arc(x - ux * 4 + flick, y - uy * 4, Math.max(0, 1.2), 0, Math.PI * 2); ctx.fill(); }
-    ctx.save(); ctx.translate(x, y); ctx.rotate(p.t * 12 + ph);
-    ctx.fillStyle = color; ctx.strokeStyle = '#4d5563'; ctx.lineWidth = 1; ctx.beginPath();
-    for (let i = 0; i < 6; i += 1) { const a = i / 6 * Math.PI * 2; const rr = 4 + (i % 2 ? -1 : .8); const px = Math.cos(a) * rr, py = Math.sin(a) * rr; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
-    ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.strokeStyle = '#3a404b'; ctx.lineWidth = .7; ctx.beginPath(); ctx.moveTo(-2, -1); ctx.lineTo(.5, .5); ctx.lineTo(2, -1.5); ctx.stroke();
-    ctx.fillStyle = '#ffffff55'; ctx.beginPath(); ctx.arc(-1.4, -1.4, Math.max(0, 1), 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-  } else if (race === 'electricity') {
-    // jagged arc/spark along the travel line
-    const tailx = x - ux * 8, taily = y - uy * 8, nx = -uy, ny = ux;
-    ctx.strokeStyle = color; ctx.lineWidth = 1.6; ctx.globalAlpha = clamp01(reduced ? .9 : .7 + .3 * Math.abs(flick));
-    ctx.beginPath(); ctx.moveTo(tailx, taily);
-    for (let i = 1; i < 4; i += 1) { const t = i / 4; const off = reduced ? Math.sin(i * 2 + ph) * 2 : Math.sin(p.t * 80 + i * 3 + ph) * 3; ctx.lineTo(tailx + (x - tailx) * t + nx * off, taily + (y - taily) * t + ny * off); }
-    ctx.lineTo(x, y); ctx.stroke();
-    ctx.globalAlpha = 1; ctx.fillStyle = '#fffbe0'; ctx.beginPath(); ctx.arc(x, y, Math.max(0, 2), 0, Math.PI * 2); ctx.fill();
-    if (!reduced) { ctx.fillStyle = color + '88'; ctx.beginPath(); ctx.arc(x, y, Math.max(0, 3.4), 0, Math.PI * 2); ctx.fill(); }
-  } else if (race === 'gravity') {
-    // dark warp orb with a violet lensing ring + faint wake (was falling to the generic fallback)
-    if (!reduced) { ctx.strokeStyle = color + '55'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x - ux * 4, y - uy * 4, Math.max(0, 2.6), 0, Math.PI * 2); ctx.stroke(); }
-    ctx.fillStyle = '#050210'; ctx.beginPath(); ctx.arc(x, y, Math.max(0, 3), 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = color; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(x, y, Math.max(0, 3.6 + Math.sin(p.t * 8 + ph) * .5), 0, Math.PI * 2); ctx.stroke();
-    ctx.fillStyle = '#e6d8ff'; ctx.beginPath(); ctx.arc(x - 1, y - 1, Math.max(0, .9), 0, Math.PI * 2); ctx.fill();
-  } else {
-    // default fast bolt with a short trail (unknown element / fallback)
-    ctx.fillStyle = color + '66'; ctx.beginPath(); ctx.arc(x - (p.tx - p.sx) * 2, y - (p.ty - p.sy) * 2, Math.max(0, 2.4), 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, Math.max(0, 3), 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#ffffff77'; ctx.beginPath(); ctx.arc(x, y, Math.max(0, 1.3), 0, Math.PI * 2); ctx.fill();
+/* ---------------- PROJECTILE ART ----------------
+   Gene: "improve the projectile animations for each, for example ninja spear
+   shouldnt be the same as beam, it should be a a spear literally being thrown."
+
+   drawElementBolt drew each element from absolute page coordinates, which meant
+   every branch re-derived the travel direction itself and several of them simply
+   did not bother — so half the line shared one generic bolt. These rotate to the
+   heading once and draw in local space, which is both cheaper and the reason
+   each element can now carry a real silhouette.
+
+   Two rules the whole file keeps: no Math.random anywhere (a stable per-shot
+   phase `ph` plus `p.t` drives every wobble, so a projectile does not strobe and
+   a screenshot test can see it), and `reduced` draws the still version with no
+   trail and no jitter. Authored with codex against tools/harness BRIEF-projectiles.
+*/
+// Coordinates supplied by the caller are already pixels; only headings use cells.
+function rwBolt(ctx, p, race, color, x, y, k, reduced) {
+  const ph = p.sx * 4.7 + p.sy * 8.3;
+  const t = Number.isFinite(p.t) ? p.t : 0;
+  const progress = Math.max(0, Math.min(1, k));
+  const flight = Math.sin(Math.PI * progress);
+  const angle = Math.atan2(p.ty - p.sy, p.tx - p.sx);
+  const pulse = reduced ? 0 : Math.sin(t * 13 + ph);
+  const ink = color || '#b9e5ef';
+
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  switch (race) {
+    case 'ice':
+      // Ice: a long faceted shard followed by separated frost flecks.
+      if (!reduced && flight > 0.05) {
+        ctx.globalAlpha = 0.45 * flight;
+        rwp_line(ctx, [-10, -2, -13, -2, -15, -4], '#c9f5ff', 1);
+        ctx.fillStyle = ink;
+        ctx.fillRect(-18, 1 + pulse, 2, 2);
+      }
+      ctx.globalAlpha = 1;
+      rwp_shape(ctx, [10, 0, -3, -4, -7, 0, -3, 4], ink);
+      rwp_shape(ctx, [10, 0, -3, -4, -1, 0], '#e7fbff');
+      rwp_line(ctx, [-6, 0, 8, 0], '#70b8d9', 0.8);
+      break;
+
+    case 'fire':
+      // Fire: a licking flame envelope, white-hot seed, and shed embers.
+      if (!reduced && flight > 0.05) {
+        ctx.globalAlpha = 0.65 * flight;
+        ctx.fillStyle = '#ffaf43';
+        ctx.fillRect(-14, -3 + pulse * 2, 2, 2);
+        ctx.fillRect(-19, 2 - pulse, 1.5, 1.5);
+      }
+      ctx.globalAlpha = 1;
+      rwp_shape(ctx, [8, 0, 3, -4, -3, -3, -10 - pulse, -5,
+        -7, 0, -11 + pulse, 3, -2, 4, 4, 3], ink);
+      rwp_shape(ctx, [6, 0, 0, -2, -5, 0, 0, 2], '#ffe7a0');
+      break;
+
+    case 'earth':
+      // Earth: an irregular tumbling brown rock kicking up a dust wake.
+      if (!reduced && flight > 0.05) {
+        ctx.globalAlpha = 0.4 * flight;
+        rwp_disc(ctx, -11, 2 + pulse, 1.5, '#baa17a');
+        rwp_disc(ctx, -17, -2 - pulse, 1, '#baa17a');
+      }
+      ctx.globalAlpha = 1;
+      ctx.rotate(reduced ? 0.35 : ph + t * 6);
+      rwp_shape(ctx, [6, -2, 3, -6, -3, -5, -6, -1,
+        -4, 5, 2, 6, 6, 2], ink);
+      rwp_shape(ctx, [-3, -4, 2, -4, 4, -1, -2, 0], '#c2ad86');
+      break;
+
+    case 'tech':
+      // Tech: a narrow machined flechette with a bright metallic spine.
+      if (!reduced && flight > 0.05) {
+        ctx.globalAlpha = 0.3 * flight;
+        rwp_line(ctx, [-11, 0, -19, 0], ink, 1);
+      }
+      ctx.globalAlpha = 1;
+      rwp_shape(ctx, [10, 0, 1, -2, -8, -2, -5, 0,
+        -8, 2, 1, 2], '#506675');
+      rwp_shape(ctx, [10, 0, 0, -1.4, -5, -1.4, -3, 0], '#edf8ff');
+      ctx.fillStyle = ink;
+      ctx.fillRect(-3, 0, 5, 1.2);
+      break;
+
+    case 'crystal':
+      // Crystal: a skewed prism with contrasting facets and orbiting splinters.
+      if (!reduced && flight > 0.05) {
+        ctx.globalAlpha = 0.6 * flight;
+        rwp_shape(ctx, [-8, -5 - pulse, -12, -3 - pulse, -10, -6 - pulse], '#f3caff');
+        rwp_shape(ctx, [-9, 4 + pulse, -15, 5 + pulse, -12, 2 + pulse], ink);
+      }
+      ctx.globalAlpha = 1;
+      ctx.rotate(reduced ? -0.2 : 0.35 * Math.sin(t * 17 + ph));
+      rwp_shape(ctx, [8, -2, -2, -5, -6, 3, 1, 5], ink);
+      rwp_shape(ctx, [8, -2, -2, -5, -1, 1], '#f5e5ff');
+      rwp_line(ctx, [-6, 3, -1, 1, 1, 5], '#91e8f2', 1);
+      break;
+
+    case 'poison':
+      // Poison: a soft venom sac with a glossy bubble and falling droplets.
+      if (!reduced && flight > 0.05) {
+        ctx.globalAlpha = 0.65 * flight;
+        rwp_disc(ctx, -10, 3 + 2 * Math.sin(t * 9 + ph), 1.5, ink);
+        rwp_disc(ctx, -15, 6 + pulse, 0.8, ink);
+      }
+      ctx.globalAlpha = 1;
+      ctx.scale(1 + pulse * 0.08, 1 - pulse * 0.08);
+      ctx.fillStyle = ink;
+      ctx.beginPath();
+      ctx.moveTo(-8, -1);
+      ctx.bezierCurveTo(-2, -1, -4, -6, 2, -5);
+      ctx.bezierCurveTo(9, -4, 8, 4, 2, 5);
+      ctx.bezierCurveTo(-4, 6, -2, 1, -8, -1);
+      ctx.closePath();
+      ctx.fill();
+      rwp_disc(ctx, 2, -2, 1.4, '#e0ffad');
+      break;
+
+    case 'stone':
+      // Stone: a thick spinning masonry slab with a chipped, dark edge.
+      if (!reduced && flight > 0.05) {
+        ctx.globalAlpha = 0.3 * flight;
+        rwp_line(ctx, [-10, -3, -16, -3], '#9aa2aa', 2);
+      }
+      ctx.globalAlpha = 1;
+      ctx.rotate(reduced ? -0.25 : ph + t * 4);
+      rwp_shape(ctx, [-6, -5, 5, -5, 7, -2, 7, 5,
+        -5, 6, -7, 3], '#414953');
+      rwp_shape(ctx, [-6, -5, 5, -5, 5, 2, -5, 3], ink);
+      rwp_line(ctx, [-5, -4, 3, -4], '#d6dce0', 1.3);
+      rwp_line(ctx, [1, -2, -1, 0, 1, 2], '#4e5660', 1);
+      break;
+
+    case 'electricity':
+      // Electricity: a forked zigzag discharge, with a thin luminous core.
+      const bend = reduced ? 0 : pulse * 1.2;
+      const zig = [-9, 1, -4, -3 - bend, -2, 2, 3, -3 + bend, 2, 1, 9, 0];
+      if (!reduced) {
+        ctx.globalAlpha = 0.65;
+        rwp_line(ctx, [-2, 2, -5, 6, 0, 5], ink, 1);
+      }
+      ctx.globalAlpha = 1;
+      rwp_line(ctx, zig, ink, 3);
+      rwp_line(ctx, zig, '#f3ffff', 1);
+      break;
+
+    case 'gravity':
+      // Gravity: a dark core bending a tilted, broken orbital ring.
+      ctx.rotate(reduced ? -0.5 : -0.5 + Math.sin(t * 4 + ph) * 0.25);
+      ctx.save();
+      ctx.scale(1, 0.55);
+      ctx.strokeStyle = ink;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, Math.max(0, 9 + pulse * 0.4), 0.2, Math.PI + 0.1);
+      ctx.stroke();
+      ctx.restore();
+      rwp_disc(ctx, 0, 0, 4.5, '#100f20');
+      ctx.save();
+      ctx.scale(1, 0.55);
+      ctx.strokeStyle = '#d2bdff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, Math.max(0, 9 + pulse * 0.4), Math.PI + 0.35, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+      break;
+
+    case 'beam':
+      // Beam: a compact luminous travelling mote, never a continuous ray.
+      rwp_disc(ctx, 0, 0, 4, ink);
+      rwp_disc(ctx, 1, 0, 1.8, '#ffffff');
+      if (!reduced && flight > 0.05) {
+        ctx.globalAlpha = 0.4 * flight;
+        rwp_line(ctx, [-7, 0, -12, 0], ink, 1.5);
+      }
+      break;
+
+    case 'ninja':
+      // Ninja: a spinning four-point steel shuriken with an open dark hub.
+      ctx.rotate(reduced ? 0.2 : ph + t * 19);
+      rwp_shape(ctx, [8, 0, 2, 2, 0, 8, -2, 2,
+        -8, 0, -2, -2, 0, -8, 2, -2], ink);
+      rwp_line(ctx, [0, -6, 0, 0, 6, 0], '#eef5ff', 1);
+      rwp_disc(ctx, 0, 0, 1.6, '#222835');
+      break;
+
+    default:
+      // Unknown element: a small neutral arrowhead keeps fallback shots legible.
+      rwp_shape(ctx, [6, 0, -4, -3, -2, 0, -4, 3], ink);
+      break;
+  }
+
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+
+function rwSpear(ctx, p, color, x, y, k, reduced) {
+  const ph = p.sx * 4.7 + p.sy * 8.3;
+  const t = Number.isFinite(p.t) ? p.t : 0;
+  const progress = Math.max(0, Math.min(1, k));
+  const flight = Math.sin(Math.PI * progress);
+  const cell = typeof CELL === 'number' ? CELL : 21;
+  const dx = (p.tx - p.sx) * cell;
+  const dy = (p.ty - p.sy) * cell;
+  const moving = dx !== 0 || dy !== 0;
+  const lift = reduced || !moving ? 0 : 3;
+  // The heading follows the arc's tangent; release wobble fades before impact.
+  const heading = moving ? Math.atan2(dy - lift * Math.PI * Math.cos(Math.PI * progress), dx) : 0;
+  const wobble = reduced ? 0 : Math.sin(t * 22 + ph) * 0.12 * flight * (1 - progress);
+  const ink = color || '#a9c7d9';
+
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.translate(x, y - lift * flight);
+  ctx.rotate(heading + wobble);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  // A short detached wake leaves the polearm silhouette visible in flight.
+  if (!reduced && moving && flight > 0.05) {
+    ctx.globalAlpha = 0.22 * flight;
+    rwp_line(ctx, [-12, 0, -19, 0], ink, 1);
   }
   ctx.globalAlpha = 1;
+  rwp_line(ctx, [-10, 0, 5, 0], '#533829', 2.5);
+  rwp_line(ctx, [-9, -0.5, 4, -0.5], '#c9a16d', 0.9);
+  // Small tail vanes, a metal socket, and a broad leaf head read as a spear.
+  rwp_shape(ctx, [-7, 0, -10, -2.5, -9, 0, -10, 2.5], ink);
+  ctx.fillStyle = '#667784';
+  ctx.fillRect(2.5, -1.2, 3, 2.4);
+  rwp_shape(ctx, [11, 0, 4, -2.8, 5, 0, 4, 2.8], ink);
+  rwp_shape(ctx, [11, 0, 4, -2.8, 5, 0], '#f0f6fa');
+
   ctx.restore();
+  ctx.globalAlpha = 1;
 }
+
+function rwp_shape(ctx, points, fill) {
+  ctx.fillStyle = fill;
+  ctx.beginPath();
+  ctx.moveTo(points[0], points[1]);
+  for (let i = 2; i < points.length; i += 2) {
+    ctx.lineTo(points[i], points[i + 1]);
+  }
+  ctx.closePath();
+  ctx.fill();
+}
+
+function rwp_line(ctx, points, stroke, width) {
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  ctx.moveTo(points[0], points[1]);
+  for (let i = 2; i < points.length; i += 2) {
+    ctx.lineTo(points[i], points[i + 1]);
+  }
+  ctx.stroke();
+}
+
+function rwp_disc(ctx, x, y, radius, fill) {
+  ctx.fillStyle = fill;
+  ctx.beginPath();
+  ctx.arc(x, y, Math.max(0, radius), 0, Math.PI * 2);
+  ctx.fill();
+}
+
 function drawProjectile(ctx, p) {
   const x = p.x * CELL, y = p.y * CELL;
   ctx.save();
@@ -6247,8 +6757,15 @@ function drawProjectile(ctx, p) {
     ctx.beginPath(); ctx.moveTo(x - dx / len * 6, y - dy / len * 6); ctx.lineTo(x, y); ctx.stroke();
     ctx.globalAlpha = 1; ctx.fillStyle = '#fff3c8'; ctx.beginPath(); ctx.arc(x, y, Math.max(0, 1.4), 0, Math.PI * 2); ctx.fill();
     if (race === 'fire' && !reduced) { ctx.fillStyle = '#ff8a3c'; ctx.beginPath(); ctx.arc(x - dx / len * 6, y - dy / len * 6, Math.max(0, 1.2), 0, Math.PI * 2); ctx.fill(); }
+  } else if (p.style === 'spearthrow') {
+    // a real throw, with a shaft and a head, not the ray this rung used to draw
+    ctx.save(); ctx.translate(x, y); ctx.scale(FX_SCALE, FX_SCALE); ctx.translate(-x, -y);
+    rwSpear(ctx, p, color, x, y, k, reduced);
+    ctx.restore();
   } else {
-    drawElementBolt(ctx, p, race, color, x, y, k, reduced);
+    ctx.save(); ctx.translate(x, y); ctx.scale(FX_SCALE, FX_SCALE); ctx.translate(-x, -y);
+    rwBolt(ctx, p, race, color, x, y, k, reduced);
+    ctx.restore();
   }
   ctx.restore();
 }
@@ -10219,6 +10736,7 @@ function barRefreshAffordable() {
 function attackSpeedText(def) {
   if (!def || !def.cd) return '—';
   if (def.special === 'beam' || def.special === 'beamline') return 'continuous';
+  if (def.special === 'spearthrow') return `${(1 / def.cd).toFixed(1)}/s thrown`;
   const per = 1 / def.cd;
   return `${per >= 10 ? per.toFixed(0) : per.toFixed(2)}/s (${def.cd.toFixed(2)}s)`;
 }
