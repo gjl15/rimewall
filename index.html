@@ -1172,6 +1172,131 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
 .mp-note { display:block; margin-top:4px; color:#8fb4d8; font-size:11px; }
 
 
+
+/* ================= THE LOOK PASS =================
+   Gene: "i wanted to see the improvement in the menu ... while keeping the
+   format as is we like it for now", and then "do the menu look yourself".
+
+   The first attempt at this was handed out and came back changing layout — the
+   Change-race button collided with the element dropdown, the licence row
+   clipped, and the eleven race cards ended up FLATTER than they started. It was
+   reverted. So the rule this pass holds itself to is narrow and checkable: it
+   only ever sets colour, border, shadow, transform, opacity and transition.
+   Nothing here touches width, height, padding, margin, position, grid or flex,
+   because the format is the part that was liked.
+
+   What it fixes, from the screenshots:
+
+   1. EVERYTHING WAS ONE VALUE. Panel, card, button and background were all dark
+      slate with a 1px border, so the primary action and a disabled row carried
+      identical weight and the eye had no order to follow.
+   2. IT DID NOT MOVE. Nothing acknowledged a hover, a press or a panel opening.
+   3. THE RACE CARDS WERE THE WORST OF IT, and they are the first thing anyone
+      sees. Eleven elements each with a strong signature hue rendered as eleven
+      near-black rectangles: the accent existed only on hover and as a 12%
+      blurred blob in one corner. Locked ones sat at .55 opacity and .4
+      saturation on top of that, which is past invisible.
+   4. ELEVEN HUES, MONOCHROME INTERFACE. The accent is the game's own
+      RW_ELEMENT palette and it was doing nothing. */
+
+/* ---- 1. the race cards, which are the showpiece ---- */
+/* The accent lives in the RESTING state now. A tint of the element's own hue
+   through the card, the corner glow lifted off 12% and given room, and a hair
+   line along the top edge so a row of eleven reads as eleven things. */
+.race-card {
+  background:
+    radial-gradient(120% 90% at 82% 108%, color-mix(in srgb, var(--race) 26%, transparent), transparent 62%),
+    linear-gradient(150deg, #1a2440, #0e1423);
+  border-color: color-mix(in srgb, var(--race) 26%, #273252);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--race) 30%, transparent);
+  transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease;
+}
+.race-card::after { opacity:.3; filter:blur(10px); }
+.race-card .race-symbol {
+  color: var(--race);
+  text-shadow: 0 0 16px color-mix(in srgb, var(--race) 55%, transparent);
+  transition: transform .16s ease;
+}
+.race-card strong { color:#f2f6ff; }
+.race-card small { color: color-mix(in srgb, var(--race) 48%, #8995b4); }
+
+.race-card:hover { transform:translateY(-3px); }
+.race-card:hover .race-symbol { transform:scale(1.08); }
+.race-card:hover, .race-card.selected {
+  border-color: var(--race);
+  box-shadow:
+    0 14px 34px #0006,
+    inset 0 0 0 1px var(--race),
+    0 0 26px -6px color-mix(in srgb, var(--race) 70%, transparent);
+}
+.race-card.selected {
+  background:
+    radial-gradient(120% 90% at 82% 108%, color-mix(in srgb, var(--race) 40%, transparent), transparent 64%),
+    linear-gradient(150deg, #1e2a4b, #101728);
+}
+.race-card:active { transform:translateY(-1px); }
+
+/* LOCKED SHOULD READ AS LOCKED, not as absent. It was .55 opacity on top of .4
+   saturation on top of an already near-black card — four of the eleven were
+   effectively blank tiles. Legible, clearly inert, and still showing which
+   element it is. */
+.race-card.locked {
+  opacity:1;
+  filter:none;
+  background: linear-gradient(150deg, #141a29, #0d1220);
+  border-color:#212c46;
+  box-shadow:none;
+}
+.race-card.locked::after { opacity:.08; }
+.race-card.locked .race-symbol { color:#55617f; text-shadow:none; }
+.race-card.locked strong { color:#79839f; }
+.race-card.locked small { color:#5b6683; letter-spacing:.06em; }
+
+/* ---- 2. a hierarchy: what lifts, what sits flat, what recedes ---- */
+/* The primary action is the only thing on the screen that glows. */
+.action-button {
+  box-shadow: 0 6px 18px -6px color-mix(in srgb, var(--ice) 65%, transparent);
+  transition: transform .14s ease, box-shadow .14s ease, filter .14s ease;
+}
+.action-button:hover:not(:disabled) { transform:translateY(-1px); filter:brightness(1.06); }
+.action-button:active:not(:disabled) { transform:translateY(1px); box-shadow:none; }
+.action-button:disabled { box-shadow:none; }
+
+/* Secondary reads as secondary: no glow, a border that answers on hover. */
+.ghost-button { transition: border-color .14s ease, color .14s ease, background .14s ease; }
+.ghost-button:hover:not(:disabled) { border-color:#4a5c8c; color:#dbe3ff; background:#16203a; }
+.ghost-button:active:not(:disabled) { background:#0d1424; }
+
+/* The panel is a surface things sit ON, so it recedes rather than competing. */
+.command-panel { box-shadow: inset 0 1px 0 #ffffff0c, 0 18px 40px -24px #000a; }
+
+/* Tabs: the active one is lit, the inactive one is genuinely quieter. */
+.panel-tabs button { transition: background .14s ease, color .14s ease; }
+.panel-tabs button:hover:not(.active) { background:#1a243c; color:#aab6d8; }
+
+/* ---- 3. the build list carries the element it belongs to ---- */
+.tower-row { transition: border-color .14s ease, background .14s ease, transform .14s ease; }
+.tower-row:hover { border-color:#3a4b74; background:#131d33; }
+.tower-row.selected {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--race) 12%, #10182b), #10182b);
+  box-shadow: inset 0 0 0 1px var(--race), 0 0 20px -8px color-mix(in srgb, var(--race) 70%, transparent);
+}
+.race-chip { transition: border-color .14s ease, background .14s ease; }
+.race-chip.active { box-shadow: inset 0 0 0 1px var(--race); }
+
+/* ---- 4. things arrive rather than blink ---- */
+@keyframes rwRise { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+.wisp-panel:not(.hidden), .tower-details:not(.hidden) { animation: rwRise .17s ease-out both; }
+
+/* ---- 5. and none of it happens if the reader asked it not to ---- */
+@media (prefers-reduced-motion: reduce) {
+  .race-card, .race-card .race-symbol, .action-button, .ghost-button,
+  .tower-row, .panel-tabs button, .race-chip { transition:none !important; }
+  .race-card:hover, .race-card:active, .action-button:hover:not(:disabled),
+  .action-button:active:not(:disabled), .race-card:hover .race-symbol { transform:none !important; }
+  .wisp-panel:not(.hidden), .tower-details:not(.hidden) { animation:none !important; }
+}
 </style>
 </head>
 <body>
@@ -8536,6 +8661,34 @@ function boltPanelHtml(group) {
    the note under the rack, and leaving puts the fitted one back. Delegated
    because the rack is rendered from three different panels and this should not
    have to be wired in each. */
+/* ONE LISTENER FOR EVERY RACK, WHEREVER IT IS RENDERED.
+   Gene: "nina is stll not upgrqding". The weapon rack is emitted from FOUR
+   surfaces — the desktop side panel, the phone rail, the command sheet and the
+   wisp panel — and only two of them ever had a click handler attached. On a
+   phone the rack you actually see came from one of the other two, so the chips
+   rendered, laid out, hit-tested, highlighted on press, and did nothing at all.
+
+   Binding per surface is the bug: every new place the rack appears is a place
+   somebody has to remember to wire, and forgetting is silent. One delegated
+   listener on the document cannot be forgotten, and it covers imbuings and
+   wards for the same reason — they are emitted from the same four places.
+
+   The per-surface bindings are gone; this is the only one. */
+function setupRackDelegate() {
+  if (document.body._rackDelegate) return;
+  document.body._rackDelegate = true;
+  document.addEventListener('click', (event) => {
+    const el = event.target.closest && event.target.closest('[data-weapon],[data-bolt]');
+    if (!el) return;
+    event.stopPropagation();
+    if (el.dataset.weapon !== undefined) towerAction(`weapon:${el.dataset.weapon}`);
+    else towerAction(`${el.dataset.ward !== undefined ? 'ward' : 'bolt'}:${el.dataset.bolt}`);
+    // refresh whichever surfaces are currently up; each is a no-op when hidden
+    renderTowerDetails();
+    if (typeof renderCommandSheet === 'function') renderCommandSheet();
+    if (!document.getElementById('wisp-panel')?.classList.contains('hidden')) renderWispPanel('inspect');
+  });
+}
 function setupBoltPreview() {
   if (document.body._boltPreview) return;
   document.body._boltPreview = true;
@@ -8664,7 +8817,6 @@ function renderTowerDetails() {
   $('td-sell')?.addEventListener('click', () => towerAction('sell'));
   $('td-priority')?.addEventListener('click', () => towerAction('priority'));
   $('td-selectall')?.addEventListener('click', () => towerAction('selectall'));
-  document.querySelectorAll('[data-weapon]').forEach((b) => b.addEventListener('click', () => towerAction(`weapon:${b.dataset.weapon}`)));
 }
 
 function renderSendPanel() {
@@ -11840,8 +11992,6 @@ function renderWispPanel(mode) {
      phone. "I don't understand how to upgrade the units" was literally that:
      the four sub-upgrades existed and had no button on the screen he was
      looking at. */
-  panel.querySelectorAll('[data-bolt]').forEach((b) => b.addEventListener('click', () => { towerAction(`${b.dataset.ward ? 'ward' : 'bolt'}:${b.dataset.bolt}`); renderWispPanel('inspect'); }));
-  panel.querySelectorAll('[data-weapon]').forEach((b) => b.addEventListener('click', () => { towerAction(`weapon:${b.dataset.weapon}`); renderWispPanel('inspect'); }));
 }
 function renderWispInspect() {
   const ie = inspectEntity;
@@ -12242,7 +12392,7 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) window.add
 window.addEventListener('beforeunload', () => { if (mp.transport) mpSend({ t:'bye' }); });
 setupMapZoom();
 setupRivalStrip();
-setupBoltPreview();
+setupBoltPreview(); setupRackDelegate();
 setupPanicReset();
 document.getElementById('team-select')?.addEventListener('change', renderTeamRoster);
 renderRaceCards();
