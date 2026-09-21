@@ -57,6 +57,35 @@ const LAYOUTS = [
          tower surface is the ring, and the rack lives in the wisp panel — so
          "not visible" and "unreachable" are different findings and the fix
          moves one of them, not the other. */
+      /* AND ON THE CARD, BEFORE YOU BUY. Gene, on this blocker: "surface on
+         blade card". The ring makes it reachable once a blade is placed; the
+         card is where you decide to place one at all. */
+      renderTowerList();
+      /* THE BUILD SURFACE IS A DIFFERENT STATE FROM THE SELECTED SURFACE. On a
+         phone the command bar is hidden while a tower is selected — the ring
+         owns that state — so counting build cards with a blade selected reads 0
+         no matter what the tray says. Measure the state a player is actually in
+         when deciding what to place: nothing selected. */
+      const keepKey = selectedTowerKey, keepGroup = selectedGroupKeys.slice();
+      selectedTowerKey = null; selectedGroupKeys = [];
+      const bar = document.getElementById('command-bar');
+      if (bar) bar.classList.remove('hidden');
+      barStructKey = '';
+      renderTowerList(); renderCommandBar();
+      /* The tray's stat line is only painted when the player expands the tray,
+         so requiring it to be VISIBLE here measures barBuildCollapsed and not
+         the text. Presence in the tray plus visibility on the desktop card is
+         what the two surfaces respectively promise. */
+      const cardLines = [...document.querySelectorAll('.imbue-line')].filter(vis).map((e) => e.textContent.trim())
+        .concat([...document.querySelectorAll('.bar-stats')]
+          .map((e) => e.textContent.trim()).filter((t) => t.includes('\u2727')));
+      const barDiag = { hidden:!!(bar && bar.classList.contains('hidden')),
+        statNodes:document.querySelectorAll('.bar-stats').length,
+        visStats:[...document.querySelectorAll('.bar-stats')].filter(vis).length,
+        sample:(document.querySelector('.bar-stats') || {}).textContent || null,
+        imbueNodes:document.querySelectorAll('.imbue-line').length };
+      selectedTowerKey = keepKey; selectedGroupKeys = keepGroup;
+      renderRing();
       const ringBtn = [...document.querySelectorAll('[data-ring="t-imbue"]')].filter(vis)[0];
       /* AND IT HAS TO BE THE THING UNDER THE THUMB. A sixth slot on a ring of
          56px discs is exactly where one button ends up sitting on another, and
@@ -89,7 +118,7 @@ const LAYOUTS = [
           groupLen:selectedGroupKeys.length, eligible:boltEligible(t),
           ringHidden:document.getElementById('action-ring')?.classList.contains('hidden'),
           ringBtns:document.querySelectorAll('[data-ring]').length },
-        ringImbue: !!ringBtn, hitsSelf,
+        ringImbue: !!ringBtn, hitsSelf, cardLines, barDiag,
         ringLabel: ringBtn ? ringBtn.textContent.trim() : null,
         afterPress,
       };
@@ -101,6 +130,8 @@ const LAYOUTS = [
     console.log(`  blade selected        ${info.towerName}`);
     console.log(`  rack on first sight   ${info.rackVisible ? 'visible' : 'NOT visible'}`);
     console.log(`  chips at zero presses ${info.chipsVisible} of ${info.chipsTotal}`);
+    console.log(`  build cards saying so ${info.cardLines.length}`);
+    if (info.cardLines[0]) console.log(`    e.g. ${JSON.stringify(info.cardLines[0])}`);
     console.log(`  imbue button on ring  ${info.ringImbue ? JSON.stringify(info.ringLabel) : 'absent'}`);
     if (info.ringImbue) console.log(`  hit at its own centre ${info.hitsSelf}`);
     if (info.afterPress) {

@@ -595,6 +595,8 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
    towers themselves for something bought two or three times a match */
 .lumber-button { width:100%; margin:8px 0 0; padding:9px; color:#b9a877; border-color:#3d3524; background:#14120c; font-size:10px; }
 .lumber-button:disabled { opacity:.5; }
+.imbue-line { color:#c9b6ff !important; }
+.imbue-line b { color:#e6dcff; }
 .shrine-row { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:8px;
   padding:7px 9px; border:1px solid #2c3f63; border-radius:9px; background:#10182b; font-size:11px; color:#c6d4ef; }
 .shrine-row b { color:#e8d9ff; }
@@ -7780,6 +7782,7 @@ function renderTowerList() {
       <span><strong>${def.name}</strong>
       <small class="tower-stats">${def.dmg} dmg • ${def.range.toFixed(1)} reach • ${attackSpeedText(def)} • ${effectiveDps(def).toFixed(0)} dps${def.groundOnly ? ' • NO AIR' : ''}</small>
       <small class="tower-stats profile-line">${def.special && def.special !== 'basic' ? `<b style="color:${def.color || 'inherit'}">${def.special}</b> · ` : ''}${attackProfileText(raceId, def)}${def.raceId === 'poison' ? ' · venom' : ''}</small>
+      ${boltEligible({ raceId:raceId, tier }) ? `<small class="tower-stats imbue-line">✧ takes an imbuing — <b>${boltCost({ raceId:raceId, tier })}g</b>${raceId === 'ninja' ? ', which is where a blade\'s damage comes from' : ''}</small>` : ''}
       ${chosen ? `<small class="tower-why">${def.desc} ${specialBlurbs[def.special] || ''}</small>` : ''}</span><b>${def.cost}g${lum ? ` +${lum}🪵` : ''}</b></button>`;
   }).join('');
   document.querySelectorAll('[data-tower]').forEach((button) => button.addEventListener('click', () => {
@@ -10688,7 +10691,7 @@ function renderCommandBar() {
     const econ = `<button id="cb-lumber" class="bar-card ${player.gold < LUMBER_PRICE ? 'poor' : ''}"><span>🪵</span><small>Lumber</small><b>${LUMBER_PRICE}g</b></button>${player.shrine < SHRINE_MAX ? `<button id="cb-shrine" class="bar-card ${player.lumber < 1 ? 'poor' : ''}"><span>⛩</span><small>Shrine L${player.shrine}</small><b>1🪵</b></button>` : `<span class="bar-card locked"><span>⛩</span><small>Shrine</small><b>MAX</b></span>`}`;
     buildBody.innerHTML = undoChip + econ + towerListFor(raceId).map((def, tier) => `
       <button class="bar-card ${tier === selectedTowerTier ? 'on' : ''} ${player.gold < def.cost ? 'poor' : ''}" data-bar-tower="${tier}">
-        <span>${towerDef(raceId, tier).symbol}</span><small>${def.name.split(' ')[0]}</small><b>${def.cost}g</b><i class="bar-stats">${towerStatLine(def)}</i></button>`).join('');
+        <span>${towerDef(raceId, tier).symbol}</span><small>${def.name.split(' ')[0]}</small><b>${def.cost}g</b><i class="bar-stats">${towerStatLine(towerDef(raceId, tier))}</i></button>`).join('');
     buildBody.querySelectorAll('[data-bar-tower]').forEach((c) => wireTowerCard(c));
     $('cb-lumber')?.addEventListener('click', () => { buyLumber(); renderCommandBar(); });
     $('cb-shrine')?.addEventListener('click', () => { upgradeShrine(); renderCommandBar(); });
@@ -10755,7 +10758,15 @@ function effectiveDps(def, raceId) {
 function towerStatLine(def) {
   const rate = effectiveDps(def).toFixed(0);
   const flag = def.groundOnly ? 'NO AIR' : (def.special || 'basic');
-  return `${def.range.toFixed(1)} range · ${rate} dps · ${flag}`;
+  /* The phone tray is a different surface from the desktop card, and the imbue
+     note added to the card did not reach it — measured, 7 cards said so on a
+     laptop and 0 did on a phone. For ninja that note is the race.
+     This needs a RESOLVED def: the tray mapped over towerListFor()'s raw
+     entries, which carry no raceId and no tier, so boltEligible was handed
+     undefined and answered false on every card. */
+  const imbue = boltEligible({ raceId:def.raceId, tier:def.tier })
+    ? ` · ✧${boltCost({ raceId:def.raceId, tier:def.tier })}g` : '';
+  return `${def.range.toFixed(1)} range · ${rate} dps · ${flag}${imbue}`;
 }
 /* What a send ACTUALLY arrives with: the ladder value, times the growth it has
    accrued this match, times the board's HP scale. The cards printed the raw
