@@ -46,14 +46,19 @@ const base = process.argv[2] || 'http://127.0.0.1:8771/';
            the DOM on a phone too, just hidden — so preferring #td-tier reported
            the laptop's button as if it were the phone's and made a broken phone
            look fixed. Visible controls only, ring first on touch. */
-        const tierBtn = [...document.querySelectorAll('[data-ring="t-tier"],[data-ring="t-weapon"],#td-tier,[data-sheet-act="tier"]')].filter(vis)[0];
-        const lvlBtn = [...document.querySelectorAll('[data-ring="t-level"],#td-level,[data-sheet-act="level"]')].filter(vis)[0];
+        /* OPEN THE SURFACE A PHONE ACTUALLY OPENS. Selecting a tower by tap
+           opens the wisp inspect panel on touch; setting selectedTowerKey
+           directly does not, so the probe was reading a closed panel and calling
+           it a missing control. */
+        if (typeof touchUI === 'function' && touchUI()) { wispTab = 'inspect'; renderWispPanel('inspect'); }
+        const tierBtn = [...document.querySelectorAll('[data-wp-act="tier"],[data-wp-act="armhint"],#td-tier')].filter(vis)[0];
+        const lvlBtn = [...document.querySelectorAll('[data-wp-act="level"],#td-level')].filter(vis)[0];
         const rack = [...document.querySelectorAll('.weapon-chip')].filter(vis).length;
-        const ringWeapon = [...document.querySelectorAll('[data-ring="t-weapon"]')].filter(vis).length;
+        const ringWeapon = [...document.querySelectorAll('[data-wp-act="armhint"]')].filter(vis).length;
         /* THE ROUTE FORWARD, whatever shape it takes. A rack race has no tier to
            take; what it must have is a way to reach the rack from the surface
            the player is actually on. */
-        const ringBtn = [...document.querySelectorAll('[data-ring="t-weapon"]')].filter(vis)[0];
+        const ringBtn = [...document.querySelectorAll('[data-wp-act="armhint"]')].filter(vis)[0];
         let rackAfterPress = 0;
         if (ringBtn) { ringBtn.click(); rackAfterPress = [...document.querySelectorAll('.weapon-chip')].filter(vis).length; }
 
@@ -69,6 +74,7 @@ const base = process.argv[2] || 'http://127.0.0.1:8771/';
           lvlLabel: lvlBtn ? lvlBtn.textContent.replace(/\s+/g, ' ').trim().slice(0, 28) : 'NO LEVEL CONTROL',
           levelled, weaponChips:rack, ringWeapon, rackAfterPress,
           ringBtns:[...document.querySelectorAll('[data-ring]')].filter(vis).length,
+          trayBtns:[...document.querySelectorAll('[data-wp-act]')].filter(vis).length,
           touch:typeof touchUI === 'function' ? touchUI() : null,
           running:battleRunning });
       }
@@ -87,7 +93,7 @@ const base = process.argv[2] || 'http://127.0.0.1:8771/';
     + p(r.levelled ? 'yes' : 'NO', 9)
     + (r.weaponChips != null ? (r.weaponChips + ' chips'
         + (r.ringWeapon ? `, ring ARM -> ${r.rackAfterPress}` : '')) : '')
-    + `  [ring ${r.ringBtns} touch ${r.touch} run ${r.running}]`));
+    + `  [ring ${r.ringBtns} panel ${r.trayBtns} touch ${r.touch}]`));
 
   const stuck = out.filter((r) => r.race !== 'ice' && r.race !== '—'
     && !r.tierUpTo && !r.weaponChips && !r.rackAfterPress);

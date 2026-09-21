@@ -17,9 +17,15 @@ const base = process.argv[2] || 'http://127.0.0.1:8771/';
   await page.click('#start-button'); await page.waitForTimeout(600);
   await page.click('#lb-ready'); await page.waitForTimeout(1600);
 
-  const stats = await page.evaluate(() => {
+  const stats = await page.evaluate(async () => {
     document.querySelectorAll('.coach-card').forEach((c) => c.remove());
     SFX.play = () => {};
+    /* WAIT FOR THE SHEETS. They load async, and a shot taken before they arrive
+       photographs the vector fallback and calls it the sprites — which is
+       exactly how a row of creeps got reported as "still rings". */
+    for (let i = 0; i < 120 && !(SPRITE_SHEETS.tower.ready && SPRITE_SHEETS.creep.ready); i += 1) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
     battleRunning = true; battlePaused = false; matchOver = false;
     towers.clear(); towersVersion += 1; creeps.length = 0;
     player.gold = 1e7;
@@ -49,12 +55,15 @@ const base = process.argv[2] || 'http://127.0.0.1:8771/';
     const t0 = performance.now();
     for (let i = 0; i < 20; i += 1) renderFrame();
     const paint = (performance.now() - t0) / 20;
-    return { placed, creeps: creeps.length, projectiles: projectiles.length, paint: +paint.toFixed(2) };
+    const withSprite = creeps.filter((c) => c.spriteDrawn).length;
+    return { placed, creeps: creeps.length, projectiles: projectiles.length, paint: +paint.toFixed(2),
+      sheets: SPRITE_SHEETS.tower.ready && SPRITE_SHEETS.creep.ready, withSprite };
   });
 
   const file = path.join(OUT, 'artboard.png');
   await page.screenshot({ path: file });
   console.log(`  ${stats.placed} towers, ${stats.creeps} creeps, ${stats.projectiles} projectiles in flight`);
+  console.log(`  sheets ready ${stats.sheets}; ${stats.withSprite} of ${stats.creeps} creeps drew a sprite`);
   console.log(`  repaint ${stats.paint}ms a frame   (budget ~16ms for 60fps)`);
   console.log(`  ${file}`);
   const ok = stats.paint < 16 && !errs.length;

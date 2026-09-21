@@ -595,6 +595,9 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
    towers themselves for something bought two or three times a match */
 .lumber-button { width:100%; margin:8px 0 0; padding:9px; color:#b9a877; border-color:#3d3524; background:#14120c; font-size:10px; }
 .lumber-button:disabled { opacity:.5; }
+.wisp-panel .wp-act.wp-poor { opacity:.45; }
+.wisp-panel .wp-act.wp-armed { border-color:#ff6b81; color:#ff9faf; background:#2a1420; }
+.wisp-panel .wp-act.wp-arm { border-color:#ffb86b; color:#ffd8a8; background:#241c10; }
 .weapon-rack { margin-top:10px; border-radius:10px; }
 @keyframes rackFlash { from { box-shadow:0 0 0 2px #ffb86bcc; } to { box-shadow:0 0 0 2px #ffb86b00; } }
 .rack-flash { animation:rackFlash .7s ease-out 1; }
@@ -6386,6 +6389,14 @@ function drawTowerStructure(ctx, tower, stats, building, laneColor) {
   const hex = RW_ELEMENT[race] || stats.color;
   ctx.save(); ctx.scale(s, s);
   const slabs = RW_SLABS[Math.max(0, Math.min(RW_SLABS.length - 1, tier))];
+  /* A CONTACT SHADOW, SO IT SITS ON THE GROUND. Gene: "do the walk cycles and
+     contact shadows". Without one a sprite is a decal floating over the board —
+     the eye has nothing telling it the thing is ON the cell rather than above
+     it. One flat ellipse under the base, no blur: shadowBlur is the single most
+     expensive thing you can ask a 2D context for and this draws for every tower
+     every frame. Slightly wider than tall because the view is three-quarter. */
+  ctx.fillStyle = 'rgba(0,0,0,.34)';
+  ctx.beginPath(); ctx.ellipse(0, 7.4, 7.6, 2.5, 0, 0, Math.PI * 2); ctx.fill();
   rwOwnerMark(ctx, laneColor, Math.max(10, slabs[0] ? slabs[0][0] : 0));
   let bottom = 8;
   slabs.forEach(([w, h], i) => {
@@ -6393,17 +6404,20 @@ function drawTowerStructure(ctx, tower, stats, building, laneColor) {
     ctx.fillStyle = RW_SLAB_COL[Math.min(2, i + (3 - slabs.length))]; ctx.fillRect(-w / 2, bottom, w, h);
     if (tier === 5 && i === slabs.length - 1) { ctx.fillStyle = '#fff'; ctx.fillRect(-w / 2, bottom, w, .8); }
   });
+  /* CENTRED ON THE CELL. Gene: "the towers re not centered on cells".
+     The sprite was drawn AFTER the translate below, which moves the origin down
+     to the top of the plinth — so a 20-unit sprite hung about 18px below the
+     centre of a 21px cell and every tower sat low and left of where you tapped.
+     The plinth is a base the tower stands on, not a thing to stack the art on
+     top of, so the sprite is drawn here, on the cell's own centre, with the
+     plinth behind it. A hair above true centre because a top-down three-quarter
+     view reads as grounded when its mass sits slightly low. */
+  const sid = spriteIdForTower(race, tier, stats.name);
+  const drew = drawSprite(ctx, 'tower', sid, 0, -1.2, 19);
   ctx.translate(0, bottom);
   ctx.fillStyle = hex; ctx.strokeStyle = '#0c122099'; ctx.lineWidth = .9; ctx.lineJoin = 'round';
   if (building) ctx.globalAlpha = .6;
-  /* THE SPRITE IF THERE IS ONE, THE VECTOR IF THERE IS NOT. The plinth above is
-     drawn either way — it carries the tier and the ownership mark, and a sprite
-     sitting on its own step reads as built rather than pasted on. Sized a touch
-     over the cell so the silhouette fills it; the generator already padded. */
-  const sid = spriteIdForTower(race, tier, stats.name);
-  if (!drawSprite(ctx, 'tower', sid, 0, bottom + 8.5 - 9.5, 20.5)) {
-    rwBody(ctx, race, 5, bottom + 8.5, simTime + (tower.key % 97) * .61, tier);
-  }
+  if (!drew) rwBody(ctx, race, 5, bottom + 8.5, simTime + (tower.key % 97) * .61, tier);
   ctx.restore();
 }
 function drawTower(ctx, tower) {
@@ -6596,6 +6610,13 @@ function drawCreep(ctx, creep) {
     // flying units cast a shadow and hover above it
     ctx.fillStyle = '#00000030'; ctx.beginPath(); ctx.ellipse(2, 6, size * .9, size * .38, 0, 0, Math.PI * 2); ctx.fill();
     ctx.translate(0, -4);
+  } else {
+    /* WALKERS GET ONE TOO. Fliers already cast a shadow and hover off it, which
+       is what made them read as airborne — and left every ground creep looking
+       like it was floating at the same height. Tighter and darker than the
+       flier's, sitting right under the feet. */
+    ctx.fillStyle = 'rgba(0,0,0,.30)';
+    ctx.beginPath(); ctx.ellipse(0, size * .95, size * .78, size * .30, 0, 0, Math.PI * 2); ctx.fill();
   }
   if (creep.slowUntil > simTime) { ctx.fillStyle = '#77d6ff33'; ctx.beginPath(); ctx.arc(0, 0, size + 4, 0, Math.PI * 2); ctx.fill(); }
   /* A CREEP THAT LOOKS LIKE ITSELF. 25 named wave creeps resolved to 14
@@ -7410,8 +7431,15 @@ function renderRing() {
      them. On a desktop the side panel is right there and does the same job
      without touching the board, so the ring keeps only the two jobs the panel
      cannot do: confirming a placement, and undoing a fresh one. */
-  if (mode === 'built' && !touchUI()) { ring.classList.add('hidden'); ring._sig = ''; return; }
-  if (!mode) { ring.classList.add('hidden'); ring._sig = ''; return; }
+  /* THE RING IS GONE ENTIRELY. Gene: "lets get rid of tee options around the
+     towers". It was already off on desktop for the reason he gave the first
+     time — 46px discs at radius 68 blanket the band of cells 2.5 to 6 away in
+     four directions, and the board's pointerdown explicitly bails over them, so
+     the options you pressed covered the cells you were about to build in.
+     Keeping it on touch only meant the phone kept the worst version of that.
+     Every action it carried now lives in the command tray along the bottom,
+     which is one surface, always in the same place, and never over the board. */
+  ring.classList.add('hidden'); ring._sig = ''; return;
   const cr = $('fx-canvas').getBoundingClientRect();
   const vr = $('map-viewport').getBoundingClientRect();
   const RAD = touchUI() ? 68 : 56, pad = 28;   // wider on touch so a 56px thumb target clears the tower and its neighbours
@@ -11796,7 +11824,17 @@ function renderWispPanel(mode) {
     renderWispPanel(wispTab === 'learn' ? 'tools' : wispTab);
   }));
   // inspect wiring (entity taps)
-  panel.querySelectorAll('[data-wp-act]').forEach((b) => b.addEventListener('click', () => { towerAction(b.dataset.wpAct); renderWispPanel('inspect'); }));
+  panel.querySelectorAll('[data-wp-act]').forEach((b) => b.addEventListener('click', () => {
+    if (b.dataset.wpAct === 'armhint') {
+      const rack = panel.querySelector('.weapon-rack');
+      if (rack) {
+        rack.scrollIntoView({ block:'nearest', behavior:rmReduced() ? 'auto' : 'smooth' });
+        rack.classList.remove('rack-flash'); void rack.offsetWidth; rack.classList.add('rack-flash');
+      }
+      return;
+    }
+    towerAction(b.dataset.wpAct); renderWispPanel('inspect');
+  }));
   /* The bolt rack was only ever in the desktop panel and the command sheet —
      never in the wisp inspect menu, which is the one you actually tap on a
      phone. "I don't understand how to upgrade the units" was literally that:
@@ -11857,10 +11895,43 @@ function renderWispInspect() {
      height fixed for the same reason. */
   const sellWorth = sel.reduce((s, t) => s + towerSellValue(t), 0);
   const armed = pendingSell && pendingSell.sig === selectionSig(sel) && simTime - pendingSell.at < SELL_CONFIRM_WINDOW;
+  /* LEVEL, TIER, TARGET AND SELL ARE BACK, because the ring that owned them is
+     gone. They were removed from here for a good reason — the same action in
+     three places at once — and that reason expired the moment this became the
+     only tower surface a phone has. Measured before putting them back: with the
+     ring removed and nothing added, a selected tower on a phone had no level,
+     no tier, no sell and no target control anywhere on screen.
+     Above the prose, per the note further up: wp-detail's height depends on the
+     description, the special blurb and the next-tier line, all three of which a
+     tier upgrade changes at once, so buttons underneath it slide under a
+     finger. That is how a base got sold in one press. */
+  const many = sel.length > 1;
+  const upgradable = sel.filter(canLevel);
+  const levelAll = upgradable.reduce((sum, t) => sum + towerLevelCost(t), 0);
+  const tierable = sel.filter((t) => towerTierUp(t));
+  const tierAll = tierable.reduce((sum, t) => sum + towerTierUp(t).cost, 0);
+  const rackHere = !tierable.length && sel.some((t) => weaponsFor(t).length);
+  const woodNext = up?.next.lumber || 0;
+  const act = (kind, glyph, label, poor) =>
+    `<button class="wp-act ${poor ? 'wp-poor' : ''}" data-wp-act="${kind}">${glyph} ${label}</button>`;
+  const actions = [
+    act('level', '⬆', upgradable.length ? `${many ? 'Level all' : 'Level'} ${levelAll}g` : 'Max level',
+      !upgradable.length || player.gold < levelAll),
+    rackHere
+      ? `<button class="wp-act wp-arm" data-wp-act="armhint">⚒ Fit a weapon</button>`
+      : act('tier', '⏫', tierable.length
+          ? `${towerTierUp(t0)?.next.name.split(' ')[0]} ${tierAll}g${woodNext ? ` +${woodNext}` : ''}`
+          : 'Max tier',
+        !tierable.length || player.gold < tierAll || (woodNext && player.lumber < woodNext)),
+    act('priority', '🎯', String(t0.priority).toUpperCase(), false),
+    `<button class="wp-act ${armed ? 'wp-armed' : ''}" data-wp-act="sell">${armed ? '⚠ Sure?' : `💰 Sell +${sellWorth}g`}</button>`,
+  ];
+  const rung = ownedLike(t0, true), elem = ownedLike(t0, false);
+  if (rung.length > 1 || elem.length > 1) {
+    actions.push(`<button class="wp-act" data-wp-act="selectall">⧉ Select all ${Math.max(rung.length, elem.length)}</button>`);
+  }
   return close + `<div class="wp-title"><b>${sel.length>1?sel.length+'× ':''}${stats.name}${t0.level?(' +'+t0.level):''}</b> · ${stats.dmg} dmg · ${stats.range.toFixed(1)} range</div>
-    ${/* The ring owns level, tier, target and sell — this panel used to offer
-          all four again, which is how the same action ended up in three places
-          at once. Readout and imbuing only. */''}
+    <div class="wp-actions">${actions.join('')}</div>
     <div class="wp-detail">${stats.dmg} dmg · ${attackSpeedText(stats)} · ${effectiveDps(stats, t0.raceId).toFixed(0)} dps · ${attackProfileText(t0.raceId, stats)}<br>${specialBlurbs[stats.special]||stats.desc||''}${up?`<br><i>→ ${up.next.name}: ${up.next.dmg} dmg · ${up.next.range} range (full ${up.cost}g)</i>`:'<br><i>max tier</i>'}</div>${weaponPanelHtml(sel) + boltPanelHtml(sel) + wardPanelHtml(sel)}`;
 }
 function setupWisp() {
