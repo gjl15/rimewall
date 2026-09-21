@@ -73,7 +73,7 @@ const FULL = process.argv.includes('--full');
 
     return races.map((r) => {
       const list = towerListFor(r.id);
-      const own = list.slice(0, list.length - 2);   // drop the shared Laser and Bulwark rungs
+      const own = list.slice(0, list.length - 1);   // drop the shared Bulwark rung (the Laser capstone is gone)
       const tiers = own.map((def, i) => {
         const row = { tier: i, name: def.name, groundOnly: !!def.groundOnly, special: def.special };
         TARGETS.forEach((tg) => { row[tg.key] = measure(r.id, i, tg).dps; });

@@ -69,7 +69,7 @@ const base = process.argv[2] || 'http://127.0.0.1:8771/';
 
     return races.map((r) => {
       const list = towerListFor(r.id);
-      const own = list.slice(0, list.length - 2);   // drop the shared Laser and Bulwark rungs
+      const own = list.slice(0, list.length - 1);   // drop the shared Bulwark rung (the Laser capstone is gone)
       const rungs = own.map((def, i) => {
         const dps = {}; TARGETS.forEach((tg) => { dps[tg.key] = measure(r.id, i, tg); });
         /* Weighted by what the wave table sends, air folded in at its own share. */

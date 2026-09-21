@@ -388,7 +388,6 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
 .race-identity { gap:12px; padding-bottom:18px; border-bottom:1px solid #2a3858; }.big-rune { display:grid; place-items:center; width:48px; height:48px; border:1px solid var(--race,#77d6ff); border-radius:13px; color:var(--race,#77d6ff); background:#77d6ff12; font-size:25px; }.race-identity strong,.race-identity span:last-child { display:block; }.race-identity strong { margin-top:5px; font-size:18px; }.race-identity span:last-child { margin-top:3px; color:#8e9ab8; font-size:11px; }
 .panel-tabs { gap:5px; padding:14px 0; }.panel-tabs button { flex:1; min-height:44px; padding:10px; border:0; border-radius:8px; background:transparent; color:#7785a6; font-size:12px; }.panel-tabs button.active { background:#273655; color:#ecf0ff; }
 .panel-heading { margin-bottom:10px; }.tower-list { display:grid; gap:7px; max-height:380px; overflow-y:auto; padding-right:2px; scrollbar-width:thin; }
-.laser-row { border-color:#ff5f8f66 !important; }
 .profile-line { color:#8ba7c9 !important; }
 .td-sell-danger { color:#ff9faf !important; border-color:#5a2f3a !important; }
 .td-sell-armed { border-color:#ff6b81 !important; background:#3a1420 !important; color:#ffd0d8 !important; }
@@ -416,7 +415,7 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
 .sheet-chip small { font-size:9px; color:#9fb0d2; }
 .sheet-chip b { color:#f5d36d; font:600 9px 'DM Mono',monospace; }
 .sheet-chip b i { font-style:normal; color:#8ee89f; margin-left:3px; }
-/* bolt mods — tech line + any race's Laser Cannon */
+/* imbuings — the two weapon-rack lines, tech and ninja */
 .bolt-rack { margin-top:9px; padding:8px; border:1px solid #2a3654; border-radius:10px; background:#0d1424; }
 /* TEN IMBUEMENTS, ONE SCROLLING ROW. Gene: "you can only imbue 3-4 out of the
    11." Measured cause: ten chips at flex:1 cannot shrink below their min-content
@@ -1471,9 +1470,9 @@ const races = [
   { id:'ninja', name:'Ninja', title:'Shadow Dojo', builder:'Shadow', symbol:'刃', color:'#eef1f8', desc:'Melee only. Enormous damage inside one or two squares, and nothing at all outside them. Every blade takes an elemental imbuing.', trait:'Melee / imbued' }
 ];
 
-/* Six towers per race (Earth has five) + the shared Laser Cannon capstone.
+/* Six towers per race (Earth has five); each line ends on its own tower.
    special: splash smallsplash meteor rocket machinegun slow pause frostnova
-   crit chain thunder blackhole halve mind paralyze armorshred ion laser.
+   crit chain thunder blackhole halve mind paralyze armorshred ion.
    groundOnly towers cannot target air waves. */
 const TOWERS = {
   ice:[
@@ -1641,7 +1640,14 @@ const TOWERS = {
     { name:'Event Horizon', cost:350, dmg:400, cd:1.6, range:4.5, special:'blackhole', desc:'Every warp effect at once — slow, slam, lift, shove, and the rare fling forward.' }
   ]
 };
-const LASER_TOWER = { name:'Laser Cannon', cost:650, dmg:300, cd:.2, range:20, special:'laser', desc:'The forbidden capstone: crits, slows, and poisons at extreme speed.' };
+/* THE LASER CANNON IS GONE. Gene, on the four open calls: "none except the one
+   removing laser capstone entirely."
+   It was the reason all eleven elements showed an identical top rung — 650g of
+   armour-ignoring, crit-slow-poison at 0.2s, bolted onto the end of every line
+   regardless of what that line was for. An element whose whole identity is that
+   it cannot get through plate ended on a tower that ignores plate, which made
+   the last purchase of every race the same purchase and the matrix meaningless
+   at the top. Each line now ends on its own tower. */
 /* SOMETHING TO PUT IN FRONT. Once attackers exist, the front row stops being
    wasted space and becomes a job: soak the swings so the towers behind keep
    firing. A tower that deals no damage at all would be a strange buy in a game
@@ -1679,7 +1685,7 @@ function wardOf(tower) { return tower && tower.ward ? WARD_BY_ID[tower.ward] : n
 function wardCost() { return 1; }   // one lumber, whichever ward — the choice is the cost
 const BULWARK_TOWER = { name:'Bulwark Stake', cost:4, dmg:0, cd:1, range:0, special:'bulwark', hpMult:14,
   desc:'No attack at all — a post that soaks attackers. Fourteen times the hit points of an ordinary tower, and it takes a ward.' };
-function towerListFor(raceId) { return [...(TOWERS[raceId] || TOWERS.ice), LASER_TOWER, BULWARK_TOWER]; }
+function towerListFor(raceId) { return [...(TOWERS[raceId] || TOWERS.ice), BULWARK_TOWER]; }
 /* HIT POINTS, AS A REAL NUMBER YOU CAN BUILD AROUND.
    A tower used to take a flat 4 + tier swings, each swing a hard-coded 1. With
    attackers on the ladder that had to become something a person can plan
@@ -1714,14 +1720,14 @@ function towerMaxHp(def, tier, level) {
 }
 
 /* classic-style armor: reduction = a×0.06 / (1 + a×0.06); race attack bonuses vs
-   armor classes follow the source map's design notes. Poison/crystal/laser are
+   armor classes follow the source map's design notes. Poison and crystal are
    chaos (full damage to everything). */
 function armorReduction(armor) { const k = armor * .06; return k / (1 + k); }
 /* Full attack-type matrix, classic-style: every race has strengths AND weaknesses
    vs armor classes, so waves punish mono-race builds and the second element
    is a real strategic answer (e.g. pierce shreds light but bounces off heavy
    and fortified; siege cracks fortified; storm is elite anti-air). Crystal
-   and the Laser Cannon are chaos: full damage to everything, armor ignored. */
+   is chaos: full damage to everything, armor ignored. */
 const ATTACK_PROFILE = {
   ice:{ label:'Frost', vs:{ light:1.15, heavy:1.25, fortified:.55 } },
   fire:{ label:'Blast', vs:{ unarmored:1.25, medium:1.25, fortified:.65 } },
@@ -1858,7 +1864,7 @@ function tierPot(tower) { return Math.min(1, .55 + .09 * (tower.tier || 0)); }
    only true at the TOP of a ladder — Stone's "25% of hits crit" is really 13.75%
    on a Cairn. Cards that quote one of those print the range instead. */
 function pctTier(p) { return `${Math.round(p * .55 * 100)}–${Math.round(p * 100)}%`; }
-function isChaos(tower, stats) { return !!(ATTACK_PROFILE[tower.raceId] && ATTACK_PROFILE[tower.raceId].chaos) || tower.raceId === 'crystal' || stats.special === 'laser'; }
+function isChaos(tower, stats) { return !!(ATTACK_PROFILE[tower.raceId] && ATTACK_PROFILE[tower.raceId].chaos) || tower.raceId === 'crystal'; }
 function attackProfileText(raceId, def) {
   const p = ATTACK_PROFILE[raceId];
   if (!p) return '';
@@ -1917,7 +1923,6 @@ function specialBlurb(sp) {
     paralyze:`A finisher. A target already under 35% health drops to 11 HP and is then crit. Above that it takes ordinary damage. Bosses resist.`,
     armorshred:`Strips 5 armour from the target, for every tower shooting it.`,
     ion:`+500 flat damage while the target is above 500 HP — an opener, not a finisher.`,
-    laser:`Crits, slows and poisons on every hit, and ignores armour.`,
     skyhunter:`+60% damage against flying creeps. Every hit.`,
     pierce:`Ignores a flat 4 points of armour. Every hit.`,
     snipe:`+${Math.round((TRAIT.snipeMult - 1) * 100)}% against whichever creep is furthest along the route.`,
@@ -1947,10 +1952,10 @@ function towerDef(raceId, tier) {
   const list = towerListFor(raceId);
   const def = list[Math.min(tier, list.length - 1)];
   const race = races.find((item) => item.id === raceId) || races[0];
-  const isLaser = def === LASER_TOWER, isWall = def === BULWARK_TOWER;
+  const isWall = def === BULWARK_TOWER;
   return { ...def, raceId:race.id, tier,
-    color:isLaser ? '#ff5f8f' : isWall ? '#9aa7bd' : race.color,
-    symbol:isLaser ? '✦' : isWall ? '⬛' : race.symbol };
+    color:isWall ? '#9aa7bd' : race.color,
+    symbol:isWall ? '⬛' : race.symbol };
 }
 /* Level upgrades: +0.25 range per level, and a damage step the race sets
    (see levelDmgStep — +15% for a ladder race, far more for Ninja).
@@ -1966,7 +1971,7 @@ function towerMaxLevel(tower) {
   return (def && def.maxLevel) || MAX_LEVEL;
 }
 function canLevel(tower) { return (tower.level || 0) < towerMaxLevel(tower); }
-/* ---------------- BOLT MODS (tech line + every race's Laser Cannon) ----------------
+/* ---------------- IMBUINGS (the tech and ninja weapon racks) ----------------
    Tech is the toolbox race: bolt throwers with raw numbers and no element of
    their own, which is exactly why it kept measuring bottom of the table — every
    other race carries a passive on top of its damage and tech carried none.
@@ -2014,7 +2019,7 @@ const BOLT_BLURB = {
   lumen:  `+${BOLT.lumenRange} range on the tower itself — the one imbuing that lengthens a blade.`,
   pierce: `+${Math.round(BOLT.pierceRange * 100)}% range and fire rate, plus ${Math.round(BOLT.pierceFlat * 100)}% damage that ignores armour and the class matrix — identical against every armour type. Non-lethal, and it does not stack.`
 };
-/* Tech's whole line, and the Laser Cannon whatever race bought it (it is the
+/* Tech's whole line, and every ninja blade (it is the
    last entry of every race's list). */
 function boltEligible(tower) {
   if (!tower) return false;   // owner-agnostic: the rival fits bolts too
@@ -2022,7 +2027,13 @@ function boltEligible(tower) {
      already a per-tower elemental fitting with a working picker in all three
      panels, so the "imbue each individual tower" idea needed a race that wants
      it, not a new system. */
-  return tower.raceId === 'tech' || tower.raceId === 'ninja' || tower.tier >= towerListFor(tower.raceId).length - 1;
+  /* THIS USED TO END IN `tier >= towerListFor(raceId).length - 1`, described
+     everywhere as "any race's Laser Cannon". The list was [...towers, LASER,
+     BULWARK], so length-1 was the BULWARK index — the clause made the stake
+     imbuable and the Laser never was, in flat contradiction of four strings in
+     the UI. With the Laser gone the rule is what the design actually wants and
+     says so: the two races whose ladders are weapon racks. */
+  return tower.raceId === 'tech' || tower.raceId === 'ninja';
 }
 /* Priced at 40% of the tier, floor 10g. At 60% with a 15g floor the search
    never bought one at any wave: a bolt on an 8g Bolt Turret cost nearly twice
@@ -3105,7 +3116,7 @@ function resetMatchState() {
 
 /* Trade the weakest tower on the board up to the best tier the purse allows.
    Selling and rebuilding keeps the maze shape identical — only its damage moves. */
-/* The rival fits bolts too, or a tech/laser rival would field the one line in
+/* The rival fits imbuings too, or a tech or ninja rival would field the one line in
    the game with no passive at all. It buys the cheapest slot first and spreads
    the four kinds rather than stacking one, which is roughly what a competent
    player does with them. */
@@ -3825,8 +3836,6 @@ function applyHitEffects(creep, tower, stats) {
     creep.venomUntil = simTime + TRAIT.poisonDur;   // every hit refreshes the whole pool
     creep.slowUntil = Math.max(creep.slowUntil, simTime + 1.2); creep.slowPct = Math.max(creep.slowPct || 0, Math.round(TRAIT.poisonSlow * tierPot(tower)));
   }
-  // laser (crystal capstone) keeps a slow + light burn
-  if (special === 'laser') { creep.slowUntil = Math.max(creep.slowUntil, simTime + 1.2); creep.slowPct = Math.max(creep.slowPct || 0, 40); pushDot(creep, stats.dmg * .1, 2); }
   // FIRE — 1st hit direct (done), 2nd ignites, 3rd erupts in an AoE
   if (race === 'fire') {
     creep.fireCharge = (creep.fireCharge || 0) + 1;
@@ -3844,7 +3853,7 @@ function applyHitEffects(creep, tower, stats) {
   applyBoltEffects(creep, tower, stats);
   grantTowerXp(tower, RANK_HIT_XP);
 }
-/* The borrowed element a bolt mod bolts onto a tech tower or a Laser Cannon.
+/* The borrowed element an imbuing bolts onto a tech tower or a ninja blade.
    Deliberately weaker than the race that owns each effect: Ice's own frost
    ramps to a far deeper slow and freezes regen, Fire's charge erupts in an AoE,
    Poison's venom pool stacks without limit and can kill. A bolt buys the
@@ -4243,7 +4252,6 @@ function pickTarget(tower, stats) {
 }
 function projectileFlightTime(special) {
   if (special === 'chain') return .09;
-  if (special === 'laser') return .05;
   if (special === 'meteor') return .5;
   if (special === 'rocket') return .55;
   if (special === 'machinegun') return .12;
@@ -5634,7 +5642,7 @@ function redrawBoard() { boardCtx.clearRect(0, 0, BOARD_W, BOARD_H); drawTerrain
    no element is louder than another by accident. */
 const RW_ELEMENT = {
   ice:'#8adcff', fire:'#ff9068', earth:'#d9b070', tech:'#98acff', crystal:'#cf9dff', poison:'#b4e870',
-  stone:'#bcc6da', electricity:'#ffd65e', gravity:'#dc94e4', beam:'#7ff0cf', ninja:'#eef1f8', laser:'#ff5f8f' };
+  stone:'#bcc6da', electricity:'#ffd65e', gravity:'#dc94e4', beam:'#7ff0cf', ninja:'#eef1f8' };
 /* Plinth slabs per tier: [width, height] in cell units (cell = 20u), bottom first. */
 const RW_SLABS = [[], [[10, 2]], [[13, 2.4]], [[14, 2], [10, 2]], [[16, 2.2], [12, 2.2]], [[18, 2], [14, 2], [10, 2]]];
 const RW_SLAB_COL = ['#9aa7c2', '#b6c1d6', '#c9d3e6'];   // bottom -> top; light hits the top step
@@ -5662,8 +5670,6 @@ function rwBody(ctx, el, a, h, t) {
                      ctx.globalAlpha = .6 + Math.sin(t * 5) * .3; ctx.beginPath(); ctx.arc(0, -h * .78, 1.4, 0, P * 2); ctx.fill(); ctx.globalAlpha = 1; break;
     case 'ninja':    ctx.fillRect(-1.2, -h * .1, 2.4, h * .1); ctx.fillRect(-a * .85, -h * .26, a * 1.7, 1.5);
                      ctx.beginPath(); ctx.moveTo(-1.8, -h * .26); ctx.lineTo(1.8, -h * .26); ctx.quadraticCurveTo(a * .5, -h * .7, a * 1.05, -h); ctx.lineTo(a * .45, -h * .86); ctx.quadraticCurveTo(-1.6, -h * .62, -1.8, -h * .26); ctx.closePath(); ctx.fill(); ctx.stroke(); break;
-    case 'laser':    ctx.beginPath(); ctx.rect(-a * .8, -h * .4, a * 1.6, h * .4); ctx.fill(); ctx.stroke();
-                     ctx.beginPath(); ctx.arc(0, -h * .68, a * .7, 0, P * 2); ctx.fill(); ctx.stroke(); break;
   }
 }
 /* Ownership: an inset outline on the cell and a band under the plinth. Never on
@@ -5676,7 +5682,7 @@ function rwOwnerMark(ctx, laneColor, footW) {
 }
 function drawTowerStructure(ctx, tower, stats, building, laneColor) {
   const tier = tower.tier || 0, s = CELL / 20;
-  const race = stats.special === 'laser' ? 'laser' : tower.raceId;
+  const race = tower.raceId;
   const hex = RW_ELEMENT[race] || stats.color;
   ctx.save(); ctx.scale(s, s);
   const slabs = RW_SLABS[Math.max(0, Math.min(RW_SLABS.length - 1, tier))];
@@ -6204,11 +6210,6 @@ function drawProjectile(ctx, p) {
     if (!reduced) { ctx.fillStyle = '#ffb86b'; ctx.beginPath(); ctx.arc(-6, 0, Math.max(0, 2 + Math.random() * 1.4), 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#ffe6b0'; ctx.beginPath(); ctx.arc(-7.5, 0, Math.max(0, 1), 0, Math.PI * 2); ctx.fill(); }
     else { ctx.fillStyle = '#ffb86b'; ctx.beginPath(); ctx.arc(-6, 0, Math.max(0, 2), 0, Math.PI * 2); ctx.fill(); }
     ctx.restore();
-  } else if (p.style === 'laser') {
-    const x1 = p.sx * CELL, y1 = p.sy * CELL, x2 = p.tx * CELL, y2 = p.ty * CELL;
-    ctx.strokeStyle = color; ctx.globalAlpha = .25; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-    ctx.globalAlpha = .9; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-    ctx.strokeStyle = '#ffffffcc'; ctx.lineWidth = 1; ctx.globalAlpha = 1; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
   } else if (p.style === 'machinegun') {
     const dx = p.tx - p.sx, dy = p.ty - p.sy, len = Math.hypot(dx, dy) || 1;
     ctx.strokeStyle = color; ctx.lineWidth = 1.4; ctx.globalAlpha = .9;
@@ -6933,7 +6934,7 @@ function railBody(tab) {
     const raceId = currentBuildRaceId();
     return `<div class="rl-head">BUILD — tap, then tap the board</div>` + towerListFor(raceId).map((def, tier) => {
       const d = towerDef(raceId, tier);
-      const laser = d.name === 'Laser Cannon';
+      const woodCost = d.lumber || 0;
       /* The rail was the thinnest build surface of the three — damage, range and
          nothing else, so on a phone you picked a tower without being told what
          it did. towerStatLine already carries range · dps · special (or NO AIR
@@ -6941,7 +6942,7 @@ function railBody(tab) {
          surfaces print. */
       return card(`data-rail-tower="${tier}"`, d.color, d.name,
         `${d.dmg} dmg · ${towerStatLine(d)}`,
-        `${d.cost}g${laser ? '+🪵' : ''}`, tier === selectedTowerTier, player.gold < d.cost);
+        `${d.cost}g${woodCost ? `+${woodCost}🪵` : ''}`, tier === selectedTowerTier, player.gold < d.cost);
     }).join('');
   }
   if (tab === 'send') {
@@ -7215,8 +7216,7 @@ function renderTowerList() {
   renderBuildExtras();
   $('tower-list').innerHTML = towerListFor(raceId).map((entry, tier) => {
     const def = towerDef(raceId, tier);
-    const isLaser = def.name === 'Laser Cannon';
-    const lum = def.lumber || (isLaser ? 1 : 0);
+    const lum = def.lumber || 0;
     /* WHAT IT DOES ON EVERY CARD; WHY YOU'D WANT IT ON THE OPEN ONE.
        I collapsed these to one line to stop the list being a wall of mono, and
        took the abilities with it — Gene: "towers are not listing their stats and
@@ -7228,7 +7228,7 @@ function renderTowerList() {
        carries two lines — the numbers, then the special and the armour matrix —
        and the selected one adds the paragraph. */
     const chosen = tier === selectedTowerTier;
-    return `<button class="tower-row ${chosen ? 'selected' : ''} ${isLaser ? 'laser-row' : ''}" data-tower="${tier}">
+    return `<button class="tower-row ${chosen ? 'selected' : ''}" data-tower="${tier}">
       <span><strong>${def.name}</strong>
       <small class="tower-stats">${def.dmg} dmg • ${def.range.toFixed(1)} reach • ${attackSpeedText(def)} • ${effectiveDps(def).toFixed(0)} dps${def.groundOnly ? ' • NO AIR' : ''}</small>
       <small class="tower-stats profile-line">${def.special && def.special !== 'basic' ? `<b style="color:${def.color || 'inherit'}">${def.special}</b> · ` : ''}${attackProfileText(raceId, def)}${def.raceId === 'poison' ? ' · venom' : ''}</small>
@@ -7244,7 +7244,7 @@ function renderTowerList() {
 function buyLumber() {
   if (!player || player.gold < LUMBER_PRICE) { log(`Lumber costs ${LUMBER_PRICE}g.`); return false; }
   player.gold -= LUMBER_PRICE; player.lumber += 1;
-  log(`Bought 1 lumber (${player.lumber}🪵). Spend it on a shrine upgrade, a second element, or a Laser Cannon.`);
+  log(`Bought 1 lumber (${player.lumber}🪵). Spend it on a shrine upgrade, a second element, a tower ward, or an attacker send.`);
   renderHud(); renderTowerList(); renderSendPanel();
   return true;
 }
@@ -7362,7 +7362,7 @@ function towerAction(kind) {
     const mod = BOLT_BY_ID[id];
     const eligible = group.filter((t) => boltEligible(t) && t.bolt !== id);
     if (!mod) return;
-    if (!eligible.length) { log(`Bolt mods fit the tech line and any race's Laser Cannon${group.some((t) => t.bolt === id) ? ` — these already carry the ${mod.name}` : ''}.`); return; }
+    if (!eligible.length) { log(`Imbuings fit the tech line and ninja blades${group.some((t) => t.bolt === id) ? ` — these already carry the ${mod.name}` : ''}.`); return; }
     let done = 0, spent = 0, swapped = 0;
     for (const t of eligible.sort((a, b) => boltCost(a) - boltCost(b))) {
       const cost = boltCost(t);
@@ -7398,10 +7398,8 @@ function towerAction(kind) {
     for (const t of group.sort((a, b) => (towerTierUp(a)?.cost ?? 1e9) - (towerTierUp(b)?.cost ?? 1e9))) {
       const up = towerTierUp(t);
       if (!up || player.gold < up.cost) continue;
-      /* Any rung can carry a lumber price, not just the Laser — the Bulwark
-          Stake does too, and this checked the Laser BY NAME, so tier-upgrading
-          into a Bulwark cost its gold and no lumber at all. */
-      const upLumber = up.next.lumber || (up.next.name === 'Laser Cannon' ? 1 : 0);
+      // any rung can carry a lumber price; the Bulwark Stake is the one that does
+      const upLumber = up.next.lumber || 0;
       if (upLumber) {
         if (player.lumber < upLumber) { log(`Upgrading into a ${up.next.name} costs its ${upLumber} lumber too.`); continue; }
         player.lumber -= upLumber; player.lumberSpent += upLumber; if (player.lumberSpent >= 3) award('lumberjack');
@@ -7567,8 +7565,8 @@ function renderTowerDetails() {
   const alike = [...towers.values()].filter((t) => isMine(t) && t.raceId === tower.raceId && t.tier === tower.tier).length;
   const sellArmed = many && pendingSell && pendingSell.sig === selectionSig(group) && simTime - pendingSell.at < SELL_CONFIRM_WINDOW;
   const sellLabel = sellArmed ? `⚠ Confirm — sell all ${group.length}` : `Sell${many ? ' all' : ''} ${sellAll}g${graceNote}`;
-  const laserNext = towerTierUp(tower)?.next.name === 'Laser Cannon';
-  const tierBlocked = !tierable.length || player.gold < (many ? 1 : tierCostAll) || (laserNext && player.lumber < 1);
+  const woodNext = towerTierUp(tower)?.next.lumber || 0;
+  const tierBlocked = !tierable.length || player.gold < (many ? 1 : tierCostAll) || (woodNext && player.lumber < woodNext);
   const levelBlocked = !upgradable.length || player.gold < (many ? 1 : levelCostAll);
 
   /* REBUILDING THIS PANEL FIVE TIMES A SECOND IS WHY UPGRADE SOLD YOUR TOWER.
@@ -7593,7 +7591,7 @@ function renderTowerDetails() {
     const setBtn = (id, off, text) => { const b = $(id); if (!b) return; b.disabled = !!off; if (text != null && b.textContent !== text) b.textContent = text; };
     setBtn('td-level', levelBlocked, !upgradable.length ? 'Max level' : many ? `Upgrade all • ${levelCostAll}g` : `Upgrade level ${levelCostAll}g`);
     setBtn('td-tier', tierBlocked, !tierable.length ? 'Max tier'
-      : `→ ${towerTierUp(tower)?.next.name || 'next tier'}${many ? ` all • ${tierCostAll}g` : ` ${tierCostAll}g`}${laserNext ? ' +1🪵' : ''}`);
+      : `→ ${towerTierUp(tower)?.next.name || 'next tier'}${many ? ` all • ${tierCostAll}g` : ` ${tierCostAll}g`}${woodNext ? ` +${woodNext}🪵` : ''}`);
     setBtn('td-sell', false, sellLabel);
     $('td-sell')?.classList.toggle('td-sell-armed', !!sellArmed);
     return;
@@ -7620,7 +7618,7 @@ function renderTowerDetails() {
           that is what stopped a reflow moving Sell under a finger mid-press. */''}
     ${isYours ? `<div class="td-actions">
       <button id="td-level" class="action-button" ${levelBlocked ? 'disabled' : ''}>${!upgradable.length ? 'Max level' : many ? `Upgrade all • ${levelCostAll}g` : `Upgrade level ${levelCostAll}g`}</button>
-      <button id="td-tier" class="action-button td-tier" ${tierBlocked ? 'disabled' : ''}>${!tierable.length ? 'Max tier' : `→ ${towerTierUp(tower)?.next.name || 'next tier'}${many ? ` all • ${tierCostAll}g` : ` ${tierCostAll}g`}${laserNext ? ' +1🪵' : ''}`}</button>
+      <button id="td-tier" class="action-button td-tier" ${tierBlocked ? 'disabled' : ''}>${!tierable.length ? 'Max tier' : `→ ${towerTierUp(tower)?.next.name || 'next tier'}${many ? ` all • ${tierCostAll}g` : ` ${tierCostAll}g`}${woodNext ? ` +${woodNext}🪵` : ''}`}</button>
       <button id="td-priority" class="ghost-button">Target: ${tower.priority}</button>
       <button id="td-sell" class="ghost-button td-sell-danger ${sellArmed ? 'td-sell-armed' : ''}">${sellLabel}</button>
       ${alike > 1 ? `<button id="td-selectall" class="ghost-button td-wide">⧉ Select all ${alike}${many ? ` · ${group.length} selected` : ''}</button>` : ''}
@@ -7886,7 +7884,7 @@ function buildAt(cell) {
   const raceId = currentBuildRaceId();
   const def = towerDef(raceId, selectedTowerTier);
   if (player.gold < def.cost) return log(`Not enough gold — ${def.name} costs ${def.cost}g.`);
-  const lumberCost = def.lumber || (def.name === 'Laser Cannon' ? 1 : 0);
+  const lumberCost = def.lumber || 0;
   if (lumberCost && player.lumber < lumberCost) return log(`${def.name} costs ${def.cost}g + ${lumberCost} lumber.`);
   /* A TOWER THAT SEALS THE LANE IS NEVER PLACED. It used to go down, take your
      gold, break the route, and leave you a few seconds to spot it and undo — a
@@ -10421,7 +10419,7 @@ const RELEASE_NOTES = [
     'Frost ramps 40% then +5% a hit — the 12th hit FREEZES a creep solid. Bosses get a deep slow instead.',
     'Frostbite: 14% of Ice hits bite for bonus damage.',
     'Hailslinger is now the Snowball Launcher — splash damage that frosts everything in the burst.',
-    'Bolt mods: fit Ice, Fire, Toxic or Piercing to any tech tower or Laser Cannon.',
+    'Imbuings: fit any of ten elements to a tech tower or a ninja blade.',
     'Selling is undoable for 12 seconds, and the undo pill lasts the full 8s refund window.',
     'Double-tap anywhere off the board to reset a stuck zoom.',
     'Send cards on mobile now show the income you actually get, not the ladder number.',
@@ -10569,16 +10567,16 @@ function learnContent() {
     <div class="learn-list">${WAVES.map((w, i) => `<div class="learn-row"><span>${i+1}. ${w.name}</span><small>${Math.round((w.hp||0)*(w.boss?1:TRAIT.hpScaleNeutral*waveHpMult(i+1))*(w.role==='juggernaut'?2.4:1))} hp · ${(w.armor||0)+(w.boss?0:TRAIT.armorBonus)} armor · ${w.aClass}${w.air?' · air':''}${w.role&&w.role!=='standard'?' · '+w.role:''}</small></div>`).join('')}</div>
     <p class="sheet-heading">EVERY SEND — cost · income · hp · armor</p>
     <div class="learn-list">${SENDS.map((sd) => `<div class="learn-row"><span>${sd.name} <em>(L${sd.shrine})</em></span><small>${sd.cost}g +${sd.income} · ${sendShownHp(sd)} hp · ${sd.armor||0} armor · ${sd.aClass||'?'}${sd.air?' · air':''}${sd.role&&sd.role!=='standard'?' · '+sd.role:''}</small></div>`).join('')}</div>
-    <p class="sheet-heading">BOLT MODS — tech line + any race's Laser Cannon</p>
+    <p class="sheet-heading">IMBUINGS — the tech line and ninja blades</p>
     <div class="learn-list">${BOLT_MODS.map((m) => `<div class="learn-row"><span style="color:${m.color}">${m.glyph} ${m.name}</span><small>${BOLT_BLURB[m.id]}</small></div>`).join('')}
       <div class="learn-row"><span>Fitting</span><small>one bolt per tower, 40% of the tower's tier cost (floor 10g); it carries through tier upgrades, and swapping pays again</small></div></div>
     <p class="sheet-heading">RULES OF THUMB</p>
     <div class="learn-list">
-      <div class="learn-row"><span>Chaos</span><small>Crystal and the Laser Cannon ignore armor entirely; Crystal also does +100% to shields</small></div>
+      <div class="learn-row"><span>Chaos</span><small>Crystal ignores armor value entirely, and does +100% to shields</small></div>
       <div class="learn-row"><span>Shields</span><small>absorb raw damage (armor ignored); refill after 4s untouched; Thunderspike strips them</small></div>
       <div class="learn-row"><span>Regen / Juggernaut</span><small>Frost slow & stuns freeze HP regen; juggernauts are slow but very tanky (fortified)</small></div>
       <div class="learn-row"><span>Sends</span><small>each purchase runs BOTH rival lanes and permanently raises your income; killing sends pays their value</small></div>
-      <div class="learn-row"><span>Lumber (500g)</span><small>buys shrine levels (stronger sends), a second element, or the Laser Cannon</small></div>
+      <div class="learn-row"><span>Lumber (500g)</span><small>buys shrine levels (stronger sends), a second element, tower wards, or an attacker send</small></div>
     </div>`;
 }
 function renderCommandSheet() {
@@ -10618,7 +10616,7 @@ function renderCommandSheet() {
       const tierable = sel.filter((t) => towerTierUp(t));
       const tierCostAll = tierable.reduce((sum, t) => sum + towerTierUp(t).cost, 0);
       const sellAll = sel.reduce((sum, t) => sum + towerSellValue(t), 0);
-      const laserNext = towerTierUp(t0)?.next.name === 'Laser Cannon';
+      const woodNext = towerTierUp(t0)?.next.lumber || 0;
       body = `
         <div class="sheet-title"><strong>${many ? `${sel.length} × ` : ''}${stats.name}</strong>${many ? ' — batch selection' : ` — Level ${(t0.level || 0) + 1}`}</div>
         <div class="sheet-grid sheet-actions">
@@ -10626,7 +10624,7 @@ function renderCommandSheet() {
           ${/* always present, greyed when there is nothing to buy — a chip that
                 vanishes shuffles Sell into the space Tier just left, which is
                 the same trap the side panel had */''}
-          <button class="sheet-chip ${!tierable.length || player.gold < 1 || (laserNext && player.lumber < 1) ? 'poor' : ''}" data-sheet-act="tier"><span>⏫</span><small>${!tierable.length ? 'Max' : (towerTierUp(t0)?.next.name.split(' ')[0] || 'Tier')}</small><b>${!tierable.length ? '—' : `${tierCostAll}g${laserNext ? '+🪵' : ''}`}</b></button>
+          <button class="sheet-chip ${!tierable.length || player.gold < 1 || (woodNext && player.lumber < woodNext) ? 'poor' : ''}" data-sheet-act="tier"><span>⏫</span><small>${!tierable.length ? 'Max' : (towerTierUp(t0)?.next.name.split(' ')[0] || 'Tier')}</small><b>${!tierable.length ? '—' : `${tierCostAll}g${woodNext ? `+${woodNext}🪵` : ''}`}</b></button>
           <button class="sheet-chip" data-sheet-act="priority"><span>🎯</span><small>Target</small><b>${t0.priority}</b></button>
           ${(() => { const armed = many && pendingSell && pendingSell.sig === selectionSig(sel) && simTime - pendingSell.at < SELL_CONFIRM_WINDOW;
             return `<button class="sheet-chip sell-chip ${armed ? 'armed' : ''}" data-sheet-act="sell"><span>${armed ? '⚠' : '💰'}</span><small>${armed ? 'Confirm' : `Sell${many ? ' all' : ''}`}</small><b>${armed ? sel.length + ' towers' : sellAll + 'g'}</b></button>`; })()}
