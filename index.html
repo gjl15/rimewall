@@ -2604,41 +2604,29 @@ const SENDS = [
 ];
 const SHRINE_MAX = 5, LUMBER_PRICE = 500;
 
-/* ---------------- THE LADDER HAS TO BE WORTH CLIMBING ----------------
-   Gene: "the send hp should never scale, otherwise theres no point in upgrading
-   the shrine." The growth clock is gone, so the shrine is now the only thing
-   that makes a sender stronger — and measured, it was making them WEAKER.
-   tools/harness/shrineval.js, before this pass:
+/* THE LADDER IS PRICED THE WAY IT ALWAYS WAS, AND THAT WAS THE POINT.
 
-     shrine   effHP/gold   payback
-     L1       8.56         4.8 ticks
-     L2       3.21         8.9
-     L3       2.95         8.9
-     L4       3.31         9.1
-     L5       3.90         9.3
+   I rescaled every send by shrine level here, moving cost and income together so
+   that payback stayed constant on all 34 rungs, and argued that this left the
+   economy untouched while making a higher shrine buy more creep per gold.
 
-   A shrine-1 rung bought two and a half times the pressure per gold of a
-   shrine-5 rung AND repaid itself in half the ticks. Every lumber spent on the
-   shrine made your gold worse on both axes, which is exactly the "no point"
-   Gene named.
+   Gene: "thats bad logic, in the original and what we had more aggressive sends
+   cost more but had less income, that was the point like for example the air
+   towers gave less income, thats the intent."
 
-   THE SCALE IS BY LEVEL, AND COST MOVES WITH INCOME. Cutting price alone would
-   have made high rungs better economy as well as better pressure, which is a
-   different change and a much larger one — the income curve is Abdy's open
-   complaint and does not want a second hand on it. Scaling cost and income
-   TOGETHER leaves payback exactly where it was on every rung, so the economy is
-   untouched and the only thing that climbs is how much creep a gold buys.
+   That is the design and I had inverted it. Constant payback is not a neutral
+   property to preserve — the VARYING payback IS the ladder. A send that is hard
+   to answer is supposed to be a worse investment than a send that is easy to
+   answer, so buying pressure costs you economy and the two are a real choice
+   rather than the same choice at different scales. Holding payback flat while
+   changing prices was me protecting the exact thing that was doing the work.
 
-   Target: effHP/gold rising 4.5 -> 7.0 across the five levels. Applied here
-   rather than hand-edited into 34 rows, so the intent stays legible and the
-   next retune is one line per level instead of sixty-eight numbers. */
-const SHRINE_PRICE_SCALE = { 1:1.90, 2:0.64, 3:0.53, 4:0.53, 5:0.56 };
-SENDS.forEach((send) => {
-  if (send.attacker) return;                       // attackers are priced in lumber, below
-  const k = SHRINE_PRICE_SCALE[send.shrine] || 1;
-  send.cost = Math.max(5, Math.round(send.cost * k));
-  send.income = Math.max(1, Math.round(send.income * k));
-});
+   The ladder already encoded it before I touched it: shrine-1 rungs repay in
+   about 4.8 income ticks, shrine-3 and up in 8.9 to 9.4. You pay roughly double
+   the economic price for the sends that actually threaten a wall.
+
+   Prices are back to the table's own numbers. sendGrowth() staying at 1 is the
+   separate change and is unaffected by this. */
 
 /* ATTACKERS COST LUMBER, NOT GOLD. Gene: "attackers shouldnt cost gold, but
    lumber." They already carried a lumber component on top of a large gold
@@ -2807,10 +2795,12 @@ function leakDiagnostic() {
    the thing you spend lumber on stops being the thing that buys you pressure.
    The clock was doing the shrine's work, and doing it for free.
 
-   So the clock is gone and the ladder has to carry it — which means the ladder
-   itself has to be worth climbing. tools/harness/shrineval.js measures exactly
-   that: effective hit points bought per gold, rung by rung, so "is a shrine
-   upgrade worth lumber" is a number rather than a hope. */
+   So the clock is gone and the ladder carries it on its own terms: what a higher
+   shrine buys is a bigger BODY, not a better rate. tools/harness/shrineval.js
+   prints both, and the ceiling is the column that matters — a shrine-1 sender
+   tops out at about 1,700 effective hit points on the board and a shrine-5
+   sender at 95,000. A wall kills small bodies one at a time; one large body is
+   what actually survives the gauntlet. */
 function sendGrowth() { return 1; }
 /* ONE PURCHASE, ONE BODY A LANE — unless the send is a swarm. The engine has
    had a swarm role since the wave table was written and no send ever carried
