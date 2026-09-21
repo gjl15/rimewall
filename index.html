@@ -3826,6 +3826,13 @@ function moveAlong(creep, node, dt) {
   const dist = Math.hypot(dx, dy) || 1;
   const step = Math.min(dist, speed * dt);
   creep.x += dx / dist * step; creep.y += dy / dist * step;
+  /* THE CYCLE IS DRIVEN BY DISTANCE, NOT BY THE CLOCK. Tying it to simTime
+     would have everything on the board stepping at one rate — a frozen creep
+     would march on the spot, a creep at 85% frost would stride exactly as fast
+     as one at full speed, and a whole wave would move in lockstep. Accumulating
+     the distance actually covered gets all three right for free: slow it and it
+     steps slower, freeze it and the foot stops mid-air. */
+  creep.walked = (creep.walked || 0) + step;
   /* A PACK, NOT A POINT. Gene: "a lot of the creeps get staked together."
      Measured, and it was total: twenty creeps walking one route converged into
      a SINGLE cell, with all 190 possible pairs overlapping. Every body chases
@@ -6473,11 +6480,18 @@ function rwOwnerMark(ctx, laneColor, footW) {
    load — offline, blocked, a browser without webp — drawTower falls straight
    back to rwBody and the game looks the way it did yesterday rather than
    showing nothing. That is why rwBody was not deleted. */
+const SPRITE_STRIDE = .5;      // cells covered per pose swap
 const SPRITE_CELL = 96;
 const SPRITE_TOWER_IDS = ["ice-0-frostflick","ice-1-snowballlauncher","ice-2-whiteoutspire","ice-3-meltjet","ice-4-shatterfrost","ice-5-absolutezero","ice-6-bulwarkstake","fire-0-kindler","fire-1-emberwhirl","fire-2-skyfallbrazier","fire-3-slagworks","fire-4-ashmaker","fire-5-pyroclastrod","earth-0-verdantspring","earth-1-rootwarden","earth-2-worldheartcoffer","earth-3-earthssoul","earth-4-worldheart","earth-5-bramblespeck","tech-0-boltturret","tech-1-longbolt","tech-2-ballista","tech-3-multishot","tech-4-siegetank","tech-5-ionarray","tech-6-doomsdaysilo","crystal-0-shardcaster","crystal-1-prismcannon","crystal-2-facetfury","crystal-3-refractionsnare","crystal-4-geodebreaker","crystal-5-latticeannihilator","poison-0-venombarb","poison-1-blightspire","poison-2-mirelobber","poison-3-toxincreeper","poison-4-carriontotem","poison-5-miasmavent","stone-0-cairn","stone-1-bouldermaw","stone-2-monolith","stone-3-runestoneseer","stone-4-quakebreaker","stone-5-petrifier","electricity-0-staticpost","electricity-1-stormcrown","electricity-2-arcweaver","electricity-3-thunderspike","electricity-4-coildynamo","electricity-5-capacitorbank","gravity-0-gravitywell","gravity-1-gravityspull","gravity-2-psiemitter","gravity-3-collapsar","gravity-4-singularitymortar","gravity-5-eventhorizon","beam-0-spotlamp","beam-1-arclight","beam-2-prismlance","beam-3-focalarray","beam-4-starcutter","beam-5-auroralance","ninja-0-shadowinitiate","ninja-1-daggeradept","ninja-2-swordronin","ninja-3-macebreaker","ninja-4-spearsentinel","ninja-5-shadowmaster"];
 const SPRITE_CREEP_IDS = ["wave-pathfinder","wave-sapper","wave-duskstalker","wave-marauder","wave-drakewhelp","wave-prowler","wave-sapperswarm","wave-tideskimmer","wave-rimebornbrute","wave-fangoutrider","wave-mossbackregenerator","wave-skimmercraft","wave-scrapwalker","wave-glacierbasilisk","wave-impfamiliar","wave-aegisrunner","wave-elderdrake","wave-shardhidegolem","wave-undyingshade","wave-siegehauler","wave-grovewarden","wave-risenhusk","wave-idolbearer","wave-bulwarkjuggernaut","wave-thefrosttyrant","send-miner","send-hoverbarge","send-mossback","send-bonecaller","send-ramhulk","send-ironpilgrim","send-duskrunner","send-grovetender","send-mirebrute","send-skybarge","send-stormherald","send-thornsprinter","send-adamanthulk","send-hornetflight","send-bulwark","send-dreadknight","send-ancientdrake","send-wardbearer","send-siegehulk","send-wraithlord","send-colossus","send-stormdrake","send-bastion","send-aegisprime","send-worldtitan","send-wallbreaker","send-siegeruiner"];
 const SPRITE_SHEETS = { tower:{ src:'towers.webp', cols:8, ids:SPRITE_TOWER_IDS },
-  creep:{ src:'creeps.webp', cols:8, ids:SPRITE_CREEP_IDS } };
+  creep:{ src:'creeps.webp', cols:8, ids:SPRITE_CREEP_IDS },
+  /* THE SECOND POSE. Same ids, same grid, same index — verified frame for
+     frame — so this is only a different image over the same atlas, and a
+     creep's two poses can never drift onto each other's slots. Generated
+     image-to-image from frame one rather than prompted afresh, which is what
+     keeps it the same character in a new stance instead of a new character. */
+  creep2:{ src:'creeps2.webp', cols:8, ids:SPRITE_CREEP_IDS } };
 Object.values(SPRITE_SHEETS).forEach((s) => {
   s.index = {};
   s.ids.forEach((id, i) => { s.index[id] = i; });
@@ -6750,7 +6764,12 @@ function drawCreep(ctx, creep) {
      The sprite is drawn here, before every status overlay below, so slows,
      shields, venom and the gravity squash still read on top of it. */
   const csid = spriteIdForCreep(creep);
-  creep.spriteDrawn = drawSprite(ctx, 'creep', csid, 0, 0, size * 3.4);
+  /* Half a cell a stride reads as walking at 21px without strobing, and the
+     per-creep offset stops a pack marching in step with itself. Reduced motion
+     holds pose one: the animation is decoration, the creature is not. */
+  const stride = Math.floor(((creep.walked || 0) + (creep.id || 0) * .21) / SPRITE_STRIDE) % 2;
+  const pose = (stride && !reduced && SPRITE_SHEETS.creep2.ready) ? 'creep2' : 'creep';
+  creep.spriteDrawn = drawSprite(ctx, pose, csid, 0, 0, size * 3.4);
   /* GRAVITY HAS TO MOVE THE BODY, NOT PRINT A GLYPH.
      Measured: impulses fire 65-156 times a wave and land on EVERY creep in it
      (10, 9, 8, 8, 8 ... across ten creeps) — the mechanic was never the problem.
