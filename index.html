@@ -6166,6 +6166,32 @@ const RW_ELEMENT = {
 /* Plinth slabs per tier: [width, height] in cell units (cell = 20u), bottom first. */
 const RW_SLABS = [[], [[10, 2]], [[13, 2.4]], [[14, 2], [10, 2]], [[16, 2.2], [12, 2.2]], [[18, 2], [14, 2], [10, 2]]];
 const RW_SLAB_COL = ['#9aa7c2', '#b6c1d6', '#c9d3e6'];   // bottom -> top; light hits the top step
+/* THE PLINTH CARRIES THE RACE, NOT THE TOWER. The sculpted art Gene picked is
+   deliberately "muted, desaturated, one restrained accent", which is what makes
+   it read as premium rather than free-to-play — but it also drained the board of
+   race colour. The old art was loud enough to identify a race at 19px from hue
+   alone (cyan Ice, yellow Tech, violet Gravity); the sculpted set is greys and
+   pale steels, so eleven races became one. Tinting the sprite back would undo
+   exactly the thing that made it look expensive. So identity moves down onto the
+   step the tower stands on: the tower stays muted, the plinth says which race it
+   is. Mixed in JS rather than color-mix() — a browser that does not support
+   color-mix drops the WHOLE declaration silently, and this one paints the board.
+   Memoised because it is called for every tower every frame. */
+const RW_SLAB_TINT = .42;
+const rwSlabCache = new Map();
+function rwMixHex(a, b, t) {
+  const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+  const m = (sh) => Math.round((((pa >> sh) & 255) * (1 - t)) + (((pb >> sh) & 255) * t));
+  return 'rgb(' + m(16) + ',' + m(8) + ',' + m(0) + ')';
+}
+function rwSlabCols(hex) {
+  let c = rwSlabCache.get(hex);
+  if (!c) {
+    c = RW_SLAB_COL.map((base, i) => rwMixHex(base, hex, RW_SLAB_TINT * (i === 2 ? .72 : 1)));
+    rwSlabCache.set(hex, c);
+  }
+  return c;
+}
 /* ---------------- TOWER SILHOUETTES ----------------
    Gene: "we need to improve everything including the towers themselves they are
    way too basic and boring."
@@ -6596,7 +6622,7 @@ function drawTowerStructure(ctx, tower, stats, building, laneColor) {
   let bottom = 8;
   slabs.forEach(([w, h], i) => {
     bottom -= h;
-    ctx.fillStyle = RW_SLAB_COL[Math.min(2, i + (3 - slabs.length))]; ctx.fillRect(-w / 2, bottom, w, h);
+    ctx.fillStyle = rwSlabCols(hex)[Math.min(2, i + (3 - slabs.length))]; ctx.fillRect(-w / 2, bottom, w, h);
     if (tier === 5 && i === slabs.length - 1) { ctx.fillStyle = '#fff'; ctx.fillRect(-w / 2, bottom, w, .8); }
   });
   /* CENTRED ON THE CELL. Gene: "the towers re not centered on cells".
