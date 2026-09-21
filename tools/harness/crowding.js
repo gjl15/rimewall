@@ -58,21 +58,28 @@ const base = process.argv[2] || 'http://127.0.0.1:8771/';
       sumTouching += touching; maxTouching = Math.max(maxTouching, touching);
     }
 
-    /* AND HOW MANY DIFFERENT THINGS DOES THE WAVE TABLE EVEN LOOK LIKE. Every
-       creep is drawn by drawCreep from its role and class — if forty wave
-       entries resolve to a handful of appearances, telling them apart is not a
-       crowding problem, it is an art problem. */
-    const looks = new Set(), names = new Set(), roles = new Set();
+    /* AND HOW MANY DIFFERENT THINGS DOES THE WAVE TABLE ACTUALLY LOOK LIKE.
+       This used to count role-and-class combinations, which was the right
+       measure while drawCreep drew every creep from those two fields — 25 names
+       resolving to 14 appearances was the art gap. Now that each creep has its
+       own sprite the question is whether the SHEET covers it, so count frames
+       and report the ones still falling back to a vector. */
+    const looks = new Set(), names = new Set(), roles = new Set(), missing = [];
+    const sheeted = typeof SPRITE_CREEP_IDS !== 'undefined';
     for (let n = 1; n <= 40; n += 1) {
       const d = waveDefFor(n); if (!d) continue;
       names.add(d.name);
       roles.add(d.role || 'standard');
-      looks.add(`${d.role || 'standard'}|${d.aClass}|${d.air ? 'air' : 'ground'}|${d.boss ? 'boss' : ''}`);
+      const id = 'wave-' + String(d.name).toLowerCase().replace(/[^a-z0-9]+/g, '');
+      if (sheeted && SPRITE_CREEP_IDS.includes(id)) looks.add(id);
+      else if (sheeted) missing.push(d.name);
+      else looks.add(`${d.role || 'standard'}|${d.aClass}|${d.air ? 'air' : 'ground'}`);
     }
     matchOver = true; battleRunning = false;
     return { built, worstInCell, maxTouching,
       meanTouching: +(sumTouching / Math.max(1, framesSampled)).toFixed(1),
-      distinctNames: names.size, distinctLooks: looks.size, roles: [...roles] };
+      distinctNames: names.size, distinctLooks: looks.size, roles: [...roles],
+      sheeted, missing: [...new Set(missing)] };
   });
 
   console.log(`  a 20-creep wave against a ${out.built}-tower maze\n`);
@@ -88,7 +95,8 @@ const base = process.argv[2] || 'http://127.0.0.1:8771/';
     : 'They are not stacking much; the problem is that they look alike.'));
   console.log('  ' + (out.distinctNames > out.distinctLooks
     ? `${out.distinctNames} named creeps share only ${out.distinctLooks} appearances — that is the art gap.`
-    : 'every named creep already looks like itself'));
+    : `all ${out.distinctNames} named wave creeps have their own sprite`));
+  if (out.sheeted && out.missing.length) console.log('    falling back to a vector: ' + out.missing.join(', '));
   if (errs.length) console.log('\nERRORS', errs.slice(0, 3));
   await browser.close();
 })().catch((e) => { console.error('FAILED', String(e).slice(0, 300)); process.exit(1); });

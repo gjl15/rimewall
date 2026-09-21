@@ -6321,6 +6321,65 @@ function rwOwnerMark(ctx, laneColor, footW) {
   ctx.strokeStyle = laneColor; ctx.lineWidth = 1.4; ctx.strokeRect(-9.2, -9.2, 18.4, 18.4);
   ctx.fillStyle = laneColor; ctx.fillRect(-footW / 2, 8, footW, 1.6);
 }
+/* ---------------- GENERATED SPRITE SHEETS ----------------
+   Gene: "things like snowball launcher shoulld look like a snowball launcher..
+   all towers use gemini imagen or neo banana or something to get it looking
+   better" and "give all the creeps a distinct look aswell".
+
+   rwBody draws per ELEMENT, so all six Ice towers were one silhouette at six
+   sizes — a Snowball Launcher looked like "Ice, tier 1". Same for creeps:
+   crowding.js measured 25 named wave creeps resolving to 14 appearances, with
+   27 send names piled onto the same few.
+
+   So every tower and every creep was generated from its OWN name and rules
+   text, pulled out of the game rather than typed out, and packed into two
+   sheets. 96px cells against a 21px board cell, which is 4.5x what the board
+   needs so zooming in holds up.
+
+   WEBP RATHER THAN PNG: the art is flat vector with antialiased alpha, the
+   worst case for PNG — the tower sheet is 1,505 kb as a png and 345 as a webp
+   at the same visible quality. Two files, two requests, cached; index.html
+   stays free of a megabyte of base64 and the project stays buildless.
+
+   THE VECTOR TOWERS ARE STILL THERE and still the fallback. If a sheet fails to
+   load — offline, blocked, a browser without webp — drawTower falls straight
+   back to rwBody and the game looks the way it did yesterday rather than
+   showing nothing. That is why rwBody was not deleted. */
+const SPRITE_CELL = 96;
+const SPRITE_TOWER_IDS = ["ice-0-frostflick","ice-1-snowballlauncher","ice-2-whiteoutspire","ice-3-meltjet","ice-4-shatterfrost","ice-5-absolutezero","ice-6-bulwarkstake","fire-0-kindler","fire-1-emberwhirl","fire-2-skyfallbrazier","fire-3-slagworks","fire-4-ashmaker","fire-5-pyroclastrod","earth-0-verdantspring","earth-1-rootwarden","earth-2-worldheartcoffer","earth-3-earthssoul","earth-4-worldheart","earth-5-bramblespeck","tech-0-boltturret","tech-1-longbolt","tech-2-ballista","tech-3-multishot","tech-4-siegetank","tech-5-ionarray","tech-6-doomsdaysilo","crystal-0-shardcaster","crystal-1-prismcannon","crystal-2-facetfury","crystal-3-refractionsnare","crystal-4-geodebreaker","crystal-5-latticeannihilator","poison-0-venombarb","poison-1-blightspire","poison-2-mirelobber","poison-3-toxincreeper","poison-4-carriontotem","poison-5-miasmavent","stone-0-cairn","stone-1-bouldermaw","stone-2-monolith","stone-3-runestoneseer","stone-4-quakebreaker","stone-5-petrifier","electricity-0-staticpost","electricity-1-stormcrown","electricity-2-arcweaver","electricity-3-thunderspike","electricity-4-coildynamo","electricity-5-capacitorbank","gravity-0-gravitywell","gravity-1-gravityspull","gravity-2-psiemitter","gravity-3-collapsar","gravity-4-singularitymortar","gravity-5-eventhorizon","beam-0-spotlamp","beam-1-arclight","beam-2-prismlance","beam-3-focalarray","beam-4-starcutter","beam-5-auroralance","ninja-0-shadowinitiate","ninja-1-daggeradept","ninja-2-swordronin","ninja-3-macebreaker","ninja-4-spearsentinel","ninja-5-shadowmaster"];
+const SPRITE_CREEP_IDS = ["wave-pathfinder","wave-sapper","wave-duskstalker","wave-marauder","wave-drakewhelp","wave-prowler","wave-sapperswarm","wave-tideskimmer","wave-rimebornbrute","wave-fangoutrider","wave-mossbackregenerator","wave-skimmercraft","wave-scrapwalker","wave-glacierbasilisk","wave-impfamiliar","wave-aegisrunner","wave-elderdrake","wave-shardhidegolem","wave-undyingshade","wave-siegehauler","wave-grovewarden","wave-risenhusk","wave-idolbearer","wave-bulwarkjuggernaut","wave-thefrosttyrant","send-miner","send-hoverbarge","send-mossback","send-bonecaller","send-ramhulk","send-ironpilgrim","send-duskrunner","send-grovetender","send-mirebrute","send-skybarge","send-stormherald","send-thornsprinter","send-adamanthulk","send-hornetflight","send-bulwark","send-dreadknight","send-ancientdrake","send-wardbearer","send-siegehulk","send-wraithlord","send-colossus","send-stormdrake","send-bastion","send-aegisprime","send-worldtitan","send-wallbreaker","send-siegeruiner"];
+const SPRITE_SHEETS = { tower:{ src:'towers.webp', cols:8, ids:SPRITE_TOWER_IDS },
+  creep:{ src:'creeps.webp', cols:8, ids:SPRITE_CREEP_IDS } };
+Object.values(SPRITE_SHEETS).forEach((s) => {
+  s.index = {};
+  s.ids.forEach((id, i) => { s.index[id] = i; });
+  s.img = new Image();
+  s.ready = false;
+  s.img.onload = () => { s.ready = true; };
+  s.img.onerror = () => { s.ready = false; };   // silent: the vectors carry on
+  s.img.src = s.src;
+});
+/* A tower's sprite id is race, tier and name — the same key the generator used,
+   built the same way, so a renamed tower misses its sprite and falls back to
+   its vector rather than quietly wearing the wrong art. */
+function spriteIdForTower(raceId, tier, name) {
+  return `${raceId}-${tier}-${String(name).toLowerCase().replace(/[^a-z0-9]+/g, '')}`;
+}
+function spriteIdForCreep(creep) {
+  const n = String(creep.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+  return (creep.sent ? 'send-' : 'wave-') + n;
+}
+/* Returns false when there is nothing to draw, so every call site can fall back
+   in one line. Draws centred on (x, y) at `size` px. */
+function drawSprite(ctx, kind, id, x, y, size) {
+  const s = SPRITE_SHEETS[kind];
+  if (!s || !s.ready) return false;
+  const i = s.index[id];
+  if (i === undefined) return false;
+  const sx = (i % s.cols) * SPRITE_CELL, sy = Math.floor(i / s.cols) * SPRITE_CELL;
+  ctx.drawImage(s.img, sx, sy, SPRITE_CELL, SPRITE_CELL, x - size / 2, y - size / 2, size, size);
+  return true;
+}
 function drawTowerStructure(ctx, tower, stats, building, laneColor) {
   const tier = tower.tier || 0, s = CELL / 20;
   const race = tower.raceId;
@@ -6337,7 +6396,14 @@ function drawTowerStructure(ctx, tower, stats, building, laneColor) {
   ctx.translate(0, bottom);
   ctx.fillStyle = hex; ctx.strokeStyle = '#0c122099'; ctx.lineWidth = .9; ctx.lineJoin = 'round';
   if (building) ctx.globalAlpha = .6;
-  rwBody(ctx, race, 5, bottom + 8.5, simTime + (tower.key % 97) * .61, tier);
+  /* THE SPRITE IF THERE IS ONE, THE VECTOR IF THERE IS NOT. The plinth above is
+     drawn either way — it carries the tier and the ownership mark, and a sprite
+     sitting on its own step reads as built rather than pasted on. Sized a touch
+     over the cell so the silhouette fills it; the generator already padded. */
+  const sid = spriteIdForTower(race, tier, stats.name);
+  if (!drawSprite(ctx, 'tower', sid, 0, bottom + 8.5 - 9.5, 20.5)) {
+    rwBody(ctx, race, 5, bottom + 8.5, simTime + (tower.key % 97) * .61, tier);
+  }
   ctx.restore();
 }
 function drawTower(ctx, tower) {
@@ -6532,6 +6598,13 @@ function drawCreep(ctx, creep) {
     ctx.translate(0, -4);
   }
   if (creep.slowUntil > simTime) { ctx.fillStyle = '#77d6ff33'; ctx.beginPath(); ctx.arc(0, 0, size + 4, 0, Math.PI * 2); ctx.fill(); }
+  /* A CREEP THAT LOOKS LIKE ITSELF. 25 named wave creeps resolved to 14
+     appearances and the send ladder put 27 more names on the same handful, so
+     a Mossback and an Aegis Runner were the same dot in different colours.
+     The sprite is drawn here, before every status overlay below, so slows,
+     shields, venom and the gravity squash still read on top of it. */
+  const csid = spriteIdForCreep(creep);
+  creep.spriteDrawn = drawSprite(ctx, 'creep', csid, 0, 0, size * 3.4);
   /* GRAVITY HAS TO MOVE THE BODY, NOT PRINT A GLYPH.
      Measured: impulses fire 65-156 times a wave and land on EVERY creep in it
      (10, 9, 8, 8, 8 ... across ten creeps) — the mechanic was never the problem.
@@ -6573,8 +6646,13 @@ function drawCreep(ctx, creep) {
     }
   }
   if (knockScaleX !== 1 || knockScaleY !== 1) ctx.scale(knockScaleX, knockScaleY);
-  ctx.fillStyle = '#251a2b'; ctx.strokeStyle = color; ctx.lineWidth = creep.role === 'boss' ? 2.4 : 1.4;
+  /* The vector body below is the fallback, so it only draws when the sheet did
+     not. Everything after it — health bar, shield, venom, status pips — draws
+     either way, because those are readouts rather than the creature. */
   const wob = Math.sin(simTime * 8 + creep.id * .7) * .8;   // little walk-cycle bob
+  if (creep.spriteDrawn) { /* the sheet drew the body */ }
+  else {
+  ctx.fillStyle = '#251a2b'; ctx.strokeStyle = color; ctx.lineWidth = creep.role === 'boss' ? 2.4 : 1.4;
   if (creep.role === 'runner') {
     ctx.beginPath(); ctx.ellipse(0, wob * .4, size * 1.25, size * .75, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     ctx.strokeStyle = color + '77'; ctx.lineWidth = 1;
@@ -6658,6 +6736,7 @@ function drawCreep(ctx, creep) {
     ctx.beginPath(); ctx.arc(0, wob * .4, size * .5, 0, Math.PI * 2); ctx.stroke();
     ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0, wob * .4 - size * .2, 1.3, 0, Math.PI * 2); ctx.fill();
   }
+  }   // end of the vector fallback body
   // status pips: DoT (green), frost (cyan ring), regen (mint +), stasis/stun (gold ✦)
   if ((creep.dots && creep.dots.length) || creep.venom > 0) { ctx.fillStyle = '#a7e36e'; ctx.beginPath(); ctx.arc(size, -size, 2.4, 0, Math.PI * 2); ctx.fill(); }
   // live venom rate, so you can watch the pool build as more poison towers reach it
