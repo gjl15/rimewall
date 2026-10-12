@@ -1468,6 +1468,165 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
 .arena #hud-menu-button { display:flex; min-width:32px; min-height:32px; padding:4px; }
 .arena #wave-label,.arena #timer-label { font-size:11px; }
 .arena .tower-inspector,.arena .tactical-dock { display:none !important; }
+
+/* ====================================================================
+   MOBILE TACTICAL SHELL
+   The desktop tactical shell was originally gated behind 901px, which left
+   phones on the legacy seven-button side rail. The phone now exposes the same
+   builder, send, tower and enemy surfaces as bottom trays. The battlefield is
+   still the same canvas and the board model is not resized or rewritten.
+   ================================================================== */
+.mobile-tactical-nav { display:none; }
+
+@media (max-width:900px) {
+  body.playing.arena .app-shell { padding:0; }
+  body.playing.arena .battle-screen { width:100%; height:100dvh; min-height:0; }
+  body.playing.arena .battle-content { height:100dvh; min-height:0; padding-bottom:calc(62px + env(safe-area-inset-bottom)); }
+  body.playing.arena .arena-stage { display:block; height:100%; }
+  body.playing.arena .rail-left,
+  body.playing.arena .rail-right { display:none !important; }
+  body.playing.arena .map-viewport { width:100%; border-radius:0; }
+
+  /* Two calm rows are more legible than squeezing every resource into the
+     single tiny line shown in the iPhone capture. The measured HUD height is
+     consumed by fitBoardToViewport, so this does not cover the board. */
+  body.playing.arena .hud {
+    display:grid !important;
+    grid-template-columns:minmax(0,1fr) auto;
+    grid-template-areas:"match actions" "resources resources";
+    gap:4px 8px; min-height:70px; padding:7px 8px 6px;
+  }
+  body.playing.arena .hud .match-state { grid-area:match; justify-self:start; min-width:0; margin:0; padding:0; }
+  body.playing.arena .hud .resources {
+    grid-area:resources; display:flex; width:100% !important; min-width:0;
+    justify-content:space-evenly; gap:5px; margin:0;
+  }
+  body.playing.arena .hud .hud-actions { grid-area:actions; justify-self:end; gap:3px; }
+  body.playing.arena #pause-button,
+  body.playing.arena #undo-slot,
+  body.playing.arena #hud-menu-button { display:flex !important; min-width:30px; min-height:30px; padding:3px 5px; }
+  body.playing.arena #restart-button,
+  body.playing.arena .hud-target,
+  body.playing.arena #settings-open-hud { display:none !important; }
+  body.playing.arena .resources .resource { min-width:0; gap:2px; }
+  body.playing.arena .resources .resource em { font-size:11px; }
+  body.playing.arena .resource-icon { font-size:9px; }
+
+  body.playing.arena .mobile-tactical-nav {
+    position:fixed; left:0; right:0; bottom:0; z-index:176;
+    display:grid; grid-template-columns:repeat(5,minmax(0,1fr));
+    min-height:58px; padding:5px max(5px,env(safe-area-inset-right)) calc(5px + env(safe-area-inset-bottom)) max(5px,env(safe-area-inset-left));
+    border-top:1px solid #314264; background:#080e1cf5;
+    box-shadow:0 -10px 28px #000a; backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+  }
+  .mobile-tactical-button {
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+    min-width:0; min-height:48px; padding:4px 2px; border:1px solid transparent;
+    border-radius:7px; background:transparent; color:#7f8dab;
+  }
+  .mobile-tactical-button span { font-size:16px; line-height:1; }
+  .mobile-tactical-button small { font:700 8px 'DM Mono',monospace; letter-spacing:.07em; }
+  .mobile-tactical-button.active { border-color:#3e5f88; background:#12213a; color:#bdeeff; box-shadow:inset 0 -2px 0 #77d6ff; }
+
+  /* Shared phone tray geometry. Each requested desktop region remains the same
+     DOM surface; the nav merely chooses which one occupies the thumb tray. */
+  body.playing.arena.mobile-panel-build .command-panel,
+  body.playing.arena.mobile-panel-tower .tower-inspector,
+  body.playing.arena.mobile-panel-sends .tactical-dock,
+  body.playing.arena.mobile-panel-enemy .tactical-dock {
+    position:fixed; left:8px; right:8px; bottom:calc(66px + env(safe-area-inset-bottom)); z-index:168;
+    min-width:0; border:1px solid #344b74; border-radius:12px;
+    background:linear-gradient(160deg,#121c32f7,#090f1df7);
+    box-shadow:0 16px 44px #000c, inset 0 1px 0 #ffffff0d;
+    backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+  }
+
+  body.playing.arena.mobile-panel-build .command-panel {
+    display:flex !important; flex-direction:column; height:min(68dvh,620px); padding:12px; overflow:hidden;
+  }
+  body.playing.arena .command-panel .race-identity { flex:0 0 auto; gap:9px; padding-bottom:8px; }
+  body.playing.arena .command-panel .race-identity .big-rune { width:36px; height:36px; border-radius:7px; font-size:19px; }
+  body.playing.arena .command-panel .race-identity strong { margin-top:1px; font-size:14px; }
+  body.playing.arena .command-panel .race-identity span:last-child { margin-top:1px; font-size:9px; }
+  body.playing.arena .builder-tabs { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; padding:8px 0; }
+  body.playing.arena .builder-tabs button {
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+    min-width:0; min-height:45px; padding:5px 3px; border:1px solid #2b3859; border-radius:6px;
+    background:#10182b; color:#8693b3; font:700 9px 'DM Mono',monospace;
+  }
+  body.playing.arena .builder-tabs button span { max-width:100%; overflow:hidden; color:var(--tab-race,#aab5d2); white-space:nowrap; text-overflow:ellipsis; }
+  body.playing.arena .builder-tabs button small { color:#66738f; font-size:7px; letter-spacing:.05em; }
+  body.playing.arena .builder-tabs button.active { border-color:var(--tab-race,#77d6ff); color:#eff7ff; background:#12203a; box-shadow:inset 0 -2px 0 var(--tab-race,#77d6ff); }
+  body.playing.arena .builder-tabs button.builder-locked { border-style:dashed; }
+  body.playing.arena .builder-tabs button:disabled { opacity:.55; }
+  body.playing.arena.mobile-panel-build #build-panel { display:flex; flex:1 1 auto; min-height:0; flex-direction:column; }
+  body.playing.arena.mobile-panel-build #build-panel > .panel-heading { flex:0 0 auto; margin:0 0 6px; }
+  body.playing.arena.mobile-panel-build .tower-list {
+    flex:1 1 auto; min-height:0; max-height:none;
+    display:grid; grid-auto-flow:row; grid-auto-columns:auto; grid-template-columns:1fr;
+    overflow-x:hidden; overflow-y:auto; padding-bottom:0;
+  }
+  body.playing.arena.mobile-panel-build .tower-row { padding:8px; }
+  body.playing.arena.mobile-panel-build #build-mode-button { flex:0 0 auto; margin-top:7px; }
+  body.playing.arena.mobile-panel-build #build-extras { flex:0 0 auto; max-height:105px; overflow-y:auto; margin-top:6px; }
+  body.playing.arena.mobile-panel-build .send-command-source,
+  body.playing.arena.mobile-panel-build .hint-box { display:none !important; }
+
+  body.playing.arena.mobile-panel-tower .tower-inspector {
+    display:flex !important; flex-direction:column; height:min(62dvh,560px); padding:12px; overflow:hidden;
+  }
+  body.playing.arena .tower-inspector .inspector-title { display:flex; align-items:center; justify-content:space-between; gap:8px; flex:0 0 auto; padding-bottom:8px; border-bottom:1px solid #2a3550; }
+  body.playing.arena .tower-inspector .inspector-title > span:last-child { padding:3px 6px; border:1px solid #2c4a7a; color:#8adcff; font:600 7px 'DM Mono',monospace; }
+  body.playing.arena .tower-inspector .tower-details { display:block !important; flex:1 1 auto; min-height:0; margin-top:8px; overflow-y:auto; }
+  body.playing.arena .tower-inspector .tower-details.hidden { display:block !important; }
+  body.playing.arena .build-preview-cost { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px; padding:9px 10px; border:1px solid #3f4b68; background:#10182b; }
+  body.playing.arena .build-preview-cost span { color:#8e98b7; font:600 8px 'DM Mono',monospace; letter-spacing:.11em; }
+  body.playing.arena .build-preview-cost b { color:#ffd45c; font:700 18px 'Playfair Display',Georgia,serif; }
+  body.playing.arena .td-ability { margin-top:10px; padding:10px; border-left:2px solid var(--ability,#77d6ff); background:#0d1728; color:#aebbd5; font-size:10px; line-height:1.5; }
+  body.playing.arena .td-ability b { display:block; margin-bottom:3px; color:var(--ability,#77d6ff); font:700 9px 'DM Mono',monospace; letter-spacing:.1em; text-transform:uppercase; }
+
+  body.playing.arena.mobile-panel-sends .tactical-dock,
+  body.playing.arena.mobile-panel-enemy .tactical-dock { display:block !important; padding:0; overflow:hidden; }
+  body.playing.arena.mobile-panel-sends .tactical-dock { height:min(48dvh,410px); }
+  body.playing.arena.mobile-panel-enemy .tactical-dock { height:min(34dvh,270px); padding:10px; }
+  body.playing.arena .tactical-dock .minimap-panel { display:none; }
+  body.playing.arena .tactical-dock .send-dock,
+  body.playing.arena .tactical-dock .selected-enemy-panel { display:none; }
+  body.playing.arena.mobile-panel-sends .tactical-dock .send-dock { display:flex; height:100%; flex-direction:column; background:#0b1020; }
+  body.playing.arena.mobile-panel-enemy .tactical-dock .selected-enemy-panel { display:block; height:100%; padding:0; background:#0b1020; }
+  body.playing.arena .send-dock-tabs { flex:0 0 46px; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); border-bottom:1px solid #2a3550; }
+  body.playing.arena .send-dock-tab { min-width:0; padding:5px 3px; border:0; border-right:1px solid #2a3550; background:#0d1424; color:#91a0c0; font:700 8px/1.25 'DM Mono',monospace; letter-spacing:.04em; white-space:normal; overflow:hidden; }
+  body.playing.arena .send-dock-tab:last-child { border-right:0; }
+  body.playing.arena .send-dock-tab.active { color:#9fe8ff; background:#12304b; box-shadow:inset 0 -2px 0 #77d6ff; }
+  body.playing.arena .send-dock-tab.attackers.active { color:#ffbdc7; background:#311520; box-shadow:inset 0 -2px 0 #ff7f92; }
+  body.playing.arena .send-dock-tab.flying.active { color:#d2bcff; background:#24163a; box-shadow:inset 0 -2px 0 #ae82ff; }
+  body.playing.arena .send-dock-tab.shrine { color:#73ddbb; }
+  body.playing.arena .send-dock-tab.shrine:disabled { color:#66738f; }
+  body.playing.arena .desktop-send-list { flex:1 1 auto; display:flex; gap:7px; min-width:0; overflow-x:auto; overflow-y:hidden; padding:8px; scroll-snap-type:x proximity; }
+  body.playing.arena .dock-send-card { position:relative; flex:0 0 166px; display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between; min-width:0; padding:9px; border:1px solid #2c3959; border-radius:6px; background:#10182b; color:#e8edfb; text-align:left; scroll-snap-align:start; }
+  body.playing.arena .dock-send-card.locked,
+  body.playing.arena .dock-send-card.poor { opacity:.48; }
+  body.playing.arena .dock-send-card .send-top { display:flex; align-items:center; gap:7px; width:100%; }
+  body.playing.arena .dock-send-card .send-glyph { display:grid; place-items:center; width:30px; height:30px; flex:0 0 auto; border:1px solid #37486c; background:#0b1424; color:#ff9faf; font-size:16px; }
+  body.playing.arena .dock-send-card strong { display:block; max-width:108px; overflow:hidden; font:700 9px 'DM Mono',monospace; white-space:nowrap; text-overflow:ellipsis; }
+  body.playing.arena .dock-send-card small { display:block; margin-top:2px; color:#7785a6; font-size:8px; }
+  body.playing.arena .dock-send-stats { width:100%; color:#95a2bf; font:500 8px/1.5 'DM Mono',monospace; }
+  body.playing.arena .dock-send-buy { display:flex; justify-content:space-between; gap:6px; width:100%; color:#ffd45c; font:700 9px 'DM Mono',monospace; }
+  body.playing.arena .dock-send-buy i { color:#76d8b3; font-style:normal; text-align:right; }
+  body.playing.arena .dock-empty { display:grid; place-items:center; min-width:100%; color:#73809d; font:500 9px 'DM Mono',monospace; }
+  body.playing.arena .selected-enemy-panel .dock-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; height:24px; color:#9aa8c8; font:600 8px 'DM Mono',monospace; letter-spacing:.12em; }
+  body.playing.arena .selected-enemy-panel .dock-heading small { color:#5fcba4; font:600 7px 'DM Mono',monospace; }
+  body.playing.arena .selected-enemy-details { height:calc(100% - 24px); min-height:0; }
+  body.playing.arena .enemy-empty { display:grid; place-items:center; height:100%; padding:12px; color:#73809d; font:500 9px/1.5 'DM Mono',monospace; text-align:center; }
+  body.playing.arena .enemy-summary { display:grid; grid-template-columns:58px 1fr; gap:10px; align-items:center; height:100%; }
+  body.playing.arena .enemy-portrait { display:grid; place-items:center; width:58px; height:68px; border:1px solid #4a3b73; background:radial-gradient(circle,#33214e,#101323 72%); color:#cf9dff; font-size:28px; }
+  body.playing.arena .enemy-copy { min-width:0; }
+  body.playing.arena .enemy-copy strong { display:block; overflow:hidden; font:700 11px 'DM Mono',monospace; white-space:nowrap; text-overflow:ellipsis; }
+  body.playing.arena .enemy-hpbar { height:9px; margin:8px 0 4px; border:1px solid #5a2632; background:#211019; }
+  body.playing.arena .enemy-hpbar i { display:block; height:100%; background:linear-gradient(90deg,#d52f46,#ff6d7d); }
+  body.playing.arena .enemy-hptext { display:flex; justify-content:space-between; gap:8px; color:#d9e1f2; font:600 8px 'DM Mono',monospace; }
+  body.playing.arena .enemy-meta { margin-top:7px; color:#8996b3; font:500 8px/1.5 'DM Mono',monospace; }
+}
 </style>
 </head>
 <body>
@@ -1783,6 +1942,13 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
               <div id="selected-enemy-details" class="selected-enemy-details"></div>
             </div>
           </section>
+          <nav id="mobile-tactical-nav" class="mobile-tactical-nav" aria-label="Mobile match panels">
+            <button class="mobile-tactical-button active" data-mobile-panel="map" aria-pressed="true"><span>▦</span><small>MAP</small></button>
+            <button class="mobile-tactical-button" data-mobile-panel="build" aria-pressed="false"><span>♜</span><small>BUILD</small></button>
+            <button class="mobile-tactical-button" data-mobile-panel="sends" aria-pressed="false"><span>⚔</span><small>SENDS</small></button>
+            <button class="mobile-tactical-button" data-mobile-panel="tower" aria-pressed="false"><span>◎</span><small>TOWER</small></button>
+            <button class="mobile-tactical-button" data-mobile-panel="enemy" aria-pressed="false"><span>☠</span><small>ENEMY</small></button>
+          </nav>
         </div>
       </section>
     </main>
@@ -9697,7 +9863,10 @@ function fitBoardToViewport() {
     const dock = $('tactical-dock');
     const dockH = battleRunning && !document.body.classList.contains('arena') && dock && getComputedStyle(dock).display !== 'none'
       ? dock.offsetHeight + 8 : 0;
-    const room = Math.round(winH - top - barH - dockH - 10);
+    const mobileNav = $('mobile-tactical-nav');
+    const mobileNavH = document.body.classList.contains('arena') && mobileNav && getComputedStyle(mobileNav).display !== 'none'
+      ? mobileNav.offsetHeight : 0;
+    const room = Math.round(winH - top - barH - dockH - mobileNavH - 10);
     if (room >= 220) viewport.style.height = `${room}px`;
     else viewport.style.height = '';
   }
@@ -11790,6 +11959,32 @@ function applyUiMode() {
 let sheetTab = 'sends', sheetKey = '';
 let barTab = 'build', barKey = '', barStructKey = '', autoSend = { on:false, last:null };
 let barBuildCollapsed = false, barSendCollapsed = false;
+let mobileTacticalPanel = 'map';
+const MOBILE_TACTICAL_CLASSES = ['mobile-panel-build','mobile-panel-sends','mobile-panel-tower','mobile-panel-enemy'];
+
+/* One state owner for the phone adaptation of the tactical shell. MAP closes
+   the tray; tapping the already-open tab does the same. Nothing here mutates
+   cells, terrain, routes, towers or pathfinding. */
+function setMobileTacticalPanel(requested, force = false) {
+  const nav = $('mobile-tactical-nav');
+  if (!nav) return;
+  let next = requested || 'map';
+  if (!force && next !== 'map' && next === mobileTacticalPanel) next = 'map';
+  if (!['map','build','sends','tower','enemy'].includes(next)) next = 'map';
+  mobileTacticalPanel = next;
+  MOBILE_TACTICAL_CLASSES.forEach((name) => document.body.classList.remove(name));
+  if (next !== 'map') document.body.classList.add(`mobile-panel-${next}`);
+  nav.querySelectorAll('[data-mobile-panel]').forEach((button) => {
+    const on = button.dataset.mobilePanel === next;
+    button.classList.toggle('active', on);
+    button.setAttribute('aria-pressed', String(on));
+  });
+  if (next === 'build') { renderTowerList(); renderTowerDetails(); }
+  if (next === 'sends') renderTacticalDock();
+  if (next === 'tower') renderTowerDetails();
+  if (next === 'enemy') renderSelectedEnemyPanel();
+  requestAnimationFrame(fitBoardToViewport);
+}
 /* one place that owns tray state, so the class and the a11y flag cannot drift */
 function setCbCollapsed(id, collapsed) {
   const sub = document.getElementById(id); if (!sub) return;
@@ -12734,7 +12929,14 @@ $('back-button').addEventListener('click', leaveMatch);
 $('push-wave-button').addEventListener('click', pushWaveForTesting);
 $('pause-button').addEventListener('click', toggleBattlePause);
 $('restart-button').addEventListener('click', restartMatch);
-$('build-mode-button').addEventListener('click', () => log('Tap any open tile on your half (south of the river) to place the selected tower.'));
+$('build-mode-button').addEventListener('click', () => {
+  log('Tap any open tile on your half (south of the river) to place the selected tower.');
+  if (document.body.classList.contains('arena')) setMobileTacticalPanel('map', true);
+});
+$('mobile-tactical-nav')?.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-mobile-panel]');
+  if (button) setMobileTacticalPanel(button.dataset.mobilePanel);
+});
 ['routes', 'ranges', 'ref'].forEach((key) => {
   $(`dbg-${key}`).addEventListener('change', (event) => { debug[key] = event.target.checked; });
 });
