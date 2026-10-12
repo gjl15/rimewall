@@ -1318,6 +1318,8 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
 .hud-actions { display:flex; align-items:center; gap:5px; flex:0 0 auto; }
 .hud-icon-button { display:flex; align-items:center; justify-content:center; min-width:36px; min-height:36px; padding:6px 9px; border:1px solid #2d3b5c; border-radius:3px; background:#10182b; color:#c6d4ef; font:600 12px 'DM Mono',monospace; }
 .hud-icon-button:hover { border-color:#77d6ff; background:#172641; color:#fff; }
+.hud-icon-button:disabled { opacity:.36; cursor:not-allowed; }
+.hud-icon-button.undo-live { border-color:#ffd86b; color:#ffd86b; opacity:1; }
 .hud-target { gap:5px; min-width:76px; }
 .hud-target b { color:#ffd86b; font-size:8px; letter-spacing:.08em; }
 
@@ -1341,7 +1343,8 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
   body.playing:not(.arena) .battle-title-row,
   body.playing:not(.arena) .quick-send,
   body.playing:not(.arena) .log-strip,
-  body.playing:not(.arena) .debug-bar { display:none !important; }
+  body.playing:not(.arena) .debug-bar,
+  body.playing:not(.arena) .wisp { display:none !important; }
   body.playing:not(.arena) .arena-stage { height:100%; }
   body.playing:not(.arena) .map-viewport { min-height:340px; height:100%; border-radius:3px; }
 
@@ -1645,9 +1648,6 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
       <section id="battle-screen" class="screen battle-screen hidden">
         <header class="hud">
           <button id="push-wave-button" class="test-button" title="Testing shortcut: immediately start the next wave">Push wave</button>
-          <button id="pause-button" class="test-button" aria-pressed="false">Pause</button>
-          <button id="restart-button" class="test-button">Restart</button>
-          <button id="undo-slot" class="test-button undo-slot" disabled>↩ UNDO</button>
           <div class="match-state" aria-label="Wave status">
             <span class="hud-stat-icon" aria-hidden="true">☠</span><span class="hud-wave-label">WAVE</span><strong id="wave-label">01 / 20</strong>
             <span class="hud-rule" aria-hidden="true"></span>
@@ -1666,6 +1666,9 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
             <span class="resource player-count" title="Your team seats / all active seats"><i class="resource-icon">♟</i><b>TEAM</b><em id="player-count-label">1/2</em></span>
           </div>
           <div class="hud-actions">
+            <button id="pause-button" class="hud-icon-button" aria-pressed="false" title="Pause match" aria-label="Pause match">Ⅱ</button>
+            <button id="restart-button" class="hud-icon-button" title="Restart match" aria-label="Restart match">↻</button>
+            <button id="undo-slot" class="hud-icon-button undo-slot" title="Nothing to undo" aria-label="Undo last build or sale" disabled>↩</button>
             <button id="sl-target" class="hud-icon-button hud-target" title="Targeting for all your towers — tap to switch first / last">🎯 <b id="sl-target-tag">FIRST</b></button>
             <button id="settings-open-hud" class="hud-icon-button" title="Settings" aria-label="Settings">⚙</button>
             <button id="hud-menu-button" class="hud-icon-button" title="Game menu" aria-label="Game menu">☰</button>
@@ -8370,8 +8373,11 @@ function renderUndoSlot() {
   const live = canCancel || canUnsell;
   slot.disabled = !live;
   slot.classList.toggle('undo-live', live);
-  slot.textContent = canCancel ? `↩ CANCEL +${t.invested}g`
-    : canUnsell ? `↩ UNSELL −${lastSold.refund}g` : '↩ UNDO';
+  const undoText = canCancel ? `Cancel build and refund ${t.invested} gold`
+    : canUnsell ? `Restore sold tower for ${lastSold.refund} gold` : 'Nothing to undo';
+  slot.textContent = '↩';
+  slot.title = undoText;
+  slot.setAttribute('aria-label', undoText);
   $('wisp-undo')?.classList.toggle('hidden', !live);
   if (canCancel && !profile.tutorialUndoSeen) {
     profile.tutorialUndoSeen = true;
@@ -8539,7 +8545,9 @@ function renderHud() {
   }
   renderTacticalDock();
   enforceHudContract();   // R1-R3: re-fit the row after every live label is written
-  $('pause-button').textContent = battlePaused ? 'Resume' : 'Pause';
+  $('pause-button').textContent = battlePaused ? '▶' : 'Ⅱ';
+  $('pause-button').title = battlePaused ? 'Resume match' : 'Pause match';
+  $('pause-button').setAttribute('aria-label', battlePaused ? 'Resume match' : 'Pause match');
   $('pause-button').setAttribute('aria-pressed', String(battlePaused));
   $('dbg-stats').textContent = `${creeps.length} creeps • ${towers.size} towers • ${cachedRouteText}`;
 }
