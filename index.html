@@ -1294,6 +1294,177 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
   .action-button:hover:not(:disabled), .action-button:active:not(:disabled) { transform:none !important; }
   .wisp-panel:not(.hidden) { animation:none !important; }
 }
+
+/* ====================================================================
+   MATCH HUD + TACTICAL DESKTOP SHELL
+   The battlefield model stays untouched. These rules only reorganise the
+   controls around it into the approved left-builder / centre-board /
+   right-inspector layout, with the tactical dock beneath the board.
+   ================================================================== */
+.status-line:empty { display:none !important; }
+.hud { justify-content:center; gap:12px; }
+.hud .match-state { flex:0 1 auto; min-width:0; gap:7px; white-space:nowrap; }
+.hud-wave-label,.hud-next-label { color:#8e98b7; font:600 9px 'DM Mono',monospace; letter-spacing:.12em; }
+.hud-stat-icon { color:#c6d4ef; font-size:15px; line-height:1; }
+.hud-rule { width:1px; height:28px; margin:0 2px; background:#2a3550; }
+.hud .resources { justify-content:center; gap:12px; }
+.resource { gap:5px; white-space:nowrap; }
+.resource-icon { color:#aab8d7; font-size:12px; font-style:normal; line-height:1; }
+.coin-icon { color:#ffd45c; }
+.income-icon { color:#d7af45; }
+.lumber-icon,.resource.wood-income em { color:#65d5ae; }
+.resource.wood-income b { color:#7ea997; }
+.resource.player-count em { color:#dce6ff; }
+.hud-actions { display:flex; align-items:center; gap:5px; flex:0 0 auto; }
+.hud-icon-button { display:flex; align-items:center; justify-content:center; min-width:36px; min-height:36px; padding:6px 9px; border:1px solid #2d3b5c; border-radius:3px; background:#10182b; color:#c6d4ef; font:600 12px 'DM Mono',monospace; }
+.hud-icon-button:hover { border-color:#77d6ff; background:#172641; color:#fff; }
+.hud-target { gap:5px; min-width:76px; }
+.hud-target b { color:#ffd86b; font-size:8px; letter-spacing:.08em; }
+
+.tower-inspector,.tactical-dock { display:none; }
+
+@media (min-width:901px) {
+  body.playing:not(.arena) .app-shell { max-width:none; padding:0; overflow:hidden; }
+  body.playing:not(.arena) .battle-screen { max-width:none; min-height:100dvh; }
+  body.playing:not(.arena) .hud { position:fixed; inset:0 0 auto; z-index:170; min-height:54px; padding:7px 10px; border-width:0 0 1px; border-radius:0; }
+  body.playing:not(.arena) .status-line { display:none !important; }
+  body.playing:not(.arena) .battle-content {
+    display:grid;
+    grid-template-columns:258px minmax(0,1fr) 286px;
+    grid-template-rows:minmax(0,1fr) 188px;
+    grid-template-areas:"builder battlefield inspector" "dock dock dock";
+    gap:8px;
+    width:100%; height:100dvh; min-height:620px;
+    padding:62px 8px 8px;
+  }
+  body.playing:not(.arena) .battle-main { grid-area:battlefield; min-width:0; min-height:0; height:100%; }
+  body.playing:not(.arena) .battle-title-row,
+  body.playing:not(.arena) .quick-send,
+  body.playing:not(.arena) .log-strip,
+  body.playing:not(.arena) .debug-bar { display:none !important; }
+  body.playing:not(.arena) .arena-stage { height:100%; }
+  body.playing:not(.arena) .map-viewport { min-height:340px; height:100%; border-radius:3px; }
+
+  body.playing:not(.arena) .command-panel {
+    grid-area:builder; align-self:stretch; min-width:0; min-height:0;
+    display:flex; flex-direction:column; overflow:hidden;
+    padding:12px; border-radius:3px;
+  }
+  body.playing:not(.arena) .race-identity { flex:0 0 auto; gap:9px; padding-bottom:10px; }
+  body.playing:not(.arena) .race-identity .big-rune { width:38px; height:38px; border-radius:4px; font-size:20px; }
+  body.playing:not(.arena) .race-identity strong { margin-top:2px; font-size:14px; }
+  body.playing:not(.arena) .race-identity span:last-child { font-size:9px; }
+  body.playing:not(.arena) .builder-tabs { flex:0 0 auto; display:grid; grid-template-columns:1fr 1fr 1fr; gap:4px; padding:10px 0; }
+  body.playing:not(.arena) .builder-tabs button { position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-width:0; min-height:46px; padding:5px 3px; border:1px solid #2b3859; border-radius:3px; background:#10182b; color:#8693b3; font:700 9px 'DM Mono',monospace; overflow:hidden; }
+  body.playing:not(.arena) .builder-tabs button span { max-width:100%; overflow:hidden; color:var(--tab-race,#aab5d2); white-space:nowrap; text-overflow:ellipsis; }
+  body.playing:not(.arena) .builder-tabs button small { color:#66738f; font-size:7px; letter-spacing:.05em; }
+  body.playing:not(.arena) .builder-tabs button.active { border-color:var(--tab-race,#77d6ff); color:#eff7ff; background:#12203a; box-shadow:inset 0 -2px 0 var(--tab-race,#77d6ff); }
+  body.playing:not(.arena) .builder-tabs button.builder-locked { border-style:dashed; }
+  body.playing:not(.arena) .builder-tabs button:disabled { cursor:not-allowed; opacity:.55; }
+  body.playing:not(.arena) #build-panel { display:flex; flex:1 1 auto; min-height:0; flex-direction:column; }
+  body.playing:not(.arena) #build-panel > .panel-heading { flex:0 0 auto; margin:0 0 7px; padding-top:7px; }
+  body.playing:not(.arena) .tower-list { flex:1 1 auto; min-height:0; max-height:none; overflow-y:auto; }
+  body.playing:not(.arena) .tower-row { padding:8px; }
+  body.playing:not(.arena) .tower-row .tower-why { display:none; }
+  body.playing:not(.arena) #build-mode-button { flex:0 0 auto; margin-top:8px; }
+  body.playing:not(.arena) #build-extras { flex:0 0 auto; max-height:116px; overflow-y:auto; margin-top:7px; }
+  body.playing:not(.arena) #build-extras .race-chips,
+  body.playing:not(.arena) #build-extras .shrine-row { display:none; }
+  body.playing:not(.arena) .send-command-source,
+  body.playing:not(.arena) .hint-box { display:none !important; }
+
+  body.playing:not(.arena) .tower-inspector {
+    grid-area:inspector; align-self:stretch; min-width:0; min-height:0;
+    display:flex; flex-direction:column; overflow:hidden;
+    padding:12px; border:1px solid #2a3550; border-radius:3px;
+    background:linear-gradient(160deg,#121a2e,#0b1020);
+    box-shadow:inset 0 1px 0 #ffffff0a;
+  }
+  .inspector-title { display:flex; align-items:center; justify-content:space-between; gap:8px; flex:0 0 auto; padding-bottom:10px; border-bottom:1px solid #2a3550; }
+  .inspector-title > span:last-child { padding:3px 6px; border:1px solid #2c4a7a; color:#8adcff; font:600 7px 'DM Mono',monospace; letter-spacing:.08em; }
+  body.playing:not(.arena) .tower-details { display:block !important; min-height:0; overflow-y:auto; padding-top:11px; }
+  body.playing:not(.arena) .tower-details.hidden { display:block !important; }
+  .build-preview-cost { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px; padding:9px 10px; border:1px solid #3f4b68; background:#10182b; }
+  .build-preview-cost span { color:#8e98b7; font:600 8px 'DM Mono',monospace; letter-spacing:.11em; }
+  .build-preview-cost b { color:#ffd45c; font:700 18px 'Playfair Display',Georgia,serif; }
+  .td-ability { margin-top:10px; padding:10px; border-left:2px solid var(--ability,#77d6ff); background:#0d1728; color:#aebbd5; font-size:10px; line-height:1.5; }
+  .td-ability b { display:block; margin-bottom:3px; color:var(--ability,#77d6ff); font:700 9px 'DM Mono',monospace; letter-spacing:.1em; text-transform:uppercase; }
+
+  body.playing:not(.arena) .tactical-dock {
+    grid-area:dock; display:grid;
+    grid-template-columns:258px minmax(0,1fr) 286px;
+    gap:8px; min-width:0; min-height:0;
+  }
+  .minimap-panel,.send-dock,.selected-enemy-panel { min-width:0; min-height:0; overflow:hidden; border:1px solid #2a3550; border-radius:3px; background:#0b1020; box-shadow:inset 0 1px 0 #ffffff0a; }
+  .minimap-panel,.selected-enemy-panel { padding:9px; }
+  .dock-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; height:20px; color:#9aa8c8; font:600 8px 'DM Mono',monospace; letter-spacing:.12em; }
+  .dock-heading small { color:#5fcba4; font:600 7px 'DM Mono',monospace; letter-spacing:.08em; }
+  #tactical-minimap { display:block; width:100%; height:calc(100% - 24px); margin-top:4px; border:1px solid #253453; background:#07101a; object-fit:contain; }
+  .send-dock { display:flex; flex-direction:column; }
+  .send-dock-tabs { flex:0 0 34px; display:grid; grid-template-columns:repeat(4,1fr); border-bottom:1px solid #2a3550; }
+  .send-dock-tab { min-width:0; padding:5px 7px; border:0; border-right:1px solid #2a3550; background:#0d1424; color:#91a0c0; font:700 8px 'DM Mono',monospace; letter-spacing:.09em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .send-dock-tab:last-child { border-right:0; }
+  .send-dock-tab.active { color:#9fe8ff; background:#12304b; box-shadow:inset 0 -2px 0 #77d6ff; }
+  .send-dock-tab.attackers.active { color:#ffbdc7; background:#311520; box-shadow:inset 0 -2px 0 #ff7f92; }
+  .send-dock-tab.flying.active { color:#d2bcff; background:#24163a; box-shadow:inset 0 -2px 0 #ae82ff; }
+  .send-dock-tab.shrine { color:#73ddbb; }
+  .send-dock-tab.shrine:disabled { color:#66738f; cursor:not-allowed; }
+  .desktop-send-list { flex:1 1 auto; display:flex; gap:6px; min-width:0; overflow-x:auto; overflow-y:hidden; padding:7px; scrollbar-width:thin; }
+  .dock-send-card { position:relative; flex:0 0 154px; display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between; min-width:0; padding:8px; border:1px solid #2c3959; border-radius:3px; background:#10182b; color:#e8edfb; text-align:left; }
+  .dock-send-card:hover { border-color:#77d6ff; background:#14213a; }
+  .dock-send-card.locked,.dock-send-card.poor { opacity:.48; }
+  .dock-send-card .send-top { display:flex; align-items:center; gap:7px; width:100%; }
+  .dock-send-card .send-glyph { display:grid; place-items:center; width:28px; height:28px; flex:0 0 auto; border:1px solid #37486c; background:#0b1424; color:#ff9faf; font-size:15px; }
+  .dock-send-card strong { display:block; max-width:102px; overflow:hidden; font:700 9px 'DM Mono',monospace; white-space:nowrap; text-overflow:ellipsis; }
+  .dock-send-card small { display:block; margin-top:2px; color:#7785a6; font-size:8px; }
+  .dock-send-stats { width:100%; color:#95a2bf; font:500 8px/1.45 'DM Mono',monospace; }
+  .dock-send-buy { display:flex; justify-content:space-between; width:100%; color:#ffd45c; font:700 9px 'DM Mono',monospace; }
+  .dock-send-buy i { color:#76d8b3; font-style:normal; }
+  .dock-empty { display:grid; place-items:center; min-width:100%; color:#73809d; font:500 9px 'DM Mono',monospace; }
+
+  .selected-enemy-details { height:calc(100% - 20px); min-height:0; }
+  .enemy-empty { display:grid; place-items:center; height:100%; padding:12px; color:#73809d; font:500 9px/1.5 'DM Mono',monospace; text-align:center; }
+  .enemy-summary { display:grid; grid-template-columns:54px 1fr; gap:9px; align-items:center; height:100%; }
+  .enemy-portrait { display:grid; place-items:center; width:54px; height:64px; border:1px solid #4a3b73; background:radial-gradient(circle,#33214e,#101323 72%); color:#cf9dff; font-size:28px; }
+  .enemy-copy { min-width:0; }
+  .enemy-copy strong { display:block; overflow:hidden; font:700 10px 'DM Mono',monospace; white-space:nowrap; text-overflow:ellipsis; }
+  .enemy-hpbar { height:8px; margin:7px 0 4px; border:1px solid #5a2632; background:#211019; }
+  .enemy-hpbar i { display:block; height:100%; background:linear-gradient(90deg,#d52f46,#ff6d7d); }
+  .enemy-hptext { display:flex; justify-content:space-between; gap:8px; color:#d9e1f2; font:600 8px 'DM Mono',monospace; }
+  .enemy-meta { margin-top:7px; color:#8996b3; font:500 8px/1.5 'DM Mono',monospace; }
+}
+
+@media (min-width:901px) and (max-width:1180px) {
+  body.playing:not(.arena) .battle-content { grid-template-columns:220px minmax(0,1fr) 248px; }
+  body.playing:not(.arena) .tactical-dock { grid-template-columns:220px minmax(0,1fr) 248px; }
+  body.playing:not(.arena) .hud { gap:7px; }
+  body.playing:not(.arena) .hud .resources { gap:7px; }
+  body.playing:not(.arena) .resource b { display:none; }
+  body.playing:not(.arena) .hud-target { min-width:36px; }
+  body.playing:not(.arena) .hud-target b { display:none; }
+}
+
+/* Compact arena keeps every requested resource, but reduces each to its icon
+   and value so the bar remains a single centred row on a phone. */
+.arena .status-line { display:none !important; }
+.arena .battle-content { padding-top:58px; }
+.arena .hud { justify-content:center; gap:5px; min-height:50px; padding:5px 7px; }
+.arena .hud .match-state { display:flex !important; flex:0 1 auto; gap:3px; }
+.arena .hud-wave-label,.arena .hud-next-label,.arena .hud-rule,.arena .wave-threat { display:none !important; }
+.arena .hud .resources { display:flex; flex:0 1 auto; width:auto; min-width:0; margin:0; gap:4px; justify-content:center; }
+.arena .resources .resource { display:flex; gap:2px; }
+.arena .resources .resource b { display:none; }
+.arena .resources .resource em { font-size:11px; }
+.arena .resources .resource.gold em { font-size:12px; }
+.arena .resource-icon { font-size:9px; }
+.arena .resource.lumber,.arena .resource.wood-income { display:flex; }
+.arena .resource.rival-income,.arena .resource.player-count,.arena .vs-mark { display:none; }
+.arena .income-eta { display:none; }
+.arena .hud-actions { gap:2px; }
+.arena .hud-actions .hud-target,.arena #settings-open-hud { display:none !important; }
+.arena #hud-menu-button { display:flex; min-width:32px; min-height:32px; padding:4px; }
+.arena #wave-label,.arena #timer-label { font-size:11px; }
+.arena .tower-inspector,.arena .tactical-dock { display:none !important; }
 </style>
 </head>
 <body>
@@ -1473,33 +1644,38 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
 
       <section id="battle-screen" class="screen battle-screen hidden">
         <header class="hud">
-          <div class="hud-brand"><svg class="crest-mark crest-sm" viewBox="0 0 48 48" width="22" height="22" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="crestG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bfeaff"/><stop offset="1" stop-color="#4aa3e0"/></linearGradient></defs><path d="M24 2 L42 11 V26 C42 37 34 44 24 46 C14 44 6 37 6 26 V11 Z" fill="#0d1f3a" stroke="url(#crestG)" stroke-width="2"/><g stroke="url(#crestG)" stroke-width="2.4" stroke-linecap="round"><path d="M24 12 V34 M14.5 18 L33.5 28 M33.5 18 L14.5 28"/></g><g stroke="#eafcff" stroke-width="1.3" stroke-linecap="round" opacity=".9"><path d="M24 15 l-2.4 2.6 M24 15 l2.4 2.6 M24 31 l-2.4 -2.6 M24 31 l2.4 -2.6"/></g></svg><span>RIMEWALL</span></div>
           <button id="push-wave-button" class="test-button" title="Testing shortcut: immediately start the next wave">Push wave</button>
           <button id="pause-button" class="test-button" aria-pressed="false">Pause</button>
           <button id="restart-button" class="test-button">Restart</button>
-          <button id="settings-open-hud" class="test-button gear-hud" title="Settings" aria-label="Settings">⚙</button>
           <button id="undo-slot" class="test-button undo-slot" disabled>↩ UNDO</button>
+          <div class="match-state" aria-label="Wave status">
+            <span class="hud-stat-icon" aria-hidden="true">☠</span><span class="hud-wave-label">WAVE</span><strong id="wave-label">01 / 20</strong>
+            <span class="hud-rule" aria-hidden="true"></span>
+            <span class="hud-stat-icon" aria-hidden="true">⌛</span><span class="hud-next-label">NEXT WAVE</span><span id="timer-label">00:30</span>
+            <span id="wave-threat" class="wave-threat"></span>
+          </div>
           <div class="resources">
-            <span class="resource gold"><b>GOLD</b><em id="gold-label">30</em></span>
-            <span class="resource lumber" title="Lumber — buys shrine upgrades, a second element, tower wards, and attacker sends. Attackers pay a slow lumber income back.><b>LUM</b><em id="lumber-label">0</em></span>
-            <span class="resource income" title="Gold you are paid on each income tick, and the seconds until the next one"><b>INC</b><em id="income-label">+24</em><i id="income-eta" class="income-eta">25s</i></span><span class="resource rival-income" title="Ally / rival income"><b>R</b><em id="rival-income-label">+0</em></span>
-            <span class="resource lives" title="Your lifeforce"><b>YOU</b><em id="lives-label">100</em></span>
+            <span class="resource lives" title="Your lifeforce"><i class="resource-icon">♥</i><b>LIVES</b><em id="lives-label">100</em></span>
+            <span class="resource gold"><i class="resource-icon coin-icon">●</i><b>GOLD</b><em id="gold-label">30</em></span>
+            <span class="resource income" title="Gold paid on each income tick"><i class="resource-icon income-icon">◇</i><b>INCOME</b><em id="income-label">+24</em><i id="income-eta" class="income-eta">25s</i></span>
+            <span class="resource lumber" title="Lumber buys shrine upgrades, a second element, tower wards, and attacker sends."><i class="resource-icon lumber-icon">♠</i><b>LUMBER</b><em id="lumber-label">0</em></span>
+            <span class="resource wood-income" title="Lumber earned over time by attacker sends"><i class="resource-icon lumber-icon">♠</i><b>LUMBER INCOME</b><em id="wood-income-label">+0.0</em></span>
+            <span class="resource rival-income" title="Rival income"><b>RIVAL INC</b><em id="rival-income-label">+0</em></span>
             <span class="vs-mark">/</span>
-            <span class="resource enemy" title="Rival lifeforce"><b id="rival-name-label">RIVAL</b><em id="enemy-lives-label">100</em></span>
+            <span class="resource enemy" title="Rival lifeforce"><i class="resource-icon">☠</i><b id="rival-name-label">RIVAL</b><em id="enemy-lives-label">100</em></span>
+            <span class="resource player-count" title="Your team seats / all active seats"><i class="resource-icon">♟</i><b>TEAM</b><em id="player-count-label">1/2</em></span>
+          </div>
+          <div class="hud-actions">
+            <button id="sl-target" class="hud-icon-button hud-target" title="Targeting for all your towers — tap to switch first / last">🎯 <b id="sl-target-tag">FIRST</b></button>
+            <button id="settings-open-hud" class="hud-icon-button" title="Settings" aria-label="Settings">⚙</button>
+            <button id="hud-menu-button" class="hud-icon-button" title="Game menu" aria-label="Game menu">☰</button>
           </div>
         </header>
-        <!-- The wave, the threat and the clock used to compete with the brand and
-             six resource chips for one cramped row. They get their own line under
-             the status bar, with the whole-wall targeting switch beside them
-             because that is where you look when a wave is landing. -->
         <div id="lobby" class="lobby hidden" aria-label="Match lobby"></div>
         <div id="confirm-modal" class="confirm-modal hidden" role="dialog" aria-modal="true"></div>
         <div id="seat-watch" class="seat-watch hidden" aria-label="Whose board to watch"></div>
         <div id="squad-income" class="squad-income" aria-label="Squad income"></div>
-        <div class="status-line" id="status-line">
-          <div class="match-state"><span class="live-dot"></span><strong id="wave-label">WAVE 01</strong><span id="wave-threat" class="wave-threat"></span><span id="timer-label">00:30</span></div>
-          <button id="sl-target" class="sl-chip" title="Targeting for ALL your towers — tap to switch first / last">🎯 <b id="sl-target-tag">FIRST</b></button>
-        </div>
+        <div class="status-line" id="status-line" aria-hidden="true"></div>
 
         <div class="battle-content">
           <div class="battle-main">
@@ -1566,8 +1742,7 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
               <div id="battle-icon" class="big-rune">❄</div>
               <div><span class="selection-kicker">YOUR BUILDER</span><strong id="battle-race">Ice</strong><span id="battle-builder">Ice Former</span></div>
             </div>
-            <div class="panel-tabs"><button class="active" data-tab="build">Build</button><button data-tab="send">Send</button></div>
-            <div id="tower-details" class="tower-details hidden"></div>
+            <div id="builder-tabs" class="panel-tabs builder-tabs" aria-label="Builder tower lines"></div>
             <div id="build-panel" class="command-body">
               <p class="panel-heading">TOWER LINE</p>
               <div id="tower-list" class="tower-list"></div>
@@ -1578,13 +1753,33 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
                    two things you rarely touch. They live under the list now. -->
               <div id="build-extras"></div>
             </div>
-            <div id="send-panel" class="command-body hidden">
+            <div id="send-panel" class="command-body send-command-source hidden" aria-hidden="true">
               <div id="shrine-status" class="shrine-status"></div>
               <div class="income-callout"><strong>Send to grow income</strong><span>Income pays out as gold every 25 seconds. Sends that break through cost the rival lifeforce.</span></div>
               <div id="send-list"></div>
             </div>
             <div class="hint-box"><span>3V3 / 1V1 RULE</span><p>Every creep starts at the center gate, splits west or east, touches flag 1 at the river corner, flag 2 at the outer turn, flag 3 on the way back, then runs for the ship. You defend the south half; the rival builds the north. Wall it off and creeps attack the closest blocking tower — but air waves (5 and 14) fly straight over the maze. Send attackers from your Shrine to grow income and bleed the rival's lifeforce.</p></div>
           </aside>
+
+          <aside id="tower-inspector" class="tower-inspector" aria-label="Tower information">
+            <div class="inspector-title"><span class="selection-kicker">TOWER INFORMATION</span><span id="inspector-builder-tag">BUILDER 1</span></div>
+            <div id="tower-details" class="tower-details"></div>
+          </aside>
+
+          <section id="tactical-dock" class="tactical-dock" aria-label="Map overview, sends, and selected enemy">
+            <div class="minimap-panel">
+              <div class="dock-heading"><span>MAP OVERVIEW</span><small>LIVE</small></div>
+              <canvas id="tactical-minimap" width="260" height="144" aria-label="Battlefield minimap"></canvas>
+            </div>
+            <div class="send-dock">
+              <div id="send-dock-tabs" class="send-dock-tabs" aria-label="Send categories"></div>
+              <div id="desktop-send-list" class="desktop-send-list"></div>
+            </div>
+            <div class="selected-enemy-panel">
+              <div class="dock-heading"><span>SELECTED ENEMY</span><small id="selected-enemy-kind">NO TARGET</small></div>
+              <div id="selected-enemy-details" class="selected-enemy-details"></div>
+            </div>
+          </section>
         </div>
       </section>
     </main>
@@ -8210,7 +8405,7 @@ function hudNum(n) {
   return `${sign}${(v / 1e6).toFixed(1)}M`;
 }
 function hudSigned(n) { return (n < 0 ? '' : '+') + hudNum(n); }
-const HUD_YIELD_ORDER = ['.hud-brand span', '.hud-brand', '#wave-threat', '.resource.rival-income', '.resource.income', '#timer-label', '#wave-label', '.match-state'];
+const HUD_YIELD_ORDER = ['#wave-threat', '#sl-target', '#settings-open-hud', '.resource.player-count', '.resource.rival-income', '#income-eta', '.hud-next-label', '.hud-wave-label'];
 function enforceHudContract() {
   const hud = document.querySelector('.arena .hud');
   if (!hud) return true;
@@ -8256,16 +8451,15 @@ function renderHud() {
     incomeEta.textContent = `${left}s`;
     incomeEta.classList.toggle('due', left <= 3);
   }
-  /* show the lumber DRIP beside the stock once there is one, the same way gold
-     shows its income — otherwise the only faucet a player can see is the 500g
-     button and the attacker's whole economic point is invisible. */
-  // optional-chained like the rest of this block: renderHud runs before the
-  // arena markup exists in some paths, and a null here took the whole HUD down
+  /* Lumber stock and lumber income are separate readouts. Combining them as
+     "2 +0.6" made the requested resource look like one unexplained number and
+     made it impossible to scan the two economies independently. */
   const lumberLabel = $('lumber-label');
-  if (lumberLabel) {
-    lumberLabel.textContent = player.woodIncome > 0
-      ? `${player.lumber} +${player.woodIncome.toFixed(1)}` : String(player.lumber);
-  }
+  if (lumberLabel) lumberLabel.textContent = String(player.lumber);
+  const woodIncomeLabel = $('wood-income-label');
+  if (woodIncomeLabel) woodIncomeLabel.textContent = `+${(player.woodIncome || 0).toFixed(1)}`;
+  const playerCountLabel = $('player-count-label');
+  if (playerCountLabel) playerCountLabel.textContent = `${seatsOn(PLAYER_HALF)}/${seatsOn(PLAYER_HALF) + seatsOn(ENEMY_HALF)}`;
   // keep economy buttons in step with live gold/lumber
   const buyLumber = $('buy-lumber');
   if (buyLumber) { buyLumber.disabled = player.gold < LUMBER_PRICE; buyLumber.textContent = `Buy 1 lumber — ${LUMBER_PRICE}g (you have ${player.lumber}🪵)`; }
@@ -8289,13 +8483,13 @@ function renderHud() {
   const livesChip = livesEl.closest('.resource');
   if (livesChip) livesChip.title = teamLives != null ? `Your side's lifeforce — yours is ${player.lives}` : 'Your lifeforce';
   const youLabel = document.querySelector('.resource.lives b');
-  if (youLabel) youLabel.textContent = teamLives != null && seatsOn(PLAYER_HALF) > 1 ? '♥ US' : '♥ YOU';
+  if (youLabel) youLabel.textContent = teamLives != null && seatsOn(PLAYER_HALF) > 1 ? 'OUR LIVES' : 'LIVES';
   /* Survival has no rival, so the RIVAL lifeforce readout is a number that can
      never move. Hide the whole chip rather than show a permanent 100. */
   const rivalChip = document.querySelector('.resource.enemy');
-  if (rivalChip) rivalChip.classList.toggle('hud-yield', matchMode === 'survival');
+  if (rivalChip) rivalChip.classList.toggle('hidden', matchMode === 'survival');
   const rivalIncChip = document.querySelector('.resource.rival-income');
-  if (rivalIncChip) rivalIncChip.classList.toggle('hud-yield', matchMode === 'survival');
+  if (rivalIncChip) rivalIncChip.classList.toggle('hidden', matchMode === 'survival');
   $('enemy-lives-label').textContent = foeLives != null ? foeLives : enemy.lives;
   /* The rival chip used to be named after whoever said hello, which in a team
      room is your own team-mate. Name the OTHER SIDE. */
@@ -8308,7 +8502,6 @@ function renderHud() {
         : foes.length > 1 ? `BOTS ×${foes.length}` : 'COMPUTER').toUpperCase().slice(0, 10);
   }
   const rivInc = $('rival-income-label'); if (rivInc) rivInc.textContent = mp.oppIncome != null ? hudSigned(BASE_INCOME + incomePayout(mp.oppIncome)) : '+?';
-  enforceHudContract();   // R1-R3: re-fit the row against the values just written
   /* was "YOUR SHIP • 100" painted on the board beside the ship. The HUD has
      carried your lifeforce the whole time, so this was the same number twice,
      and the board's copy was the one sitting on the playfield. */
@@ -8344,13 +8537,53 @@ function renderHud() {
     const clock = Math.max(0, Math.ceil(waveClock));
     $('timer-label').textContent = `00:${String(clock).padStart(2, '0')}`;
   }
+  renderTacticalDock();
+  enforceHudContract();   // R1-R3: re-fit the row after every live label is written
   $('pause-button').textContent = battlePaused ? 'Resume' : 'Pause';
   $('pause-button').setAttribute('aria-pressed', String(battlePaused));
   $('dbg-stats').textContent = `${creeps.length} creeps • ${towers.size} towers • ${cachedRouteText}`;
 }
 function currentBuildRaceId() { return player?.races?.[buildRaceIdx] || selectedRace.id; }
+function renderBuilderTabs() {
+  const tabs = $('builder-tabs');
+  if (!tabs || !player) return;
+  const first = races.find((race) => race.id === player.races[0]) || selectedRace;
+  const second = races.find((race) => race.id === player.races[1]);
+  const active = races.find((race) => race.id === currentBuildRaceId()) || first;
+  const secondReady = Boolean(second);
+  tabs.innerHTML = `
+    <button class="${buildRaceIdx === 0 ? 'active' : ''}" data-builder-index="0" style="--tab-race:${first.color}">
+      <span>${first.symbol} ${first.name}</span><small>BUILDER 1</small>
+    </button>
+    <button class="${secondReady && buildRaceIdx === 1 ? 'active' : ''} ${secondReady ? '' : 'builder-locked'}" ${secondReady ? 'data-builder-index="1"' : 'data-builder-license="1"'} style="--tab-race:${second?.color || '#c9b6ff'}">
+      <span>${secondReady ? `${second.symbol} ${second.name}` : '⚗ LOCKED'}</span><small>${secondReady ? 'BUILDER 2' : '2 LUMBER'}</small>
+    </button>
+    <button class="builder-locked" disabled style="--tab-race:#8fe6b8" title="Reserved for a future support system">
+      <span>✦ SUPPORT</span><small>RESERVED</small>
+    </button>`;
+  tabs.querySelectorAll('[data-builder-index]').forEach((button) => button.addEventListener('click', () => {
+    buildRaceIdx = Number(button.dataset.builderIndex);
+    selectedTowerTier = 0;
+    selectedTowerKey = null; selectedGroupKeys = [];
+    renderTowerList(); renderTowerDetails();
+    const race = races.find((item) => item.id === currentBuildRaceId());
+    log(`${race?.name || 'Builder'} tower line selected.`);
+  }));
+  tabs.querySelector('[data-builder-license]')?.addEventListener('click', () => {
+    const license = $('license-button');
+    license?.scrollIntoView({ block:'nearest', behavior:rmReduced() ? 'auto' : 'smooth' });
+    showToast(`<b>Second builder slot</b><span>License another element below for 2 lumber.</span>`);
+  });
+  const tag = $('inspector-builder-tag');
+  if (tag) tag.textContent = `BUILDER ${buildRaceIdx + 1}`;
+  document.documentElement.style.setProperty('--race', active.color);
+  if ($('battle-icon')) $('battle-icon').textContent = active.symbol;
+  if ($('battle-race')) $('battle-race').textContent = active.name;
+  if ($('battle-builder')) $('battle-builder').textContent = active.builder;
+}
 function renderTowerList() {
   const raceId = currentBuildRaceId();
+  renderBuilderTabs();
   renderBuildExtras();
   $('tower-list').innerHTML = buildableListFor(raceId).map(({ def: entry, tier }) => {
     const def = towerDef(raceId, tier);
@@ -8800,8 +9033,28 @@ function setupBoltPreview() {
 }
 function renderTowerDetails() {
   const panel = $('tower-details');
+  if (!panel || !player) return;
   const tower = selectedTowerKey !== null ? towers.get(selectedTowerKey) : null;
-  if (!tower) { panel.classList.add('hidden'); panel._built = false; panel._sig = ''; return; }
+  if (!tower) {
+    const raceId = currentBuildRaceId();
+    const race = races.find((item) => item.id === raceId) || selectedRace;
+    const def = towerDef(raceId, selectedTowerTier);
+    const sig = `preview|${raceId}|${selectedTowerTier}|${player.gold}|${player.lumber}`;
+    panel.classList.remove('hidden');
+    if (panel._sig === sig && panel._built) return;
+    panel._sig = sig; panel._built = true;
+    const lumberCost = def.lumber || 0;
+    const ability = def.special && def.special !== 'basic' ? def.special : 'Basic attack';
+    panel.innerHTML = `
+      <div class="td-head"><span class="td-rune" style="--race:${race.color}">${race.symbol}</span>
+        <div><strong>${def.name}</strong><small>${race.name} tower · ready to place · 1 cell</small></div></div>
+      <div class="build-preview-cost"><span>TOWER COST</span><b>${def.cost}g${lumberCost ? ` +${lumberCost}🪵` : ''}</b></div>
+      <div class="td-stats"><span>DMG <b>${def.dmg}</b></span><span>RANGE <b>${def.range.toFixed(1)}</b></span><span>SPEED <b>${attackSpeedText(def)}</b></span><span>DPS <b>${effectiveDps(def, raceId).toFixed(0)}</b></span></div>
+      <p class="td-desc profile-line">${attackProfileText(raceId, def)}${def.groundOnly ? ' · cannot target air' : ''}</p>
+      <div class="td-ability" style="--ability:${race.color}"><b>${ability}</b>${def.desc || ''}${specialBlurbs[def.special] ? ` ${specialBlurbs[def.special]}` : ''}</div>
+      ${boltEligible({ raceId, tier:selectedTowerTier }) ? `<p class="td-desc td-hint">✧ Accepts an elemental imbuing for ${boltCost({ raceId, tier:selectedTowerTier })}g after placement.</p>` : ''}`;
+    return;
+  }
   const group = selectionTowers().filter((t) => t.owner === tower.owner);
   const many = group.length > 1;
   const stats = towerLiveStats(tower);
@@ -8974,6 +9227,128 @@ function renderSendPanel() {
     renderHud();
   }));
   refreshSendLocks();
+}
+
+/* ---------------- Desktop tactical dock ----------------
+   A presentation layer over the existing send/shrine actions. The hidden
+   command source remains the single authority for purchases, so desktop,
+   keyboard, and touch can never charge different prices or spawn different
+   units. */
+let desktopSendTab = 'sends';
+let tacticalDockKey = '';
+let tacticalDockBound = false;
+function desktopSendPool() {
+  if (desktopSendTab === 'attackers') return SENDS.filter((send) => send.attacker);
+  if (desktopSendTab === 'flying') return SENDS.filter((send) => send.air);
+  return SENDS.filter((send) => !send.attacker && !send.air);
+}
+function renderTacticalDock() {
+  const tabs = $('send-dock-tabs'), list = $('desktop-send-list');
+  if (!tabs || !list || !player) return;
+  if (!tacticalDockBound) {
+    tacticalDockBound = true;
+    tabs.addEventListener('click', (event) => {
+      const button = event.target.closest('button');
+      if (!button) return;
+      if (button.dataset.dockShrine !== undefined) {
+        upgradeShrine();
+        tacticalDockKey = '';
+        renderTacticalDock();
+        return;
+      }
+      if (!button.dataset.dockTab) return;
+      desktopSendTab = button.dataset.dockTab;
+      tacticalDockKey = '';
+      renderTacticalDock();
+    });
+    list.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-dock-send]');
+      if (!button) return;
+      let source = document.querySelector(`[data-send="${button.dataset.dockSend}"]`);
+      if (!source) { renderSendPanel(); source = document.querySelector(`[data-send="${button.dataset.dockSend}"]`); }
+      source?.click();
+    });
+  }
+  const pool = desktopSendPool();
+  const key = [desktopSendTab, player.shrine, Math.floor(player.gold), player.lumber,
+    Math.round(player.income), Math.round(sendGrowth() * 100), pool.map((send) => send.id).join(',')].join('|');
+  if (key !== tacticalDockKey) {
+    tacticalDockKey = key;
+    const shrineMaxed = player.shrine >= SHRINE_MAX;
+    tabs.innerHTML = `
+      <button class="send-dock-tab ${desktopSendTab === 'sends' ? 'active' : ''}" data-dock-tab="sends">SENDS</button>
+      <button class="send-dock-tab attackers ${desktopSendTab === 'attackers' ? 'active' : ''}" data-dock-tab="attackers">ATTACKERS</button>
+      <button class="send-dock-tab flying ${desktopSendTab === 'flying' ? 'active' : ''}" data-dock-tab="flying">FLYING</button>
+      <button class="send-dock-tab shrine" data-dock-shrine="1" ${shrineMaxed || player.lumber < 1 ? 'disabled' : ''} title="${shrineMaxed ? 'Shrine is fully upgraded' : `Upgrade Shrine to level ${player.shrine + 1} for 1 lumber`}">
+        ♠ UPGRADE SHRINE · ${shrineMaxed ? 'MAX' : `L${player.shrine}→${player.shrine + 1}`}
+      </button>`;
+    list.innerHTML = pool.length ? pool.map((send) => {
+      const locked = player.shrine < send.shrine;
+      const poor = !sendAffordable(send);
+      const inc = sendIncomeLabel(send);
+      const gain = send.attacker
+        ? (send.woodIncome ? `+${send.woodIncome.toFixed(1)} lumber income` : 'wall breaker · no gold income')
+        : `${inc.text} income`;
+      return `<button class="dock-send-card ${locked ? 'locked' : ''} ${poor ? 'poor' : ''}" data-dock-send="${send.id}" title="${locked ? `Requires Shrine level ${send.shrine}` : `Send ${send.name}`}">
+        <span class="send-top"><i class="send-glyph">${send.air ? '▲' : send.symbol}</i><span><strong>${send.name}</strong><small>SHRINE TIER ${send.shrine}${send.air ? ' · FLYING' : ''}${send.attacker ? ' · ATTACKER' : ''}</small></span></span>
+        <span class="dock-send-stats">${sendShownHp(send)}${send.bodies > 1 ? ` HP × ${send.bodies}` : ' HP'} · ${send.armor} armor<br>${send.aClass} · ${send.spd.toFixed(1)} speed</span>
+        <span class="dock-send-buy"><b>${sendPriceText(send)}</b><i>${gain}</i></span>
+      </button>`;
+    }).join('') : `<div class="dock-empty">No ${desktopSendTab} are available in this ruleset.</div>`;
+  }
+  renderSelectedEnemyPanel();
+  renderTacticalMinimap();
+}
+function renderSelectedEnemyPanel() {
+  const box = $('selected-enemy-details'), kind = $('selected-enemy-kind');
+  if (!box || !kind) return;
+  const ie = inspectEntity;
+  const creep = ie && (ie.kind === 'creep' || ie.kind === 'mirror-creep') ? ie.ref : null;
+  if (creep) {
+    const hp = Math.max(0, Math.round(creep.hp || 0)), max = Math.max(1, Math.round(creep.maxHp || 1));
+    const pct = Math.max(0, Math.min(100, hp / max * 100));
+    const tags = [creep.air ? 'flying' : 'ground', creep.sent ? 'send' : 'wave', creep.role && creep.role !== 'standard' ? creep.role : ''].filter(Boolean);
+    kind.textContent = creep.sent ? 'RIVAL SEND' : 'WAVE UNIT';
+    box.innerHTML = `<div class="enemy-summary"><div class="enemy-portrait">${creep.sent ? '⚔' : (creep.air ? '▲' : '◆')}</div><div class="enemy-copy">
+      <strong>${escapeHTML(creep.name || 'Enemy unit')}</strong>
+      <div class="enemy-hpbar"><i style="width:${pct.toFixed(1)}%"></i></div>
+      <div class="enemy-hptext"><span>${hp.toLocaleString()} / ${max.toLocaleString()} HP</span><span>${Math.round(pct)}%</span></div>
+      <div class="enemy-meta">${creep.armor || 0} armor · ${creep.aClass || 'medium'}<br>${Number(creep.spd || 0).toFixed(1)} speed · ${tags.join(' · ')}</div>
+    </div></div>`;
+    return;
+  }
+  const enemyTower = ie && (ie.kind === 'enemy' || ie.kind === 'mirror-tower') ? ie.ref : null;
+  if (enemyTower) {
+    const st = towerLiveStats(enemyTower);
+    kind.textContent = 'RIVAL TOWER';
+    box.innerHTML = `<div class="enemy-summary"><div class="enemy-portrait">${st.symbol || '⛫'}</div><div class="enemy-copy">
+      <strong>${escapeHTML(st.name || 'Rival tower')}</strong>
+      <div class="enemy-hpbar"><i style="width:100%"></i></div>
+      <div class="enemy-hptext"><span>${Math.round(enemyTower.blockHp || 0)} / ${Math.round(enemyTower.blockMaxHp || 0)} HP</span><span>TIER ${(enemyTower.tier || 0) + 1}</span></div>
+      <div class="enemy-meta">${st.dmg} damage · ${effectiveDps(st, enemyTower.raceId).toFixed(0)} DPS<br>${st.range.toFixed(1)} range · ${attackProfileText(enemyTower.raceId, st)}</div>
+    </div></div>`;
+    return;
+  }
+  kind.textContent = 'NO TARGET';
+  box.innerHTML = `<div class="enemy-empty">Select a wave unit, rival send, or rival tower on the battlefield to inspect its health and defenses here.</div>`;
+}
+function renderTacticalMinimap() {
+  const mini = $('tactical-minimap'), board = $('board-canvas'), fx = $('fx-canvas');
+  if (!mini || !board || !fx || !board.width || !board.height) return;
+  const ctx = mini.getContext('2d');
+  if (!ctx) return;
+  const w = mini.width, h = mini.height;
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#07101a'; ctx.fillRect(0, 0, w, h);
+  const scale = Math.min(w / board.width, h / board.height);
+  const dw = board.width * scale, dh = board.height * scale;
+  const dx = (w - dw) / 2, dy = (h - dh) / 2;
+  try {
+    ctx.drawImage(board, dx, dy, dw, dh);
+    ctx.drawImage(fx, dx, dy, dw, dh);
+    ctx.strokeStyle = '#77d6ffaa'; ctx.lineWidth = 2;
+    ctx.strokeRect(dx + 1, dy + 1, Math.max(0, dw - 2), Math.max(0, dh - 2));
+  } catch (error) { /* canvases can be between resize frames; the next HUD tick retries */ }
 }
 function refreshSendLocks() {
   if (!player) return;
@@ -9149,7 +9524,7 @@ function handleBoardTap(event) {
   if (t === T.CLIFF && isShrineCell(cell.r, cell.c)) {
     // tapping YOUR shrine opens the send commands, like selecting the original's Shrine building
     if (touchUI()) openCommandSheet('sends');
-    else document.querySelector('[data-tab="send"]')?.click();
+    else { desktopSendTab = 'sends'; tacticalDockKey = ''; renderTacticalDock(); }
     log('Shrine selected — choose an attacker to send.');
     return;
   }
@@ -9308,7 +9683,13 @@ function fitBoardToViewport() {
     const top = viewport.getBoundingClientRect().top;
     const bar = $('command-bar');
     const barH = bar && !bar.classList.contains('hidden') ? bar.offsetHeight : 0;
-    const room = Math.round(winH - top - barH - 10);
+    /* On desktop the map now shares the screen with the tactical dock. Reserve
+       that dock's measured height here; this changes only the viewport box,
+       never the board dimensions, cells, terrain, routes, or pathfinding. */
+    const dock = $('tactical-dock');
+    const dockH = battleRunning && !document.body.classList.contains('arena') && dock && getComputedStyle(dock).display !== 'none'
+      ? dock.offsetHeight + 8 : 0;
+    const room = Math.round(winH - top - barH - dockH - 10);
     if (room >= 220) viewport.style.height = `${room}px`;
     else viewport.style.height = '';
   }
@@ -12481,6 +12862,7 @@ function openSettings() {
 function closeSettings() { $('settings-modal')?.classList.add('hidden'); }
 $('settings-open')?.addEventListener('click', openSettings);
 $('settings-open-hud')?.addEventListener('click', openSettings);
+$('hud-menu-button')?.addEventListener('click', openSettings);
 $('settings-close')?.addEventListener('click', closeSettings);
 /* DEV MODE WAS UNREACHABLE. It showed only when profile.devUnlockAll was already
    true or the URL carried ?dev=1 — so the button that turns it ON was hidden
