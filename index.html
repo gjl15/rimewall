@@ -1561,7 +1561,11 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
   body.playing.arena .builder-tabs button:disabled { opacity:.55; }
   body.playing.arena.mobile-panel-build #build-panel { display:flex; flex:1 1 auto; min-height:0; flex-direction:column; }
   body.playing.arena.mobile-panel-build #build-panel > .panel-heading { flex:0 0 auto; margin:0 0 6px; }
-  body.playing.arena.mobile-panel-build .tower-list { flex:1 1 auto; min-height:0; max-height:none; overflow-y:auto; }
+  body.playing.arena.mobile-panel-build .tower-list {
+    flex:1 1 auto; min-height:0; max-height:none;
+    display:grid; grid-auto-flow:row; grid-auto-columns:auto; grid-template-columns:1fr;
+    overflow-x:hidden; overflow-y:auto; padding-bottom:0;
+  }
   body.playing.arena.mobile-panel-build .tower-row { padding:8px; }
   body.playing.arena.mobile-panel-build #build-mode-button { flex:0 0 auto; margin-top:7px; }
   body.playing.arena.mobile-panel-build #build-extras { flex:0 0 auto; max-height:105px; overflow-y:auto; margin-top:6px; }
