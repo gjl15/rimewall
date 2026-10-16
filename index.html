@@ -1917,7 +1917,7 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
             </div>
             <div id="send-panel" class="command-body send-command-source hidden" aria-hidden="true">
               <div id="shrine-status" class="shrine-status"></div>
-              <div class="income-callout"><strong>Send to grow income</strong><span>Income pays out as gold every 25 seconds. Sends that break through cost the rival lifeforce.</span></div>
+              <div class="income-callout"><strong>Send to grow income</strong><span id="income-period-copy">Income pays out as gold every 25 seconds. Sends that break through cost the rival lifeforce.</span></div>
               <div id="send-list"></div>
             </div>
             <div class="hint-box"><span>3V3 / 1V1 RULE</span><p>Every creep starts at the center gate, splits west or east, touches flag 1 at the river corner, flag 2 at the outer turn, flag 3 on the way back, then runs for the ship. You defend the south half; the rival builds the north. Wall it off and creeps attack the closest blocking tower — but air waves (5 and 14) fly straight over the maze. Send attackers from your Shrine to grow income and bleed the rival's lifeforce.</p></div>
@@ -3366,23 +3366,24 @@ function spawnSend(send, half, side) {
   for (let i = 0; i < bodies; i += 1) spawnCreep(sendCreepDef(send), half, side, true);
 }
 function sendCreepDef(send) {
-  // killing a send pays the defender exactly the income it granted its sender
-  // the defender earns the send's income value per PURCHASE (each of the two units carries half)
+  // In Classic Wars, EACH killed send pays the defender the full income value
+  // granted by its purchase, even though a purchase sends one down both lanes.
+  // Other modes retain the split bounty used by their wave economy.
   // the ladder has always declared roles (Mossback regenerates, Aegis Runner is
   // shielded, Bulwark is a juggernaut) and this threw every one of them away, so
   // sends spawned plain no matter what their card promised
   const g = sendGrowth();
   return { name:send.name, role:send.role || (send.air ? 'air' : 'standard'), hp:Math.round(send.hp * g), spd:send.spd, armor:send.armor, aClass:send.aClass, air:Boolean(send.air),
     attacker:Boolean(send.attacker), breakPower:send.breakPower || 1,
-    /* an attacker pays no income, so killing one cannot pay the income back —
-       it pays a flat bounty for the trouble instead */
-    bounty:send.attacker ? Math.max(20, Math.round(send.cost / 120)) : Math.max(1, Math.round(send.income / 2)), lives:1 };
+    /* Classic Wars attackers are a pure offensive gamble and award no kill
+       gold. Other modes retain their flat compensation for handling one. */
+    bounty:send.attacker ? (matchMode === 'classic' ? 0 : Math.max(20, Math.round(send.cost / 120))) : Math.max(1, Math.round(send.income * (matchMode === 'classic' ? 1 : .5))), lives:1 };
 }
 
 /* ---------------- Match state ---------------- */
 const WAVE_PERIOD = 30;
-/* Wars economy, per the canonical rules text: income is paid every 25 seconds
-   (base + everything your sends added). Lives are chosen tournament-style
+/* Wars economy: income is paid every 25 seconds in wave modes and every 15
+   seconds in Classic Wars (base + everything your sends added). Lives are chosen tournament-style
    (25 classic / 50 / 100 easy). Bounties run ×2 because a solo defender
    covers both streams that a team shares in the source map. */
 /* The 45s runway used to be the ONLY time you had before wave 1, and you spent
@@ -3407,7 +3408,9 @@ function deriveEconomy() {
   CREEP_HP_SCALE = ECON_SCALE * WAVE_PRESSURE;
 }
 const FIRST_WAVE_DELAY = 30, LOBBY_SECONDS = 20;
-const INCOME_PERIOD = 25;   // was 33 — balance audit: income was the flat snowball outpacing HP growth
+const INCOME_PERIOD = 25;   // Waves vs rival and Survival
+const CLASSIC_INCOME_PERIOD = 15;
+function currentIncomePeriod() { return matchMode === 'classic' ? CLASSIC_INCOME_PERIOD : INCOME_PERIOD; }
 const BOUNTY_MULT = 1;   // was 2 — kill-gold was the fattest early faucet (defense out-damaged threat ~5.7x)
 /* CREEP HP RIDES THE SAME SCALE AS GOLD.
    ECON_SCALE exists because a wider board needs a longer wall, and it doubled
@@ -3685,7 +3688,7 @@ function resetMatchState() {
     enemy.playbook = pb;
     if (pb) log(`The rival has studied ${pb.games} of your ${races.find((r) => r.id === rivalRace)?.name || rivalRace} games and is trying your maze against you.`);
   }
-  wave = 0; waveClock = FIRST_WAVE_DELAY; incomeClock = INCOME_PERIOD; levelPayDue = 0; simTime = 0; battlePaused = false; matchOver = false;
+  wave = 0; waveClock = FIRST_WAVE_DELAY; incomeClock = currentIncomePeriod(); levelPayDue = 0; simTime = 0; battlePaused = false; matchOver = false;
   // a new match starts every side's pool full again
   mp.myLeaks = 0; mp.leaksSent = -1; mp.seatLeaks = {}; mp.seatLives = {}; mp.botLivesSent = {}; mp.seatSnaps = {}; mp.viewSeat = null;
   mp.towerSig = null; mp.towerFullAt = -99;   // a new match republishes its board immediately
@@ -6266,7 +6269,7 @@ function simulate(dt) {
     if (waveClock <= 0) launchNextWave();
   }
   incomeClock -= dt;
-  if (incomeClock <= 0) { incomeClock = INCOME_PERIOD; payIncome(); }
+  if (incomeClock <= 0) { incomeClock = currentIncomePeriod(); payIncome(); }
   waypointFxClock -= dt;
   if (waypointFxClock <= 0) {
     // "places where lightning comes down the sky" — flicker a bolt on a waypoint
@@ -8623,6 +8626,8 @@ function renderHud() {
     incomeEta.textContent = `${left}s`;
     incomeEta.classList.toggle('due', left <= 3);
   }
+  const incomePeriodCopy = $('income-period-copy');
+  if (incomePeriodCopy) incomePeriodCopy.textContent = `Income pays out as gold every ${currentIncomePeriod()} seconds. Sends that break through cost the rival lifeforce.`;
   /* Lumber stock and lumber income are separate readouts. Combining them as
      "2 +0.6" made the requested resource look like one unexplained number and
      made it impossible to scan the two economies independently. */
@@ -9397,7 +9402,7 @@ function renderSendPanel() {
     if (player.income >= 300) award('income_300');
     if (send.air) { profile.dragonsSent += 1; if (profile.dragonsSent >= 10) award('dragon_rider'); saveProfile(); }
     // quote the PAYOUT, not the raw ladder total — the raw number contradicts the HUD above it
-    log(`${send.name} × 2 sent (west + east)${send.air ? ' — flying over the maze' : ''}. Income ${incWas} → ${incNow}g per ${INCOME_PERIOD}s.`);
+    log(`${send.name} × 2 sent (west + east)${send.air ? ' — flying over the maze' : ''}. Income ${incWas} → ${incNow}g per ${currentIncomePeriod()}s.`);
     renderHud();
   }));
   refreshSendLocks();
@@ -12507,7 +12512,7 @@ function renderCommandSheet() {
       <div class="sheet-grid">${SENDS.map((send) => { const inc = sendIncomeLabel(send); return `
       <button class="sheet-chip ${player.shrine < send.shrine ? 'locked' : ''} ${sendAffordable(send) ? '' : 'poor'}" data-sheet-send="${send.id}" title="${send.name} — ${sendPriceText(send)}, ladder +${send.income} income${inc.cut ? `, ${inc.text} after diminishing returns` : ''}">
         <span>${send.air ? '🐉' : send.symbol}</span><small>${send.name.split(' ')[0]}</small><b>${sendPriceText(send)}<i class="${inc.cut ? 'inc-cut' : ''}">${inc.text}</i></b></button>`; }).join('')}</div>
-      <p class="sheet-hint">Sends run both rival lanes and raise your income. You are paid <b>${BASE_INCOME + incomePayout(player.income)}g</b> every ${INCOME_PERIOD}s; each chip shows what it would add to that.${player.income > INCOME_SOFT && INCOME_EXP < 1 ? ` Past ${INCOME_SOFT} raw income the payout is compressed, so the amber figures are below their ladder value.` : ''} ${player.shrine < SHRINE_MAX ? 'Higher shrine levels unlock the elite tiers.' : 'Shrine is maxed.'}</p>`;
+      <p class="sheet-hint">Sends run both rival lanes and raise your income. You are paid <b>${BASE_INCOME + incomePayout(player.income)}g</b> every ${currentIncomePeriod()}s; each chip shows what it would add to that.${player.income > INCOME_SOFT && INCOME_EXP < 1 ? ` Past ${INCOME_SOFT} raw income the payout is compressed, so the amber figures are below their ladder value.` : ''} ${player.shrine < SHRINE_MAX ? 'Higher shrine levels unlock the elite tiers.' : 'Shrine is maxed.'}</p>`;
   } else if (sheetTab === 'tower') {
     const sel = selectionTowers().filter(isMine);
     if (!sel.length) { body = '<p class="sheet-hint">Tap one of your towers on the board — or use ▭ Box select — to inspect it here.</p>'; }
