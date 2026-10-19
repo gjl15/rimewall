@@ -4045,6 +4045,17 @@ function pushDot(creep, dps, dur, tag, nonLethal) {
 }
 function updateCreep(creep, dt) {
   const now = simTime;
+  // Resolve Earth Tremor once, at its fixed impact point; ground enemies only.
+  if (creep.tremorUntil && now >= creep.tremorUntil) {
+    const x = creep.tremorX, y = creep.tremorY, half = creep.tremorHalf;
+    const damage = creep.tremorDamage, source = creep.tremorTower;
+    creep.tremorUntil = 0; creep.tremorTower = null;
+    creeps.forEach((other) => {
+      if (other.hp > 0 && !other.air && other.half === half && Math.hypot(other.x - x, other.y - y) <= 1.1)
+        applyDamage(other, damage, source);
+    });
+    pushFx({ kind:'impact', x, y, color:'#b99b6c', big:true, until:now + .35 });
+  }
   // stacking damage-over-time (poison stacks + fire ignite) — bypasses armor, still hits shield
   if (creep.dots && creep.dots.length) {
     let dps = 0, nonLethalDps = 0;
@@ -4444,6 +4455,15 @@ function applyFrost(creep, tower, stats, extraStack) {
 }
 function applyHitEffects(creep, tower, stats) {
   const special = stats.special, race = tower ? tower.raceId : null;
+  // EARTH — Tremor: a delayed ground impact at the target's original position.
+  // One pending tremor per target prevents rapid Earth hits from multiplying pulses.
+  if (race === 'earth' && !creep.air && special !== 'entangle' && !creep.tremorUntil) {
+    creep.tremorUntil = simTime + .6;
+    creep.tremorX = creep.x; creep.tremorY = creep.y;
+    creep.tremorHalf = creep.half;
+    creep.tremorDamage = stats.dmg * .2;
+    creep.tremorTower = tower;
+  }
   // EARTH — Fault Line: a short, ground-only shock extending behind the struck creep.
   // Secondary damage uses applyDamage directly, not applyHitEffects, so it cannot
   // recursively create more fault lines or trigger additional on-hit effects.
