@@ -4444,6 +4444,23 @@ function applyFrost(creep, tower, stats, extraStack) {
 }
 function applyHitEffects(creep, tower, stats) {
   const special = stats.special, race = tower ? tower.raceId : null;
+  // EARTH — Fault Line: a short, ground-only shock extending behind the struck creep.
+  // Secondary damage uses applyDamage directly, not applyHitEffects, so it cannot
+  // recursively create more fault lines or trigger additional on-hit effects.
+  if (race === 'earth' && !creep.air && creep.hp > 0 && special !== 'entangle') {
+    const length = 1.8, halfWidth = .65;
+    const dx = creep.x - (tower.c + .5), dy = creep.y - (tower.r + .5);
+    const distance = Math.hypot(dx, dy) || 1;
+    const ux = dx / distance, uy = dy / distance;
+    creeps.forEach((other) => {
+      if (other === creep || other.hp <= 0 || other.air || other.half !== creep.half) return;
+      const ox = other.x - creep.x, oy = other.y - creep.y;
+      const along = ox * ux + oy * uy;
+      const across = Math.abs(ox * uy - oy * ux);
+      if (along > 0 && along <= length && across <= halfWidth)
+        applyDamage(other, stats.dmg * .25, tower);
+    });
+  }
   // FROST — ramping slow that also freezes HP regen, and freezes solid at the top
   if (race === 'ice' && (special === 'slow' || special === 'frostnova' || special === 'snowball' || special === 'shatter' || special === 'deepfreeze')) {
     // deepfreeze drives three stacks a hit: four hits freeze instead of twelve
