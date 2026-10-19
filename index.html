@@ -9368,7 +9368,10 @@ function renderSendPanel() {
       <div><strong>${send.name}${send.air ? ' <em class="air-tag">AIR</em>' : ''}${send.attacker ? ' <em class="atk-tag">ATTACKER</em>' : ''}</strong>
       <small data-send-note="${send.id}">${send.attacker ? `<b style="color:#ff9faf">no income</b> • breaks towers · ${SWING_DMG * send.breakPower} dmg a swing${send.woodIncome ? ` · <b style="color:#b9a877">+${send.woodIncome}🪵</b>` : ''}` : `+${send.income} income`}</small>
       <small class="send-stats">${sendShownHp(send)}${send.bodies > 1 ? ` HP × ${send.bodies}` : ' HP'} • ${send.spd.toFixed(1)} spd • ${send.armor} armor (${send.aClass})</small></div><b>${sendPriceText(send)}</b></button>`;
-  const economy = SENDS.filter((s) => !s.attacker), attackers = SENDS.filter((s) => s.attacker);
+  // Present unlock tiers in order, then prioritize income return within each tier.
+  const byShrineAndROI = (a, b) => a.shrine - b.shrine || (a.income > 0 && b.income > 0 ? a.cost / a.income - b.cost / b.income : a.cost - b.cost);
+  const economy = SENDS.filter((send) => !send.attacker).sort(byShrineAndROI);
+  const attackers = SENDS.filter((send) => send.attacker).sort((a, b) => a.shrine - b.shrine || (a.lumber || 0) - (b.lumber || 0));
   $('send-list').innerHTML = economy.map(card).join('')
     + (attackers.length ? `<p class="panel-heading send-split">ATTACKERS — lumber, no income, break the wall</p>` + attackers.map(card).join('') : '');
   document.querySelectorAll('[data-send]').forEach((button) => button.addEventListener('click', () => {
