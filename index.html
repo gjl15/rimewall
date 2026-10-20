@@ -237,6 +237,13 @@ body.reduce-motion .mp-spin { animation:none; border-top-color:#8ee89f55; }
 .si-gold { color:#8fe6b8; margin-left:auto; }
 .si-foe { opacity:.72; }
 .si-head { color:#6f7c9c; font:600 7px 'DM Mono',monospace; letter-spacing:.12em; padding-left:2px; }
+.si-view { margin-top:8px; font:600 8px/1.7 'DM Mono',monospace; color:#aab8ce; }
+.lb-map { margin-top:12px; padding:8px; border:1px solid #34497a; border-radius:9px; background:#080f1c; }
+.lb-map-label { margin:5px 0; font:600 8px 'DM Mono',monospace; color:#b9c8dc; }
+.lb-map-row { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; }
+.lb-map-seat { padding:6px 3px; min-width:0; border:1px solid var(--lane); border-top:3px solid var(--lane); border-radius:5px; text-align:center; }
+.lb-map-seat b { display:block; font-size:10px; overflow-wrap:anywhere; }
+.lb-map-seat span { display:block; margin-top:3px; font-size:8px; color:var(--lane); }
 @media (max-width:420px) { .si-name { display:none; } .squad-income { right:3px; } }
 /* ---- CONFIRM: the one gate in front of anything that throws a match away ---- */
 .confirm-modal { position:fixed; inset:0; z-index:260; display:flex; align-items:center; justify-content:center; padding:18px; background:#060914e0; backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); }
@@ -3361,9 +3368,13 @@ function sendGrowth() { return 1; }
    had a swarm role since the wave table was written and no send ever carried
    it, because a send spawns exactly once per lane. This is the whole difference:
    a swarm puts `bodies` down each lane instead of one. */
-function spawnSend(send, half, side) {
+function spawnSend(send, half, side, attack = null, defenderSeat = null) {
   const bodies = Math.max(1, send.bodies || 1);
-  for (let i = 0; i < bodies; i += 1) spawnCreep(sendCreepDef(send), half, side, true);
+  for (let i = 0; i < bodies; i += 1) {
+    const creep=spawnCreep(sendCreepDef(send), half, side, true);
+    if(attack)creep.aiAttack=attack;
+    if(defenderSeat)creep.defenderSeat=defenderSeat;
+  }
 }
 function sendCreepDef(send) {
   // In Classic Wars, EACH killed send pays the defender the full income value
@@ -3670,7 +3681,7 @@ function resetMatchState() {
   // the seat you took in the lobby decides your lane colour and home ground
   const mySeats = seatsOn(PLAYER_HALF), mySeat = humanSeatIndex();
   player = { gold:START_GOLD, income:0, lives, kills:0, lumber:0, woodIncome:0, woodBank:0, shrine:1, races:[selectedRace.id], lumberSpent:0, startLives:lives,
-    seat:mySeat, lane:seatLane(PLAYER_HALF, mySeat, mySeats), zone:seatZone(PLAYER_HALF, mySeat, mySeats) };
+    seat:mySeat, lane:localSeatLane(PLAYER_HALF, mySeat, mySeats), zone:seatZone(PLAYER_HALF, mySeat, mySeats) };
   const questGold = mp.active ? 0 : 25 * (ensureDaily().done.length || 0);
   if (questGold) { player.gold += questGold; log(`🗒 Daily quest reward: +${questGold}g starting gold.`); }
   buildRaceIdx = 0;
@@ -3682,7 +3693,7 @@ function resetMatchState() {
   const shape = rivalSpots(rivalRace, plan, opening);
   enemy = { gold:START_GOLD, income:0, lives, lumber:0, shrine:1, raceId:rivalRace, spotIndex:0, towersBuilt:0,
     buildClock:2, sendClock:matchMode === 'classic' ? 14 : 24, opening:plan === 'learned' ? opening : plan,
-    spots:shape, plan, seat:0, lane:seatLane(ENEMY_HALF, 0, seatsOn(ENEMY_HALF)) };
+    spots:shape, plan, seat:0, lane:localSeatLane(ENEMY_HALF, 0, seatsOn(ENEMY_HALF)) };
   if (plan === 'learned') {
     const pb = playbookFor(rivalRace);
     enemy.playbook = pb;
@@ -3690,6 +3701,7 @@ function resetMatchState() {
   }
   wave = 0; waveClock = FIRST_WAVE_DELAY; incomeClock = currentIncomePeriod(); levelPayDue = 0; simTime = 0; battlePaused = false; matchOver = false;
   // a new match starts every side's pool full again
+  mp.incomeSent = -999; mp.seatIncome = {};
   mp.myLeaks = 0; mp.leaksSent = -1; mp.seatLeaks = {}; mp.seatLives = {}; mp.botLivesSent = {}; mp.seatSnaps = {}; mp.viewSeat = null;
   mp.towerSig = null; mp.towerFullAt = -99;   // a new match republishes its board immediately
   mp.fxOut = []; mp.seatFx = {}; mirrorFx = []; mp.towerSig = '';
@@ -3844,6 +3856,7 @@ function spawnCreep(waveDef, half, side, sent = false) {
     board.spawned += 1;
   }
   creeps.push(creep);
+  return creep;
 }
 function waveBoardRetire(creep, leaked) {
   if (creep.waveIdx == null) return;
@@ -3893,10 +3906,13 @@ function seatLane(half, i, n) { return LANE_COLORS[half][seatLaneIdx(i, Math.max
 function towerLaneColor(tower) {
   if (!tower) return null;
   const half = halfOfRow(tower.r);
-  const seats = mp.active ? mpSeatsInPlay(half).length : (typeof defendersPerHalf === 'function' ? defendersPerHalf() : 1);
+  const seats = seatsOn(half);
   if (seats < 2) return null;
-  const idxSeat = tower.allySeat != null ? tower.allySeat : (mp.active && half === mp.team ? mp.seat : 0);
-  const lane = seatLane(half, idxSeat, seats);
+  if (tower.mirror && mp.active) {
+    return tower.mirrorLaneColor || mpViewableSeats().find(s => s.key === mp.viewSeat)?.lane?.color || null;
+  }
+  const idxSeat = tower.allySeat != null ? tower.allySeat : (half === PLAYER_HALF ? humanSeatIndex() : 0);
+  const lane = localSeatLane(half, idxSeat, seats);
   return lane ? lane.color : null;
 }
 
@@ -3938,6 +3954,8 @@ function rosterHalfFor(localHalf) {
   if (!mp.active || mp.team === PLAYER_HALF) return localHalf;
   return localHalf === PLAYER_HALF ? ENEMY_HALF : PLAYER_HALF;
 }
+
+function localSeatLane(half, i, n) { return seatLane(rosterHalfFor(half), i, n); }
 function rosterSeats(half) { return ensureRoster()[rosterHalfFor(half)].filter((s) => s.kind !== 'closed'); }
 function seatsOn(half) { return Math.max(1, rosterSeats(half).length); }
 function humanSeat() { return rosterSeats(PLAYER_HALF).find((s) => (mp.active ? s.sid === mp.sid : s.kind === 'human')) || null; }
@@ -3947,8 +3965,6 @@ function humanSeatIndex() {
   return i < 0 ? 0 : i;
 }
 function defendersPerHalf() {
-  // the host plays its own roster; the guest plays whatever the host sent
-  if (mp.active && mp.role !== 'host') return Math.max(1, Math.min(SEATS_MAX, mp.teamSize || 1));
   return seatsOn(PLAYER_HALF);
 }
 function queueWaveSpawns(waveDef) {
@@ -4254,6 +4270,7 @@ function spreadCreep(creep, dt) {
   if (creep.air || isWalkable(Math.floor(ny), Math.floor(nx))) { creep.x = nx; creep.y = ny; }
 }
 function resolveLeak(creep) {
+  if(creep.hp<=0 || creep.leaked)return;
   creep.hp = 0; creep.leaked = true;
   const owner = creep.half === PLAYER_HALF ? player : enemy;
   /* IN A ROOM, LIFEFORCE IS ONE POOL PER SIDE. Each client counts only the
@@ -4262,16 +4279,22 @@ function resolveLeak(creep) {
      instead of decrementing a shared number means two clients leaking at the
      same instant cannot double-subtract, and a late-arriving message cannot
      drift the total. */
-  if (mp.active && creep.half === PLAYER_HALF) mp.myLeaks += creep.livesCost;
-  else owner.lives = Math.max(0, owner.lives - creep.livesCost);
-  if (mp.active) mpSyncTeamLives();
+  if(mp.active) {
+    const key=creep.defenderSeat || (creep.half===PLAYER_HALF?mpMySeatKey():mpBotSeatKeys()[0]);
+    if(key===mpMySeatKey())mp.myLeaks+=creep.livesCost;
+    else if(key && mp.role==='host')mp.seatLeaks[key]=(mp.seatLeaks[key]||0)+creep.livesCost;
+    mpSyncTeamLives();
+  } else owner.lives=Math.max(0,owner.lives-creep.livesCost);
   pushFx({ kind:'leak', x:creep.x, y:creep.y, until:simTime + .6 });
   if (creep.half === PLAYER_HALF) { waveBoardRetire(creep, true); SFX.play('leak'); recordLeak(); mpEmit([FX_LEAK, r2(creep.x), r2(creep.y)]); }
   if (creep.half === PLAYER_HALF) log(`${creep.name} reached your ship — that is a leak (−${creep.livesCost} ${creep.livesCost > 1 ? 'lives' : 'life'}).`);
   else if (creep.sent) log(`Your ${creep.name} broke through! Enemy loses ${creep.livesCost} ${creep.livesCost > 1 ? 'lives' : 'life'}.`);
   /* A SIDE loses, not a person. Abdy hit zero and got a defeat card while Gene
      was still playing, because this ended the match on one client's own lives. */
-  if (mp.active) { if ((mpTeamLives(mp.team) ?? 1) <= 0) endMatch('defeat'); }
+  if (mp.active) {
+    if((mpTeamLives(mp.team)??1)<=0)endMatch('defeat');
+    else if((mpTeamLives(mpFoeHalf())??1)<=0)endMatch('victory');
+  }
   else if (owner.lives <= 0) endMatch(creep.half === PLAYER_HALF ? 'defeat' : 'victory');
 }
 
@@ -5317,7 +5340,7 @@ function makeAlly(half, seat, raceId, seatsHere) {
     .filter(({ c }) => c >= zone.c0 && c <= zone.c1)
     .map(({ r, c }) => (half === PLAYER_HALF ? { r, c } : { r:(ROWS - 1) - r, c }));
   const ordered = cells.sort((a, b) => near(a, marks) - near(b, marks));
-  const lane = seatLane(half, seat, seatsHere);
+  const lane = localSeatLane(half, seat, seatsHere);
   return { half, seat, raceId, zone, lane,
     name:ALLY_NAMES[(seat + (half === PLAYER_HALF ? 0 : 3)) % ALLY_NAMES.length],
     gold:START_GOLD, income:0, lumber:0, shrine:1, spotIndex:0, towersBuilt:0,
@@ -5767,14 +5790,14 @@ function payIncome() {
   // one signal that says "income just paid" appeared nowhere near the player.
   pushFx({ kind:'num', x:DOOR_C + .5, y:S_GATE_R - 1.5, text:`+${paid}`, until:simTime + 1.4, color:'#f5d36d', big:true });
 }
-function endMatch(result) {
+function endMatch(result, broadcast = true) {
   if (matchOver) return;
   matchOver = true; battleRunning = false;
   const banner = $('wave-banner');
   SFX.play(result === 'victory' ? 'victory' : 'defeat');
   if (result === 'victory') { banner.textContent = '★ VICTORY — THE ENEMY SHIP HAS FALLEN'; log('Victory! The rival force is out of lifeforce. Restart to run it back.'); }
   else { banner.textContent = '☠ DEFEAT — YOUR SHIP HAS FALLEN'; log('Your ship has fallen. Restart the match to test another maze.'); }
-  if (mp.active) mpSend({ t:'over', result });
+  if (mp.active && broadcast) mpSend({t:'over',result,team:mp.team,match:mp.matchId,leaks:{...mp.seatLeaks,[mpMySeatKey()]:mp.myLeaks}});
   commitMatchStats(result);
   const earnedBefore = Object.keys(profile.achievements).length;
   profile.matches += 1;
@@ -7055,7 +7078,7 @@ function drawTower(ctx, tower) {
   }
   /* Lane colour only when the half is actually shared — on a 1v1 board there is
      nobody to tell apart, and an ownership mark that is always on is noise. */
-  const laneSeats = mp.active ? mpSeatsInPlay(halfOfRow(tower.r)).length : (defendersPerHalf ? defendersPerHalf() : 1);
+  const laneSeats = seatsOn(halfOfRow(tower.r));
   const lane = laneSeats >= 2 ? (towerLaneColor ? towerLaneColor(tower) : null) : null;
   /* §6 PLACEMENT SNAP: the tower lands slightly oversized and settles over
      160ms, with a thin ring opening out of it. It is the only confirmation that
@@ -8344,22 +8367,36 @@ function renderSeatWatch() {
 function renderSquadIncome() {
   const box = $('squad-income');
   if (!box || !player) return;
-  if (!allies.length || !battleRunning) { box.innerHTML = ''; return; }
-  const row = (name, raceId, raw, foe) => {
+  if (!battleRunning || (!mp.active && !allies.length)) { box.innerHTML = ''; return; }
+  const row = (name, raceId, raw, foe, lane=null, zone='') => {
     const r = races.find((x) => x.id === raceId) || races[0];
-    return `<div class="si-row ${foe ? 'si-foe' : ''}" style="--race:${r.color}">
-      <span class="si-rune">${r.symbol}</span><span class="si-name">${name}</span>
-      <span class="si-gold">+${BASE_INCOME + incomePayout(raw)}</span></div>`;
+    return `<div class="si-row ${foe ? 'si-foe' : ''}" style="--race:${lane?.color || r.color}">
+      <span class="si-rune">${r.symbol}</span><span class="si-name">${escapeHTML(name)}${lane ? `<small>${lane.name} · ${zone}</small>` : ''}</span>
+      <span class="si-gold">${raw == null ? '—' : '+'+(BASE_INCOME + incomePayout(raw))}</span></div>`;
   };
+  if (mp.active) {
+    const seats=mpViewableSeats();
+    const group=(friendly)=>seats.filter(s=>s.friendly===friendly).map(s=>{
+      const peer=s.sid ? mp.peers[s.sid] : null;
+      const localHalf=s.friendly ? PLAYER_HALF : ENEMY_HALF;
+      const pos=rosterSeats(localHalf).findIndex(r=>r.index===s.index);
+      const bot=s.kind==='ai' ? (localHalf===ENEMY_HALF && pos===0 ? enemy : allies.find(a=>a.half===localHalf&&a.seat===pos)) : null;
+      return row(s.name,s.mine?selectedRace.id:peer?.raceId || s.raceId || bot?.raceId,
+        s.mine?player.income:peer?.income ?? bot?.income ?? mp.seatIncome[s.key] ?? null,!friendly,s.lane,s.zone.label);
+    }).join('');
+    const watched=seats.find(s=>s.key===mp.viewSeat && !s.mine);
+    box.innerHTML='<div class="si-head">YOUR TEAM</div>'+group(true)
+      +'<div class="si-head">OPPONENTS</div>'+group(false)
+      +`<div class="si-view">BOTTOM: YOUR BOARD${watched ? `<br>TOP: ${escapeHTML(watched.name)} · ${watched.friendly?'TEAMMATE':'OPPONENT'}` : ''}</div>`;
+    return;
+  }
   const mine = allies.filter((a) => a.half === PLAYER_HALF);
   const theirs = allies.filter((a) => a.half === ENEMY_HALF);
   let html = '<div class="si-head">YOURS</div>' + row('You', selectedRace.id, player.income, false)
     + mine.map((a) => row(a.name, a.raceId, a.income, false)).join('');
-  if (matchMode !== 'survival') {
-    html += '<div class="si-head">THEIRS</div>'
-      + row(mp.active ? (mp.oppName || 'Opponent') : 'Rival', enemy.raceId, mp.active ? (mp.oppIncome ?? 0) : enemy.income, true)
-      + theirs.map((a) => row(a.name, a.raceId, a.income, true)).join('');
-  }
+  if (matchMode !== 'survival') html += '<div class="si-head">THEIRS</div>'
+    + row('Rival',enemy.raceId,enemy.income,true)
+    + theirs.map((a) => row(a.name, a.raceId, a.income, true)).join('');
   box.innerHTML = html;
 }
 /* ---------------- ARENA RAILS ----------------
@@ -9411,41 +9448,43 @@ function renderSendPanel() {
   const attackers = SENDS.filter((send) => send.attacker).sort((a, b) => a.shrine - b.shrine || (a.lumber || 0) - (b.lumber || 0));
   $('send-list').innerHTML = economy.map(card).join('')
     + (attackers.length ? `<p class="panel-heading send-split">ATTACKERS — lumber, no income, break the wall</p>` + attackers.map(card).join('') : '');
-  document.querySelectorAll('[data-send]').forEach((button) => button.addEventListener('click', () => {
-    const send = SENDS.find((item) => item.id === button.dataset.send);
-    if (!battleRunning) return log('Start a match before sending.');
-    if (player.shrine < send.shrine) return log(`${send.name} needs Shrine level ${send.shrine}.`);
-    if (player.gold < send.cost) return log(`Not enough gold — ${send.name} costs ${sendPriceText(send)}.`);
-    if (send.lumber && player.lumber < send.lumber) return log(`${send.name} costs ${sendPriceText(send)}${send.income ? '' : ' — and pays no income'}. Buy lumber first.`);
-    const incWas = BASE_INCOME + incomePayout(player.income);
-    player.gold -= send.cost; player.income += send.income; SFX.play('send'); Coach.notify('send'); track('send', { id: send.id });
-    if (send.woodIncome) player.woodIncome = (player.woodIncome || 0) + send.woodIncome;
-    if (send.lumber) { player.lumber -= send.lumber; player.lumberSpent += send.lumber; renderTowerList(); }
-    logSend(send.id); if (matchStats) matchStats.sends += 1;
-    const incNow = BASE_INCOME + incomePayout(player.income);
-    // one purchase sends a unit down BOTH rival lanes (over the wire in PvP)
-    if (mp.active) {
-      // one enemy at a time, cycled, and named in the message — otherwise a
-      // send bought once would land on every board on the other side
-      const target = mpSendTarget();
-      mpSend({ t:'send', sid:mp.sid, id:send.id, target });
-      log(`${send.name} × 2 away at ${mpSeatName(target)}.`);
-      // if I am the host and it is aimed at one of my bots, I spawn it myself
-      if (mpHostRunsBots() && target && mpBotSeatKeys().includes(target)) {
-        spawnSend(send, ENEMY_HALF, 'west');
-        spawnSend(send, ENEMY_HALF, 'east');
-      }
-    } else {
-      spawnSend(send, ENEMY_HALF, 'west');
-      spawnSend(send, ENEMY_HALF, 'east');
-    }
-    if (player.income >= 300) award('income_300');
-    if (send.air) { profile.dragonsSent += 1; if (profile.dragonsSent >= 10) award('dragon_rider'); saveProfile(); }
-    // quote the PAYOUT, not the raw ladder total — the raw number contradicts the HUD above it
-    log(`${send.name} × 2 sent (west + east)${send.air ? ' — flying over the maze' : ''}. Income ${incWas} → ${incNow}g per ${currentIncomePeriod()}s.`);
-    renderHud();
-  }));
+  document.querySelectorAll('[data-send]').forEach((button) => button.addEventListener('click', () => buySend(button.dataset.send)));
   refreshSendLocks();
+}
+
+function buySend(id) {
+  const send=SENDS.find(s=>s.id===id);if(!send)return false;
+  if (!battleRunning) return log('Start a match before sending.');
+  if (player.shrine < send.shrine) return log(`${send.name} needs Shrine level ${send.shrine}.`);
+  if (player.gold < send.cost) return log(`Not enough gold — ${send.name} costs ${sendPriceText(send)}.`);
+  if (send.lumber && player.lumber < send.lumber) return log(`${send.name} costs ${sendPriceText(send)}${send.income ? '' : ' — and pays no income'}. Buy lumber first.`);
+  const incWas = BASE_INCOME + incomePayout(player.income);
+  player.gold -= send.cost; player.income += send.income; SFX.play('send'); Coach.notify('send'); track('send', { id: send.id });
+  if (send.woodIncome) player.woodIncome = (player.woodIncome || 0) + send.woodIncome;
+  if (send.lumber) { player.lumber -= send.lumber; player.lumberSpent += send.lumber; renderTowerList(); }
+  logSend(send.id); if (matchStats) matchStats.sends += 1;
+  const incNow = BASE_INCOME + incomePayout(player.income);
+  // one purchase sends a unit down BOTH rival lanes (over the wire in PvP)
+  if (mp.active) {
+    // one enemy at a time, cycled, and named in the message — otherwise a
+    // send bought once would land on every board on the other side
+    const target = mpSendTarget();
+    const message={t:'send',sid:mp.sid,id:send.id,target,sourceSeat:mpMySeatKey(),match:mp.matchId};
+    mpSend(message);
+    mpOnMessage(message);
+    log(`${send.name} × 2 away at ${mpSeatName(target)}.`);
+
+  } else {
+    spawnSend(send, ENEMY_HALF, 'west');
+    spawnSend(send, ENEMY_HALF, 'east');
+  }
+  if (player.income >= 300) award('income_300');
+  if (send.air) { profile.dragonsSent += 1; if (profile.dragonsSent >= 10) award('dragon_rider'); saveProfile(); }
+  // quote the PAYOUT, not the raw ladder total — the raw number contradicts the HUD above it
+  log(`${send.name} × 2 sent (west + east)${send.air ? ' — flying over the maze' : ''}. ${send.attacker ? `No gold income; +${send.woodIncome || 0}🪵 per ${currentIncomePeriod()}s.` : `Income ${incWas} → ${incNow}g per ${currentIncomePeriod()}s.`}`);
+  renderHud();
+
+  return true;
 }
 
 /* ---------------- Desktop tactical dock ----------------
@@ -10528,12 +10567,14 @@ function closeLobby() {
 /* Setting a slot. Only one seat on your half can be you, so claiming a new one
    releases the old. Closing a seat that is in play shrinks that side. */
 function lobbySetSeat(half, index, kind) {
+  if(mp.active && (mp.started || mp.role!=='host'))return;
   const seats = ensureRoster()[half];
   const s = seats[index]; if (!s) return;
   if (kind === 'human' && !mp.active) {
     if (half !== PLAYER_HALF) return;                       // offline, you play your own side
     seats.forEach((o) => { if (o.kind === 'human') o.kind = 'ai'; });
   }
+  if (mp.active && s.sid && kind !== 'human') { renderLobby(true); return log('Move connected players before changing their slots.'); }
   if (s.sid && kind !== 'human') s.sid = null;               // closing a slot frees whoever sat in it
   s.kind = kind;
   if (kind !== 'closed' && !s.raceId) s.raceId = null;       // rolled at match start
@@ -10548,8 +10589,10 @@ function lobbySetSeat(half, index, kind) {
 /* The host says how many slots each side has. As low as one a side, which is
    the solo game. */
 function lobbySetSize(half, n) {
+  if(mp.active && (mp.started || mp.role!=='host'))return;
   const seats = ensureRoster()[half];
   const want = Math.max(1, Math.min(SEATS_MAX, n));
+  if (mp.active && seats.some((s,i)=>i>=want && s.sid)) { renderLobby(true); return log('Move connected players before closing their slots.'); }
   seats.forEach((s, i) => {
     if (i < want && s.kind === 'closed') s.kind = 'ai';
     if (i >= want) s.kind = 'closed';
@@ -10562,11 +10605,51 @@ function lobbyPickRace(id) {
   const race = races.find((r) => r.id === id);
   if (!race || !raceUnlocked(id)) return;
   commitRace(race);
+  if(mp.active) {
+    if(mp.role==='host') {const seat=[...roster.south,...roster.north].find(s=>s.sid===mp.sid);if(seat)seat.raceId=id;mpBroadcastRoster();}
+    else mpSend({t:'lobby-race',race:id});
+  }
   if (battleRunning && player) {                            // mid-match swap (nothing is built yet)
     player.races = [id]; buildRaceIdx = 0; selectedTowerTier = 0;
     renderBattleIdentity(); renderTowerList(); renderHud();
   }
   renderLobby(true);   // a local edit always redraws: the change event fires while the select still has focus
+}
+
+function mpHumansVsComputers() {
+  const mine=ensureRoster()[mp.team].filter(s=>s.kind!=='closed');
+  const foes=ensureRoster()[mp.team===PLAYER_HALF?ENEMY_HALF:PLAYER_HALF].filter(s=>s.kind!=='closed');
+  return mine.length>=2 && mine.every(s=>s.kind==='human'&&s.sid) && foes.length===mine.length && foes.every(s=>s.kind==='ai');
+}
+
+function mpTeamUpAgainstComputers() {
+  if (!mp.active || mp.role!=='host' || mp.started) return false;
+  const humans=[...ensureRoster().south,...roster.north].filter(s=>s.kind==='human'&&s.sid);
+  if (humans.length<2 || humans.length>SEATS_MAX) return false;
+  humans.sort((a,b)=>Number(b.sid===mp.sid)-Number(a.sid===mp.sid));
+  const team=mp.team,n=humans.length;
+  if (mpHumansVsComputers()) return false;
+  roster=newRoster(n);
+  for (const half of ['south','north']) for (const s of roster[half]) if(s.kind!=='closed')s.kind='ai';
+  humans.forEach((s,i)=>mpHostSeat(s.sid,team,i,s.name,s.raceId));
+  $('team-select').value=String(n);
+  mpBroadcastRoster();renderLobby(true);
+  return true;
+}
+
+function lobbyBoardGuide(myHalf) {
+  const foes=myHalf===PLAYER_HALF?ENEMY_HALF:PLAYER_HALF;
+  const band=(half,friendly)=>{
+    const active=ensureRoster()[half].filter(s=>s.kind!=='closed');
+    return `<div class="lb-map-label">${friendly?'YOUR TEAM · BOTTOM':'OPPONENTS · TOP'}</div><div class="lb-map-row">`
+      +active.map((s,i)=>{
+        const lane=seatLane(half,i,active.length),zone=seatZone(half,i,active.length);
+        const mine=mp.active?s.sid===mp.sid:s.kind==='human';
+        const name=mine?'You':(s.sid&&mp.peers[s.sid]?.name)||s.name||(s.kind==='ai'?'Computer '+(i+1):SEAT_KIND_LABEL[s.kind]);
+        return `<div class="lb-map-seat" data-map-seat="${half}:${s.index}" style="--lane:${lane.color};grid-column:${active.length===1?'1 / 4':seatLaneIdx(i,active.length)+1}"><b>${escapeHTML(name)}</b><span>${lane.name} · ${zone.label}</span></div>`;
+      }).join('')+'</div>';
+  };
+  return `<div class="lb-map" aria-label="Team colors and board positions">${matchMode==='survival'?'':band(foes,false)}${band(myHalf,true)}</div>`;
 }
 const SEAT_KIND_LABEL = { human:'You', ai:'Computer', open:'Open', closed:'Closed' };
 let lobbyKey = '';
@@ -10585,9 +10668,9 @@ function renderLobby(force) {
     p:Object.values(mp.peers).map((x) => [x.sid, x.name, x.raceId]),
     m:matchMode, r:selectedRace.id, a:mp.active, role:mp.role, solo:soloRules, phase:lobbyPhase,
   });
-  if (!force && sig === lobbyKey) return;
+  if (!force && sig === lobbyKey) { lobbyPatchReady(); return; }
   const focused = box.contains(document.activeElement) ? document.activeElement : null;
-  if (focused && focused.tagName === 'SELECT' && !force) return;   // they are choosing right now
+  if (focused && focused.tagName === 'SELECT' && !force) { lobbyPatchReady(); return; }   // they are choosing right now
   lobbyKey = sig;
   const restore = focused ? (focused.dataset.lbKind || focused.dataset.lbSize || focused.id || '') : '';
   const modeName = matchMode === 'classic' ? 'Classic Wars' : matchMode === 'survival' ? 'Survival' : 'Waves vs rival';
@@ -10619,14 +10702,14 @@ function renderLobby(force) {
     // in a room only the host rearranges the slots; anyone can take a free one
     const canEdit = !mp.active || mp.role === 'host';
     const canSit = mp.active && !isMine && inPlay && !s.sid;
-    return `<div class="lb-slot ${inPlay ? '' : 'off'} ${isMine ? 'mine' : ''}" style="--lane:${lane ? lane.color : '#3a466a'}">
+    return `<div data-lobby-seat="${half}:${i}" class="lb-slot ${inPlay ? '' : 'off'} ${isMine ? 'mine' : ''}" style="--lane:${lane ? lane.color : '#3a466a'}">
       <span class="lb-swatch" title="${lane ? lane.name + ' lane' : 'not in play'}">${lane ? lane.name[0] : '·'}</span>
       ${canEdit
         ? `<select class="lb-kind" data-lb-kind="${half}:${i}" aria-label="Slot ${i + 1}">
             ${kinds.map((k) => `<option value="${k}" ${k === s.kind ? 'selected' : ''}>${SEAT_KIND_LABEL[k]}</option>`).join('')}
           </select>`
         : `<span class="lb-kind lb-kind-fixed">${s.kind === 'human' && !isMine ? 'Player' : SEAT_KIND_LABEL[s.kind]}</span>`}
-      <span class="lb-name"><b>${escapeHTML(who)}${peer ? ' <i class="lb-live">●</i>' : ''}</b><small>${elem}${zone ? ` · ${zone.label}` : ''}</small></span>
+      <span class="lb-name"><b>${escapeHTML(who)}${peer ? ' <i class="lb-live">●</i>' : ''}</b><small>${elem}${zone ? ` · ${zone.label}` : ''}${mp.active && s.sid ? ` · <span data-ready-sid="${escapeHTML(s.sid)}">${lobbySeatReadyText(s.sid)}</span>` : ''}</small></span>
       ${canSit ? `<button class="lb-sit" data-lb-sit="${half}:${i}">Sit</button>` : `<span class="lb-lane">${lane ? lane.name : ''}</span>`}
     </div>`;
   };
@@ -10645,25 +10728,28 @@ function renderLobby(force) {
         <strong>${solo ? 'Solo' : `${sizeS}v${sizeN}`} · ${modeName}</strong>
         <span class="lb-count">${mp.active ? (mp.role === 'host' ? 'HOST' : 'GUEST') : 'LOCAL'}</span>
       </div>
+      ${lobbyBoardGuide(myHalf)}
+      ${mp.active && mp.role==='host' && !mp.started && lobbyHumans().length>=2 ? `<button id="lb-team-up" class="lb-ready" ${mpHumansVsComputers()?'disabled':''}>${mpHumansVsComputers()?'Playing together vs computers':'Play together vs computers'}</button>` : ''}
       <div class="lb-cols">
-        ${column(myHalf, 'Your side', sizeS)}
-        ${matchMode === 'survival' ? '' : column(foeHalf, 'Their side', sizeN)}
+        ${column(myHalf, 'Your team · bottom', sizeS)}
+        ${matchMode === 'survival' ? '' : column(foeHalf, 'Opponents · top', sizeN)}
       </div>
       ${solo ? `<label class="lb-solo"><input type="checkbox" id="lb-solo" ${soloRules ? 'checked' : ''}>
         <span><b>Solo rules</b> — sends only, no neutral waves, and a brutal rival that builds the whole far side rather than a corner of it. One player, one very hard opponent.</span></label>` : ''}
-      <p class="lb-hint">Each slot holds one lane of the board and wears its colour. Set the slots, then start. A side of one holds the whole half; two split the edges; three take a lane each.</p>
+      <p class="lb-hint">Players in the same team row share lives and cannot target each other. Colours match the board: west is left, east is right. Your own board is below; watching a teammate above does not make them an opponent.</p>
       <div class="lb-races">${races.filter((r) => raceUnlocked(r.id)).map((r) => `
         <button class="lb-race ${r.id === selectedRace.id ? 'on' : ''}" data-lb-race="${r.id}" style="--race:${r.color}" title="${r.name} — ${r.trait}">
           <span>${r.symbol}</span><small>${r.name}</small></button>`).join('')}</div>
       ${mp.active ? `<p class="lb-room">Room <b>${escapeHTML(mp.code || '')}</b> · ${1 + Object.keys(mp.peers).length} connected${mp.role === 'host' ? ' · you are the host' : ' · the host starts the match'}</p>` : ''}
-      <button id="lb-ready" class="lb-ready" ${mp.active && mp.role !== 'host' ? 'disabled' : ''}>${
-        !lobbyPhase ? 'Back to the board' : (mp.active && mp.role !== 'host' ? 'Waiting for the host…' : 'Start match')}</button>
+      ${mp.active && lobbyPhase ? `<button id="lb-consent" class="lb-ready" aria-pressed="${lobbyLocalReady()}">${lobbyReadyButtonText()}</button>`:''}
+      <button id="lb-ready" class="lb-ready" ${mp.active && lobbyPhase && (mp.role!=='host' || !lobbyAllReady())?'disabled':''}>${!lobbyPhase?'Back to the board':mp.active?(mp.role==='host'?(lobbyAllReady()?'Start match':'Waiting for everyone to ready'):'Waiting for the host'):'Start match'}</button>
     </div>`;
   // put focus back where it was, so a rebuild does not lose your place
   if (restore) {
     const back = box.querySelector(`[data-lb-kind="${restore}"], [data-lb-size="${restore}"], #${CSS.escape(restore)}`);
     if (back) try { back.focus({ preventScroll:true }); } catch (e) { /* older browsers */ }
   }
+  $('lb-team-up')?.addEventListener('click',mpTeamUpAgainstComputers);
   $('lb-solo')?.addEventListener('change', (e) => { soloRules = e.target.checked; renderLobby(true); });
   box.querySelectorAll('[data-lb-race]').forEach((b) => b.addEventListener('click', () => lobbyPickRace(b.dataset.lbRace)));
   box.querySelectorAll('[data-lb-kind]').forEach((sel) => sel.addEventListener('change', () => {
@@ -10678,6 +10764,7 @@ function renderLobby(force) {
     const [half, i] = b.dataset.lbSit.split(':');
     mpSit(half, Number(i));
   }));
+  $('lb-consent')?.addEventListener('click',lobbyToggleReady);
   $('lb-ready').addEventListener('click', () => {
     if (!lobbyPhase) return closeLobby();
     if (mp.active) return mpHostStart();          // the host starts the whole room at once
@@ -11169,15 +11256,15 @@ function mpPlayMirrorFx(list) {
     const kind = e[0];
     if (kind === FX_SHOT) {
       const dur = Math.max(.05, (e[6] || 5) / 20);
-      mirrorFx.push({ kind:'shot', x1:COLS - e[1], y1:ROWS - e[2], x2:COLS - e[3], y2:ROWS - e[4],
+      mirrorFx.push({ kind:'shot', x1:e[1], y1:ROWS - e[2], x2:e[3], y2:ROWS - e[4],
         color:(races[e[5]] || races[0]).color, at:now, until:now + dur, dur });
     } else if (kind === FX_HIT) {
-      mirrorFx.push({ kind:'hit', x:COLS - e[1], y:ROWS - e[2], color:(races[e[3]] || races[0]).color,
+      mirrorFx.push({ kind:'hit', x:e[1], y:ROWS - e[2], color:(races[e[3]] || races[0]).color,
         big:!!e[4], at:now, until:now + .34 });
     } else if (kind === FX_KILL) {
-      mirrorFx.push({ kind:'kill', x:COLS - e[1], y:ROWS - e[2], at:now, until:now + .42 });
+      mirrorFx.push({ kind:'kill', x:e[1], y:ROWS - e[2], at:now, until:now + .42 });
     } else if (kind === FX_LEAK) {
-      mirrorFx.push({ kind:'leak', x:COLS - e[1], y:ROWS - e[2], at:now, until:now + .8 });
+      mirrorFx.push({ kind:'leak', x:e[1], y:ROWS - e[2], at:now, until:now + .8 });
     }
   });
   if (mirrorFx.length > 260) mirrorFx = mirrorFx.slice(-260);
@@ -11230,7 +11317,7 @@ const unitDefIdx = (c) => { const i = UNIT_DEFS.findIndex((d) => d.name === c.na
 const KNOCK_KINDS = ['', 'up', 'down', 'push'];
 const left = (until) => Math.max(0, Math.round(((until || 0) - simTime) * 10) / 10);
 function mpSnapOf(rows, flip) {
-  const fx = (x) => +(flip ? COLS - x : x).toFixed(1);
+  const fx = (x) => +x.toFixed(1);
   const fy = (y) => +(flip ? ROWS - y : y).toFixed(1);
   return {
     /* Rows are ordered with the rarely-set fields LAST and trailing zeroes
@@ -11241,7 +11328,7 @@ function mpSnapOf(rows, flip) {
     towers:[...towers.values()].filter(rows).map((t) => {
       const beamOn = t.beamTo && (simTime - (t.beamAt || 0) < .12);
       return trim([
-        flip ? (ROWS - 1 - t.r) : t.r, flip ? (COLS - 1 - t.c) : t.c,
+        flip ? (ROWS - 1 - t.r) : t.r, t.c,
         races.findIndex((race) => race.id === t.raceId), t.tier || 0,
         t.key,                                             // his key, so the motif jitter matches his screen
         t.level || 0,
@@ -11250,7 +11337,8 @@ function mpSnapOf(rows, flip) {
         left(t.underAttack),
         Math.max(0, Math.round((t.blockMaxHp || 0) - (t.blockHp || 0))),   // damage taken; full is 0 and trims away
         left(t.blockingAt),
-        beamOn ? fx(t.beamTo.x) : 0, beamOn ? fy(t.beamTo.y) : 0
+        beamOn ? fx(t.beamTo.x) : 0, beamOn ? fy(t.beamTo.y) : 0,
+        towerLaneColor(t) || 0
       ]);
     }),
     creeps:creeps.filter((c) => c.hp > 0 && (flip ? c.half === ENEMY_HALF : c.half === PLAYER_HALF))
@@ -11275,11 +11363,11 @@ function mpViewableSeats() {
   if (!mp.active) return [];
   const out = [];
   ['south', 'north'].forEach((half) => mpSeatsInPlay(half).forEach((s, i) => {
-    const key = mpSeatKey(half, i);
-    const lane = seatLane(half === mp.team ? PLAYER_HALF : ENEMY_HALF, i, mpSeatsInPlay(half).length);
+    const key = mpSeatKey(half, s.index);
+    const lane = seatLane(half, i, mpSeatsInPlay(half).length);
     const peer = s.sid && s.sid !== mp.sid ? mp.peers[s.sid] : null;
-    out.push({ key, half, index:i, kind:s.kind, mine:key === mpMySeatKey(), friendly:half === mp.team,
-      name:key === mpMySeatKey() ? 'You' : (peer && peer.name) || (s.kind === 'ai' ? 'Computer' : s.name || 'Player'),
+    out.push({ key, half, index:s.index, sid:s.sid, raceId:s.raceId, zone:seatZone(half,i,mpSeatsInPlay(half).length), kind:s.kind, mine:key === mpMySeatKey(), friendly:half === mp.team,
+      name:key === mpMySeatKey() ? 'You' : (peer && peer.name) || (s.kind === 'ai' ? 'Computer '+(i+1) : s.name || 'Player'),
       lane, lives:key === mpMySeatKey() ? (player ? player.lives : null) : (mp.seatLives[key] ?? null),
       hasBoard:key === mpMySeatKey() || !!mp.seatSnaps[key] });
   }));
@@ -11324,7 +11412,7 @@ function mpSquad(team) {
 function mpTeamLeaks(team) {
   const seats = mpSeatsInPlay(team);
   return seats.reduce((sum, s, i) => {
-    const key = mpSeatKey(team, i);
+    const key = mpSeatKey(team, s.index);
     if (key === mpMySeatKey()) return sum + mp.myLeaks;
     return sum + (mp.seatLeaks[key] || 0);
   }, 0);
@@ -11344,6 +11432,57 @@ function mpSyncTeamLives() {
 }
 function mpEnemies() { return mpPeersOn(mp.team === PLAYER_HALF ? ENEMY_HALF : PLAYER_HALF).filter((p) => (p.lives ?? 1) > 0); }
 function mpFoeHalf() { return mp.team === PLAYER_HALF ? ENEMY_HALF : PLAYER_HALF; }
+
+/* A seat is addressed by WHERE IT SITS, not by who is in it, because a seat
+   may be a computer and a computer has no client. "north:1" is a seat; the
+   person or bot holding it is a detail. */
+function mpLockMatchRoster(seed) {
+  const mine=['south','north'].flatMap(half=>ensureRoster()[half].map((s,index)=>({...s,half,index})))
+    .filter(s=>s.kind==='human'&&s.sid===mp.sid);
+  if(mine.length!==1)return false;
+  mp.team=mine[0].half;mp.seat=mine[0].index;mp.matchId=seed;
+  mp.matchRoster=Object.freeze(Object.fromEntries(['south','north'].map(half=>[half,
+    Object.freeze(roster[half].map((s,index)=>Object.freeze({...s,half,index})))])));
+  return true;
+}
+
+function mpSeatByKey(key) {
+  if(typeof key!=='string' || !/^(south|north):[0-2]$/.test(key))return null;
+  const [half,i]=key.split(':'),seat=(mp.matchRoster||ensureRoster())[half]?.[Number(i)];
+  return seat&&seat.kind!=='closed'?{...seat,half,index:Number(i),key}:null;
+}
+
+function mpSeatForSid(sid) {
+  if(!sid)return null;
+  for(const half of ['south','north']) for(let i=0;i<SEATS_MAX;i++) {
+    const s=mpSeatByKey(mpSeatKey(half,i));if(s?.kind==='human'&&s.sid===sid)return s;
+  }
+  return null;
+}
+
+function mpSenderOwnsSeat(sid,seat) {
+  if(!seat || !sid)return false;
+  return seat.kind==='human'?seat.sid===sid:seat.kind==='ai'&&sid===(mp.role==='host'?mp.sid:mp.hostSid);
+}
+
+function mpCurrentMatchMessage(msg) {return msg.match==null || mp.matchId==null || msg.match===mp.matchId;}
+
+function mpAttackSeats(msg) {
+  if(!mpCurrentMatchMessage(msg))return null;
+  const sid=msg.__from||msg.sid,source=msg.sourceSeat?mpSeatByKey(msg.sourceSeat):mpSeatForSid(sid);
+  const target=mpSeatByKey(msg.target);
+  return source&&target&&source.half!==target.half&&mpSenderOwnsSeat(sid,source)?{source,target}:null;
+}
+
+function mpAllBotSeatKeys() {
+  return ['south','north'].flatMap(half=>mpSeatsInPlay(half).filter(s=>s.kind==='ai').map(s=>mpSeatKey(half,s.index)));
+}
+
+function mpSeatDisplayName(seat) {
+  if(!seat)return 'Unknown player';
+  if(seat.kind==='ai')return 'Computer '+(mpSeatsInPlay(seat.half).findIndex(s=>s.index===seat.index)+1);
+  return mp.peers[seat.sid]?.name || seat.name || (seat.sid===mp.sid?mpPlayerName():'Player');
+}
 /* A seat is addressed by WHERE IT SITS, not by who is in it, because a seat
    may be a computer and a computer has no client. "north:1" is a seat; the
    person or bot holding it is a detail. */
@@ -11353,7 +11492,7 @@ function mpMySeatKey() { return mpSeatKey(mp.team, mp.seat); }
 /* Every seat on the other side, human or bot. */
 function mpFoeSeats() {
   const half = mpFoeHalf();
-  return mpSeatsInPlay(half).map((s, i) => ({ key:mpSeatKey(half, i), sid:s.sid || null, kind:s.kind, index:i }));
+  return mpSeatsInPlay(half).map((s, i) => ({ key:mpSeatKey(half, s.index), sid:s.sid || null, kind:s.kind, index:s.index }));
 }
 /* The host is the only client that simulates the computers, so that their
    boards exist in exactly one place and their lifeforce has one value. */
@@ -11372,7 +11511,7 @@ function mpSendTarget() {
 /* The seats the host is playing on everyone's behalf, as keys. */
 function mpBotSeatKeys() {
   const half = mpFoeHalf();
-  return mpSeatsInPlay(half).map((s, i) => (s.kind === 'ai' ? mpSeatKey(half, i) : null)).filter(Boolean);
+  return mpSeatsInPlay(half).map((s, i) => (s.kind === 'ai' ? mpSeatKey(half, s.index) : null)).filter(Boolean);
 }
 function mpSeatName(key) {
   const seat = mpFoeSeats().find((f) => f.key === key);
@@ -11387,29 +11526,39 @@ function mpRosterWire() {
   return { south:roster.south.map(strip), north:roster.north.map(strip) };
 }
 function mpApplyRoster(wire) {
-  if (!wire || !wire.south || !wire.north) return;
-  ensureRoster();
-  ['south', 'north'].forEach((half) => wire[half].forEach((s, i) => {
-    const seat = roster[half][i]; if (!seat) return;
-    seat.kind = SEAT_KINDS.includes(s.kind) ? s.kind : 'closed';
-    seat.name = cleanName(s.name); seat.raceId = s.raceId; seat.sid = s.sid || null;
-    if (seat.sid && seat.sid !== mp.sid) {
-      const p = mpPeer(seat.sid);
-      if (p) { p.team = half; p.seat = i; p.name = seat.name || p.name; p.raceId = seat.raceId || p.raceId; }
+  if(mp.started)return false;
+  if (!wire || !['south','north'].every(h => Array.isArray(wire[h]) && wire[h].length <= SEATS_MAX)) return false;
+  const next = {south:[],north:[]}, seen = new Set();
+  for (const half of ['south','north']) {
+    for (let i=0; i<SEATS_MAX; i++) {
+      const source = wire[half][i];
+      const seat = makeSeat(half,i,source && SEAT_KINDS.includes(source.kind) ? source.kind : 'closed');
+      if (source) {
+        seat.name=cleanName(source.name);seat.raceId=source.raceId || null;
+        seat.sid=seat.kind==='human' ? source.sid || null : null;
+        if (seat.sid && seen.has(seat.sid)) return false;
+        if (seat.sid) seen.add(seat.sid);
+      }
+      next[half].push(seat);
     }
-    if (seat.sid === mp.sid) { mp.team = half; mp.seat = i; }
-  }));
-  // whichever seat is mine reads as 'human' locally, so the rest of the game
-  // keeps its one assumption: the local player holds a seat on PLAYER_HALF
+  }
+  if (mp.role==='guest' && !seen.has(mp.sid)) return false;
+  roster=next;
+  for (const half of ['south','north']) for (const seat of roster[half]) {
+    if (seat.sid===mp.sid) {mp.team=half;mp.seat=seat.index;}
+    else if (seat.sid) Object.assign(mpPeer(seat.sid),{team:half,seat:seat.index,name:seat.name,raceId:seat.raceId});
+  }
   if (lobbyOpen()) renderLobby();
+  return true;
 }
 /* Claim a slot. The host applies it directly; a guest asks and waits. */
 function mpSit(half, index) {
-  if (!mp.active) return;
+  if (!mp.active || mp.started) return;
   if (mp.role === 'host') { mpHostSeat(mp.sid, half, index, mpPlayerName(), selectedRace.id); mpBroadcastRoster(); }
   else mpSend({ t:'sit', sid:mp.sid, half, index, name:mpPlayerName(), race:selectedRace.id });
 }
 function mpHostSeat(sid, half, index, name, raceId) {
+  if(mp.started)return false;
   ensureRoster();
   const seats = roster[half]; const seat = seats && seats[index];
   if (!seat || seat.kind === 'closed') return false;
@@ -11445,7 +11594,8 @@ function mpReleaseSeat(sid) {
 }
 function mpBroadcastRoster() {
   if (mp.role !== 'host') return;
-  const payload = { t:'roster', roster:mpRosterWire(), mode:mpModeNow(), lives:startingLives(), ts:Date.now() };
+  lobbyResetIfChanged();
+  const payload = { t:'roster', host:mp.sid, readyRevision:mp.lobbyRevision||0, readyPlayers:{...mp.lobbyReadyPlayers}, stateSeq:mp.lobbyStateSeq||0, readyAcks:{...mp.lobbyReadyAcks}, roster:mpRosterWire(), mode:mpModeNow(), lives:startingLives(), ts:Date.now() };
   mpSend(payload);
   mpPresence('host', payload);
   if (lobbyOpen()) renderLobby();
@@ -11580,7 +11730,12 @@ async function mpOpenRoom(join) {
   if (join && code.length < 3) return mpStatus('Enter the 4-character room code.');
   if (!code || code.length < 3) return mpStatus('Enter the room code your opponent shared.');
   if (mp.transport) mpLeave();
-  mp.code = code; mp.role = join ? 'guest' : 'host'; mp.ready = false; mp.oppReady = false; mp.started = false; mp.oppName = ''; mp.oppLives = null; mp.config = null;
+  mp.code = code; mp.role = join ? 'guest' : 'host'; mp.ready = false; mp.oppReady = false; mp.started = false; mp.oppName = ''; mp.oppLives = null; mp.config = null; mp.lobbyReadyPlayers={}; mp.lobbySeen={}; mp.lobbyRevision=0; mp.lobbyFingerprint=''; mp.hostSid=null;mp.lobbyStateSeq=0;mp.lobbyReadyAcks={};mp.readyRequestSerial=0;mp.pendingReady=null;mp.startPacket=null;mp.startAcks={};mp.matchRoster=null;mp.matchId=null;
+  // A new room starts from the selected format, never a previous match's roster.
+  mp.active=false;mp.team=PLAYER_HALF;mp.seat=0;mp.peers={};
+  mp.seatSnaps={};mp.seatLives={};mp.seatLeaks={};mp.seatIncome={};mp.viewSeat=null;
+  roster=join ? null : newRoster(teamSizeSetting());
+  if (!join) mpHostSeat(mp.sid,PLAYER_HALF,0,name,selectedRace.id);
   mpStatus(join ? `Connecting to room <b>${code}</b>…` : `Opening room <b>${code}</b>…`);
   const useSupabase = Boolean(MP_CONFIG.url && MP_CONFIG.anonKey);
   const onOpen = () => {
@@ -11638,6 +11793,7 @@ function mpSend(msg) { if (mp.transport) mp.transport.send(mpStamp(msg)); }
 function mpPresence(kind, msg) { mp.transport?.presence?.(kind, msg ? mpStamp(msg) : msg); }
 function mpOnMessage(msg) {
   if (!msg || !msg.t) return;
+  if(msg.t.startsWith('lobby-')) { lobbyProtocol(msg); return; }
   mp.lastRecv = performance.now(); if (mp.dropped) { mp.dropped = false; showToast('<b>🔌 Opponent reconnected</b>'); }
   if (msg.ts && Date.now() - msg.ts > 90000) return;   // ignore a stale RETAINED beacon left on the broker by an old room
   if (msg.t === 'hello' && mp.role === 'host') {
@@ -11648,6 +11804,7 @@ function mpOnMessage(msg) {
        otherwise. They can move with Sit before the host starts. */
     const sid = msg.__from || msg.sid;
     if (sid) {
+      mp.lobbySeen=mp.lobbySeen||{};mp.lobbySeen[sid]=Date.now();
       const p = mpPeer(sid); if (p) { p.name = mp.oppName; p.raceId = msg.race; }
       const already = ['south', 'north'].some((h) => roster[h].some((s) => s.sid === sid));
       if (!already) {
@@ -11669,6 +11826,7 @@ function mpOnMessage(msg) {
     if (!mp.helloTimer || true) mpStartHelloLoop();   // keep re-offering config+ready until both start
     mpMaybeStart();
   } else if (msg.t === 'config' && mp.role === 'guest') {
+    mp.hostSid = msg.__from || msg.sid;
     window.clearInterval(mp.helloTimer);
     mp.oppName = cleanName(msg.name); mp.oppRace = msg.race; mp.config = { mode:msg.mode, lives:clampLives(msg.lives) };
     mp.teamSize = Math.max(1, Math.min(3, parseInt(msg.team, 10) || 1));   // the host's team size decides the creep load for BOTH halves
@@ -11678,47 +11836,54 @@ function mpOnMessage(msg) {
     mpMaybeStart();
   } else if (msg.t === 'ready') {
     mp.oppReady = true; mpMaybeStart();
-  } else if (msg.t === 'sit' && mp.role === 'host') {
+  } else if (msg.t === 'sit' && mp.role === 'host' && !mp.started) {
     if (mpHostSeat(msg.sid, msg.half, msg.index, msg.name, msg.race)) mpBroadcastRoster();
   } else if (msg.t === 'roster') {
-    if (mp.role === 'host') return;                 // the host owns it
-    mpApplyRoster(msg.roster);
-    if (msg.mode) { const s = document.getElementById('mode-select'); if (s) s.value = msg.mode; }
-    if (msg.lives) { const s = document.getElementById('lives-select'); if (s && [...s.options].some((o) => o.value === String(msg.lives))) s.value = String(msg.lives); }
+    if (mp.role === 'host' || mp.started) return;
+    const sid=msg.host||msg.__from||msg.sid;
+    if (mp.hostSid && sid!==mp.hostSid) return;
+    mp.hostSid=sid;
+    if (!lobbyAcceptState({...msg,revision:msg.readyRevision,players:msg.readyPlayers})) return;
+    mpMaybeStart();
   } else if (msg.t === 'go') {
-    if (mp.started) return;
-    mpApplyRoster(msg.roster);
-    if (msg.seed != null) pendingSeed = msg.seed >>> 0;   // one seed for the whole room
+    if (mp.role !== 'guest' || (msg.__from||msg.sid)!==mp.hostSid) return;
+    if (mp.started) { if (msg.seed===mp.startSeed) mpSend({t:'start-ack',seed:msg.seed}); return; }
+    if (msg.readyRevision!==mp.lobbyRevision || !lobbyLocalReady()) return;
+    if (mp.pendingReady && (msg.readyAcks?.[mp.sid]||0)<mp.pendingReady.seq) return;
+    const humans=[...(msg.roster?.south||[]),...(msg.roster?.north||[])].filter(s=>s.kind==='human'&&s.sid);
+    if(!humans.length || !humans.every(s=>msg.readyPlayers?.[s.sid]===true)) return;
+    if (!mpApplyRoster(msg.roster)) return;
+    if (msg.seed != null) pendingSeed = msg.seed >>> 0;
     if (msg.mode) { const s = document.getElementById('mode-select'); if (s) s.value = msg.mode; }
     if (msg.lives) { const s = document.getElementById('lives-select'); if (s && [...s.options].some((o) => o.value === String(msg.lives))) s.value = String(msg.lives); }
-    mp.started = true; mp.active = true;
+    if(!mpLockMatchRoster(msg.seed))return;
+    mp.pendingReady=null;mp.startSeed=msg.seed;mp.started = true; mp.active = true;
+    mpSend({t:'start-ack',seed:msg.seed});
     closeLobby(); startBattle();
+  } else if (msg.t === 'start-ack' && mp.role==='host') {
+    const sid=msg.__from||msg.sid;
+    if (mp.startPacket?.seed===msg.seed && lobbyHumans().includes(sid)) mp.startAcks[sid]=true;
   } else if (msg.t === 'send') {
-    const send = SENDS.find((item) => item.id === msg.id);
-    if (!send || !battleRunning) return;
-    const from = mpPeer(msg.__from || msg.sid);
-    const target = msg.target;
-    // A send names the SEAT it is aimed at. Mine spawns on my own board; a
-    // computer's spawns on the host's north half, because the host is the one
-    // client that simulates the bots. Anything else is somebody else's problem
-    // and must not spawn here — that is how a send used to hit a teammate.
-    if (target === mpMySeatKey() || (!target && !mpHostRunsBots())) {
-      spawnSend(send, PLAYER_HALF, 'west');
-      spawnSend(send, PLAYER_HALF, 'east');
-      log(`${(from && from.name) || mp.oppName || 'Opponent'} sent ${send.name} × 2 at your lanes!${send.air ? ' They fly over your maze!' : ''}`);
-    } else if (mpHostRunsBots() && target && mpBotSeatKeys().includes(target)) {
-      spawnSend(send, ENEMY_HALF, 'west');
-      spawnSend(send, ENEMY_HALF, 'east');
-    }
+    const send=SENDS.find(s=>s.id===msg.id),seats=mpAttackSeats(msg);
+    if(!send || !battleRunning || !mp.active || !seats)return;
+    const {source,target}=seats;
+    const localTarget=target.key===mpMySeatKey() || (mp.role==='host'&&target.kind==='ai');
+    if(!localTarget)return;
+    const half=target.half===mp.team?PLAYER_HALF:ENEMY_HALF;
+    const attack=source.kind==='ai'&&typeof msg.aiAttack==='string'&&msg.aiAttack.length<=100
+      ?{id:msg.aiAttack,replyTo:msg.__from||msg.sid}:null;
+    spawnSend(send,half,'west',attack,target.key);spawnSend(send,half,'east',attack,target.key);
+    if(half===PLAYER_HALF)log(`${mpSeatDisplayName(source)} sent ${send.name} × 2 at your lanes!${send.air?' They fly over your maze!':''}`);
   } else if (msg.t === 'leaks' || msg.t === 'lives') {
     if (!mp.active || !battleRunning || matchOver) return;
-    const from = mpPeer(msg.__from || msg.sid);
-    // 'lives' is the old 1v1 shape and still arrives from an older client;
-    // convert it to a leak count so both feed the same pool
-    const leaks = msg.t === 'leaks' ? Math.max(0, Math.round(Number(msg.value) || 0))
-      : Math.max(0, startingLives() - clampLives(msg.value));
-    if (msg.seat) mp.seatLeaks[msg.seat] = leaks;
-    if (from) from.lives = Math.max(0, startingLives() - leaks);
+    if(!mpCurrentMatchMessage(msg))return;
+    const sid=msg.__from||msg.sid,seat=msg.seat?mpSeatByKey(msg.seat):mpSeatForSid(sid);
+    if(!mpSenderOwnsSeat(sid,seat))return;
+    const from=mpPeer(sid);
+    const leaks=msg.t==='leaks'?Math.max(0,Math.round(Number(msg.value)||0))
+      :Math.max(0,startingLives()-clampLives(msg.value));
+    mp.seatLeaks[seat.key]=Math.max(mp.seatLeaks[seat.key]||0,leaks);
+    if(from && seat.kind==='human')from.lives=Math.max(0,startingLives()-leaks);
     mpSyncTeamLives();
     if ((mpTeamLives(mpFoeHalf()) ?? 1) <= 0) endMatch('victory');
     else if ((mpTeamLives(mp.team) ?? 1) <= 0) endMatch('defeat');
@@ -11726,6 +11891,7 @@ function mpOnMessage(msg) {
     const from = mpPeer(msg.__from || msg.sid);
     const v = Math.max(0, Math.min(999999, Math.round(Number(msg.value) || 0)));   // not clampLives: that caps at 9,999 and one Titan is 1,600
     if (from) from.income = v;
+    if (msg.seat) mp.seatIncome[msg.seat]=v;
     mp.oppIncome = v;
   } else if (msg.t === 'wager') {
     if (battleRunning) showWagerPrompt();
@@ -11749,7 +11915,13 @@ function mpOnMessage(msg) {
     if (!mp.viewSeat) mp.viewSeat = mpDefaultViewSeat();
     if (!msg.seat || msg.seat === mp.viewSeat) mp.snap = snap;
   } else if (msg.t === 'over') {
-    if (mp.active && battleRunning && !matchOver) endMatch(msg.result === 'defeat' ? 'victory' : 'defeat');
+    const source=mpSeatForSid(msg.__from||msg.sid);
+    if(mp.active&&battleRunning&&!matchOver&&source&&mpCurrentMatchMessage(msg)&&['victory','defeat'].includes(msg.result)) {
+      for(const [key,value] of Object.entries(msg.leaks||{}))if(mpSenderOwnsSeat(msg.__from||msg.sid,mpSeatByKey(key)))
+        mp.seatLeaks[key]=Math.max(mp.seatLeaks[key]||0,Math.max(0,Math.round(Number(value)||0)));
+      mpSyncTeamLives();
+      endMatch(source.half===mp.team?msg.result:(msg.result==='defeat'?'victory':'defeat'),false);
+    }
   } else if (msg.t === 'bye') {
     /* ONE PERSON LEAVING IS NOT A WIN. This called endMatch('victory') on ANY
        bye, so in a 2v2 whoever dropped ended the match for all four — and if
@@ -11767,14 +11939,155 @@ function mpOnMessage(msg) {
     } else mpStatus(`${who || 'Opponent'} left the room.`);
   }
 }
+
+/* Explicit lobby consent is separate from the transport's old ready handshake. */
+function lobbyHumans() {
+  return [...ensureRoster().south,...roster.north].filter(s=>s.kind==='human' && s.sid).map(s=>s.sid);
+}
+
+function lobbyFingerprint() {
+  return JSON.stringify([mpRosterWire(),mpModeNow(),startingLives(),soloRules]);
+}
+
+function lobbyAllReady() {
+  const humans=lobbyHumans();
+  return humans.length>0 && humans.includes(mp.sid) && humans.every(sid=>mp.lobbyReadyPlayers?.[sid]===true
+    && (sid===mp.sid || Date.now()-(mp.lobbySeen?.[sid]||0)<LOBBY_PEER_TIMEOUT));
+}
+
+function lobbyLocalReady() { return mp.pendingReady ? mp.pendingReady.value : mp.lobbyReadyPlayers?.[mp.sid]===true; }
+
+function lobbySeatReadyText(sid) {
+  if (sid===mp.sid && mp.pendingReady) return mp.pendingReady.value?'READY · SYNCING…':'NOT READY · SYNCING…';
+  return mp.lobbyReadyPlayers?.[sid]?'✓ READY':'NOT READY';
+}
+
+function lobbyReadyButtonText() {
+  if (mp.pendingReady) return mp.pendingReady.value?'Ready · syncing… (tap to cancel)':'Unready · syncing…';
+  return lobbyLocalReady()?'✓ Ready — tap to unready':'Check Ready';
+}
+
+function lobbyPatchReady() {
+  const box=$('lobby');if (!box) return;
+  for (const el of box.querySelectorAll('[data-ready-sid]')) {
+    const text=lobbySeatReadyText(el.dataset.readySid);if(el.textContent!==text)el.textContent=text;
+  }
+  const consent=$('lb-consent');
+  if (consent) {consent.textContent=lobbyReadyButtonText();consent.setAttribute('aria-pressed',String(lobbyLocalReady()));}
+  const start=$('lb-ready');
+  if (start && mp.active && lobbyPhase) {
+    start.disabled=mp.role!=='host'||!lobbyAllReady();
+    start.textContent=mp.role==='host'?(lobbyAllReady()?'Start match':'Waiting for everyone to ready'):'Waiting for the host';
+  }
+}
+
+function lobbyReadyState() {
+  return {t:'lobby-state',revision:mp.lobbyRevision||0,stateSeq:mp.lobbyStateSeq||0,
+    players:{...mp.lobbyReadyPlayers},readyAcks:{...mp.lobbyReadyAcks},host:mp.sid,
+    roster:mpRosterWire(),mode:mpModeNow(),lives:startingLives()};
+}
+
+function lobbyAcceptState(msg) {
+  const revision=msg.revision||0,seq=msg.stateSeq||0;
+  if(revision<(mp.lobbyRevision||0) || (revision===(mp.lobbyRevision||0) && seq<(mp.lobbyStateSeq||0))) return false;
+  if(msg.roster && !mpApplyRoster(msg.roster)) return false;
+  if(revision>(mp.lobbyRevision||0)) mp.pendingReady=null;
+  mp.lobbyRevision=revision;mp.lobbyStateSeq=seq;mp.lobbyReadyPlayers={...msg.players};
+  mp.lobbyReadyAcks={...msg.readyAcks};
+  if(mp.pendingReady && (mp.lobbyReadyAcks[mp.sid]||0)>=mp.pendingReady.seq) mp.pendingReady=null;
+  if(msg.mode) {const s=$('mode-select');if(s)s.value=msg.mode;}
+  if(msg.lives) {const s=$('lives-select');if(s&&[...s.options].some(o=>o.value===String(msg.lives)))s.value=String(msg.lives);}
+  mp.lobbySeen=mp.lobbySeen||{};lobbyHumans().forEach(id=>mp.lobbySeen[id]=Date.now());
+  renderLobby();lobbyPatchReady();
+  return true;
+}
+
+function lobbyResetIfChanged() {
+  if(mp.role!=='host' || mp.started) return;
+  const next=lobbyFingerprint();
+  if(next!==mp.lobbyFingerprint) {
+    mp.lobbyFingerprint=next;mp.lobbyRevision=(mp.lobbyRevision||0)+1;mp.lobbyReadyPlayers={};
+    mp.lobbyStateSeq=(mp.lobbyStateSeq||0)+1;mp.lobbyReadyAcks={};mp.pendingReady=null;
+    mp.lobbySeen=mp.lobbySeen||{};mp.lobbySeen[mp.sid]=Date.now();
+  }
+}
+
+function lobbyToggleReady() {
+  if(!mp.active || !lobbyPhase || mp.started) return;
+  if(mp.role==='host') {
+    lobbyResetIfChanged();mp.lobbyReadyPlayers[mp.sid]=!mp.lobbyReadyPlayers[mp.sid];
+    mp.lobbyStateSeq=(mp.lobbyStateSeq||0)+1;
+    mpSend(lobbyReadyState());lobbyPatchReady();
+  } else {
+    mp.readyRequestSerial=(mp.readyRequestSerial||0)+1;
+    mp.pendingReady={value:!lobbyLocalReady(),revision:mp.lobbyRevision||0,seq:mp.readyRequestSerial};
+    lobbySendReadyRequest();lobbyPatchReady();
+  }
+}
+
+function lobbySendReadyRequest() {
+  if(mp.pendingReady) mpSend({t:'lobby-ready',...mp.pendingReady});
+}
+
+function lobbyProtocol(msg) {
+  const sid=msg.__from||msg.sid;
+  if(!sid || mp.started) return;
+  if(msg.t==='lobby-ping' && mp.role==='host') {
+    if(lobbyHumans().includes(sid)) {mp.lobbySeen=mp.lobbySeen||{};mp.lobbySeen[sid]=Date.now();}
+    mpSend(lobbyReadyState());return;
+  }
+  if(msg.t==='lobby-ready' && mp.role==='host') {
+    lobbyResetIfChanged();
+    const seq=Number.isSafeInteger(msg.seq)&&msg.seq>0?msg.seq:0;
+    const previous=mp.lobbyReadyAcks?.[sid]||0;
+    if(msg.revision===mp.lobbyRevision && lobbyHumans().includes(sid) && (!seq||seq>previous)) {
+      mp.lobbyReadyPlayers[sid]=msg.value===true;mp.lobbySeen[sid]=Date.now();
+      mp.lobbyReadyAcks=mp.lobbyReadyAcks||{};if(seq)mp.lobbyReadyAcks[sid]=seq;
+      mp.lobbyStateSeq=(mp.lobbyStateSeq||0)+1;
+    }
+    mpSend(lobbyReadyState());lobbyPatchReady();return;
+  }
+  if(msg.t==='lobby-state' && mp.role==='guest' && sid===mp.hostSid) {
+    lobbyAcceptState(msg);return;
+  }
+  if(msg.t==='lobby-race' && mp.role==='host' && races.some(r=>r.id===msg.race)) {
+    const seat=[...roster.south,...roster.north].find(s=>s.sid===sid);
+    if(seat) {seat.raceId=msg.race;if(mp.peers[sid])mp.peers[sid].raceId=msg.race;mpBroadcastRoster();}
+  }
+}
+
+function lobbyHeartbeat() {
+  if(!mp.active) return;
+  if(mp.started) {
+    if(mp.role==='host' && mp.startPacket && Date.now()-mp.startSentAt<30000
+      && lobbyHumans().some(sid=>sid!==mp.sid&&!mp.startAcks?.[sid])) mpSend(mp.startPacket);
+    return;
+  }
+  if(!lobbyPhase) return;
+  if(mp.role==='guest') {mpSend({t:'lobby-ping'});lobbySendReadyRequest();}
+  else {
+    lobbyResetIfChanged();
+    for(const sid of lobbyHumans()) if(sid!==mp.sid && Date.now()-(mp.lobbySeen?.[sid]||0)>LOBBY_PEER_TIMEOUT) {
+      if(mp.lobbyReadyPlayers?.[sid]) {mp.lobbyReadyPlayers[sid]=false;mp.lobbyStateSeq=(mp.lobbyStateSeq||0)+1;}
+    }
+    mpSend(lobbyReadyState());lobbyPatchReady();
+  }
+}
+
+window.setInterval(lobbyHeartbeat,1000);
+
+const LOBBY_PEER_TIMEOUT=30000;
 /* The host starts the room: one seed, one roster, everybody at once. Before
    this, both sides rolled their own seed and "start" meant two clients happened
    to call startBattle at about the same time. */
 function mpHostStart() {
   if (mp.role !== 'host' || mp.started) return;
-  ensureRoster();
+  ensureRoster(); lobbyResetIfChanged();
+  if(!lobbyAllReady()) { renderLobby(true); return log('Every player must check Ready before the host starts.'); }
   const seed = (Math.floor(Math.random() * 0x7fffffff) >>> 0) || 1;
-  mpSend({ t:'go', seed, roster:mpRosterWire(), mode:mpModeNow(), lives:startingLives(), ts:Date.now() });
+  mp.startPacket={t:'go',seed,readyRevision:mp.lobbyRevision,readyPlayers:{...mp.lobbyReadyPlayers},readyAcks:{...mp.lobbyReadyAcks},roster:mpRosterWire(),mode:mpModeNow(),lives:startingLives(),ts:Date.now()};
+  if(!mpLockMatchRoster(seed))return;
+  mp.startAcks={};mp.startSentAt=Date.now();mpSend(mp.startPacket);
   pendingSeed = seed;
   mp.started = true; mp.active = true;
   closeLobby(); startBattle();
@@ -11785,6 +12098,7 @@ function mpHostStart() {
    starts until the host says so. */
 function mpMaybeStart() {
   if (mp.started || !mp.ready || !mp.oppReady) return;
+  if (mp.role==='guest' && (!mp.config || !roster || !['south','north'].some(h=>roster[h].some(s=>s.kind==='human'&&s.sid===mp.sid)))) return;
   mp.active = true;
   if (mp.role === 'guest' && mp.config) {
     const modeSelect = document.getElementById('mode-select');
@@ -11823,20 +12137,16 @@ function mpTick(dt) {
   }
   // publish what I have LET THROUGH, not what is left: the pool is derived, so
   // a count is the only thing that is safe to send from more than one board
-  if (mp.myLeaks !== mp.leaksSent) { mp.leaksSent = mp.myLeaks; mpSend({ t:'leaks', sid:mp.sid, seat:mpMySeatKey(), value:mp.myLeaks }); }
+  if (mp.myLeaks !== mp.leaksSent) { mp.leaksSent = mp.myLeaks; mpSend({ t:'leaks', sid:mp.sid, seat:mpMySeatKey(), value:mp.myLeaks,match:mp.matchId }); }
   mpSyncTeamLives();
   if (player.income !== mp.incomeSent) { mp.incomeSent = player.income; mpSend({ t:'income', sid:mp.sid, seat:mpMySeatKey(), value:player.income }); }
   /* The host owns the computers' boards, so it owns their lifeforce too —
      without this the other side's bots would have no life bar anywhere and a
      team of bots could never be beaten. */
-  if (mpHostRunsBots() && enemy) {
-    // the bots share one board here, so their side's leaks are one count
-    const botLeaks = Math.max(0, startingLives() - enemy.lives);
-    const key = mpBotSeatKeys()[0];
-    if (key && mp.botLivesSent[key] !== botLeaks) {
-      mp.botLivesSent[key] = botLeaks;
-      mp.seatLeaks[key] = botLeaks;
-      mpSend({ t:'leaks', seat:key, value:botLeaks });
+  if(mp.role==='host') for(const key of mpAllBotSeatKeys()) {
+    const leaks=mp.seatLeaks[key]||0;
+    if(mp.botLivesSent[key]!==leaks) {
+      mp.botLivesSent[key]=leaks;mpSend({t:'leaks',seat:key,value:leaks,match:mp.matchId});
     }
   }
   mp.snapClock -= dt;
@@ -11897,18 +12207,19 @@ function rebuildMirrorEntities() {
   (mp.snap.towers || []).forEach((e, i) => {
     if (!Array.isArray(e)) return;
     const [r, c, raceIdx, tier, srcKey, level, boltN, buildLeft, buildTime, atkLeft,
-      blockDmg, blockLeft, beamX, beamY] = e;
+      blockDmg, blockLeft, beamX, beamY, laneMark] = e;
     const race = races[raceIdx] || races[0];
     const blockMax = 4 + (tier || 0);   // exactly how makeTower sets it, so it need not travel
     mirrorTowers.push({
       key:srcKey != null ? srcKey : (-1000 - i),
       mirrorIdx:i, mirror:true, owner:'mirror',
-      r:(ROWS - 1) - r, c:(COLS - 1) - c, raceId:race.id, tier:tier || 0, level:level || 0,
+      mirrorLaneColor:/^#[0-9a-f]{6}$/i.test(laneMark) ? laneMark : null,
+      r:(ROWS - 1) - r, c:c, raceId:race.id, tier:tier || 0, level:level || 0,
       bolt:boltN ? (BOLT_MODS[boltN - 1] || {}).id || null : null,
       buildUntil:at(buildLeft || 0), buildTime:buildTime || 1,
       underAttack:at(atkLeft || 0),
       blockMaxHp:blockMax, blockHp:Math.max(0, blockMax - (blockDmg || 0)), blockingAt:at(blockLeft || 0),
-      beamTo:(beamX || beamY) ? { x:COLS - beamX, y:ROWS - beamY } : null, beamAt:(beamX || beamY) ? simTime : 0,
+      beamTo:(beamX || beamY) ? { x:beamX, y:ROWS - beamY } : null, beamAt:(beamX || beamY) ? simTime : 0,
       invested:0, kills:0, priority:'first',
     });
   });
@@ -11919,7 +12230,7 @@ function rebuildMirrorEntities() {
       stunLeft, stasisLeft, knockLeft, knockIdx, shieldFrac, shieldMax, venom, venomLeft] = e;
     const def = UNIT_DEFS[defIdx] || UNIT_DEFS[0] || {};
     mirrorCreeps.push({
-      x:COLS - x, y:ROWS - y, role:keys[roleIdx] || 'standard', id:id || 0, mirror:true, half:ENEMY_HALF,
+      x:x, y:ROWS - y, role:keys[roleIdx] || 'standard', id:id || 0, mirror:true, half:ENEMY_HALF,
       hp:Math.max(0, hp || 0), maxHp:Math.max(1, maxHp || 1),
       air:!!(flags & 1), sent:!!(flags & 2), regen:!!(flags & 4), boss:!!(flags & 16),
       dots:(flags & 8) ? [{ dps:1, until:simTime + 1 }] : [],
