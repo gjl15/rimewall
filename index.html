@@ -1659,6 +1659,7 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
         <label class="set-toggle"><input type="checkbox" id="set-sound" checked> <span>Sound effects</span></label>
         <label class="set-toggle"><input type="checkbox" id="set-reduce"> <span>Reduce motion (calmer effects)</span></label>
         <label class="set-toggle"><input type="checkbox" id="set-noparticles"> <span>Turn off particles (helps lag)</span></label>
+        <label class="set-toggle"><input type="checkbox" id="set-devmode"> <span>Developer mode (Push wave, debug bar, unlock tools)</span></label>
         <div class="settings-sep"></div>
         <button id="set-tutorial" class="ghost-button set-dev">🎓 Replay tutorial</button>
         <button id="set-resetmap" class="ghost-button set-dev">🗺 Restore default map</button>
@@ -3276,6 +3277,8 @@ function loadProfile() {
   profile.dragonsSent = profile.dragonsSent || 0;
   profile.achievements = profile.achievements || {};
   profile.devUnlockAll = Boolean(profile.devUnlockAll);
+  if (profile.devMode === undefined) profile.devMode = Boolean(profile.devUnlockAll);   // existing dev profiles keep their tools
+  profile.devMode = Boolean(profile.devMode);
 }
 function saveProfile() { try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); } catch (error) { /* per-browser only */ } }
 function raceUnlocked(raceId) {
@@ -13422,6 +13425,7 @@ function openSettings() {
   const np = $('set-noparticles'); if (np) np.checked = !!profile.noParticles;
   const snd = $('set-sound'); if (snd) snd.checked = !profile.sfxOff;
   const bm = $('set-buildmode'); if (bm) bm.value = buildMode();
+  const dm = $('set-devmode'); if (dm) dm.checked = document.body.classList.contains('dev');
   $('set-dev').textContent = profile.devUnlockAll ? 'DEV: relock elements' : 'DEV: unlock all elements';
   m.classList.remove('hidden');
 }
@@ -13436,6 +13440,18 @@ $('settings-close')?.addEventListener('click', closeSettings);
    browser locked you out with no discoverable way back. Five taps on the
    Settings heading reveals the tools, the classic pattern, and ?dev=1 still
    works for anyone who has it bookmarked. */
+/* Developer mode is a visible Settings checkbox now, remembered per browser. The
+   five-tap and ?dev=1 routes stay, and both go through setDevMode so the checkbox,
+   the body class and the saved profile never disagree. */
+function setDevMode(on) {
+  document.body.classList.toggle('dev', !!on);
+  profile.devMode = !!on; saveProfile();
+  const dm = $('set-devmode'); if (dm) dm.checked = !!on;
+}
+$('set-devmode')?.addEventListener('change', (e) => {
+  setDevMode(e.target.checked);
+  log(e.target.checked ? 'Developer mode on.' : 'Developer mode off.');
+});
 let devTapCount = 0, devTapAt = 0;
 $('settings-title')?.addEventListener('click', () => {
   const now = Date.now();
@@ -13446,7 +13462,7 @@ $('settings-title')?.addEventListener('click', () => {
     return;
   }
   devTapCount = 0;
-  document.body.classList.toggle('dev');
+  setDevMode(!document.body.classList.contains('dev'));
   const on = document.body.classList.contains('dev');
   log(on ? 'Developer tools revealed in Settings.' : 'Developer tools hidden.');
 });
@@ -13494,7 +13510,7 @@ try {
   }
 } catch (e) { /* no URL / SSR-safe */ }
 // dev chrome (Push wave, debug bar) is hidden for players — shown only for the dev or via ?dev=1
-try { if (profile.devUnlockAll || /[?&]dev=1/.test(location.search)) document.body.classList.add('dev'); } catch (e) {}
+try { if (profile.devMode || /[?&]dev=1/.test(location.search)) document.body.classList.add('dev'); } catch (e) {}
 // PWA: register the service worker (offline + instant repeat loads). No-ops in sandboxed/artifact contexts.
 if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 window.addEventListener('beforeunload', () => { if (mp.transport) mpSend({ t:'bye' }); });
