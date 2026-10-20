@@ -1192,9 +1192,9 @@ body.dev .debug-bar { display:flex; }
 .dq-play { width:100%; margin:8px 0 4px; min-height:46px; border:1px solid #8fe6b8; border-radius:11px; background:linear-gradient(120deg,#0f2b1f,#122a3a); color:#8fe6b8; font:700 13px 'DM Mono',monospace; letter-spacing:.03em; cursor:pointer; }
 .dq-play-done { border-color:#2c4a7a; background:#111a2e; color:#8fb4d8; }
 .dq-streak { margin:2px 0 6px; text-align:center; font:700 11px 'DM Mono',monospace; color:#ff9f6e; }
-#open-collab-card, #set-dev, #dev-unlock-toggle { display:none; }
+#open-collab-card, #set-dev, #set-mpdiag, #dev-unlock-toggle { display:none; }
 body.dev #open-collab-card { display:flex; }
-body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
+body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:block; }
 .mp-note { display:block; margin-top:4px; color:#8fb4d8; font-size:11px; }
 
 
@@ -1664,6 +1664,7 @@ body.dev #set-dev, body.dev #dev-unlock-toggle { display:block; }
         <button id="set-tutorial" class="ghost-button set-dev">🎓 Replay tutorial</button>
         <button id="set-resetmap" class="ghost-button set-dev">🗺 Restore default map</button>
         <button id="set-dev" class="ghost-button set-dev">DEV: unlock all elements</button>
+        <button id="set-mpdiag" class="ghost-button set-dev">DEV: copy multiplayer diagnostics</button>
       </div>
     </div>
             <div id="wisp-radial" class="wisp-radial hidden" aria-label="Wisp actions"></div>
@@ -13535,6 +13536,42 @@ $('set-resetmap')?.addEventListener('click', () => {
   if (typeof redrawBoard === 'function' && boardCtx) redrawBoard();
   log('Map reset to the default symmetrical layout.');
   showToast('<b>🗺 Map restored</b><span>Back to the default symmetrical battlefield.</span>');
+});
+/* WHAT A PHONE CANNOT TELL YOU. An iPhone has no console, so every multiplayer
+   report from one arrived as "doesn't work" with nothing to audit. This puts the
+   whole room on the clipboard in one tap: who is seated where, which transport
+   is carrying the room, what each board has sent, and what this board built
+   from it. Paste it to whoever is debugging. */
+const BUILD_ID = 'shared-board-2026-10-20';
+function mpDiagnostics() {
+  const s4 = (sid) => (sid ? String(sid).slice(0, 4) : '-');
+  const seatLine = (half) => (roster ? roster[half].map((x) => `${half}:${x.index}=${x.kind}${x.sid ? '/' + s4(x.sid) : ''}${x.name ? '/' + x.name : ''}`).join(' ') : 'no roster');
+  const all = [...towers.values()];
+  const remote = {};
+  all.forEach((t) => { if (t.remoteSeat) remote[t.remoteSeat] = (remote[t.remoteSeat] || 0) + 1; });
+  const snaps = Object.entries(mp.seatSnaps || {}).map(([k, v]) => `${k}: towers ${(v.towers || []).length} creeps ${(v.creeps || []).length}`).join(' | ') || 'none';
+  const peers = Object.values(mp.peers || {}).map((x) => `${s4(x.sid)}/${x.name || '?'} ${x.team}:${x.seat} lives ${x.lives ?? '-'}`).join(' | ') || 'none';
+  return [
+    `Rimewall MP diagnostics · build ${BUILD_ID} · ${new Date().toISOString()}`,
+    `ua: ${navigator.userAgent}`,
+    `page: ${location.href}`,
+    `room ${mp.code || '-'} role ${mp.role || '-'} transport ${mp.transport ? mp.transport.kind : 'none'} active ${mp.active} started ${mp.started} battle ${!!battleRunning} over ${!!matchOver} match ${mp.matchId || '-'}`,
+    `me sid ${s4(mp.sid)} name ${profile.name || '-'} seat ${mp.active ? mpMySeatKey() : '-'} team ${mp.team} view ${mp.viewSeat || '-'}`,
+    `last message ${mp.lastRecv ? Math.round((performance.now() - mp.lastRecv) / 1000) + 's ago' : 'never'} dropped ${!!mp.dropped}`,
+    `roster south: ${seatLine('south')}`,
+    `roster north: ${seatLine('north')}`,
+    `peers: ${peers}`,
+    `snapshots received: ${snaps}`,
+    `towers on my board: mine ${all.filter((t) => t.owner === 'player' && t.allySeat == null).length}, computer allies ${all.filter((t) => t.allySeat != null && !t.remoteSeat && t.owner === 'player').length}, teammate copies ${JSON.stringify(remote)}, rival ${all.filter((t) => t.owner === 'enemy').length}`,
+    `lives: me ${player ? player.lives : '-'} seats ${JSON.stringify(mp.seatLives || {})} leaks ${JSON.stringify(mp.seatLeaks || {})}`,
+    `lobby: ready ${JSON.stringify(mp.lobbyReadyPlayers || {})} revision ${mp.lobbyRevision || 0}`,
+  ].join('\n');
+}
+$('set-mpdiag')?.addEventListener('click', async () => {
+  const text = mpDiagnostics();
+  log(text.replace(/\n/g, '<br>'));
+  try { await navigator.clipboard.writeText(text); showToast('<b>📋 Diagnostics copied</b><span>Paste them to whoever is debugging. They are also in the event log.</span>'); }
+  catch (e) { window.prompt('Copy these diagnostics:', text); }
 });
 $('set-dev')?.addEventListener('click', () => {
   profile.devUnlockAll = !profile.devUnlockAll; saveProfile();
