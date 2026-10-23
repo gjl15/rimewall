@@ -12262,13 +12262,16 @@ function rebuildMirrorEntities() {
    one board. Nothing about sends, leaks or lives changes: your creeps are
    still yours, their towers simply shoot them too. Copies are marked
    remoteSeat so they are never sent back out in your own snapshot (the echo
-   would resurrect a tower they had just sold) and never taken for your own. */
+   would resurrect a tower they had just sold) and never taken for your own.
+   Hit points are local: an attacker here chews your copy, not their original,
+   and a copy that fell here stays down until they sell or rebuild that cell. */
 function mpSyncTeammateTowers(key, rows) {
   if (!mp.active || !battleRunning || matchOver || !Array.isArray(rows)) return;
   const seat = mpSeatByKey(key);
   if (!seat || seat.kind !== 'human' || seat.half !== mp.team || seat.sid === mp.sid) return;
   const seats = seatsOn(PLAYER_HALF);
   const lane = localSeatLane(PLAYER_HALF, seat.index, seats);
+  const copies = mp.remoteCopies || (mp.remoteCopies = new Set());
   const want = new Map();
   rows.forEach((e) => {
     if (!Array.isArray(e)) return;
@@ -12283,13 +12286,14 @@ function mpSyncTeammateTowers(key, rows) {
   for (const t of [...towers.values()]) {
     if (t.remoteSeat !== key) continue;
     const w = want.get(t.key);
-    if (!w) { removeTower(t.key); changed = true; continue; }
+    if (!w) { removeTower(t.key); copies.delete(t.key); changed = true; continue; }
     if (w.tier !== t.tier) { t.tier = w.tier; t.tierAt = simTime; t.blockHp = t.blockMaxHp = 4 + w.tier; }
     t.level = w.level; t.bolt = w.bolt;
     want.delete(t.key);
   }
   want.forEach((w, k) => {
     if (towers.has(k) || terrainAt(w.r, w.c) !== T.FLOOR || protectedCells.has(k)) return;
+    if (copies.has(k)) return;   // fell on this board; stays down until they sell or rebuild it
     const t = makeTower(w.r, w.c, w.raceId, w.tier, 'player');
     t.allyHalf = PLAYER_HALF; t.allySeat = seat.index; t.remoteSeat = key;
     t.level = w.level; t.bolt = w.bolt; t.invested = 0;
@@ -12297,8 +12301,10 @@ function mpSyncTeammateTowers(key, rows) {
     addTower(t);
     // their board let it through, but next to my wall it may seal a lane here; theirs stands, my copy waits
     if (routeLength(PLAYER_HALF, 'west') == null || routeLength(PLAYER_HALF, 'east') == null) { removeTower(k); return; }
-    changed = true;
+    copies.add(k); changed = true;
   });
+  // a key they no longer list is free to come back if they rebuild there
+  copies.forEach((k) => { if (!want.has(k) && !towers.has(k)) copies.delete(k); });
   if (changed) creeps.forEach((creep) => { if (creep.half === PLAYER_HALF) creep.path = null; });
 }
 function drawOpponentMirror(ctx) {
