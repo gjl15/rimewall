@@ -1128,6 +1128,10 @@ body.reduce-motion .wisp, body.reduce-motion .wisp > span, body.reduce-motion .u
 .sw-chip.on { border-color:var(--lane); background:color-mix(in srgb, var(--lane) 20%, #101a30); color:#eafcff; }
 .sw-chip.sw-me { opacity:.75; }
 .sw-chip:disabled { cursor:default; }
+.mp-slot-label { position:absolute; z-index:4; box-sizing:border-box; padding:3px 5px;
+  background:#091020e8; border-top:2px solid var(--lane); color:#eef2ff;
+  font:600 8px 'DM Mono',monospace; text-align:center; pointer-events:none; overflow:hidden; }
+.mp-slot-label small { display:block; color:var(--lane); font-size:7px; }
 .income-eta { margin-left:4px; font-style:normal; font-size:9px; opacity:.62; font-variant-numeric:tabular-nums; }
 .income-eta.due { opacity:1; color:#ffd86b; }
 .resource.rival-income { color:#ff9faf; display:none; }   /* rival income: only in a live match */
@@ -1640,6 +1644,14 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
   body.playing.arena .enemy-hptext { display:flex; justify-content:space-between; gap:8px; color:#d9e1f2; font:600 8px 'DM Mono',monospace; }
   body.playing.arena .enemy-meta { margin-top:7px; color:#8996b3; font:500 8px/1.5 'DM Mono',monospace; }
 }
+[hidden] { display:none !important; }
+.support-panel {padding:12px;color:#d4e6ee;background:#101e29;border:1px solid #416b73;border-radius:10px;line-height:1.5;}
+.support-panel h3 {font-size:15px;margin:0 0 8px;}
+.support-panel p {font-size:12px;margin:8px 0;}
+.support-panel button {width:100%;min-height:44px;white-space:normal;}
+.sheet-grid [data-send-tier-toggle] {grid-column:1/-1;width:100%;min-height:44px;}
+.rl-scroll [data-send-tier-toggle] {width:100%;min-height:44px;}
+body.playing:not(.arena) #build-extras .training-row {display:flex;}
 </style>
 </head>
 <body>
@@ -1683,7 +1695,7 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
             <div class="wordmark-row"><svg class="crest-mark" viewBox="0 0 48 48" width="46" height="46" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="crestG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bfeaff"/><stop offset="1" stop-color="#4aa3e0"/></linearGradient></defs><path d="M24 2 L42 11 V26 C42 37 34 44 24 46 C14 44 6 37 6 26 V11 Z" fill="#0d1f3a" stroke="url(#crestG)" stroke-width="2"/><g stroke="url(#crestG)" stroke-width="2.4" stroke-linecap="round"><path d="M24 12 V34 M14.5 18 L33.5 28 M33.5 18 L14.5 28"/></g><g stroke="#eafcff" stroke-width="1.3" stroke-linecap="round" opacity=".9"><path d="M24 15 l-2.4 2.6 M24 15 l2.4 2.6 M24 31 l-2.4 -2.6 M24 31 l2.4 -2.6"/></g></svg><h1>Rime<span>wall</span></h1></div>
             <p class="lede">Choose your element. Build the maze. Break theirs.</p>
           </div>
-          <div class="version-pill">COMBINED TEST · TEAM MATCH 14</div>
+          <div class="version-pill">COMBINED TEST · SHRINES 17</div>
         </div>
 
         <div class="selection-bar setup-bar">
@@ -1831,8 +1843,8 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
             <span class="resource lives" title="Your lifeforce"><i class="resource-icon">♥</i><b>LIVES</b><em id="lives-label">100</em></span>
             <span class="resource gold"><i class="resource-icon coin-icon">●</i><b>GOLD</b><em id="gold-label">30</em></span>
             <span class="resource income" title="Gold paid on each income tick"><i class="resource-icon income-icon">◇</i><b>INCOME</b><em id="income-label">+24</em><i id="income-eta" class="income-eta">25s</i></span>
-            <span class="resource lumber" title="Lumber buys shrine upgrades, a second element, tower wards, and attacker sends."><i class="resource-icon lumber-icon">♠</i><b>LUMBER</b><em id="lumber-label">0</em></span>
-            <span class="resource wood-income" title="Lumber earned over time by attacker sends"><i class="resource-icon lumber-icon">♠</i><b>LUMBER INCOME</b><em id="wood-income-label">+0.0</em></span>
+            <span class="resource lumber" title="Lumber buys shrine upgrades, sends, training, glyphs, ranks and a second element."><i class="resource-icon lumber-icon">♠</i><b>LUMBER</b><em id="lumber-label">0</em></span>
+            <span class="resource wood-income" title="Recurring lumber from attackers and Shrine 7–8 sends; fractions accumulate each income cycle"><i class="resource-icon lumber-icon">♠</i><b>LUMBER INCOME</b><em id="wood-income-label">+0.00</em></span>
             <span class="resource rival-income" title="Rival income"><b>RIVAL INC</b><em id="rival-income-label">+0</em></span>
             <span class="vs-mark">/</span>
             <span class="resource enemy" title="Rival lifeforce"><i class="resource-icon">☠</i><b id="rival-name-label">RIVAL</b><em id="enemy-lives-label">100</em></span>
@@ -2278,8 +2290,8 @@ function wardOf(tower) { return tower && tower.ward ? WARD_BY_ID[tower.ward] : n
 function wardCost() { return 1; }   // one lumber, whichever ward — the choice is the cost
 function bulwarkCore(tower) { return new Set(tower?.bulwarkCore || []); }
 function bulwarkHas(tower, id) { return bulwarkCore(tower).has(id); }
-function bulwarkRank(tower) { return Math.max(0, Math.min(3, tower?.bulwarkRank || 0)); }
-function bulwarkRankValue(tower, values, fallback = 0) { const rank = bulwarkRank(tower); return rank ? values[rank - 1] : fallback; }
+function bulwarkRank(tower) { return Math.max(0, tower?.bulwarkRank || 0); }
+function bulwarkRankValue(tower, values, fallback = 0) { const rank = Math.min(3, bulwarkRank(tower)); return rank ? values[rank - 1] : fallback; }
 const BULWARK_TOWER = { name:'Bulwark Stake', cost:4, dmg:0, cd:1, range:0, special:'bulwark', hpMult:14,
   desc:'No attack at all — a frontline bastion that gains expertise by absorbing raw damage. Install inclusive core upgrades and choose one aura.' };
 function towerListFor(raceId) { return [...(TOWERS[raceId] || TOWERS.ice), BULWARK_TOWER]; }
@@ -2342,15 +2354,16 @@ function bannerBonus(tower) {
 function wardHpMult(tower) { return bulwarkHas(tower, 'health') ? bulwarkRankValue(tower, WARD.health, 1) : 1; }
 function towerMaxHp(def, tier, level) {
   const base = (4 + tier) * SWING_DMG * (def && def.hpMult ? def.hpMult : 1);
-  return Math.round(base * (1 + .35 * (level || 0)));
+  return Math.round(base * (1 + .35 * (level || 0)) * (def?.special === 'bulwark' ? 1 : 2));
 }
 function bulwarkMaxHp(tower) {
   const base = towerMaxHp(towerDef(tower.raceId, tower.tier), tower.tier, tower.level || 0);
-  return Math.round(base * wardHpMult(tower));
+  const rank = bulwarkRank(tower);
+  return Math.round(base * wardHpMult(tower) * (1 + .01 * Math.max(0, rank - 3) + .05 * Math.floor(rank / 5)));
 }
 function bulwarkHasAnyUpgrade(tower) { return Boolean((tower?.bulwarkCore || []).length || tower?.ward); }
 function setBulwarkRank(tower, nextRank) {
-  nextRank = Math.max(0, Math.min(3, nextRank));
+  nextRank = Math.max(0, Math.floor(nextRank));
   if (!tower || nextRank === bulwarkRank(tower)) return false;
   const wasMax = tower.blockMaxHp || bulwarkMaxHp(tower) || 1;
   const ratio = Math.max(0, tower.blockHp || 0) / wasMax;
@@ -2366,11 +2379,28 @@ function advanceBulwarkExpertise(tower, rawDamage) {
   if (bulwarkRank(tower) < 1) setBulwarkRank(tower, 1);
   tower.bulwarkDamageTaken = (tower.bulwarkDamageTaken || 0) + Math.max(0, rawDamage || 0);
   const base = towerMaxHp(towerDef(tower.raceId, tower.tier), tower.tier, tower.level || 0);
-  const next = tower.bulwarkDamageTaken >= base * 1.5 ? 3 : tower.bulwarkDamageTaken >= base * .5 ? 2 : 1;
+  let next = bulwarkRank(tower);
+  while (tower.bulwarkDamageTaken >= bulwarkExpertiseThreshold(next + 1, base)) next++;
   if (next > bulwarkRank(tower) && setBulwarkRank(tower, next) && isMine(tower)) {
     log(`Bulwark expertise reached Rank ${next} after absorbing ${Math.round(tower.bulwarkDamageTaken)} raw damage.`);
     showToast(`<b>Bulwark Rank ${next}</b><span>installed defenses advanced together</span>`);
   }
+}
+function bulwarkExpertiseThreshold(rank, base) {
+  if (rank <= 1) return 0;
+  if (rank === 2) return base * .5;
+  if (rank === 3) return base * 1.5;
+  const n = rank - 3;
+  return base * (1.5 + .5 * n + .125 * n * (n - 1));
+}
+function boostBulwark(tower) {
+  if (!tower || !isMine(tower) || !wardEligible(tower) || !bulwarkHasAnyUpgrade(tower) || underConstruction(tower)) return false;
+  const cost = Math.max(1, Math.ceil((bulwarkRank(tower) + 1) / 10));
+  if (player.lumber < cost) return false;
+  player.lumber -= cost; player.lumberSpent += cost;
+  const base = towerMaxHp(towerDef(tower.raceId,tower.tier),tower.tier,tower.level || 0);
+  tower.bulwarkDamageTaken = Math.max(tower.bulwarkDamageTaken || 0, bulwarkExpertiseThreshold(bulwarkRank(tower) + 1,base));
+  advanceBulwarkExpertise(tower,0); return true;
 }
 
 /* classic-style armor: reduction = a×0.06 / (1 + a×0.06); race attack bonuses vs
@@ -2627,7 +2657,7 @@ function towerMaxLevel(tower) {
   return MAX_LEVEL;
 }
 function towerTotalRank(tower) { return Math.min(MAX_LEVEL, tower.level || 0) + towerRank(tower); }
-function canLevel(tower) { return towerDef(tower.raceId, tower.tier).special !== 'bulwark' && towerTotalRank(tower) < MAX_LEVEL + RANK_MAX; }
+function canLevel(tower) { return towerDef(tower.raceId, tower.tier).special !== 'bulwark'; }
 /* ---------------- IMBUINGS (the tech and ninja weapon racks) ----------------
    Tech is the toolbox race: bolt throwers with raw numbers and no element of
    their own, which is exactly why it kept measuring bottom of the table — every
@@ -2713,13 +2743,19 @@ const LEVEL_DMG_DEFAULT = .10;
 function levelDmgStep(raceId) { return LEVEL_DMG_DEFAULT; }
 /* One landed attack/volley earns one hit, including at rank zero. No purchased
    cap or currency is required. Paid progress is tracked separately from hits. */
-const RANK_DMG = .001, RANK_MAX = 47, RANK_HIT_XP = 1;
+const RANK_DMG = .02, RANK_MAX = Infinity, RANK_HIT_XP = 1;
+const RANK_REQUIREMENTS = [5,10,25,50,75,100,125,150,200,250,300];
 function rankNeed(rank, tower) {
   const def = tower && towerDef(tower.raceId, tower.tier);
   const splash = def && (splashSpec(def.special) || ['chain','macepulse','shadowcross','beamline'].includes(def.special));
-  return Math.ceil(splash ? 100 * Math.pow(1.5, rank) : 100 * Math.pow(rank + 1, 2));
+  const index = Math.max(0, Math.floor(rank)) + (splash ? 5 : 0);
+  while (RANK_REQUIREMENTS.length <= index) {
+    const last = RANK_REQUIREMENTS[RANK_REQUIREMENTS.length - 1];
+    RANK_REQUIREMENTS.push(last + 25 * Math.floor(last / 100));
+  }
+  return RANK_REQUIREMENTS[index];
 }
-function towerRank(tower) { return Math.min(RANK_MAX, tower.rank || 0); }
+function towerRank(tower) { return Math.max(0, tower.rank || 0); }
 function settleTowerRanks(tower) {
   if (!tower || !canLevel(tower)) return;
   while (canLevel(tower) && (tower.rankBank || 0) >= rankNeed(towerTotalRank(tower), tower)) {
@@ -2741,8 +2777,8 @@ function grantTowerXp(tower, amount) {
   settleTowerRanks(tower);
 }
 function creditAttack(tower, stats) {
-  if (!tower || stats.rankCredited) return;
-  stats.rankCredited = true; grantTowerXp(tower, 1);
+  // Credit is awarded to each damaged enemy inside the attack's damage scope.
+  // Secondary effects within that scope share its victim set.
 }
 function towerRankCost(tower) {
   if (!canLevel(tower)) return {gold:0,lumber:0};
@@ -2773,7 +2809,8 @@ function boostTowerRank(tower, purse = player) {
 function towerLiveStats(tower) {
   const def = towerDef(tower.raceId, tower.tier);
   const level = Math.min(MAX_LEVEL, tower.level || 0);
-  const stats = { ...def, dmg:Math.round(def.dmg * (1 + levelDmgStep(tower.raceId) * level + RANK_DMG * towerRank(tower) + .01 * Math.floor(towerRank(tower) / 5)) * bannerBonus(tower) * 1000) / 1000, range:def.range + .5 * level, cd:1 / (1 / def.cd + .1 * level) };
+  const veteran = towerRank(tower), milestone = .05 * Math.floor(towerTotalRank(tower) / 5);
+  const stats = { ...def, dmg:Math.round(def.dmg * (1 + levelDmgStep(tower.raceId) * level) * (1 + RANK_DMG * veteran + milestone) * bannerBonus(tower) * 1000) / 1000, range:def.range + .5 * level, cd:1 / ((1 / def.cd + .1 * level) * (1 + .01 * veteran)) };
   if (tower.bolt) {
     stats.bolt = tower.bolt;
     // piercing is the only bolt that touches the tower's own numbers
@@ -2795,6 +2832,13 @@ function towerLiveStats(tower) {
 const CRYSTAL_BONUSES = {damage:'+15% damage',speed:'+15% attack speed',range:'+1 range'};
 let crystalCacheVersion = -1, crystalGroups = new Map(), formationRevision = 0;
 function crystalFormation(tower) {
+  // A remote key may equal a local tower's key. Its formation must come only
+  // from the same seat's snapshot, never from the live simulation cache.
+  if(tower.mirror) {
+    const keys=tower.mirrorFormationKeys || [tower.key];
+    return {members:mirrorTowers.filter(t=>t.mapSeatKey===tower.mapSeatKey&&keys.includes(t.key)),
+      bonus:tower.crystalBonus || 'damage'};
+  }
   if (crystalCacheVersion !== towersVersion) {
     crystalCacheVersion = towersVersion; crystalGroups = new Map();
     const pool = [...towers.values()].filter(t => t.raceId === 'crystal').sort((a,b)=>a.key-b.key);
@@ -2888,7 +2932,7 @@ function batchPanelHtml(group) {
   const t=group[0]; if(!t || towerDef(t.raceId,t.tier).special==='bulwark') return '';
   const button=(action,label,on=false)=>`<button class="ghost-button ${on?'on':''}" data-batch="${action}" style="min-height:44px">${label}</button>`;
   const actual=towerTotalRank(t);
-  let html=`<div class="batch-rack"><p class="td-desc">Rank ${actual}/50 · hits earn ranks automatically from rank 0.<br>${Math.floor(t.landedHits||0)} landed attacks · ${canLevel(t)?`${Math.floor(t.rankBank||0)} / ${rankNeed(actual,t)} hits toward rank ${actual+1}`:'maximum rank'}.<br>Finish rank pays for the remaining progress: gold for ranks 1–3, lumber for ranks 4–50. Resources are never spent automatically.<br>Ranks 1–3: +10% base damage, +0.5 range, +0.1 attacks/s each. Later ranks: +0.1% base damage each; +1% every five later ranks.</p>`;
+  let html=`<div class="batch-rack"><p class="td-desc">Rank ${actual} · uncapped automatic ranks from rank 0.<br>${Math.floor(t.landedHits||0)} enemy hits · ${Math.floor(t.rankBank||0)} / ${rankNeed(actual,t)} toward rank ${actual+1}.<br>Every damaged enemy counts once per attack; lingering damage does not add hits. Beams count enemies at their attack cadence, without a one-second limit.<br>Finish rank: gold for ranks 1–3, then lumber. Resources are never spent automatically.<br>Ranks 1–3: +10% base damage, +0.5 range, +0.1 attacks/s each. Later: +2% rank-3 damage and +1% rank-3 attack speed each; +5% damage at total ranks 5, 10, 15…</p>`;
   if(t.raceId==='crystal') {
     const f=crystalFormation(t);
     const live=towerLiveStats(t);
@@ -3393,7 +3437,46 @@ const SENDS = [
   { id:'ruiner', name:'Siege Ruiner', symbol:'⛏', cost:0, income:0, lumber:4, woodIncome:1.6, attacker:true, breakPower:8,
     hp:13500, spd:2.0, armor:24, aClass:'siege', role:'juggernaut', shrine:5 }
 ];
-const SHRINE_MAX = 5, LUMBER_PRICE = 500;
+// Append only: send IDs and existing indices remain stable for wire snapshots.
+SENDS.push(
+  {id:'dawnbehemoth',name:'Dawn Behemoth',symbol:'◆',shrine:6,cost:20000,income:2000,hp:15000,armor:26,spd:2.5,aClass:'heavy'},
+  {id:'ironleviathan',name:'Iron Leviathan',symbol:'⬓',shrine:6,cost:24000,income:2400,hp:17000,armor:28,spd:2.4,aClass:'fortified'},
+  {id:'crowncolossus',name:'Crown Colossus',symbol:'☗',shrine:6,cost:30000,income:2850,hp:20000,armor:30,spd:2.5,aClass:'medium'},
+  {id:'tempestdragon',name:'Tempest Dragon',symbol:'▲',shrine:6,cost:18000,income:1700,hp:13500,armor:25,spd:3.0,aClass:'light',air:true},
+  {id:'skysovereign',name:'Sky Sovereign',symbol:'▲',shrine:6,cost:26000,income:2400,hp:18000,armor:28,spd:2.9,aClass:'heavy',air:true},
+  {id:'grovevanguard',name:'Grove Vanguard',symbol:'◆',shrine:7,cost:30000,lumber:1,income:3000,woodIncome:.01,hp:22000,armor:30,spd:2.5,aClass:'medium'},
+  {id:'amberguardian',name:'Amber Guardian',symbol:'⬢',shrine:7,cost:38000,lumber:5,income:3600,woodIncome:.05,hp:27000,armor:32,spd:2.4,aClass:'heavy'},
+  {id:'elderbastion',name:'Elder Bastion',symbol:'⬓',shrine:7,cost:47000,lumber:10,income:4300,woodIncome:.1,hp:33000,armor:34,spd:2.3,aClass:'fortified'},
+  {id:'verdantwyvern',name:'Verdant Wyvern',symbol:'▲',shrine:7,cost:58000,lumber:15,income:5100,woodIncome:.25,hp:40000,armor:36,spd:2.9,aClass:'light',air:true},
+  {id:'worldsentinel',name:'World Sentinel',symbol:'☗',shrine:7,cost:70000,lumber:20,income:6000,woodIncome:.5,hp:48000,armor:38,spd:2.5,aClass:'heavy'},
+  {id:'heartwoodgiant',name:'Heartwood Giant',symbol:'◆',shrine:8,cost:0,lumber:25,income:0,woodIncome:.75,hp:52000,armor:40,spd:2.5,aClass:'medium'},
+  {id:'ancientwarden',name:'Ancient Warden',symbol:'⬢',shrine:8,cost:0,lumber:40,income:0,woodIncome:1.2,hp:65000,armor:42,spd:2.4,aClass:'heavy'},
+  {id:'rootleviathan',name:'Root Leviathan',symbol:'⬓',shrine:8,cost:0,lumber:60,income:0,woodIncome:1.8,hp:80000,armor:44,spd:2.3,aClass:'fortified'},
+  {id:'aetherphoenix',name:'Aether Phoenix',symbol:'▲',shrine:8,cost:0,lumber:90,income:0,woodIncome:2.7,hp:100000,armor:46,spd:3.0,aClass:'light',air:true},
+  {id:'eternaldragon',name:'Eternal Dragon',symbol:'▲',shrine:8,cost:0,lumber:130,income:0,woodIncome:3.9,hp:125000,armor:48,spd:2.8,aClass:'heavy',air:true}
+);
+const SHRINE_MAX = 8, LUMBER_PRICE = 500;
+function sendTrainingLevel(purse = player) { return Math.max(0, Math.floor(purse?.sendTraining || 0)); }
+function trainedSend(base, level = sendTrainingLevel()) {
+  if (base.attacker || base.trainingApplied) return base;
+  return {...base, cost:Math.ceil(base.cost * (1 + .1 * level)), income:Math.round(base.income * (1 + .01 * level) * 100) / 100,
+    hp:base.hp * (1 + .05 * level), spd:base.spd * (1 + .01 * level), armor:base.armor + Math.floor(level / 2), trainingApplied:true};
+}
+function buySendTraining() {
+  if (!battleRunning || matchOver) return false;
+  const cost = 100 * (sendTrainingLevel() + 1);
+  if (player.lumber < cost) { log(`Send Training costs ${cost} lumber.`); return false; }
+  player.lumber -= cost; player.lumberSpent += cost; player.sendTraining = sendTrainingLevel() + 1;
+  tacticalDockKey='';sheetKey='';barStructKey='';renderHud();renderTowerList();renderSendPanel();
+  log(`Send Training ${player.sendTraining}: future income sends gain stats, cost and income bonuses.`);
+  return true;
+}
+function sendRewardText(base) {
+  const send = trainedSend(base), parts = [];
+  if (send.income) parts.push(`${sendIncomeLabel(base).text} gold income`);
+  if (send.woodIncome) parts.push(`+${send.woodIncome} lumber income`);
+  return parts.join(' · ') || 'no income';
+}
 
 /* THE LADDER IS PRICED THE WAY IT ALWAYS WAS, AND THAT WAS THE POINT.
 
@@ -3446,13 +3529,12 @@ function sendTypeMeta(send) { return SEND_TYPE_META[sendType(send)]; }
 function sendGlyph(send) { return sendTypeMeta(send).glyph; }
 function sendTypeLabel(send) { return sendTypeMeta(send).label; }
 function sendRoi(send) {
-  if (send.attacker) return send.woodIncome > 0 ? (send.lumber || 0) / send.woodIncome : Infinity;
-  return send.income > 0 ? (send.cost || 0) / send.income : Infinity;
+  send=trainedSend(send);
+  if (!send.cost) return send.woodIncome > 0 ? (send.lumber || 0) / send.woodIncome : Infinity;
+  return send.income > 0 ? (send.cost + (send.lumber || 0) * LUMBER_PRICE) / send.income : Infinity;
 }
 function sendIncomeRoi(send) {
-  const cost=send.attacker?send.lumber:send.cost;
-  const income=send.attacker?send.woodIncome:send.income;
-  return cost>0 && income>0 ? income/cost : 0;
+  return 1 / sendRoi(send);
 }
 function sendRoiLabel(send) { return `${(100*sendIncomeRoi(send)).toFixed(2)}% / cycle`; }
 function orderedSends(list = SENDS) {
@@ -3476,7 +3558,7 @@ document.addEventListener('click',e=>{
   const heading=e.target.closest('[data-send-tier-toggle]');if(!heading)return;
   const key=heading.dataset.sendTierToggle;
   collapsedSendTiers.has(key)?collapsedSendTiers.delete(key):collapsedSendTiers.add(key);
-  tacticalDockKey='';renderSendPanel();renderTacticalDock();
+  tacticalDockKey='';sheetKey='';railRightHtml='';renderSendPanel();renderTacticalDock();renderCommandSheet();renderRails();
 });
 const SEND_SHORTCUT_KEYS = ['1','2','3','4','5','6','7','8','9','0','-'];
 function sendShortcutAt(index) {
@@ -3665,7 +3747,7 @@ function sendCreepDef(send) {
   // the ladder has always declared roles (Mossback regenerates, Aegis Runner is
   // shielded, Bulwark is a juggernaut) and this threw every one of them away, so
   // sends spawned plain no matter what their card promised
-  const g = sendGrowth();
+  const g = send.attacker ? 1 : sendGrowth();
   return { name:send.name, role:send.role || (send.air ? 'air' : 'standard'), hp:Math.round(send.hp * g), spd:send.spd, armor:send.armor, aClass:send.aClass, air:Boolean(send.air),
     attacker:Boolean(send.attacker), breakPower:send.breakPower || 1,
     /* Classic Wars attackers are a pure offensive gamble and award no kill
@@ -3766,12 +3848,13 @@ function incomeGainText(n) { return n >= 10 || n === 0 ? String(Math.round(n)) :
    compressed one, so a 450-income Idol Bearer moved the readout by 185 and the
    economy looked broken from the phone. One helper, so they cannot drift again. */
 function sendIncomeGain(send) {
+  send=trainedSend(send);
   if (!player) return send.income;
   return incomePayoutExact(player.income + send.income) - incomePayoutExact(player.income);
 }
 function sendIncomeLabel(send) {
   const gain = sendIncomeGain(send);
-  return { gain, text: `+${incomeGainText(gain)}`, cut: gain < send.income - .05 };
+  return { gain, text: `+${incomeGainText(gain)}`, cut: gain < trainedSend(send).income - .05 };
 }
 // late-wave HP multiplier: waves past hpLateFrom compound so the endgame can actually be lost
 function waveHpMult(n) { return Math.pow(TRAIT.hpLateRamp, Math.max(0, (n || 0) - TRAIT.hpLateFrom)); }
@@ -3780,6 +3863,41 @@ let selectedRace = races[0];
 let selectedTowerTier = 0;
 let buildRaceIdx = 0;              // index into player.races — which licensed element the build panel shows
 let panelRaceId = null;           // which race the wisp build panel is currently viewing (may be a preview)
+let supportBuildMode = false;
+const GLYPH = {gold:1000,lumber:2,cooldown:20,maxCharges:5};
+function towerInvulnerable(tower) {
+  return Math.max(tower.glyphUntil || 0, isMine(tower) ? player?.glyphUntil || 0 : 0) > simTime;
+}
+function buyGlyph() {
+  if (!battleRunning || matchOver || (player.glyphCharges || 0)>=GLYPH.maxCharges) return false;
+  if (player.gold<GLYPH.gold || player.lumber<GLYPH.lumber) return false;
+  player.gold-=GLYPH.gold;player.lumber-=GLYPH.lumber;player.lumberSpent+=GLYPH.lumber;
+  player.glyphCharges=(player.glyphCharges || 0)+1;
+  renderHud();renderTowerList();return true;
+}
+function castGlyph() {
+  if (!battleRunning || battlePaused || matchOver || !(player.glyphCharges>0) || simTime<(player.glyphReadyAt || 0)) return false;
+  if (![...towers.values()].some(isMine)) {log('Build a tower before activating a glyph.');return false;}
+  const duration=1+Math.floor(rng()*5);
+  player.glyphCharges--;player.glyphUntil=simTime+duration;player.glyphReadyAt=simTime+GLYPH.cooldown;
+  towers.forEach(t=>{if(isMine(t))t.glyphUntil=player.glyphUntil;});towersVersion++;
+  log(`Aegis glyph: ALL your towers are invulnerable for ${duration} seconds.`);
+  showToast(`<b>All your towers protected</b><span>Aegis lasts ${duration}s · ready again in ${GLYPH.cooldown}s</span>`);
+  renderHud();renderTowerList();return true;
+}
+function supportPanelHtml() {
+  const charges=player.glyphCharges || 0,cool=Math.max(0,Math.ceil((player.glyphReadyAt || 0)-simTime));
+  return `<div class="support-panel"><h3>✦ Support glyphs</h3><p>Protect all your towers, including Bulwarks, for the same random 1–5 seconds. Allied and enemy towers are unaffected.</p>
+    <button class="ghost-button" data-support-action="buy" ${!battleRunning || charges>=GLYPH.maxCharges || player.gold<GLYPH.gold || player.lumber<GLYPH.lumber?'disabled':''}>Buy Aegis glyph · ${GLYPH.gold}g + ${GLYPH.lumber} lumber</button>
+    <p>${charges}/${GLYPH.maxCharges} charges · ${cool?`cooldown ${cool}s`:'ready'} · 20s cooldown · no stacking</p>
+    <button class="ghost-button" data-support-action="cast" ${!charges || cool || battlePaused?'disabled':''}>Activate on ALL my towers</button>
+    <p>Charges reset each match. Gold and lumber only in this test.</p></div>`;
+}
+document.addEventListener('click',event=>{
+  const action=event.target.closest('[data-support-action]')?.dataset.supportAction;
+  if(action==='buy')buyGlyph();else if(action==='cast')castGlyph();else if(action==='training')buySendTraining();
+  else if(action==='bulwark-rank'){selectionTowers().filter(isMine).forEach(boostBulwark);renderHud();renderTowerDetails();}
+});
 let matchMode = 'skirmish';        // 'skirmish' = rounds vs the rival AI; 'classic' = sends only, no neutral waves
 let selectedTowerKey = null;       // primary selected tower
 let selectedGroupKeys = [];        // all selected towers (double-tap selects every like tower)
@@ -3963,7 +4081,8 @@ function resetMatchState() {
   const lives = startingLives();
   // the seat you took in the lobby decides your lane colour and home ground
   const mySeats = seatsOn(PLAYER_HALF), mySeat = humanSeatIndex();
-  player = { gold:START_GOLD, income:0, lives, kills:0, lumber:0, woodIncome:0, woodBank:0, shrine:1, races:[selectedRace.id], lumberSpent:0, startLives:lives,
+  supportBuildMode=false;
+  player = { gold:START_GOLD, income:0, lives, kills:0, lumber:0, woodIncome:0, woodBank:0, shrine:1, sendTraining:0,glyphCharges:0,glyphUntil:0,glyphReadyAt:0,races:[selectedRace.id], lumberSpent:0, startLives:lives,
     seat:mySeat, lane:localSeatLane(PLAYER_HALF, mySeat, mySeats), zone:seatZone(PLAYER_HALF, mySeat, mySeats) };
   const questGold = mp.active ? 0 : 25 * (ensureDaily().done.length || 0);
   if (questGold) { player.gold += questGold; log(`🗒 Daily quest reward: +${questGold}g starting gold.`); }
@@ -3984,10 +4103,10 @@ function resetMatchState() {
   }
   wave = 0; waveClock = FIRST_WAVE_DELAY; incomeClock = currentIncomePeriod(); levelPayDue = 0; simTime = 0; battlePaused = false; matchOver = false;
   // a new match starts every side's pool full again
-  mp.incomeSent=-999;mp.seatIncome={};
+  mp.incomeSent=-999;mp.seatIncome={};mp.seatRace={};
   mp.myLeaks = 0; mp.leaksSent = -1; mp.seatLeaks = {}; mp.seatLives = {}; mp.botLivesSent = {}; mp.seatSnaps = {}; mp.viewSeat = null;
   mp.towerSig = null; mp.towerFullAt = -99;   // a new match republishes its board immediately
-  mp.fxOut = []; mp.seatFx = {}; mirrorFx = []; mp.towerSig = '';
+  mp.fxOut = []; mp.fxSeatOut = {}; mp.seatFx = {}; mirrorFx = []; mpEffectSeat=null; mp.towerSig = '';
   spawnAllies();
   if (allies.length) {
     const mine = allies.filter((a) => a.half === PLAYER_HALF);
@@ -4078,9 +4197,9 @@ function spawnCreep(waveDef, half, side, sent = false) {
   const jugg = role === 'juggernaut' && !sent;   // sends carry their own tuned stats; don't multiply them again
   // CREEP_HP_SCALE keeps HP in step with the purse at any board width, and
   // applies to bosses and sends too so nothing drifts out of proportion.
-  const baseHp = Math.round((waveDef.hp || 1) * hpScale * (jugg ? 2.4 : 1) * CREEP_HP_SCALE);
+  const baseHp = Math.round((waveDef.hp || 1) * (waveDef.attacker ? 1 : hpScale * (jugg ? 2.4 : 1) * CREEP_HP_SCALE));
   const spd = waveDef.spd * (jugg ? .6 : 1);
-  const armor = (waveDef.armor || 0) + (waveDef.boss ? 0 : TRAIT.armorBonus) + (jugg ? 4 : 0);
+  const armor = (waveDef.armor || 0) + (waveDef.boss || waveDef.attacker ? 0 : TRAIT.armorBonus) + (jugg ? 4 : 0);
   const aClass = jugg ? 'fortified' : (waveDef.aClass || 'medium');
   const shieldMax = role === 'shieldbearer' ? Math.round(baseHp * .38) : 0;
   const onDeath = role === 'deathheal' ? 'heal' : (role === 'deathshield' ? 'shield' : null);
@@ -4401,7 +4520,8 @@ function updateCreep(creep, dt) {
     creep.attackClock -= dt;
     if (creep.attackClock <= 0) {
       const bulwarkSlow = (creep.bulwarkSlowUntil || 0) > now ? (creep.bulwarkSlowPct || 0) : 0;
-      creep.attackClock = .5 / Math.max(.08, 1 - bulwarkSlow / 100);
+      creep.attackClock = (creep.attacker ? 1 : .5) / Math.max(.08, 1 - bulwarkSlow / 100);
+      if (towerInvulnerable(tower)) return;
       const swing = SWING_DMG * (creep.breakPower || 1);
       advanceBulwarkExpertise(tower, swing);
       const reduction = bulwarkHas(tower, 'armor') ? bulwarkRankValue(tower, WARD.armor) : 0;
@@ -4412,14 +4532,16 @@ function updateCreep(creep, dt) {
       tower.lastHitAt = now;
       // THORNS: reflect original swing damage through armor, then let the chosen aura shape the retaliation.
       if (bulwarkHas(tower, 'thorns')) {
+        const hpBefore = creep.hp, shieldBefore = creep.shield || 0;
         applyDamage(creep, swing * bulwarkRankValue(tower, WARD.thorns), null, true);
+        advanceBulwarkExpertise(tower, Math.min(Math.max(0,hpBefore),Math.max(0,hpBefore-creep.hp)) + Math.max(0,shieldBefore-(creep.shield || 0)));
         if (tower.ward === 'chill') {
           creep.bulwarkSlowPct = Math.max(creep.bulwarkSlowPct || 0, bulwarkRankValue(tower, WARD.chill));
           creep.bulwarkSlowUntil = Math.max(creep.bulwarkSlowUntil || 0, now + 1.25);
           creep.slowPct = Math.max(creep.slowPct || 0, bulwarkRankValue(tower, WARD.chill));
           creep.slowUntil = Math.max(creep.slowUntil || 0, now + 1.25);
         } else if (tower.ward === 'banner' && now >= (creep.bulwarkStunReady || 0)) {
-          const rank = Math.max(1, bulwarkRank(tower));
+          const rank = Math.min(3, Math.max(1, bulwarkRank(tower)));
           const chance = Math.min(WARD.stunCap[rank - 1], WARD.stunBase[rank - 1] + (creep.bulwarkStunMisses || 0) * WARD.stunStep);
           if (rng() < chance) {
             creep.stunUntil = Math.max(creep.stunUntil || 0, now + WARD.stunDur);
@@ -4471,7 +4593,7 @@ function updateCreep(creep, dt) {
     });
     if (near) {
       log(`${creep.name} is tearing into ${towerDef(near.raceId, near.tier).name} (${Math.max(0, Math.round(near.blockHp))} HP left, ${SWING_DMG * (creep.breakPower || 1)} a swing).`);
-      creep.state = 'attack'; creep.blockTargetKey = near.key; creep.attackClock = .4;
+      creep.state = 'attack'; creep.blockTargetKey = near.key; creep.attackClock = creep.attacker ? 1 : .4;
       near.blockingAt = simTime;
       return;
     }
@@ -4480,7 +4602,7 @@ function updateCreep(creep, dt) {
     const blocker = nearestBlockingTower(creep);
     if (blocker) {
       if (creep.state !== 'attack') log(`${creep.name} is hard-blocked and attacking ${towerDef(blocker.raceId, blocker.tier).name} (${Math.max(0, Math.round(blocker.blockHp))} HP left).`);
-      creep.state = 'attack'; creep.blockTargetKey = blocker.key; creep.attackClock = .4;
+      creep.state = 'attack'; creep.blockTargetKey = blocker.key; creep.attackClock = creep.attacker ? 1 : .4;
       blocker.blockingAt = simTime;   // drives the red blocking marker on the board
     }
     return;
@@ -4574,7 +4696,7 @@ function resolveLeak(creep) {
     mpSyncTeamLives();
   } else owner.lives=Math.max(0,owner.lives-creep.livesCost);
   pushFx({ kind:'leak', x:creep.x, y:creep.y, until:simTime + .6 });
-  if (creep.half === PLAYER_HALF) { waveBoardRetire(creep, true); SFX.play('leak'); recordLeak(); mpEmit([FX_LEAK, r2(creep.x), r2(creep.y)]); }
+  if (creep.half === PLAYER_HALF) { waveBoardRetire(creep, true); SFX.play('leak'); recordLeak(); mpEmit([FX_LEAK, r2(creep.x), r2(creep.y)],mpCreepSeatKey(creep)); }
   if (creep.half === PLAYER_HALF) log(`${creep.name} reached your ship — that is a leak (−${creep.livesCost} ${creep.livesCost > 1 ? 'lives' : 'life'}).`);
   else if (creep.sent) log(`Your ${creep.name} broke through! Enemy loses ${creep.livesCost} ${creep.livesCost > 1 ? 'lives' : 'life'}.`);
   /* A SIDE loses, not a person. Abdy hit zero and got a defeat card while Gene
@@ -4592,6 +4714,15 @@ function flagReached(half, side, flagIndex) {
 }
 
 /* ---------------- Damage & effects (classic armor formula + source-map specials) ---------------- */
+let hitCreditScope = null;
+function withHitCredit(tower, victims, action) {
+  const previous=hitCreditScope;hitCreditScope={tower,victims};
+  try{return action();}finally{hitCreditScope=previous;}
+}
+function creditDamagedEnemy(tower,creep,damage) {
+  if(!(damage>0) || !tower || hitCreditScope?.tower!==tower || hitCreditScope.victims.has(creep.id))return;
+  hitCreditScope.victims.add(creep.id);grantTowerXp(tower,1);
+}
 function applyDamage(creep, amount, tower, isDot = false, opts) {
   if (creep.hp <= 0) return;
   let raw = amount;
@@ -4608,7 +4739,8 @@ function applyDamage(creep, amount, tower, isDot = false, opts) {
     creep.shieldHitAt = simTime;
     const sMult = tower && tower.raceId === 'crystal' ? TRAIT.crystalShieldMult : 1;
     const sdmg = raw * sMult;
-    if (sdmg < creep.shield) { creep.shield -= sdmg; creep.hitAt = simTime; return; }
+    if (sdmg < creep.shield) { creep.shield -= sdmg; creep.hitAt = simTime; creditDamagedEnemy(tower,creep,sdmg);return; }
+    creditDamagedEnemy(tower,creep,creep.shield);
     raw -= creep.shield / sMult; creep.shield = 0;
     if (raw <= 0) { creep.hitAt = simTime; return; }
   }
@@ -4652,6 +4784,7 @@ function applyDamage(creep, amount, tower, isDot = false, opts) {
   // NON-LETHAL: chips a creep down but can never land the killing blow, so it
   // never steals a bounty or a kill credit from the tower that earned it.
   if (opts && opts.nonLethal) dmg = Math.min(dmg, Math.max(0, creep.hp - 1));
+  creditDamagedEnemy(tower,creep,Math.min(creep.hp,dmg));
   creep.hp -= dmg;
   if (!isDot) creep.hitAt = simTime;
   /* §6: a damage numeral is set in the serif at max(9, cell*.62), rises 14px
@@ -4698,7 +4831,7 @@ function applyDamage(creep, amount, tower, isDot = false, opts) {
       // the wave board must retire the creep however it died, or the board desyncs
       waveBoardRetire(creep, false);
     }
-    if (creep.half === PLAYER_HALF) mpEmit([FX_KILL, r2(creep.x), r2(creep.y)]);
+    mpEmit([FX_KILL, r2(creep.x), r2(creep.y)],mpCreepSeatKey(creep));
     if (creep.half === PLAYER_HALF) player.kills += 1;
     if (creep.half === PLAYER_HALF) {
       profile.totalKills += 1;
@@ -4879,6 +5012,10 @@ function splashSpec(special) {
   return null;
 }
 function resolveProjectileHit(projectile) {
+  projectile.rankVictims=projectile.rankVictims || new Set();
+  return withHitCredit(projectile.tower,projectile.rankVictims,()=>resolveProjectileDamage(projectile));
+}
+function resolveProjectileDamage(projectile) {
   const { tower, stats } = projectile;
   const target = projectile.target;
   const impactX = target && target.hp > 0 ? target.x : projectile.tx;
@@ -4891,8 +5028,8 @@ function resolveProjectileHit(projectile) {
   }
   const splash = splashSpec(stats.special);
   pushFx({ kind:'impact', x:impactX, y:impactY, color:stats.color, big:Boolean(splash && splash.radius > 1.5), until:simTime + .35 });
-  if (projectile.half === PLAYER_HALF && tower) {
-    mpEmit([FX_HIT, r2(impactX), r2(impactY), races.findIndex((x) => x.id === tower.raceId), splash && splash.radius > 1.5 ? 1 : 0]);
+  if (tower) {
+    mpEmit([FX_HIT, r2(impactX), r2(impactY), races.findIndex((x) => x.id === tower.raceId), splash && splash.radius > 1.5 ? 1 : 0],mpTowerSeatKey(tower));
   }
   // venom leaves a lingering cloud (~1.1s) — the long-lived signature that makes poison recognizable
   if ((tower && tower.raceId === 'poison') || ELEMENT_BY_COLOR[stats.color] === 'poison') pushFx({ kind:'venomcloud', x:impactX, y:impactY, color:stats.color, life:1.1, until:simTime + 1.1 });
@@ -5200,7 +5337,8 @@ function pushBackCreep(creep) {
   pushFx({ kind:'num', x:creep.x, y:creep.y - .5, text:'«', until:simTime + .6, color:'#c58fd8' });
   return true;
 }
-function firePulse(tower, stats) {
+function firePulse(tower, stats) { return withHitCredit(tower,new Set(),()=>firePulseDamage(tower,stats)); }
+function firePulseDamage(tower, stats) {
   const cx = tower.c + .5, cy = tower.r + .5;
   const isGravity = tower.raceId === 'gravity';
   const radius = (isGravity || stats.special === 'thunder') ? Math.max(3, stats.range) : 6.25;
@@ -5215,7 +5353,7 @@ function firePulse(tower, stats) {
     if (stats.special === 'thunder') {
       creep.shield = 0; creep.shieldHitAt = simTime;                       // strip shields
       const floor = creep.maxHp * TRAIT.thunderFloor;                       // chip down to 75% max, ≤25% max per pulse
-      if (creep.hp > floor) creep.hp -= Math.min(creep.hp - floor, creep.maxHp * TRAIT.thunderCap);
+      if (creep.hp > floor) { const loss=Math.min(creep.hp-floor,creep.maxHp*TRAIT.thunderCap);creditDamagedEnemy(tower,creep,loss);creep.hp-=loss; }
       // the stasis roll used to be inlined here; applyHitEffects already owns it
       if (creep.hp > 0) applyHitEffects(creep, tower, stats);
     } else if (isGravity) {
@@ -5235,7 +5373,8 @@ function firePulse(tower, stats) {
 /* Ninja's two pulse weapons deliberately bypass projectile targeting. Mace is
    a travelling ring whose outer edge hits harder; Shadow is a strict plus sign
    and shares one damage pool across the bodies caught in it. */
-function fireNinjaPulse(tower, stats) {
+function fireNinjaPulse(tower, stats) { return withHitCredit(tower,new Set(),()=>fireNinjaPulseDamage(tower,stats)); }
+function fireNinjaPulseDamage(tower, stats) {
   const cx = tower.c + .5, cy = tower.r + .5, half = halfOfRow(tower.r);
   let eligible = creeps.filter((creep) => creep.hp > 0 && creep.half === half
     && Math.hypot(creep.x - cx, creep.y - cy) <= stats.range);
@@ -5408,9 +5547,10 @@ function updateTower(tower, dt) {
        game. Bank the time and fire the kit at the tower's own cadence, which is
        exactly what the card promises. */
     tower.beamAcc = (tower.beamAcc || 0) + dt;
-    if (tower.beamAcc >= beamStats.cd) {
-      tower.beamAcc = Math.min(tower.beamAcc - beamStats.cd, beamStats.cd);
-      grantTowerXp(tower, 1);
+    const beamPulses=Math.floor((tower.beamAcc+1e-9)/beamStats.cd);
+    let beamVictims=1;
+    if (beamPulses>0) {
+      tower.beamAcc-=beamPulses*beamStats.cd;
       if (mark.hp > 0) applyHitEffects(mark, tower, beamStats);
     }
     /* A LANCE CUTS THROUGH WHAT IS IN THE WAY. Beam was the only element in the
@@ -5442,10 +5582,12 @@ function updateTower(tower, dt) {
           const t = Math.max(0, Math.min(reach, ((other.x - tx) * dx + (other.y - ty) * dy) / len2));
           if (Math.hypot(other.x - (tx + dx * t), other.y - (ty + dy * t)) <= TRAIT.beamLineR) {
             applyDamage(other, tick * TRAIT.beamLineMult, tower);
+            beamVictims++;
           }
         }
       }
     }
+    if(beamPulses>0)grantTowerXp(tower,beamPulses*beamVictims);
     tower.beamTo = { x:mark.x, y:mark.y }; tower.beamAt = simTime;
     return;
   }
@@ -5482,7 +5624,7 @@ function updateTower(tower, dt) {
       projectiles.push({ tower, stats, target:mark, half, style:'machinegun',
         x:cx, y:cy, sx:cx, sy:cy, tx:mark.x, ty:mark.y, t:0, dur:projectileFlightTime('machinegun') });
     });
-    if (half === PLAYER_HALF) mpEmitShot(tower, stats, target);
+    mpEmitShot(tower, stats, target);
     return;
   }
   projectiles.push({
@@ -5490,7 +5632,7 @@ function updateTower(tower, dt) {
     x:tower.c + .5, y:tower.r + .5, sx:tower.c + .5, sy:tower.r + .5,
     tx:target.x, ty:target.y, t:0, dur:projectileFlightTime(stats.special)
   });
-  if (halfOfRow(tower.r) === PLAYER_HALF) mpEmitShot(tower, stats, target);   // let the room see it fire
+  mpEmitShot(tower, stats, target);   // every seat publishes its own fire events
   if (stats.special === 'chain') { pushFx({ kind:'bolt', x1:tower.c + .5, y1:tower.r + .5, x2:target.x, y2:target.y, until:simTime + .28 }); SFX.play('zap'); }
 }
 function updateProjectile(projectile, dt) {
@@ -5502,7 +5644,7 @@ function updateProjectile(projectile, dt) {
       if(creep.hp<=0 || creep.half!==projectile.half || projectile.hitIds.has(creep.id)) continue;
       const distance=Math.hypot(creep.x-projectile.sx,creep.y-projectile.sy);
       if(distance>radius) continue;
-      projectile.hitIds.add(creep.id); creditAttack(tower,stats);
+      projectile.hitIds.add(creep.id); grantTowerXp(tower,1);
       applyDamage(creep,stats.dmg*(.55+.65*clamp01(distance/Math.max(.01,stats.range))),tower);
       creep.maceArmorShred=Math.max(creep.maceArmorShred||0,stats.armorShred||3);
       creep.maceArmorShredUntil=simTime+(stats.armorShredDur||4);
@@ -5784,6 +5926,8 @@ function makeAlly(half, seat, raceId, seatsHere) {
    ally one and owns the centre — so it is skipped here. */
 function spawnAllies() {
   allies = [];
+  // Every computer, including a friendly one, has exactly one simulation.
+  if (mp.active && mp.role !== 'host') return;
   // in a room, the far half only exists on the host and only if it is bots
   const halves = matchMode === 'survival' ? [PLAYER_HALF]
     : (mp.active && !mpHostRunsBots()) ? [PLAYER_HALF]
@@ -6221,7 +6365,10 @@ function updateComputer(ai,half,dt) {
     }
   }
 }
-function updateEnemyAI(dt) { updateComputer(enemy,ENEMY_HALF,dt); }
+function updateEnemyAI(dt) {
+  if(mp.active && (mp.role!=='host'||rosterSeats(ENEMY_HALF)[0]?.kind!=='ai'))return;
+  updateComputer(enemy,ENEMY_HALF,dt);
+}
 
 /* ---------------- Wave / match flow ---------------- */
 /* Past wave 20 the ladder loops endlessly with compounding HP — the match only
@@ -6874,10 +7021,13 @@ function simulate(dt) {
   for (let i = pendingSpawns.length - 1; i >= 0; i -= 1) {
     if (pendingSpawns[i].at <= simTime && creeps.length < 280) { const s = pendingSpawns.splice(i, 1)[0]; spawningWaveIdx = s.waveIdx; spawnCreep(s.waveDef, s.half, s.side, false); spawningWaveIdx = null; }   // defer (don't drop) spawns when the board is saturated — endless perf floor
   }
-  creeps.forEach((creep) => updateCreep(creep, dt));
+  creeps.forEach((creep) => mpWithEffectSeat(mp.active?mpCreepSeatKey(creep):null,()=>updateCreep(creep, dt)));
   for (let i = creeps.length - 1; i >= 0; i -= 1) if (creeps[i].hp <= 0) creeps.splice(i, 1);
-  towers.forEach((tower) => updateTower(tower, dt));
-  for (let i = projectiles.length - 1; i >= 0; i -= 1) if (!updateProjectile(projectiles[i], dt)) projectiles.splice(i, 1);
+  towers.forEach((tower) => mpWithEffectSeat(mp.active?mpTowerSeatKey(tower):null,()=>updateTower(tower, dt)));
+  for (let i = projectiles.length - 1; i >= 0; i -= 1) {
+    const projectile=projectiles[i];
+    if(!mpWithEffectSeat(mp.active?mpTowerSeatKey(projectile.tower):null,()=>updateProjectile(projectile,dt)))projectiles.splice(i,1);
+  }
   if (projectiles.length > 360) projectiles.splice(0, projectiles.length - 360);   // endless perf cap
   for (let i = effects.length - 1; i >= 0; i -= 1) if (effects[i].until <= simTime) effects.splice(i, 1);
   if (effects.length > 140) effects.splice(0, effects.length - 140);
@@ -7696,6 +7846,10 @@ function drawCrystalLinks(ctx,tower) {
 function drawTower(ctx, tower) {
   const stats = towerLiveStats(tower);
   const x = tower.c * CELL, y = tower.r * CELL;
+  if(towerInvulnerable(tower)) {
+    ctx.save();ctx.strokeStyle='#96fff0';ctx.lineWidth=Math.max(2,CELL*.09);
+    ctx.shadowColor='#62ffe1';ctx.shadowBlur=8;ctx.strokeRect(x+CELL*.08,y+CELL*.08,CELL*.84,CELL*.84);ctx.restore();
+  }
   // the ray is the attack itself, so it is drawn straight from the tower's live
   // target rather than queued as an effect — no allocation, and it cannot be
   // switched off with the decorative particles
@@ -7829,6 +7983,7 @@ const FX_ALWAYS = new Set(['num']);
 function particlesOff() { return typeof profile !== 'undefined' && profile && profile.noParticles === true; }
 function pushFx(effect) {
   if (effect && particlesOff() && !FX_ALWAYS.has(effect.kind)) return;
+  if(mp.active && effect && !effect.mapSeatKey)effect.mapSeatKey=mpEffectSeat || mpMySeatKey();
   effects.push(effect);
 }
 function rmReduced() {
@@ -7848,11 +8003,11 @@ const ELEMENT_BY_COLOR = { '#8adcff':'ice', '#ff9068':'fire', '#d9b070':'earth',
    redraws only each creep's rim and a health pip — a few pixels per body, so
    the volley keeps every bit of its brightness and the wave still reads
    through it. */
-function drawCreepReadPass(ctx) {
-  if (!creeps.length) return;
+function drawCreepReadPass(ctx,visibleCreeps=creeps) {
+  if (!visibleCreeps.length) return;
   ctx.save();
   ctx.lineWidth = 1.6;
-  creeps.forEach((creep) => {
+  visibleCreeps.forEach((creep) => {
     if (creep.hp <= 0) return;
     const style = roleStyle[creep.role] || roleStyle.standard;
     const size = style.size + (creep.sent ? 1 : 0);
@@ -8852,7 +9007,7 @@ function renderRing() {
     + (label ? `<span class="ring-label" style="left:0; top:${-RAD - 34}px">${label}</span>` : '');
   ring.querySelectorAll('[data-ring]').forEach((b) => b.addEventListener('click', (event) => { event.stopPropagation(); ringAction(b.dataset.ring); }));
 }
-function renderFrame() {
+function renderLocalFrame(seatKey=null) {
   fxCtx.clearRect(0, 0, BOARD_W, BOARD_H);
   drawRiverFx(fxCtx);
   drawDebug(fxCtx);
@@ -8868,8 +9023,9 @@ function renderFrame() {
     fxCtx.restore();
   });
   drawOpponentMirror(fxCtx);
-  towers.forEach((tower) => drawTower(fxCtx, tower));
-  creeps.forEach((creep) => {
+  towers.forEach((tower) => {if(!seatKey||mpTowerSeatKey(tower)===seatKey)drawTower(fxCtx, tower);});
+  const visibleCreeps=seatKey?creeps.filter(c=>mpCreepSeatKey(c)===seatKey):creeps;
+  visibleCreeps.forEach((creep) => {
     drawCreep(fxCtx, creep);
     if (creep.hitAt && simTime - creep.hitAt < .1 && creep.hp > 0) {
       fxCtx.save(); fxCtx.globalAlpha = .55 * (1 - (simTime - creep.hitAt) / .1);
@@ -8878,9 +9034,9 @@ function renderFrame() {
       fxCtx.restore();
     }
   });
-  projectiles.forEach((projectile) => drawProjectile(fxCtx, projectile));
-  effects.forEach((effect) => drawEffect(fxCtx, effect));
-  drawCreepReadPass(fxCtx);   // the wave must survive its own light show
+  projectiles.forEach((projectile) => {if(!seatKey||mpTowerSeatKey(projectile.tower)===seatKey)drawProjectile(fxCtx, projectile);});
+  effects.forEach((effect) => {if(!seatKey||!effect.mapSeatKey||effect.mapSeatKey===seatKey)drawEffect(fxCtx, effect);});
+  drawCreepReadPass(fxCtx,visibleCreeps);   // the wave must survive its own light show
   if (marquee) {
     const col = marquee.mode === 'lasso' ? '#c58fd8' : '#77d6ff';
     fxCtx.save();
@@ -8981,6 +9137,11 @@ function overlayItem(cls, r, c, html, extra = '') {
   return `<div class="ov ${cls}" ${rest} style="${own}left:${pct((c) * CELL, BOARD_W)};top:${pct((r) * CELL, BOARD_H)}">${html}</div>`;
 }
 function buildOverlay() {
+  if(mp.active&&mp.started) {
+    $('board-overlay').innerHTML=mpMapSeatLayouts().map(s=>
+      `<div class="mp-slot-label" data-map-seat="${s.key}" style="--lane:${s.lane.color};left:${pct(s.c0,COLS)};top:${pct(s.r0,ROWS)};width:${pct(s.c1-s.c0+1,COLS)}"><b>${escapeHTML(mpMapSlotLabel(s))}</b><small>${s.position}${s.friendly?' · YOUR TEAM':' · OPPONENTS'}</small></div>`).join('');
+    return;
+  }
   let html = '';
   // the markers sat one row shy of their own berths, so both ships read as
   // floating at the mouth of the notch instead of docked at the bottom of it
@@ -9035,9 +9196,9 @@ function renderSeatWatch() {
     seatWatchKey = sig;
     const chip = (s) => `<button class="sw-chip ${s.mine ? 'sw-me' : ''} ${s.friendly ? 'sw-ally' : 'sw-foe'}"
         style="--lane:${s.lane ? s.lane.color : '#8899bb'}" data-watch="${s.key}"
-        title="${s.mine ? 'Your own board — you are playing it' : (s.hasBoard ? 'Watch this board' : 'No picture from this board yet')}">
+        title="Focus ${s.lane?.name || ''} · ${s.half} ${s.zone.label}${s.mine?' · your board':s.friendly?' · teammate':' · opponent'}">
         <i></i><b>${escapeHTML(s.name)}</b><em data-lives="${s.key}">—</em></button>`;
-    box.innerHTML = `<span class="sw-label">WATCHING</span>`
+    box.innerHTML = `<span class="sw-label">MAP SLOTS</span>`
       + seats.filter((s) => s.friendly).map(chip).join('')
       + `<span class="sw-vs">⚔</span>`
       + seats.filter((s) => !s.friendly).map(chip).join('');
@@ -9072,14 +9233,14 @@ function renderSquadIncome() {
       const peer=s.sid ? mp.peers[s.sid] : null;
       const localHalf=s.friendly ? PLAYER_HALF : ENEMY_HALF;
       const pos=rosterSeats(localHalf).findIndex(r=>r.index===s.index);
-      const bot=s.kind==='ai' ? (localHalf===ENEMY_HALF && pos===0 ? enemy : allies.find(a=>a.half===localHalf&&a.seat===pos)) : null;
-      return row(s.name,s.mine?selectedRace.id:peer?.raceId || s.raceId || bot?.raceId,
+      const bot=s.kind==='ai' && mp.role==='host' ? (localHalf===ENEMY_HALF && pos===0 ? enemy : allies.find(a=>a.half===localHalf&&a.seat===pos)) : null;
+      return row(s.name,s.mine?selectedRace.id:peer?.raceId || mp.seatRace?.[s.key] || s.raceId || bot?.raceId,
         s.mine?player.income:peer?.income ?? bot?.income ?? mp.seatIncome[s.key] ?? null,!friendly,s.lane,s.zone.label);
     }).join('');
-    const watched=seats.find(s=>s.key===mp.viewSeat && !s.mine);
+    const mine=mpMapSeatLayouts().find(s=>s.mine);
     box.innerHTML='<div class="si-head">YOUR TEAM</div>'+group(true)
       +'<div class="si-head">OPPONENTS</div>'+group(false)
-      +`<div class="si-view">BOTTOM: YOUR BOARD${watched ? `<br>TOP: ${escapeHTML(watched.name)} · ${watched.friendly?'TEAMMATE':'OPPONENT'}` : ''}</div>`;
+      +`<div class="si-view">YOUR SLOT: ${mine?escapeHTML(mine.lane.name+' · '+mine.position):'—'}<br>Colours stay in their lobby positions.<br>Teammates share lives.</div>`;
     return;
   }
   const mine = allies.filter((a) => a.half === PLAYER_HALF);
@@ -9203,7 +9364,7 @@ function railBody(tab) {
       <b>${title}</b>${cost ? `<span class="rl-cost">${cost}</span>` : ''}${sub ? `<small>${sub}</small>` : ''}</button>`;
   if (tab === 'build') {
     const raceId = currentBuildRaceId();
-    return `<div class="rl-head">BUILD — tap, then tap the board</div>` + buildableListFor(raceId).map(({ def, tier }) => {
+    return supportPanelHtml()+`<button class="ghost-button" data-support-action="training">Send Training L${sendTrainingLevel()+1} · ${100*(sendTrainingLevel()+1)} lumber</button><div class="rl-head">BUILD — tap, then tap the board</div>` + buildableListFor(raceId).map(({ def, tier }) => {
       const d = towerDef(raceId, tier);
       const woodCost = d.lumber || 0;
       /* The rail was the thinnest build surface of the three — damage, range and
@@ -9217,13 +9378,13 @@ function railBody(tab) {
     }).join('');
   }
   if (tab === 'send') {
-    return `<div class="rl-head">SEND — shrine level, then ROI</div>` + orderedSends().map((s) => {
+    return `<div class="rl-head">SEND — tap a shrine to collapse</div>` + sendTierMarkup(SENDS,(s) => {
       const inc = sendIncomeLabel(s);
-      const gain = s.attacker ? `+${s.woodIncome || 0} lumber/cycle` : `${inc.text} income`;
+      const gain = sendRewardText(s);
       return card(`data-rail-send="${s.id}"`, '#ff8a9a', `${sendGlyph(s)} ${s.name}`,
         `Shrine ${s.shrine} · ROI ${sendRoiLabel(s)} · ${sendTypeLabel(s)} · ${gain} · ${s.hp} hp · ${s.aClass}`, sendPriceText(s), false,
         !sendAffordable(s) || player.shrine < s.shrine);
-    }).join('');
+    });
   }
   if (tab === 'tower') {
     const sel = selectionTowers().filter(isMine);
@@ -9241,7 +9402,7 @@ function railBody(tab) {
     return `<div class="rl-head">${many ? `${sel.length} × ` : ''}${st.name}</div>`
       + `<div class="rl-card"><small>${st.dmg} dmg · ${attackSpeedText(st)} · ${effectiveDps(st, t0.raceId).toFixed(0)} dps · ${st.range.toFixed(1)} reach`
       + `<br>${Math.max(0, Math.round(t0.blockHp))}/${t0.blockMaxHp} HP · ${attackProfileText(t0.raceId, st)}`
-      + `<br>Rank ${towerTotalRank(t0)}/50 · hits earn ranks automatically.<br><b style="color:#8fe6b8">Tap the tower on the board</b> to finish a rank, tier, retarget or sell it.</small></div>`
+      + `<br>Rank ${towerTotalRank(t0)} · uncapped hit-earned ranks.<br><b style="color:#8fe6b8">Tap the tower on the board</b> to finish a rank, tier, retarget or sell it.</small></div>`
       + weaponPanelHtml(sel) + boltPanelHtml(sel) + wardPanelHtml(sel) + batchPanelHtml(sel);
   }
   const on = (v) => v ? 'on' : '';
@@ -9400,7 +9561,7 @@ function renderHud() {
   const lumberLabel = $('lumber-label');
   if (lumberLabel) lumberLabel.textContent = String(player.lumber);
   const woodIncomeLabel = $('wood-income-label');
-  if (woodIncomeLabel) woodIncomeLabel.textContent = `+${(player.woodIncome || 0).toFixed(1)}`;
+  if (woodIncomeLabel) woodIncomeLabel.textContent = `+${(player.woodIncome || 0).toFixed(2)}`;
   const playerCountLabel = $('player-count-label');
   if (playerCountLabel) playerCountLabel.textContent = `${seatsOn(PLAYER_HALF)}/${seatsOn(PLAYER_HALF) + seatsOn(ENEMY_HALF)}`;
   // keep economy buttons in step with live gold/lumber
@@ -9480,6 +9641,8 @@ function renderHud() {
     const clock = Math.max(0, Math.ceil(waveClock));
     $('timer-label').textContent = `00:${String(clock).padStart(2, '0')}`;
   }
+  if(supportBuildMode && $('tower-list')){const html=supportPanelHtml();if($('tower-list').innerHTML!==html)$('tower-list').innerHTML=html;}
+  document.querySelectorAll('[data-support-action="training"]').forEach(button=>{button.disabled=!battleRunning || player.lumber<100*(sendTrainingLevel()+1);});
   renderTacticalDock();
   enforceHudContract();   // R1-R3: re-fit the row after every live label is written
   $('pause-button').textContent = battlePaused ? '▶' : 'Ⅱ';
@@ -9503,17 +9666,19 @@ function renderBuilderTabs() {
     <button class="${secondReady && buildRaceIdx === 1 ? 'active' : ''} ${secondReady ? '' : 'builder-locked'}" ${secondReady ? 'data-builder-index="1"' : 'data-builder-license="1"'} style="--tab-race:${second?.color || '#c9b6ff'}">
       <span>${secondReady ? `${second.symbol} ${second.name}` : '⚗ LOCKED'}</span><small>${secondReady ? 'BUILDER 2' : '2 LUMBER'}</small>
     </button>
-    <button class="builder-locked" disabled style="--tab-race:#8fe6b8" title="Reserved for a future support system">
-      <span>✦ SUPPORT</span><small>RESERVED</small>
+    <button class="${supportBuildMode?'active':''}" data-builder-support="1" style="--tab-race:#8fe6b8" title="Buy and activate defensive glyphs">
+      <span>✦ SUPPORT</span><small>GLYPHS</small>
     </button>`;
   tabs.querySelectorAll('[data-builder-index]').forEach((button) => button.addEventListener('click', () => {
     buildRaceIdx = Number(button.dataset.builderIndex);
+    supportBuildMode=false;
     selectedTowerTier = 0;
     selectedTowerKey = null; selectedGroupKeys = [];
     renderTowerList(); renderTowerDetails();
     const race = races.find((item) => item.id === currentBuildRaceId());
     log(`${race?.name || 'Builder'} tower line selected.`);
   }));
+  tabs.querySelector('[data-builder-support]')?.addEventListener('click',()=>{supportBuildMode=true;renderTowerList();});
   tabs.querySelector('[data-builder-license]')?.addEventListener('click', () => {
     const license = $('license-button');
     license?.scrollIntoView({ block:'nearest', behavior:rmReduced() ? 'auto' : 'smooth' });
@@ -9530,6 +9695,8 @@ function renderTowerList() {
   const raceId = currentBuildRaceId();
   renderBuilderTabs();
   renderBuildExtras();
+  $('build-mode-button').hidden=supportBuildMode;
+  if(supportBuildMode){$('tower-list').innerHTML=supportPanelHtml();return;}
   $('tower-list').innerHTML = buildableListFor(raceId).map(({ def: entry, tier }) => {
     const def = towerDef(raceId, tier);
     const lum = def.lumber || 0;
@@ -9605,6 +9772,7 @@ function renderBuildExtras() {
       ? ` — L${next} opens ${opens.length} send${opens.length > 1 ? 's' : ''}<small>${names}${opens.length > 2 ? ` +${opens.length - 2} more` : ''}</small>`
       : ''}</span><button id="shrine-upgrade-build" class="ghost-button" ${player.lumber < 1 ? 'disabled' : ''}>L${next} • 1🪵</button></div>`;
   }
+  html+=`<div class="shrine-row training-row"><span>Send Training <b>L${sendTrainingLevel()}</b><small>Future income sends: +5% HP, +1% speed, +1 armor every 2 levels; +10% price and +1% gold income per level. Direct training income pending.</small></span><button class="ghost-button" data-support-action="training" ${!battleRunning || player.lumber<100*(sendTrainingLevel()+1)?'disabled':''}>Train · ${100*(sendTrainingLevel()+1)} lumber</button></div>`;
   box.innerHTML = html;
   document.querySelectorAll('[data-chip]').forEach((chip) => chip.addEventListener('click', () => {
     buildRaceIdx = Number(chip.dataset.chip);
@@ -9844,6 +10012,8 @@ function wardPanelHtml(group) {
       return `<button class="bolt-chip ${on ? 'on' : ''}" data-bolt="${w.id}" data-ward="1" style="--bolt:${w.color}" title="${w.name} — ${WARD_BLURB[w.id]}"><span>${w.glyph}</span><small>${w.name.split(' ')[0]}</small><u>${WARD_BLURB[w.id]}</u></button>`;
     }).join('')}</div>
     <p class="bolt-note" data-bolt-note>${mixed || coreMixed ? 'Mixed Bulwark upgrades in this selection.' : `${[...firstCore].length}/4 core upgrades installed${current ? ` • aura: ${current.name}` : ' • choose one aura'}. Expertise ranks every installed effect together.`}</p>
+    <p class="bolt-note">Uncapped expertise: raw damage absorbed + actual Thorns damage. Above rank 3: +1% health per rank and +5% each fifth rank. Defenses stop scaling at 3.</p>
+    ${rank?`<button class="ghost-button" data-support-action="bulwark-rank">Finish next expertise rank · ${Math.max(1,Math.ceil((rank+1)/10))} lumber per Bulwark</button>`:''}
   </div>`;
 }
 /* THE WEAPON RACK — what a placed chassis can become.
@@ -10100,7 +10270,7 @@ function renderTowerDetails() {
         <span>${n.dmg} dmg · ${n.range.toFixed(1)} reach · ${attackSpeedText(n)}${n.groundOnly ? ' · NO AIR' : ''}</span>
         <em>${n.desc || specialBlurbs[n.special] || ''}</em></p>`;
     })()}
-    <div class="td-stats"><span>DMG <b>${stats.dmg}</b></span><span>RANGE <b>${stats.range.toFixed(1)}</b></span><span>SPEED <b>${attackSpeedText(stats)}</b></span><span>DPS <b>${effectiveDps(stats, tower.raceId).toFixed(0)}</b></span><span>HP <b>${Math.max(0, Math.round(tower.blockHp))}/${tower.blockMaxHp}</b></span>${stats.special!=='bulwark'?`<span>RANK <b>${towerTotalRank(tower)}/50</b></span>`:''}</div>
+    <div class="td-stats"><span>DMG <b>${stats.dmg}</b></span><span>RANGE <b>${stats.range.toFixed(1)}</b></span><span>SPEED <b>${attackSpeedText(stats)}</b></span><span>DPS <b>${effectiveDps(stats, tower.raceId).toFixed(0)}</b></span><span>HP <b>${Math.max(0, Math.round(tower.blockHp))}/${tower.blockMaxHp}</b></span>${stats.special!=='bulwark'?`<span>RANK <b>${towerTotalRank(tower)}</b></span>`:''}</div>
 
     <p class="td-desc profile-line">${attackProfileText(tower.raceId, stats)}</p>
     ${isYours ? weaponPanelHtml(group) + boltPanelHtml(group) + wardPanelHtml(group) + batchPanelHtml(group) : ''}`;
@@ -10137,14 +10307,15 @@ function renderSendPanel() {
   const card = (send) => `
     <button class="send-card" data-send="${send.id}"><span class="send-icon" title="${sendTypeLabel(send)}">${sendGlyph(send)}</span>
       <div><strong>${send.name} <em class="${send.attacker ? 'atk-tag' : (send.air ? 'air-tag' : 'income-tag')}">${sendTypeLabel(send)}</em></strong>
-      <small data-send-note="${send.id}">${send.attacker ? `<b style="color:#ff9faf">no gold income</b> • breaks towers · ${SWING_DMG * send.breakPower} dmg a swing${send.woodIncome ? ` · <b style="color:#b9a877">+${send.woodIncome}🪵 / cycle</b>` : ''}` : `+${send.income} income`}</small>
-      <small class="send-stats">Shrine ${send.shrine} · ROI ${sendRoiLabel(send)} · payback ${sendRoi(send).toFixed(2)} cycles<br>${sendShownHp(send)}${send.bodies > 1 ? ` HP × ${send.bodies}` : ' HP'} • ${send.spd.toFixed(1)} spd • ${send.armor} armor (${send.aClass})</small></div><b>${sendPriceText(send)}</b></button>`;
+      <small data-send-note="${send.id}">${sendRewardText(send)}${send.attacker ? ` · breaks towers · ${SWING_DMG * send.breakPower} damage per 1s strike` : ''}</small>
+      <small class="send-stats">${sendStatLine(send)} · payback ${sendRoi(send).toFixed(2)} cycles</small></div><b>${sendPriceText(send)}</b></button>`;
   $('send-list').innerHTML = sendTierMarkup(SENDS, card);
   document.querySelectorAll('[data-send]').forEach((button) => button.addEventListener('click', () => buySend(button.dataset.send)));
   refreshSendLocks();
 }
 function buySend(id) {
-  const send=SENDS.find(s=>s.id===id);if(!send)return false;
+  const base=SENDS.find(s=>s.id===id);if(!base)return false;
+  const send=trainedSend(base);
   if (!battleRunning) return log('Start a match before sending.');
   if (player.shrine < send.shrine) return log(`${send.name} needs Shrine level ${send.shrine}.`);
   if (player.gold < send.cost) return log(`Not enough gold — ${send.name} costs ${sendPriceText(send)}.`);
@@ -10160,7 +10331,7 @@ function buySend(id) {
     // one enemy at a time, cycled, and named in the message — otherwise a
     // send bought once would land on every board on the other side
     const target = mpSendTarget();
-    const message={t:'send',sid:mp.sid,id:send.id,target,sourceSeat:mpMySeatKey(),match:mp.matchId};
+    const message={t:'send',sid:mp.sid,id:send.id,target,sourceSeat:mpMySeatKey(),match:mp.matchId,training:sendTrainingLevel()};
     mpSend(message);
     mpOnMessage(message);
     log(`${send.name} × 2 away at ${mpSeatName(target)}.`);
@@ -10172,7 +10343,7 @@ function buySend(id) {
   if (player.income >= 300) award('income_300');
   if (send.air) { profile.dragonsSent += 1; if (profile.dragonsSent >= 10) award('dragon_rider'); saveProfile(); }
   // quote the PAYOUT, not the raw ladder total — the raw number contradicts the HUD above it
-  log(`${send.name} × 2 sent (west + east)${send.air ? ' — flying over the maze' : ''}. ${send.attacker ? `No gold income; +${send.woodIncome || 0}🪵 per ${currentIncomePeriod()}s.` : `Income ${incWas} → ${incNow}g per ${currentIncomePeriod()}s.`}`);
+  log(`${send.name} × 2 sent (west + east)${send.air ? ' — flying over the maze' : ''}. Gold payout ${incWas} → ${incNow}; ${send.woodIncome ? `+${send.woodIncome} lumber income; ` : ''}every ${currentIncomePeriod()}s.`);
   renderHud();
 
   return true;
@@ -10219,7 +10390,7 @@ function renderTacticalDock() {
     });
   }
   const pool = desktopSendPool();
-  const key = [desktopSendTab, player.shrine, Math.floor(player.gold), player.lumber,
+  const key = [desktopSendTab, player.shrine, sendTrainingLevel(), Math.floor(player.gold), player.lumber,
     Math.round(player.income), Math.round(sendGrowth() * 100), pool.map((send) => send.id).join(',')].join('|');
   if (key !== tacticalDockKey) {
     tacticalDockKey = key;
@@ -10235,12 +10406,10 @@ function renderTacticalDock() {
       const locked = player.shrine < send.shrine;
       const poor = !sendAffordable(send);
       const inc = sendIncomeLabel(send);
-      const gain = send.attacker
-        ? (send.woodIncome ? `+${send.woodIncome.toFixed(1)} lumber income` : 'wall breaker · no gold income')
-        : `${inc.text} income`;
+      const gain = sendRewardText(send);
       return `<button class="dock-send-card ${locked ? 'locked' : ''} ${poor ? 'poor' : ''}" data-dock-send="${send.id}" title="${locked ? `Requires Shrine level ${send.shrine}` : `Send ${send.name}`}">
         <span class="send-top"><i class="send-glyph">${sendGlyph(send)}</i><span><strong>${send.name}</strong><small>SHRINE ${send.shrine} · ROI ${sendRoiLabel(send)}<br>PAYBACK ${sendRoi(send).toFixed(2)} CYCLES</small></span></span>
-        <span class="dock-send-stats">${sendShownHp(send)}${send.bodies > 1 ? ` HP × ${send.bodies}` : ' HP'} · ${send.armor} armor<br>${send.aClass} · ${send.spd.toFixed(1)} speed</span>
+        <span class="dock-send-stats">${sendShownHp(send)}${send.bodies > 1 ? ` HP × ${send.bodies}` : ' HP'} · ${trainedSend(send).armor + (send.attacker ? 0 : TRAIT.armorBonus)} armor<br>${send.aClass} · ${trainedSend(send).spd.toFixed(2)} speed</span>
         <span class="dock-send-buy"><b>${sendPriceText(send)}</b><i>${gain}</i></span>
       </button>`;
     }, true) : `<div class="dock-empty">No ${desktopSendTab} are available in this ruleset.</div>`;
@@ -10310,7 +10479,7 @@ function refreshSendLocks() {
     // show what this send would actually ADD to the payout, not its raw ladder number:
     // above the soft cap the two diverge, and the card is where that decision is made
     const inc = sendIncomeLabel(send);
-    note.textContent = `${inc.text} income${inc.cut ? ` (of +${send.income})` : ''}${locked ? ` • Shrine L${send.shrine}` : ''}`;
+    note.textContent = `${sendRewardText(send)}${locked ? ` • Shrine L${send.shrine}` : ''}`;
     note.classList.toggle('inc-cut', inc.cut);
   });
 }
@@ -10327,10 +10496,20 @@ function log(message) {
 }
 
 /* ---------------- Board interaction ---------------- */
-function cellFromEvent(event) {
+function boardPointFromEvent(event) {
   const rect = $('fx-canvas').getBoundingClientRect();
-  const c = Math.floor((event.clientX - rect.left) / rect.width * COLS);
-  const r = Math.floor((event.clientY - rect.top) / rect.height * ROWS);
+  const x = (event.clientX - rect.left) / rect.width * COLS;
+  const y = (event.clientY - rect.top) / rect.height * ROWS;
+  if (!mp.active || !mp.started) return {x,y,mine:true};
+  const slot = mpMapSeatAt(x,y);
+  const local = mpMapUnprojectPoint(mpMySeatKey(),x,y);
+  return {x:local?.[0] ?? x,y:local?.[1] ?? y,mapX:x,mapY:y,seatKey:slot?.key,mine:slot?.mine===true};
+}
+function cellFromEvent(event) {
+  const point=boardPointFromEvent(event);
+  if (!point.mine) return null;
+  const c = Math.floor(point.x);
+  const r = Math.floor(point.y);
   return inBounds(r, c) ? { r, c } : null;
 }
 function sellTowerAt(cell) {
@@ -10352,14 +10531,14 @@ function sellTowerAt(cell) {
 }
 function handleBoardTap(event) {
   if (!battleRunning && !matchOver) return;
+  const point=boardPointFromEvent(event);
+  if (mp.active && mp.started && !point.mine) { mpInspectMapSlot(point); return; }
   const cell = cellFromEvent(event);
   if (!cell) return;
   let key = idx(cell.r, cell.c);
   if (!towers.has(key)) {
     // snap assist: a tap landing within 0.6 cells of one of your towers selects it
-    const rect = $('fx-canvas').getBoundingClientRect();
-    const px = (event.clientX - rect.left) / rect.width * COLS;
-    const py = (event.clientY - rect.top) / rect.height * ROWS;
+    const px = point.x, py = point.y;
     let best = null, bestD = .6;
     towers.forEach((t) => {
       if (t.owner !== 'player') return;
@@ -10432,9 +10611,7 @@ function handleBoardTap(event) {
   }
   // not on a tower — a creep tapped directly gets inspected (works on sends, bosses, rivals)
   {
-    const rectC = $('fx-canvas').getBoundingClientRect();
-    const px = (event.clientX - rectC.left) / rectC.width * COLS;
-    const py = (event.clientY - rectC.top) / rectC.height * ROWS;
+    const px = point.x, py = point.y;
     let best = null, bd = .55;
     creeps.forEach((cr) => { if (cr.hp <= 0) return; const d = Math.hypot(cr.x - px, cr.y - py); if (d < bd) { bd = d; best = cr; } });
     if (best) {
@@ -10708,6 +10885,7 @@ function resetMapZoom() { mapZoomScale = 1; mapOffsetX = 0; mapOffsetY = 0; appl
    player a 3px cell and no way to know that zooming was the point. Frames the
    door and the open band in front of it, which is where the first tower goes. */
 function frameHomeGround(animate = false) {
+  if (mp.active && mp.started) { mpFocusMapSeat(mpMySeatKey(),animate); return; }
   const viewport = $('map-viewport');
   if (!viewport || frameBase.width < 10) return;
   const vw = viewport.clientWidth, vh = viewport.clientHeight;
@@ -10756,6 +10934,12 @@ function drawRivalStrip() {
   const cv = $('rival-strip');
   if (!cv || !document.body.classList.contains('arena') || !battleRunning) return;
   const ctx = cv.getContext('2d');
+  if(mp.active&&mp.started) {
+    ctx.clearRect(0,0,cv.width,cv.height);
+    ctx.drawImage($('fx-canvas'),0,0,cv.width,cv.height);
+    cv.setAttribute('aria-label','Fixed lobby map overview. Tap to see all colored slots.');
+    return;
+  }
   const half = rivalStripWatching ? PLAYER_HALF : ENEMY_HALF;
   const r0 = half === 'north' ? 0 : RIVER_BOT + 1;
   const rows = HALF_ROWS, cols = COLS;
@@ -10795,6 +10979,7 @@ function setupRivalStrip() {
   if (!cv || cv._wired) return;
   cv._wired = true;
   cv.addEventListener('click', () => {
+    if(mp.active&&mp.started){resetMapZoom();return;}
     /* Swap which half the CAMERA is on. The strip always shows the other one,
        so the pair reads as "here, and over there" whichever way round it is. */
     rivalStripWatching = !rivalStripWatching;
@@ -10871,9 +11056,9 @@ function setupMapZoom() {
   viewport.addEventListener('pointerdown', (event) => {
     if (event.target.closest && event.target.closest('.action-ring, .map-toggles, .map-zoom-controls')) return;
     if ((selectMode || event.shiftKey) && battleRunning && event.button !== 2) {
-      const rect = $('fx-canvas').getBoundingClientRect();
-      const px = (event.clientX - rect.left) / rect.width * COLS;
-      const py = (event.clientY - rect.top) / rect.height * ROWS;
+      const point=boardPointFromEvent(event);
+      if (!point.mine) return;
+      const px = point.x, py = point.y;
       const mode = selectMode || 'box';
       marquee = mode === 'lasso'
         ? { mode, points:[{ x:px, y:py }], id:event.pointerId }
@@ -10923,9 +11108,8 @@ function setupMapZoom() {
   });
   viewport.addEventListener('pointermove', (event) => {
     if (marquee && marquee.id === event.pointerId) {
-      const rect = $('fx-canvas').getBoundingClientRect();
-      const px = (event.clientX - rect.left) / rect.width * COLS;
-      const py = (event.clientY - rect.top) / rect.height * ROWS;
+      const point=boardPointFromEvent(event);
+      const px = point.x, py = point.y;
       if (marquee.mode === 'lasso') {
         const last = marquee.points[marquee.points.length - 1];
         if (Math.hypot(px - last.x, py - last.y) > .3) marquee.points.push({ x:px, y:py });
@@ -11332,7 +11516,7 @@ function lobbyBoardGuide(myHalf) {
   const foes=myHalf===PLAYER_HALF?ENEMY_HALF:PLAYER_HALF;
   const band=(half,friendly)=>{
     const active=ensureRoster()[half].filter(s=>s.kind!=='closed');
-    return `<div class="lb-map-label">${friendly?'YOUR TEAM · BOTTOM':'OPPONENTS · TOP'}</div><div class="lb-map-row">`
+    return `<div class="lb-map-label">${half.toUpperCase()} · ${friendly?'YOUR TEAM':'OPPONENTS'}</div><div class="lb-map-row">`
       +active.map((s,i)=>{
         const lane=seatLane(half,i,active.length),zone=seatZone(half,i,active.length);
         const mine=mp.active?s.sid===mp.sid:s.kind==='human';
@@ -11340,7 +11524,7 @@ function lobbyBoardGuide(myHalf) {
         return `<div class="lb-map-seat" data-map-seat="${half}:${s.index}" style="--lane:${lane.color};grid-column:${active.length===1?'1 / 4':seatLaneIdx(i,active.length)+1}"><b>${escapeHTML(name)}</b><span>${lane.name} · ${zone.label}</span></div>`;
       }).join('')+'</div>';
   };
-  return `<div class="lb-map" aria-label="Team colors and board positions">${matchMode==='survival'?'':band(foes,false)}${band(myHalf,true)}</div>`;
+  return `<div class="lb-map" aria-label="Team colors and board positions">${matchMode==='survival'?'':band('north',myHalf==='north')}${band('south',myHalf==='south')}</div>`;
 }
 function renderLobby(force) {
   const box = $('lobby');
@@ -11420,12 +11604,12 @@ function renderLobby(force) {
       ${lobbyBoardGuide(myHalf)}
       ${mp.active && mp.role==='host' && !mp.started && lobbyHumans().length>=2 ? `<button id="lb-team-up" class="lb-ready" ${mpHumansVsComputers()?'disabled':''}>${mpHumansVsComputers()?'Playing together vs computers':'Play together vs computers'}</button>` : ''}
       <div class="lb-cols">
-        ${column(myHalf, 'Your team · bottom', sizeS)}
-        ${matchMode === 'survival' ? '' : column(foeHalf, 'Opponents · top', sizeN)}
+        ${column(myHalf, `Your team · ${myHalf}`, sizeS)}
+        ${matchMode === 'survival' ? '' : column(foeHalf, `Opponents · ${foeHalf}`, sizeN)}
       </div>
       ${solo ? `<label class="lb-solo"><input type="checkbox" id="lb-solo" ${soloRules ? 'checked' : ''}>
         <span><b>Solo rules</b> — sends only, no neutral waves, and a brutal rival that builds the whole far side rather than a corner of it. One player, one very hard opponent.</span></label>` : ''}
-      <p class="lb-hint">Players in the same team row share lives and cannot target each other. Colours match the board: west is left, east is right. A teammate's towers are built on your board too, in their lane, so you maze one board together. Watching their board above does not make them an opponent.</p>
+      <p class="lb-hint">Map slots keep these colours and positions on every device: north stays north, west stays left. A teammate's towers are also built on your board in their lane, so you maze one board together; you share lives and cannot target each other. Tap a colour during play to focus its fixed position.</p>
       <div class="lb-races">${races.filter((r) => raceUnlocked(r.id)).map((r) => `
         <button class="lb-race ${r.id === selectedRace.id ? 'on' : ''}" data-lb-race="${r.id}" style="--race:${r.color}" title="${r.name} — ${r.trait}">
           <span>${r.symbol}</span><small>${r.name}</small></button>`).join('')}</div>
@@ -11900,6 +12084,7 @@ mp.seatLeaks = {};             // "half:index" -> lives leaked on that board
 mp.myLeaks = 0;                // what I have let through, which is my share of the side's pool
 mp.leaksSent = -1;
 mp.seatIncome = {};
+mp.seatRace = {};
 mp.seatSnaps = {};             // "half:index" -> the last board picture that seat sent
 mp.botLivesSent = {};
 mp.viewSeat = null;            // whose board is mirrored into my north half right now
@@ -11921,17 +12106,35 @@ mp.viewSeat = null;            // whose board is mirrored into my north half rig
 const FX_SHOT = 0, FX_HIT = 1, FX_KILL = 2, FX_LEAK = 3;
 const MP_FX_CAP = 36;
 mp.fxOut = [];
+mp.fxSeatOut = {};
 mp.seatFx = {};
-function mpEmit(ev) {
-  if (!mp.active || !battleRunning) return;
-  mp.fxOut.push(ev);
-  if (mp.fxOut.length > MP_FX_CAP) mp.fxOut.shift();   // newest wins; a dropped tracer is nothing
+let mpEffectSeat = null;
+function mpWithEffectSeat(key, action) {
+  const previous=mpEffectSeat;mpEffectSeat=key;
+  try { return action(); } finally { mpEffectSeat=previous; }
+}
+function mpQueueSeatFx(key,events) {
+  const previous=mirrorFx;mirrorFx=mp.seatFx[key] || [];
+  try {mpPlayMirrorFx(events);mp.seatFx[key]=mirrorFx;} finally {mirrorFx=previous;}
+}
+function mpEmit(ev, key=mpMySeatKey()) {
+  if (!mp.active || !battleRunning || !key) return;
+  // The wire uses a south-facing board for every seat, including host bots.
+  const seat=mpSeatByKey(key),event=ev.slice();
+  if (seat && seat.half!==mp.team) {
+    event[2]=ROWS-event[2];
+    if(event[0]===FX_SHOT)event[4]=ROWS-event[4];
+  }
+  const list=key===mpMySeatKey()?mp.fxOut:(mp.fxSeatOut[key] ||= []);
+  list.push(event);
+  if(list.length>MP_FX_CAP)list.shift();
+  if(key!==mpMySeatKey())mpQueueSeatFx(key,[event]);
 }
 const r2 = (n) => Math.round(n * 2) / 2;               // half-cell precision is plenty and halves the bytes
 function mpEmitShot(tower, stats, target) {
   if (!mp.active) return;
   mpEmit([FX_SHOT, r2(tower.c + .5), r2(tower.r + .5), r2(target.x), r2(target.y),
-    races.findIndex((x) => x.id === tower.raceId), Math.round((projectileFlightTime(stats.special) || .25) * 20)]);
+    races.findIndex((x) => x.id === tower.raceId), Math.round((projectileFlightTime(stats.special) || .25) * 20)], mpTowerSeatKey(tower));
 }
 /* The replay side. Events arrive in the sender's own frame; mirroring is the
    same vertical reflection the creeps use (x, ROWS - y). Everything is
@@ -12005,7 +12208,7 @@ const UNIT_DEFS = WAVES.concat(SENDS);          // one flat table so a creep can
 const unitDefIdx = (c) => { const i = UNIT_DEFS.findIndex((d) => d.name === c.name); return i < 0 ? 0 : i; };
 const KNOCK_KINDS = ['', 'up', 'down', 'push', 'root'];
 const left = (until) => Math.max(0, Math.round(((until || 0) - simTime) * 10) / 10);
-function mpSnapOf(rows, flip) {
+function mpSnapOf(rows, flip, creepRows=null) {
   const fx = (x) => +x.toFixed(1);
   const fy = (y) => +(flip ? ROWS - y : y).toFixed(1);
   return {
@@ -12027,10 +12230,15 @@ function mpSnapOf(rows, flip) {
         Math.max(0, Math.round((t.blockMaxHp || 0) - (t.blockHp || 0))),   // damage taken; full is 0 and trims away
         left(t.blockingAt),
         beamOn ? fx(t.beamTo.x) : 0, beamOn ? fy(t.beamTo.y) : 0,
-        towerLaneColor(t) || 0
+        towerLaneColor(t) || 0,
+        t.raceId==='crystal' ? [1+['damage','speed','range'].indexOf(crystalFormation(t).bonus),
+          ...crystalFormation(t).members.map(m=>m.key)] : 0,
+        t.rank || 0,bulwarkRank(t),(t.bulwarkCore || []).reduce((mask,id)=>mask | (1<<['health','armor','regen','thorns'].indexOf(id)),0),
+        ['chill','banner','sunder'].indexOf(t.ward)+1,t.bulwarkDamageTaken || 0,
+        left(Math.max(t.glyphUntil || 0,isMine(t)?player.glyphUntil || 0:0)),Math.round(t.blockMaxHp || 0)
       ]);
     }),
-    creeps:creeps.filter((c) => c.hp > 0 && (flip ? c.half === ENEMY_HALF : c.half === PLAYER_HALF))
+    creeps:creeps.filter((c) => c.hp > 0 && (creepRows ? creepRows(c) : (flip ? c.half === ENEMY_HALF : c.half === PLAYER_HALF)))
       .slice(0, MP_CREEP_CAP)
       .map((c) => trim([
         fx(c.x), fy(c.y), Object.keys(roleStyle).indexOf(c.role),
@@ -12041,7 +12249,7 @@ function mpSnapOf(rows, flip) {
         left(c.stunUntil), left(c.stasisUntil),
         left(c.knockUntil), Math.max(0, KNOCK_KINDS.indexOf(c.knockKind)),
         +((c.shieldMax ? (c.shield || 0) / c.shieldMax : 0)).toFixed(2), Math.round(c.shieldMax || 0),
-        Math.round(c.venom || 0), left(c.venomUntil), left(c.rootUntil)
+        Math.round(c.venom || 0), left(c.venomUntil), left(c.rootUntil),c.armor || 0,+c.spd.toFixed(4)
       ]))
   };
 }
@@ -12062,21 +12270,17 @@ function mpViewableSeats() {
   }));
   return out;
 }
-/* Open on a TEAM-MATE'S board if you have one. You need to see the maze the
-   person sharing your lifeforce is building far more than you need to see the
-   enemy's, and defaulting to the enemy is why "allies should see what maze I'm
-   building" read as broken — the feature was there and pointed the wrong way. */
+/* Selecting a seat focuses its fixed lobby position; it never substitutes
+   that seat into an opponent-looking half of the local board. */
 function mpDefaultViewSeat() {
   const seats = mpViewableSeats();
-  const mate = seats.find((s) => s.friendly && !s.mine && s.hasBoard) || seats.find((s) => s.friendly && !s.mine);
-  if (mate) return mate.key;
-  const foe = seats.find((s) => !s.friendly && s.hasBoard) || seats.find((s) => !s.friendly);
-  return foe ? foe.key : null;
+  return seats.find(s=>s.mine)?.key || seats[0]?.key || null;
 }
 function mpSetViewSeat(key) {
+  if (!mpMapSeatLayouts().some(s=>s.key===key)) return;
   mp.viewSeat = key;
   mp.snap = mp.seatSnaps[key] || { towers:[], creeps:[] };
-  mirrorFx = [];   // the old board's tracers are not this board's
+  mpFocusMapSeat(key,true);
   renderHud();
 }
 function mpMyId() { return mp.sid; }
@@ -12155,6 +12359,39 @@ function mpAttackSeats(msg) {
   const sid=msg.__from||msg.sid,source=msg.sourceSeat?mpSeatByKey(msg.sourceSeat):mpSeatForSid(sid);
   const target=mpSeatByKey(msg.target);
   return source&&target&&source.half!==target.half&&mpSenderOwnsSeat(sid,source)?{source,target}:null;
+}
+/* Stable seat identities are shared by snapshots, projectiles and map paint.
+   allySeat is a position in the active local roster, not a wire seat index. */
+function mpTowerSeatKey(tower) {
+  if(!tower)return null;
+  if(tower.mapSeatKey)return tower.mapSeatKey;
+  const half=tower.allyHalf || (tower.owner==='player'?PLAYER_HALF:ENEMY_HALF);
+  const position=tower.allySeat ?? (half===PLAYER_HALF?humanSeatIndex():0);
+  const seat=rosterSeats(half)[position];
+  return seat?mpSeatKey(rosterHalfFor(half),seat.index):null;
+}
+function mpCreepSeatKey(creep) {
+  if(creep.defenderSeat)return creep.defenderSeat;
+  if(creep.half===PLAYER_HALF)return mpMySeatKey();
+  return mpBotSeatKeys()[0] || null;
+}
+function mpLocalBot(key) {
+  if(mp.role!=='host')return null;
+  const seat=mpSeatByKey(key);if(seat?.kind!=='ai')return null;
+  const half=seat.half===mp.team?PLAYER_HALF:ENEMY_HALF;
+  const pos=rosterSeats(half).findIndex(s=>s.index===seat.index);
+  const ai=half===ENEMY_HALF&&pos===0?enemy:allies.find(a=>a.half===half&&a.seat===pos);
+  return ai?{ai,half}:null;
+}
+function mpSnapshotForSeat(key) {
+  const bot=mpLocalBot(key);
+  if(key!==mpMySeatKey()&&!bot)return mp.seatSnaps[key] || {towers:[],creeps:[]};
+  const half=bot?bot.half:PLAYER_HALF;
+  // Computer lanes share a simulated half. Keep its moving creeps visible
+  // as they cross lane boundaries; the fixed slot clip places each body once.
+  const visibleCreep=c=>bot ? c.half===half&&mpSeatByKey(mpCreepSeatKey(c))?.kind==='ai'
+    : mpCreepSeatKey(c)===key;
+  return mpSnapOf(t=>mpTowerSeatKey(t)===key,half===ENEMY_HALF,visibleCreep);
 }
 function mpAllBotSeatKeys() {
   return ['south','north'].flatMap(half=>mpSeatsInPlay(half).filter(s=>s.kind==='ai').map(s=>mpSeatKey(half,s.index)));
@@ -12411,7 +12648,7 @@ async function mpOpenRoom(join) {
   mp.code = code; mp.role = join ? 'guest' : 'host'; mp.ready = false; mp.oppReady = false; mp.started = false; mp.oppName = ''; mp.oppLives = null; mp.config = null; mp.lobbyReadyPlayers={}; mp.lobbySeen={}; mp.lobbyRevision=0; mp.lobbyFingerprint=''; mp.hostSid=null;mp.lobbyStateSeq=0;mp.lobbyReadyAcks={};mp.readyRequestSerial=0;mp.pendingReady=null;mp.startPacket=null;mp.startAcks={};mp.matchRoster=null;mp.matchId=null;
   // A new room starts from the selected format, never a previous match's roster.
   mp.active=false;mp.team=PLAYER_HALF;mp.seat=0;mp.peers={};
-  mp.seatSnaps={};mp.seatLives={};mp.seatLeaks={};mp.seatIncome={};mp.viewSeat=null;
+  mp.seatSnaps={};mp.seatLives={};mp.seatLeaks={};mp.seatIncome={};mp.seatRace={};mp.viewSeat=null;
   roster=join ? null : newRoster(teamSizeSetting());
   if (!join) mpHostSeat(mp.sid,PLAYER_HALF,0,name,selectedRace.id);
   mpStatus(join ? `Connecting to room <b>${code}</b>…` : `Opening room <b>${code}</b>…`);
@@ -12542,8 +12779,11 @@ function mpOnMessage(msg) {
     const sid=msg.__from||msg.sid;
     if (mp.startPacket?.seed===msg.seed && lobbyHumans().includes(sid)) mp.startAcks[sid]=true;
   } else if (msg.t === 'send') {
-    const send=SENDS.find(s=>s.id===msg.id),seats=mpAttackSeats(msg);
-    if(!send || !battleRunning || !mp.active || !seats)return;
+    const base=SENDS.find(s=>s.id===msg.id),seats=mpAttackSeats(msg);
+    if(!base || !battleRunning || !mp.active || !seats)return;
+    const training=msg.training ?? 0;
+    if(!Number.isSafeInteger(training) || training<0 || training>100000)return;
+    const send=trainedSend(base,training);
     const {source,target}=seats;
     const localTarget=target.key===mpMySeatKey() || (mp.role==='host'&&target.kind==='ai');
     if(!localTarget)return;
@@ -12578,6 +12818,7 @@ function mpOnMessage(msg) {
   } else if (msg.t === 'wager-verdict') {
     if (wager.pending) resolveWager(!!msg.accept);
   } else if (msg.t === 'snap') {
+    if(mp.started && (!mpCurrentMatchMessage(msg) || !mpSenderOwnsSeat(msg.__from||msg.sid,mpSeatByKey(msg.seat))))return;
     // an omitted tower list means "unchanged", not "empty"
     const prev = msg.seat ? mp.seatSnaps[msg.seat] : mp.snap;
     const snap = {
@@ -12585,13 +12826,19 @@ function mpOnMessage(msg) {
       creeps:Array.isArray(msg.creeps) ? msg.creeps : []
     };
     // replay the sender's combat on whichever board we are watching
-    if (Array.isArray(msg.fx) && msg.fx.length && msg.seat === mp.viewSeat) mpPlayMirrorFx(msg.fx);
+    if (Array.isArray(msg.fx) && msg.fx.length && msg.seat) {
+      mpQueueSeatFx(msg.seat,msg.fx);
+    }
     const from = mpPeer(msg.__from || msg.sid);
     if (from) from.snap = snap;
     // keep every board, not just the last one to speak: mp.snap used to be
     // overwritten by whoever sent most recently, which is why a team-mate's
     // board was received and then thrown away
-    if (msg.seat) mp.seatSnaps[msg.seat] = snap;
+    if (msg.seat) {
+      mp.seatSnaps[msg.seat] = snap;
+      if(races.some(r=>r.id===msg.race))mp.seatRace[msg.seat]=msg.race;
+      if(Number.isFinite(msg.income))mp.seatIncome[msg.seat]=Math.max(0,Math.min(999999,msg.income));
+    }
     if (msg.seat && Array.isArray(msg.towers)) mpSyncTeammateTowers(msg.seat, msg.towers);
     if (!mp.viewSeat) mp.viewSeat = mpDefaultViewSeat();
     if (!msg.seat || msg.seat === mp.viewSeat) mp.snap = snap;
@@ -12767,6 +13014,7 @@ function mpMaybeStart() {
   if (mp.started || !mp.ready || !mp.oppReady) return;
   if (mp.role==='guest' && (!mp.config || !roster || !['south','north'].some(h=>roster[h].some(s=>s.kind==='human'&&s.sid===mp.sid)))) return;
   mp.active = true;
+  matchMode=mpModeNow();
   if (mp.role === 'guest' && mp.config) {
     const modeSelect = document.getElementById('mode-select');
     const livesSelect = document.getElementById('lives-select');
@@ -12820,7 +13068,7 @@ function mpTick(dt) {
   if (mp.snapClock <= 0) {
     mp.snapClock = .3;
     // my own board, in my own coordinates, tagged with my seat
-    const mine = mpSnapOf((t) => (t.owner === 'player' || t.allyHalf === PLAYER_HALF) && !t.remoteSeat, false);
+    const mine = mpSnapshotForSeat(mpMySeatKey());
     const fx = mp.fxOut; mp.fxOut = [];
     /* Towers change only when somebody builds or upgrades, and they are the
        bulk of the message — so send them only when they actually differ and
@@ -12839,16 +13087,17 @@ function mpTick(dt) {
     const stale = simTime - (mp.towerFullAt || -99) > MP_TOWER_REFRESH;
     const towersChanged = sig !== mp.towerSig || stale;
     if (towersChanged) { mp.towerSig = sig; mp.towerFullAt = simTime; }
-    const msg = { t:'snap', sid:mp.sid, seat:mpMySeatKey(), creeps:mine.creeps, fx };
+    const msg = { t:'snap', sid:mp.sid, seat:mpMySeatKey(), creeps:mine.creeps, fx,match:mp.matchId };
     if (towersChanged) msg.towers = mine.towers;
     mpSend(msg);
-    /* The computers' board lives only here, on the host's north half, so
-       nobody else could ever see it. Flip it into south-half coordinates and
-       publish it under the bot seats, which is what makes "watch their board"
-       work against an AI side. */
-    if (mpHostRunsBots()) {
-      const bots = mpSnapOf((t) => t.owner === 'enemy' || t.allyHalf === ENEMY_HALF, true);
-      mpBotSeatKeys().forEach((key) => mpSend({ t:'snap', seat:key, towers:bots.towers, creeps:bots.creeps }));
+    // Publish every computer separately, including the host's own teammate.
+    // Keep the same canonical snapshot locally so host and guest paint alike.
+    if (mp.role==='host') for(const key of mpAllBotSeatKeys()) {
+      const local=mpLocalBot(key);if(!local)continue;
+      const snapshot=mpSnapshotForSeat(key),fx=mp.fxSeatOut[key] || [];
+      mp.fxSeatOut[key]=[];mp.seatSnaps[key]=snapshot;
+      mp.seatRace[key]=local.ai.raceId;mp.seatIncome[key]=local.ai.income;
+      mpSend({t:'snap',seat:key,...snapshot,fx,match:mp.matchId,race:local.ai.raceId,income:local.ai.income});
     }
   }
 }
@@ -12865,39 +13114,43 @@ function mpTick(dt) {
    so they can never collide with a real tower's. */
 let mirrorTowers = [], mirrorCreeps = [];
 const roleKeyList = () => Object.keys(roleStyle);
-function rebuildMirrorEntities() {
+function rebuildMirrorEntities(snapshot=mp.snap,seatKey=mp.viewSeat,displayHalf=ENEMY_HALF) {
   mirrorTowers = []; mirrorCreeps = [];
-  if (!mp.active || !mp.snap) return;
+  if (!mp.active || !snapshot) return;
   // durations arrive as seconds remaining; rebase them onto OUR clock, or every
   // animation would either be permanently on or permanently expired
   const at = (secs) => (secs > 0 ? simTime + secs : 0);
-  (mp.snap.towers || []).forEach((e, i) => {
+  (snapshot.towers || []).forEach((e, i) => {
     if (!Array.isArray(e)) return;
     const [r, c, raceIdx, tier, srcKey, level, boltN, buildLeft, buildTime, atkLeft,
-      blockDmg, blockLeft, beamX, beamY, laneMark] = e;
+      blockDmg, blockLeft, beamX, beamY, laneMark, formation,rank,expertise,coreMask,wardN,absorbed,glyphLeft,maxHp] = e;
     const race = races[raceIdx] || races[0];
-    const blockMax = 4 + (tier || 0);   // exactly how makeTower sets it, so it need not travel
+    const blockMax = maxHp || towerMaxHp(towerDef(race.id,tier || 0),tier || 0,level || 0);
     mirrorTowers.push({
       key:srcKey != null ? srcKey : (-1000 - i),
-      mirrorIdx:i, mirror:true, owner:'mirror',
-      mirrorLaneColor:/^#[0-9a-f]{6}$/i.test(laneMark) ? laneMark : null,
-      r:(ROWS - 1) - r, c:c, raceId:race.id, tier:tier || 0, level:level || 0,
+      mirrorIdx:i, mirror:true, owner:'mirror', mapSeatKey:seatKey,
+      mirrorFormationKeys:Array.isArray(formation)?formation.slice(1):null,
+      crystalBonus:Array.isArray(formation)?['damage','speed','range'][formation[0]-1] || 'damage':'damage',
+      mirrorLaneColor:/^#[0-9a-f]{6}$/i.test(laneMark) ? laneMark : mpViewableSeats().find(s=>s.key===seatKey)?.lane?.color || null,
+      r:displayHalf===ENEMY_HALF?(ROWS - 1)-r:r, c:c, raceId:race.id, tier:tier || 0, level:level || 0,
       bolt:boltN ? (BOLT_MODS[boltN - 1] || {}).id || null : null,
       buildUntil:at(buildLeft || 0), buildTime:buildTime || 1,
       underAttack:at(atkLeft || 0),
+      rank:rank || 0,bulwarkRank:expertise || 0,bulwarkDamageTaken:absorbed || 0,
+      bulwarkCore:['health','armor','regen','thorns'].filter((_,i)=>(coreMask || 0)&(1<<i)),ward:['chill','banner','sunder'][(wardN || 0)-1] || null,glyphUntil:at(glyphLeft || 0),
       blockMaxHp:blockMax, blockHp:Math.max(0, blockMax - (blockDmg || 0)), blockingAt:at(blockLeft || 0),
-      beamTo:(beamX || beamY) ? { x:beamX, y:ROWS - beamY } : null, beamAt:(beamX || beamY) ? simTime : 0,
+      beamTo:(beamX || beamY) ? { x:beamX, y:displayHalf===ENEMY_HALF?ROWS-beamY:beamY } : null, beamAt:(beamX || beamY) ? simTime : 0,
       invested:0, kills:0, priority:'first',
     });
   });
   const keys = roleKeyList();
-  (mp.snap.creeps || []).forEach((e) => {
+  (snapshot.creeps || []).forEach((e) => {
     if (!Array.isArray(e)) return;
     const [x, y, roleIdx, hp, maxHp, flags, defIdx, id, slowLeft, frostLeft, frostStacks, frozenLeft,
-      stunLeft, stasisLeft, knockLeft, knockIdx, shieldFrac, shieldMax, venom, venomLeft, rootLeft] = e;
+      stunLeft, stasisLeft, knockLeft, knockIdx, shieldFrac, shieldMax, venom, venomLeft, rootLeft,armor,spd] = e;
     const def = UNIT_DEFS[defIdx] || UNIT_DEFS[0] || {};
     mirrorCreeps.push({
-      x:x, y:ROWS - y, role:keys[roleIdx] || 'standard', id:id || 0, mirror:true, half:ENEMY_HALF,
+      x:x, y:displayHalf===ENEMY_HALF?ROWS-y:y, role:keys[roleIdx] || 'standard', id:id || 0, mirror:true, half:displayHalf,
       hp:Math.max(0, hp || 0), maxHp:Math.max(1, maxHp || 1),
       air:!!(flags & 1), sent:!!(flags & 2), regen:!!(flags & 4), boss:!!(flags & 16),
       dots:(flags & 8) ? [{ dps:1, until:simTime + 1 }] : [],
@@ -12906,64 +13159,79 @@ function rebuildMirrorEntities() {
       rootUntil:at(rootLeft || 0), knockUntil:at(knockLeft || 0), knockKind:KNOCK_KINDS[knockIdx] || '',
       shieldMax:shieldMax || 0, shield:(shieldMax || 0) * (shieldFrac || 0),
       venom:venom || 0, venomUntil:at(venomLeft || 0),
-      name:def.name || 'Unit', armor:def.armor || 0, aClass:def.aClass || 'medium', spd:def.spd || 2,
+      name:def.name || 'Unit', armor:armor ?? def.armor ?? 0, aClass:def.aClass || 'medium', spd:spd ?? def.spd ?? 2,
       armorShred:0,
     });
   });
 }
 /* A TEAMMATE BUILDS ON YOUR BOARD, NOT IN A PICTURE OF THEIRS.
    Two people on one team each ran their own board, and the other's towers
-   existed only as paint on the watched board above. So one of them walled
-   the west lane on HIS board while on the other's board the west lane stayed
-   empty, and each saw the other "in the opposite corner". A computer ally
-   never had this problem: it builds real towers in its zone of your half.
-   Give a human teammate the same thing. Their snapshot already carries every
-   tower they own; place those on your half as ally towers in their seat, keep
-   them in step as they build, upgrade and sell, and the two of you are mazing
-   one board. Nothing about sends, leaks or lives changes: your creeps are
-   still yours, their towers simply shoot them too. Copies are marked
-   remoteSeat so they are never sent back out in your own snapshot (the echo
-   would resurrect a tower they had just sold) and never taken for your own. */
+   existed only as paint in the other's slot. So one of them walled the west
+   lane on HIS board while on the other's board the west lane stayed empty, and
+   each saw the other "in the opposite corner". A computer ally never had this
+   problem: it builds real towers in its zone of your half. Give a human
+   teammate the same thing. Their snapshot already carries every tower they
+   own; place those on your half as ally towers in their seat, keep them in
+   step as they build, upgrade and sell, and the two of you are mazing one
+   board. Nothing about sends, leaks or lives changes: your creeps are still
+   yours, their towers simply shoot them too.
+   Copies carry remoteSeat and the teammate's allySeat, so mpTowerSeatKey files
+   them under THEIR seat and they are never published back out as yours (the
+   echo would resurrect a tower they had just sold). Hit points are local: an
+   attacker on your board chews your copy, not their original, and a copy that
+   fell here stays down until they sell or rebuild that cell. */
 function mpSyncTeammateTowers(key, rows) {
   if (!mp.active || !battleRunning || matchOver || !Array.isArray(rows)) return;
   const seat = mpSeatByKey(key);
   if (!seat || seat.kind !== 'human' || seat.half !== mp.team || seat.sid === mp.sid) return;
   const seats = seatsOn(PLAYER_HALF);
   const lane = localSeatLane(PLAYER_HALF, seat.index, seats);
+  const copies = mp.remoteCopies || (mp.remoteCopies = new Set());
   const want = new Map();
   rows.forEach((e) => {
     if (!Array.isArray(e)) return;
-    const [r, c, raceIdx, tier, , level, boltN, buildLeft, buildTime, , , , , , laneMark] = e;
-    // their own towers carry their lane colour; their computer ally's, and their copies of mine, do not
+    const [r, c, raceIdx, tier, , level, boltN, buildLeft, buildTime, , , , , , laneMark, , rank, expertise, coreMask, wardN, , glyphLeft, maxHp] = e;
+    // their own towers carry their lane colour; a computer's, and their copies of mine, do not
     if (seats > 1 && laneMark !== lane.color) return;
     if (!inBounds(r, c) || !isPlayerBuildRow(r)) return;
     want.set(idx(r, c), { r, c, raceId:(races[raceIdx] || races[0]).id, tier:tier || 0, level:level || 0,
-      bolt:boltN ? (BOLT_MODS[boltN - 1] || {}).id || null : null, buildLeft:buildLeft || 0, buildTime:buildTime || 1 });
+      bolt:boltN ? (BOLT_MODS[boltN - 1] || {}).id || null : null, buildLeft:buildLeft || 0, buildTime:buildTime || 1,
+      rank:rank || 0, expertise:expertise || 0, coreMask:coreMask || 0, wardN:wardN || 0, glyphLeft:glyphLeft || 0, maxHp:maxHp || 0 });
   });
   let changed = false;
+  const dress = (t, w) => {
+    t.level = w.level; t.bolt = w.bolt; t.rank = w.rank;
+    t.bulwarkCore = ['health', 'armor', 'regen', 'thorns'].filter((_, i) => w.coreMask & (1 << i));
+    t.ward = ['chill', 'banner', 'sunder'][w.wardN - 1] || null;
+    t.glyphUntil = w.glyphLeft > 0 ? simTime + w.glyphLeft : 0;
+  };
   for (const t of [...towers.values()]) {
     if (t.remoteSeat !== key) continue;
     const w = want.get(t.key);
-    if (!w) { removeTower(t.key); changed = true; continue; }
-    if (w.tier !== t.tier) { t.tier = w.tier; t.tierAt = simTime; t.blockHp = t.blockMaxHp = 4 + w.tier; }
-    t.level = w.level; t.bolt = w.bolt;
+    if (!w) { removeTower(t.key); copies.delete(t.key); changed = true; continue; }
+    if (w.tier !== t.tier) { t.tier = w.tier; t.tierAt = simTime; const nm = w.maxHp || towerMaxHp(towerDef(t.raceId, t.tier), t.tier, w.level); t.blockHp = Math.round((t.blockHp / (t.blockMaxHp || 1)) * nm); t.blockMaxHp = nm; }
+    dress(t, w);
     want.delete(t.key);
   }
   want.forEach((w, k) => {
     if (towers.has(k) || terrainAt(w.r, w.c) !== T.FLOOR || protectedCells.has(k)) return;
+    if (copies.has(k)) return;   // fell on this board; stays down until they sell or rebuild it
     const t = makeTower(w.r, w.c, w.raceId, w.tier, 'player');
-    t.allyHalf = PLAYER_HALF; t.allySeat = seat.index; t.remoteSeat = key;
-    t.level = w.level; t.bolt = w.bolt; t.invested = 0;
+    t.allyHalf = PLAYER_HALF; t.allySeat = seat.index; t.remoteSeat = key; t.invested = 0;
     t.buildTime = w.buildTime; t.buildUntil = w.buildLeft > 0 ? simTime + w.buildLeft : simTime - 1;
+    if (w.maxHp) { t.blockMaxHp = w.maxHp; t.blockHp = w.maxHp; }
+    dress(t, w);
     addTower(t);
     // their board let it through, but next to my wall it may seal a lane here; theirs stands, my copy waits
     if (routeLength(PLAYER_HALF, 'west') == null || routeLength(PLAYER_HALF, 'east') == null) { removeTower(k); return; }
-    changed = true;
+    copies.add(k); changed = true;
   });
+  // a key they no longer list is free to come back if they rebuild there
+  copies.forEach((k) => { if (!want.has(k) && !towers.has(k)) copies.delete(k); });
   if (changed) creeps.forEach((creep) => { if (creep.half === PLAYER_HALF) creep.path = null; });
 }
 function drawOpponentMirror(ctx) {
-  if (!mp.active) return;
+  if (!mp.active || mpDrawingMapSource) return;
   drawMirrorFx(ctx);   // the watched board's combat, replayed from its events
   if (!mp.snap) return;
   rebuildMirrorEntities();
@@ -12986,6 +13254,112 @@ function mirrorHit(px, py) {
   bd = .6;
   mirrorCreeps.forEach((c) => { const d = Math.hypot(c.x - px, c.y - py); if (d < bd) { bd = d; best = { kind:'mirror-creep', ref:c }; } });
   return best;
+}
+
+/* Fixed lobby map. Simulation coordinates stay local to each independent
+   defense board. Only this projection chooses where a board is displayed:
+   north/south and west/centre/east always come from its original lobby seat.
+   Bots share their simulated half, so their existing lane is cropped 1:1;
+   human boards fit their complete defense into the assigned colored slot. */
+let mpMapSourceCanvas=null,mpDrawingMapSource=false;
+function mpMapSeatLayouts() {
+  if (!mp.active) return [];
+  const seats=mpViewableSeats(),fixed=mp.matchRoster||ensureRoster();
+  return ['north','south'].flatMap(half=>{
+    const active=fixed[half].filter(s=>s.kind!=='closed');
+    return active.map((seat,i)=>{
+      const key=mpSeatKey(half,seat.index),zone=seatZone(half,i,active.length);
+      const live=seats.find(s=>s.key===key),mine=key===mpMySeatKey();
+      return {...seat,...live,key,half,mine,friendly:half===mp.team,lane:seatLane(half,i,active.length),zone,
+        name:live?.name||seat.name||(seat.kind==='ai'?'Computer '+(i+1):'Player'),
+        c0:zone.c0,c1:zone.c1,r0:half==='north'?NORTH_TOP:SOUTH_TOP,
+        r1:half==='north'?NORTH_BOT:SOUTH_BOT,
+        position:`${half==='north'?'North':'South'} · ${zone.label}`};
+    });
+  });
+}
+function mpMapSeatAt(x,y) {
+  return mpMapSeatLayouts().find(s=>x>=s.c0&&x<s.c1+1&&y>=s.r0&&y<s.r1+1) || null;
+}
+function mpMapProjectPoint(key,x,y,sourceHalf=PLAYER_HALF) {
+  const s=mpMapSeatLayouts().find(s=>s.key===key);if(!s)return null;
+  const sourceC=s.kind==='ai'?s.c0:0,sourceW=s.kind==='ai'?s.c1-s.c0+1:COLS;
+  return {x:s.c0+(x-sourceC)*(s.c1-s.c0+1)/sourceW,y:sourceHalf===s.half?y:ROWS-y};
+}
+function mpMapUnprojectPoint(key,x,y,sourceHalf=PLAYER_HALF) {
+  const s=mpMapSeatLayouts().find(s=>s.key===key);if(!s)return null;
+  const sourceC=s.kind==='ai'?s.c0:0,sourceW=s.kind==='ai'?s.c1-s.c0+1:COLS;
+  return [(x-s.c0)*sourceW/(s.c1-s.c0+1)+sourceC,sourceHalf===s.half?y:ROWS-y];
+}
+function mpMapPaintSlot(ctx,slot,sourceHalf,paint) {
+  const x0=slot.c0*CELL,y0=slot.r0*CELL,w=(slot.c1-slot.c0+1)*CELL,h=HALF_ROWS*CELL;
+  const sourceC=slot.kind==='ai'?slot.c0:0,sourceW=slot.kind==='ai'?slot.c1-slot.c0+1:COLS;
+  const same=sourceHalf===slot.half,sourceY=(sourceHalf===PLAYER_HALF?SOUTH_TOP:NORTH_TOP)*CELL;
+  ctx.save();ctx.beginPath();ctx.rect(x0,y0,w,h);ctx.clip();
+  ctx.translate(x0,same?y0:y0+h);ctx.scale(w/(sourceW*CELL),same?1:-1);
+  ctx.translate(-sourceC*CELL,-sourceY);
+  try {paint();} finally {ctx.restore();}
+}
+function mpFocusMapSeat(key,animate=false) {
+  const s=mpMapSeatLayouts().find(s=>s.key===key),vp=$('map-viewport');
+  if(!s||!vp||frameBase.width<10)return;
+  const sx=(s.c1-s.c0+1)/COLS;
+  const z=Math.min(MAX_ZOOM,Math.max(1,(touchUI()?15:11)/(frameBase.width/COLS*sx)));
+  const home=mpMapProjectPoint(key,DOOR_C+.5,S_DOOR_R-8.5);
+  const x=vp.clientWidth/2-frameBase.left-home.x/COLS*frameBase.width*z;
+  const y=vp.clientHeight/2-frameBase.top-home.y/ROWS*frameBase.height*z;
+  if(animate){camAnim={z,x,y};return;}
+  mapZoomScale=z;mapOffsetX=x;mapOffsetY=y;camAnim=null;applyMapTransform();
+}
+function mpMapSlotLabel(slot) {
+  const name=slot.mine?mpPlayerName():slot.name;
+  return `${slot.lane.name} · ${name}${slot.mine?' (you)':''}`;
+}
+function mpDrawFixedMap(ctx,sourceCanvas) {
+  ctx.fillStyle='#090f20';ctx.fillRect(0,0,BOARD_W,BOARD_H);drawRiverFx(ctx);
+  const terrainCanvas=$('board-canvas');
+  for(const slot of mpMapSeatLayouts()) {
+    const live=slot.mine;
+    const sourceHalf=live?PLAYER_HALF:slot.half;
+    mpMapPaintSlot(ctx,slot,sourceHalf,()=>{
+      ctx.drawImage(terrainCanvas,0,0,BOARD_W,BOARD_H);
+      if(live)ctx.drawImage(sourceCanvas,0,0,BOARD_W,BOARD_H);
+      else {
+        rebuildMirrorEntities(mp.seatSnaps[slot.key]||{towers:[],creeps:[]},slot.key,slot.half);
+        const savedFx=mirrorFx;mirrorFx=mp.seatFx[slot.key]||[];
+        ctx.save();if(slot.half===PLAYER_HALF){ctx.translate(0,BOARD_H);ctx.scale(1,-1);}
+        drawMirrorFx(ctx);ctx.restore();mp.seatFx[slot.key]=mirrorFx;mirrorFx=savedFx;
+        mirrorTowers.forEach(t=>drawTower(ctx,t));mirrorCreeps.forEach(c=>drawCreep(ctx,c));
+      }
+    });
+    const x=slot.c0*CELL,y=slot.r0*CELL,w=(slot.c1-slot.c0+1)*CELL,h=HALF_ROWS*CELL;
+    ctx.save();ctx.strokeStyle=slot.lane.color;ctx.lineWidth=slot.mine?3:1.5;
+    ctx.strokeRect(x+1.5,y+1.5,w-3,h-3);ctx.restore();
+  }
+}
+function renderFrame() {
+  if(!mp.active||!mp.started)return renderLocalFrame();
+  if(!mpMapSourceCanvas)mpMapSourceCanvas=document.createElement('canvas');
+  const width=Math.round(BOARD_W*dpr),height=Math.round(BOARD_H*dpr);
+  if(mpMapSourceCanvas.width!==width||mpMapSourceCanvas.height!==height){
+    mpMapSourceCanvas.width=width;mpMapSourceCanvas.height=height;
+  }
+  const displayCtx=fxCtx,sourceCtx=mpMapSourceCanvas.getContext('2d');
+  sourceCtx.setTransform(dpr,0,0,dpr,0,0);
+  try {mpDrawingMapSource=true;fxCtx=sourceCtx;renderLocalFrame(mpMySeatKey());}
+  finally {mpDrawingMapSource=false;fxCtx=displayCtx;}
+  displayCtx.setTransform(dpr,0,0,dpr,0,0);
+  displayCtx.clearRect(0,0,BOARD_W,BOARD_H);mpDrawFixedMap(displayCtx,mpMapSourceCanvas);
+}
+function mpInspectMapSlot(point) {
+  const slot=mpMapSeatLayouts().find(s=>s.key===point.seatKey);if(!slot)return;
+  const xy=mpMapUnprojectPoint(slot.key,point.mapX,point.mapY,slot.half);
+  const snapshot=mpSnapshotForSeat(slot.key);
+  rebuildMirrorEntities(snapshot||{towers:[],creeps:[]},slot.key,slot.half);
+  const hit=mirrorHit(xy[0],xy[1]);
+  if(hit){inspectEntity=hit;if(touchUI()){wispTab='inspect';renderWispPanel('inspect');}
+    else log(`${mpMapSlotLabel(slot)} — ${hit.kind==='mirror-tower'?towerLiveStats(hit.ref).name:hit.ref.name}`);}
+  else log(`${mpMapSlotLabel(slot)} · ${slot.position}${slot.friendly?' · teammate, shared lives':' · opposing team'}. Build inside your own colored slot.`);
 }
 
 /* ---------------- Wisp servant + command sheet (touch-first controls) ----------------
@@ -13182,23 +13556,26 @@ function towerStatLine(def) {
    table number, which stopped being the truth the moment either existed. */
 // rounds in the same ORDER spawnCreep does, via sendCreepDef, or the biggest
 // rungs disagree with themselves by a point
-function sendShownHp(sd) { return Math.round(Math.round((sd.hp || 0) * sendGrowth()) * TRAIT.hpScaleSend * CREEP_HP_SCALE); }
+function sendShownHp(sd) { sd=trainedSend(sd); return sd.attacker ? sd.hp : Math.round(Math.round((sd.hp || 0) * sendGrowth()) * TRAIT.hpScaleSend * CREEP_HP_SCALE); }
 /* ONE PRICE STRING FOR FOUR SURFACES. Attackers cost lumber and no gold now, and
    every send card built its own label out of the gold price — so all four would
    read "0g +2 lumber" the moment the price moved off gold. */
 function sendPriceText(send, short) {
+  send=trainedSend(send);
   const wood = send.lumber ? `${send.lumber}🪵` : '';
   if (!send.cost) return wood || 'free';
-  return short ? `${send.cost}` : `${send.cost}g${wood ? ` +${wood}` : ''}`;
+  return `${send.cost}g${wood ? ` +${wood}` : ''}`;
 }
 function sendAffordable(send) {
+  send=trainedSend(send);
   return player.gold >= (send.cost || 0) && player.lumber >= (send.lumber || 0);
 }
 function sendStatLine(sd) {
+  sd=trainedSend(sd);
   const tag = [sendTypeLabel(sd).toLowerCase(), sd.role && sd.role !== 'standard' ? sd.role : ''].filter(Boolean).join(' ');
   // the armour CLASS decides whether a wall can hurt this at all, and it was
   // the one stat the card did not print
-  return `Shrine ${sd.shrine} · ROI ${sendRoiLabel(sd)} · ${sendShownHp(sd)}hp · ${sd.aClass || 'medium'} · ${sd.armor || 0} arm · ${sd.spd} spd${tag ? ` · ${tag}` : ''}`;
+  return `Shrine ${sd.shrine} · ROI ${sendRoiLabel(sd)} · ${sendShownHp(sd)}hp · ${sd.aClass || 'medium'} · ${(sd.armor || 0)+(sd.attacker?0:TRAIT.armorBonus)} arm · ${sd.spd.toFixed(2)} spd · ${sendRewardText(sd)}${tag ? ` · ${tag}` : ''}`;
 }
 function wireSendCard(card) {
   const id = card.dataset.barSend;
@@ -13364,8 +13741,32 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    lives in changelog.md, this is the "what changed for me" version.
    Bump RELEASE_TAG whenever you add an entry: the card auto-expands once per
    new tag, then collapses and stays collapsed. */
-const RELEASE_TAG = '2026-10-19-match-teams';
+const RELEASE_TAG = '2026-10-22-shrines-17';
 const RELEASE_NOTES = [
+  {date:'2026-10-22',title:'Shrines 6–8, all-tower Aegis glyphs and stronger ranks',items:[
+    'Shrine 6 adds five stronger gold sends. Shrine 7 adds five gold-and-lumber sends with 0.01–0.5 lumber income. Shrine 8 adds five lumber-only sends that grow lumber income.',
+    'Tap Shrine headings to collapse sends in the desktop dock, phone rail or command sheet. Mixed prices and both income rewards are shown together.',
+    'Support now sells Aegis glyphs for 1,000 gold and 2 lumber. Activate one to protect ALL your own towers for one shared random 1–5s window; 20s cooldown, no stacking and up to five charges. No real-money purchases in this test.',
+    'Ranks are uncapped. Standard promotions start at five enemy hits; splash starts at 100. Every enemy damaged by an attack counts once. Beams count at attack cadence; lingering DOT gives no extra points.',
+    'After rank 3: +2% damage and +1% attack rate per rank against rank-3 stats, plus +5% damage every fifth total rank. Optional paid promotions retain gold then lumber pricing.',
+    'Attackers now use listed HP and armor and strike once a second. Ordinary tower health doubles. Bulwarks retain base HP, gain uncapped veteran health and earn expertise from actual Thorns damage as well as raw incoming strikes.',
+    'Send Training costs 100, 200, 300… lumber. Each level adds 5% HP, 1% speed, one armor every two levels, 10% gold price and 1% gold income to future regular sends. Direct training income is still pending tuning.',
+    'Multiplayer messages carry training, veteran ranks, Bulwark defenses, health and active glyph protection. Refresh BOTH devices to SHRINES 17 and create a fresh room. Real-device testing is still required.'
+  ]},
+  { date:'2026-10-22', title:'Multiplayer mazes and attacks stay in their own slots', items:[
+    'Fixed missing computer teammate mazes and duplicate computer towers appearing inside human player slots in 3v3.',
+    'Every computer is run by the host and shared with the other players, including computers on your team.',
+    'Computer mazes and projectiles now use the same seat on both screens. Human player slots contain only that player’s defense.',
+    'Crystal formation links and bonuses come from the viewed board, so local towers cannot change another player’s display.',
+    'Refresh both devices to MAZE SYNC 16 and create a new room before testing. Controlled browser and multiplayer regression checks pass; real-device confirmation remains needed.'
+  ]},
+  { date:'2026-10-19', title:'Lobby colours keep their fixed map positions', items:[
+    'Northwest is Red, north centre Blue, northeast Teal. Southwest is Purple, south centre Yellow, southeast Orange. Both devices show the same positions.',
+    'Each human defense board stays inside its assigned coloured slot. Teammates appear on the same side of the river and continue sharing one life pool.',
+    'The watched teammate board no longer overlays the computers. Map slot buttons focus a fixed position instead of moving another player into the upper half.',
+    'Building, selecting, dragging, and selling map back to your own slot. Other player boards can be inspected without controlling their towers.',
+    'Cross-device confirmation is still needed. Automated checks cover matching positions, opponent-only sends, shared lives, and teammate match results.'
+  ] },
   { date:'2026-10-19', title:'Teams stay allied throughout the match', items:[
     'Match teams are locked from the ready roster. Late seat or lobby-edit messages cannot switch anyone after starting.',
     'Sends identify the attacking seat and can only target the other team. Computer attacks relayed by a human host are labeled Computer rather than your teammate.',
@@ -13612,13 +14013,13 @@ function renderCommandSheet() {
   const sheet = $('command-sheet');
   if (!sheet || sheet.classList.contains('hidden') || !player) return;
   const raceId = currentBuildRaceId();
-  const key = [sheetTab, raceId, player.shrine, player.lumber, selectedTowerTier, Math.floor(player.gold / 5), player.income, wave, wager.tokens, wager.pending ? 1 : 0, Math.max(0, Math.ceil(wager.cooldownUntil - simTime)), sheetTab==='tower' ? batchStateKey(selectionTowers()) : ''].join('|');
+  const key = [sheetTab, raceId, player.shrine, player.lumber,sendTrainingLevel(),player.glyphCharges,Math.ceil((player.glyphReadyAt || 0)-simTime), selectedTowerTier, Math.floor(player.gold / 5), player.income, wave, wager.tokens, wager.pending ? 1 : 0, Math.max(0, Math.ceil(wager.cooldownUntil - simTime)), sheetTab==='tower' ? batchStateKey(selectionTowers()) : ''].join('|');
   if (key === sheetKey) return;
   sheetKey = key;
   let body = '';
   if (sheetTab === 'towers') {
     const sel = towerDef(raceId, selectedTowerTier);
-    body = `<div class="sheet-grid">${buildableListFor(raceId).map(({ def, tier }) => `
+    body = supportPanelHtml()+`<button class="ghost-button" data-support-action="training">Send Training L${sendTrainingLevel()+1} · ${100*(sendTrainingLevel()+1)} lumber</button><div class="sheet-grid">${buildableListFor(raceId).map(({ def, tier }) => `
       <button class="sheet-chip ${tier === selectedTowerTier ? 'on' : ''} ${player.gold < def.cost ? 'poor' : ''}" data-sheet-tower="${tier}">
         <span>${towerDef(raceId, tier).symbol}</span><small>${def.name.split(' ')[0]}</small><b>${def.cost}g</b></button>`).join('')}</div>
       <div class="sheet-detail"><strong>${sel.name}</strong> — ${sel.desc} ${specialBlurbs[sel.special] || ''}<br><em>${sel.dmg} dmg • ${sel.range.toFixed(1)} range • ${attackSpeedText(sel)} • ${effectiveDps(sel, raceId).toFixed(0)} dps • ${attackProfileText(raceId, sel)}</em></div>
@@ -13629,9 +14030,9 @@ function renderCommandSheet() {
       : wager.tokens < 1 ? 'no proposals left this match'
       : wagerReady ? `both bank +${wagerBonus()}g if accepted` : `ready in ${Math.max(1, Math.ceil(wager.cooldownUntil - simTime))}s`;
     body = `${matchMode === 'classic' ? '' : `<button id="sheet-wager" class="wager-chip ${wagerReady ? '' : 'cooling'}"><span>⏩</span><b>Rush the wave</b><small>${wagerLine}</small><i>×${wager.tokens}</i></button>`}
-      <div class="sheet-grid">${orderedSends().map((send) => { const inc = sendIncomeLabel(send); const gain = send.attacker ? `+${send.woodIncome || 0}🪵` : inc.text; return `
+      <div class="sheet-grid">${sendTierMarkup(SENDS,(send) => { const inc = sendIncomeLabel(send); const gain = sendRewardText(send); return `
       <button class="sheet-chip ${player.shrine < send.shrine ? 'locked' : ''} ${sendAffordable(send) ? '' : 'poor'}" data-sheet-send="${send.id}" title="${send.name} — Shrine ${send.shrine}, ROI ${sendRoiLabel(send)}, ${sendTypeLabel(send)}, ${sendPriceText(send)}, ${send.attacker ? `${gain} per cycle` : `ladder +${send.income} income${inc.cut ? `, ${inc.text} after diminishing returns` : ''}`}">
-        <span>${sendGlyph(send)}</span><small>${send.name.split(' ')[0]}</small><b>${sendPriceText(send)}<i class="${!send.attacker && inc.cut ? 'inc-cut' : ''}">${gain}</i></b></button>`; }).join('')}</div>
+        <span>${sendGlyph(send)}</span><small>${send.name.split(' ')[0]}</small><b>${sendPriceText(send)}<i class="${!send.attacker && inc.cut ? 'inc-cut' : ''}">${gain}</i></b></button>`; })}</div>
       <p class="sheet-hint"><b>↗ Income</b> sends raise gold income, <b>▲ Flying</b> sends cross the maze, and <b>⚒ Attackers</b> cost lumber to break towers. Shrine tier is first; highest income ROI within that tier is first. ROI is income per cycle divided by its price, using lumber for attackers. You are paid <b>${BASE_INCOME + incomePayout(player.income)}g</b> every ${currentIncomePeriod()}s.${player.shrine < SHRINE_MAX ? 'Higher shrine levels unlock the elite tiers.' : 'Shrine is maxed.'}</p>`;
   } else if (sheetTab === 'tower') {
     const sel = selectionTowers().filter(isMine);
@@ -14241,7 +14642,7 @@ $('set-resetmap')?.addEventListener('click', () => {
    whole room on the clipboard in one tap: who is seated where, which transport
    is carrying the room, what each board has sent, and what this board built
    from it. Paste it to whoever is debugging. */
-const BUILD_ID = 'TEAM MATCH 14 + shared board 2026-10-20';
+const BUILD_ID = 'SHRINES 17 + shared board 2026-10-23';
 function mpDiagnostics() {
   const s4 = (sid) => (sid ? String(sid).slice(0, 4) : '-');
   const seatLine = (half) => (roster ? roster[half].map((x) => `${half}:${x.index}=${x.kind}${x.sid ? '/' + s4(x.sid) : ''}${x.name ? '/' + x.name : ''}`).join(' ') : 'no roster');
