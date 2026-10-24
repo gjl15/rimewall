@@ -4045,6 +4045,17 @@ function pushDot(creep, dps, dur, tag, nonLethal) {
 }
 function updateCreep(creep, dt) {
   const now = simTime;
+  // Resolve Earth Tremor once, at its fixed impact point; ground enemies only.
+  if (creep.tremorUntil && now >= creep.tremorUntil) {
+    const x = creep.tremorX, y = creep.tremorY, half = creep.tremorHalf;
+    const damage = creep.tremorDamage, source = creep.tremorTower;
+    creep.tremorUntil = 0; creep.tremorTower = null;
+    creeps.forEach((other) => {
+      if (other.hp > 0 && !other.air && other.half === half && Math.hypot(other.x - x, other.y - y) <= 1.1)
+        applyDamage(other, damage, source);
+    });
+    pushFx({ kind:'impact', x, y, color:'#b99b6c', big:true, until:now + .35 });
+  }
   // stacking damage-over-time (poison stacks + fire ignite) — bypasses armor, still hits shield
   if (creep.dots && creep.dots.length) {
     let dps = 0, nonLethalDps = 0;
@@ -4444,6 +4455,32 @@ function applyFrost(creep, tower, stats, extraStack) {
 }
 function applyHitEffects(creep, tower, stats) {
   const special = stats.special, race = tower ? tower.raceId : null;
+  // EARTH — Tremor: a delayed ground impact at the target's original position.
+  // One pending tremor per target prevents rapid Earth hits from multiplying pulses.
+  if (race === 'earth' && !creep.air && special !== 'entangle' && !creep.tremorUntil) {
+    creep.tremorUntil = simTime + .6;
+    creep.tremorX = creep.x; creep.tremorY = creep.y;
+    creep.tremorHalf = creep.half;
+    creep.tremorDamage = stats.dmg * .2;
+    creep.tremorTower = tower;
+  }
+  // EARTH — Fault Line: a short, ground-only shock extending behind the struck creep.
+  // Secondary damage uses applyDamage directly, not applyHitEffects, so it cannot
+  // recursively create more fault lines or trigger additional on-hit effects.
+  if (race === 'earth' && !creep.air && creep.hp > 0 && special !== 'entangle') {
+    const length = 1.8, halfWidth = .65;
+    const dx = creep.x - (tower.c + .5), dy = creep.y - (tower.r + .5);
+    const distance = Math.hypot(dx, dy) || 1;
+    const ux = dx / distance, uy = dy / distance;
+    creeps.forEach((other) => {
+      if (other === creep || other.hp <= 0 || other.air || other.half !== creep.half) return;
+      const ox = other.x - creep.x, oy = other.y - creep.y;
+      const along = ox * ux + oy * uy;
+      const across = Math.abs(ox * uy - oy * ux);
+      if (along > 0 && along <= length && across <= halfWidth)
+        applyDamage(other, stats.dmg * .25, tower);
+    });
+  }
   // FROST — ramping slow that also freezes HP regen, and freezes solid at the top
   if (race === 'ice' && (special === 'slow' || special === 'frostnova' || special === 'snowball' || special === 'shatter' || special === 'deepfreeze')) {
     // deepfreeze drives three stacks a hit: four hits freeze instead of twelve
@@ -9368,7 +9405,10 @@ function renderSendPanel() {
       <div><strong>${send.name}${send.air ? ' <em class="air-tag">AIR</em>' : ''}${send.attacker ? ' <em class="atk-tag">ATTACKER</em>' : ''}</strong>
       <small data-send-note="${send.id}">${send.attacker ? `<b style="color:#ff9faf">no income</b> • breaks towers · ${SWING_DMG * send.breakPower} dmg a swing${send.woodIncome ? ` · <b style="color:#b9a877">+${send.woodIncome}🪵</b>` : ''}` : `+${send.income} income`}</small>
       <small class="send-stats">${sendShownHp(send)}${send.bodies > 1 ? ` HP × ${send.bodies}` : ' HP'} • ${send.spd.toFixed(1)} spd • ${send.armor} armor (${send.aClass})</small></div><b>${sendPriceText(send)}</b></button>`;
-  const economy = SENDS.filter((s) => !s.attacker), attackers = SENDS.filter((s) => s.attacker);
+  // Present unlock tiers in order, then prioritize income return within each tier.
+  const byShrineAndROI = (a, b) => a.shrine - b.shrine || (a.income > 0 && b.income > 0 ? a.cost / a.income - b.cost / b.income : a.cost - b.cost);
+  const economy = SENDS.filter((send) => !send.attacker).sort(byShrineAndROI);
+  const attackers = SENDS.filter((send) => send.attacker).sort((a, b) => a.shrine - b.shrine || (a.lumber || 0) - (b.lumber || 0));
   $('send-list').innerHTML = economy.map(card).join('')
     + (attackers.length ? `<p class="panel-heading send-split">ATTACKERS — lumber, no income, break the wall</p>` + attackers.map(card).join('') : '');
   document.querySelectorAll('[data-send]').forEach((button) => button.addEventListener('click', () => {
