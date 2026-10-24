@@ -1,0 +1,41 @@
+<!doctype html><meta charset="utf-8"><title>Rimewall multiplayer maze QA</title>
+<style>body{margin:16px;background:#0a1020;color:#e9edf6;font:14px system-ui}main{display:flex;gap:16px}section{width:48%}canvas{height:64vh;width:auto;max-width:100%;border:1px solid #556078}iframe{position:absolute;left:-5000px;width:1280px;height:900px}pre{white-space:pre-wrap;max-height:65px;overflow:auto}button{padding:10px}</style>
+<h1>Rimewall multiplayer maze QA</h1><button id="two">Run 2v2</button> <button id="three">Run 3v3</button><pre id="report">Loading game clients…</pre>
+<main><section><h2>Host</h2><canvas id="host"></canvas></section><section><h2>Guest</h2><canvas id="guest"></canvas></section></main>
+<iframe id="a" src="/index.html"></iframe><iframe id="b" src="/index.html"></iframe>
+<script>
+const frames=[document.querySelector('#a'),document.querySelector('#b')];
+const run=(i,code)=>frames[i].contentWindow.eval(code);
+async function exercise(n){
+try{
+for(let i=0;i<2;i++)run(i,`mpLeave();window.requestAnimationFrame=()=>0;SFX.play=()=>{};
+$('team-select').value='${n}';$('mp-name').value='${i?'Guest':'Host'}';$('mp-code').value='QA32';$('lives-select').value='100';$('mode-select').value='classic';
+battleRunning=false;lobbyPhase=false;roster=newRoster(1);globalThis.outbox=[];
+mpMakeMqttTransport=async()=>({send:m=>outbox.push(m),close:()=>{}});mpStartHelloLoop=()=>{};mpStatus=()=>{};`);
+await run(0,'mpOpenRoom(false)');await run(1,'mpOpenRoom(true)');
+function flush(){for(let n=0;n<30;n++){let count=0;for(const [from,to]of [[0,1],[1,0]])for(const msg of run(from,'outbox.splice(0)')){count++;run(to,'mpOnMessage('+JSON.stringify(msg)+')');}if(!count)return;}throw Error('Unsettled transport');}
+run(1,`mpSend({t:'hello',name:'Guest',race:selectedRace.id})`);flush();
+run(0,'lobbyToggleReady()');flush();run(1,'lobbyToggleReady()');flush();run(0,'mpHostStart()');flush();
+for(let i=0;i<2;i++)run(i,`battlePaused=true;selectedTowerKey=null;selectedGroupKeys=[];
+for(const [j,c] of [5,8,10].entries()){const t=makeTower(SOUTH_TOP+17+j,c,'${i?'fire':'tech'}',0,'player');t.buildUntil=0;towers.set(t.key,t);}
+for(const ai of [enemy,...allies]){ai.gold=20000;ai.buildGold=20000;ai.budgetGold=ai.gold;}
+for(let j=0;j<12;j++){enemy.buildClock=0;updateEnemyAI(.1);for(const a of allies){a.buildClock=0;updateAlly(a,.1);}}
+mp.snapClock=0;mpTick(.4);`);
+flush();
+const reports=[];
+for(let i=0;i<2;i++){
+run(i,'simTime=10;debug.routes=false;setupCanvases();redrawBoard();renderFrame();');
+const target=document.querySelector(i?'#guest':'#host'),s=frames[i].contentDocument.querySelector('#fx-canvas');target.width=s.width;target.height=s.height;target.getContext('2d').drawImage(s,0,0);
+reports.push(run(i,`({side:mp.role,bots:allies.map(a=>[a.half,a.seat]),snaps:Object.fromEntries(Object.entries(mp.seatSnaps).map(([k,s])=>[k,s.towers.length])),slots:mpMapSeatLayouts().map(s=>({key:s.key,kind:s.kind,mine:s.mine}))})`));
+}
+const boards=[0,1].map(i=>run(i,`mpMapSeatLayouts().map(s=>({key:s.key,towers:mpSnapshotForSeat(s.key).towers.map(t=>t.slice(0,5))}))`));
+const same=JSON.stringify(boards[0])===JSON.stringify(boards[1]);
+const top=run(0,'HALF_ROWS*CELL*dpr'),cv0=document.querySelector('#host'),cv1=document.querySelector('#guest');
+const px0=cv0.getContext('2d').getImageData(0,0,cv0.width,top).data,px1=cv1.getContext('2d').getImageData(0,0,cv1.width,top).data;
+let diff=0;for(let i=0;i<px0.length;i++)if(px0[i]!==px1[i])diff++;
+document.querySelector('#report').textContent=`${n}v${n} · MAZE SYNC 16
+${same?'PASS':'FAIL'}: tower identities and positions agree in every slot. ${diff===0?'PASS':'FAIL'}: opposing map pixels match (${diff} channel differences).`;
+}catch(e){document.querySelector('#report').textContent=e.stack;}}
+let loads=0;for(const f of frames)f.addEventListener('load',()=>{if(++loads===2)exercise(3)});
+document.querySelector('#two').onclick=()=>exercise(2);document.querySelector('#three').onclick=()=>exercise(3);
+</script>

@@ -1,0 +1,27 @@
+{
+  "release": "SHARED ARENA 20",
+  "sites_source_commit": "177a1da99671fa8779ca42a2fcbcb0b7eb874614",
+  "published_url": "https://rimewall-bulwark-test.abdylang-dpt.chatgpt.site",
+  "sha256": {
+    "BALANCE_UPDATE.md": "2cc3c08bf40c514cdecc279bf4f294419756920b5dc30b5ebd729a34da4ccb23",
+    "CHANGELOG.md": "a0e9dcc79a24e414ca53b2fcb7e13452a13fe825ebf3d51b8c834849fd31507b",
+    "MULTIPLAYER_HANDOFF.md": "3688a9fc25345a08459a197cb0402c0ba43520edaed42c49760e159807548385",
+    "TEST_BUILD.md": "c54571ecb49fb9d7c9b3454d0ae571fddd2c809e3687c485872cb609265cf275",
+    "dist/changelog.md": "36534ff6528f9021b1493e8a75b682d52d4143ccdbccc4f1f7559a85408b7263",
+    "dist/creeps.webp": "542ceb8cbbacc21e1b5d906bd74044f90df4b2c72e056b1db80b06a1fd56d894",
+    "dist/creeps2.webp": "1940daab53e8866c4c3f6efac2764942c881c9b7191c0c96803a5264fb4d1eca",
+    "dist/icon-180.png": "74c894c342d7b5ff058adec5d0c3990eaaf513a040a4a2dca7cc629509b87ef0",
+    "dist/icon-192.png": "a7e9a8b1ac8ab9b4ecd188bd1d0cf3029ebd7ad9fd790a768d95700be7b0e03c",
+    "dist/icon-512.png": "3ae31e2099c99c3893525491f126c50f2f996f85660e223f16bd26f3b4842cee",
+    "dist/index.html": "4d7985056894e5db6365de3582c6aa767d6277b0f939b65514f03667cd9727af",
+    "dist/manifest.json": "44fe7d58010393ad9f8973b0aff6f913047a45752aec26f501479668f3a7b116",
+    "dist/maze-school.html": "8dfefcaa12f87b370ceedc3df67619e92d5d839428a4f3bee1439889331e9fc9",
+    "dist/og.svg": "83cc22e04de5dc3b3f76390881b5023ffcf73971621736c75ea910bfa44d0816",
+    "dist/shared-arena.js": "8fa458b7846dd3a9361af6a94ac7c4c3c451366ff8cd9bfea1c34c39b4817fcb",
+    "dist/sw.js": "d9307c2320d4b128056aef20fa9410d228ce3779d0104fcf658c071fc81929e4",
+    "dist/towers.html": "0b0f51acb009957f8418591332fc4c0956f86fe05e5b08f83443613feb097c6f",
+    "dist/towers.webp": "f0c300ba179dd454c8cfe68fb1a46d6433374abcbe74115d5a29470b4762e226",
+    "tests/maze-rendering-qa.html": "a60c0839e950fe41c45158f46864b45783c0594e75a6ad47f941d2ae1845a0e4",
+    "tests/rimewall.test.cjs": "520539bf5ceb53d92ad50871e6dec48bb4cd92c082b505e3953e120d752271cc"
+  }
+}
