@@ -1718,7 +1718,7 @@ body.playing:not(.arena) #build-extras .training-row {display:flex;}
             <span class="race-card-copy"><span class="selection-kicker">YOUR ELEMENT — TAP TO CHANGE</span><strong id="selected-name">Ice</strong><span id="selected-desc">Slows enemies and buys your maze time.</span></span>
             <span class="race-card-caret">▾</span>
           </button>
-          <div class="selection-actions"><label class="lives-pick" for="mode-select">MODE <select id="mode-select"><option value="skirmish" selected>Waves vs rival</option><option value="survival">Survival • creeps only, no rival</option><option value="classic">Classic Wars • sends only</option></select></label><label class="lives-pick" for="team-select">TEAM <select id="team-select"><option value="1" selected>1v1 • one batch</option><option value="2">2v2 • two batches</option><option value="3">3v3 • three batches</option></select></label><label class="lives-pick" for="ai-select">RIVAL <select id="ai-select"><option value="relaxed">Relaxed • learning the ropes</option><option value="normal">Standard • a poor rival</option><option value="hard" selected>Hard • funded, recommended</option><option value="brutal">Brutal • it out-earns you</option></select></label><label class="lives-pick" for="lives-select">LIFEFORCE <select id="lives-select"><option value="25">25 • classic</option><option value="50">50 • veteran</option><option value="100" selected>100 • easy</option></select></label></div>
+          <div class="selection-actions"><label class="lives-pick" for="mode-select">MODE <select id="mode-select"><option value="skirmish" selected>Waves vs rival</option><option value="survival">Survival • creeps only, no rival</option><option value="classic">Classic Wars • sends only</option></select></label><label class="lives-pick" for="team-select">TEAM <select id="team-select"><option value="1" selected>1v1 • one batch</option><option value="2">2v2 • two batches</option><option value="3">3v3 • three batches</option></select></label><label class="lives-pick" for="ai-select">RIVAL <select id="ai-select"><option value="relaxed">Relaxed • learning the ropes</option><option value="normal">Standard • a poor rival</option><option value="hard">Hard • funded</option><option value="brutal" selected>Brutal • it out-earns you, recommended</option></select></label><label class="lives-pick" for="lives-select">LIFEFORCE <select id="lives-select"><option value="25">25 • classic</option><option value="50">50 • veteran</option><option value="100" selected>100 • easy</option></select></label></div>
           <div class="setup-actions-row">
             <button id="start-button" class="primary-button">Enter the battlefield <span>→</span></button>
             <button id="settings-open" class="gear-button" title="Settings" aria-label="Settings">⚙</button>
@@ -3676,6 +3676,8 @@ function loadProfile() {
   profile.dragonsSent = profile.dragonsSent || 0;
   profile.achievements = profile.achievements || {};
   profile.devUnlockAll = SITE_DEV_BUILD || Boolean(profile.devUnlockAll);
+  profile.randomRace = Boolean(profile.randomRace);
+  randomRace = profile.randomRace;
 }
 function saveProfile() { try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); } catch (error) { /* per-browser only */ } }
 function raceUnlocked(raceId) {
@@ -3899,6 +3901,17 @@ function sendIncomeLabel(send) {
 function waveHpMult(n) { return Math.pow(TRAIT.hpLateRamp, Math.max(0, (n || 0) - TRAIT.hpLateFrom)); }
 function startingLives() { return Number(document.getElementById('lives-select')?.value) || 100; }
 let selectedRace = races[0];
+/* 🎲 RANDOM ELEMENT. Computers have always been able to play a random element;
+   people could not. The chip is a lobby choice, remembered per browser, and is
+   resolved to a real element the moment the match starts — on the host in a room,
+   so every client is handed the same answer in the start packet.
+   `var`, not `let`: loadProfile() runs above this line and restores the flag. */
+var randomRace;
+function resolveRandomRace() {
+  const pool = races.filter((r) => raceUnlocked(r.id));
+  return pool[Math.floor(Math.random() * pool.length)] || races[0];
+}
+function setRandomRace(on) { randomRace = !!on; try { profile.randomRace = randomRace; saveProfile(); } catch (e) {} }
 let selectedTowerTier = 0;
 let buildRaceIdx = 0;              // index into player.races — which licensed element the build panel shows
 let panelRaceId = null;           // which race the wisp build panel is currently viewing (may be a preview)
@@ -6088,17 +6101,31 @@ function aiBreadthTarget() {
      6, which is what the paragraph above always claimed. The wave ceiling is
      the belt to that braces: breadth ENDS on a clock, so a future change to
      build rate or tower cost cannot quietly reopen the trap. */
-  if (matchMode === 'classic') return Math.min(64, 16 + Math.floor(simTime / 22));
+  /* MEASURED 2026-10-25: with the ceiling at 64 the Classic target was still rising
+     at the twelve-minute mark, so the computers were laying tier-0 towers all game —
+     half of a 2v2 rival's 107 towers were tier 0, and the friendly computer's 45 were
+     all tier 0. Breadth now ends at 24 towers, which is a full first ring; after
+     that the build tick buys height. */
+  if (matchMode === 'classic') return Math.min(24, 12 + Math.floor(simTime / 45));
   if (wave >= AI_BREADTH_LAST_WAVE) return 0;
-  return Math.min(64, 16 + wave);
+  return Math.min(24, 12 + wave);
 }
 function enemySpots() { return enemy && enemy.spots ? enemy.spots : aiSpots('centre'); }
 /* Each computer protects a share of real gold for its wall, economy sends,
    and pressure/Shrine savings. Every seat pays the normal prices. */
-const AI_UPGRADE_PERIOD = 5.5;
+const AI_UPGRADE_PERIOD = 3;   // was 5.5: upgrades came half as often as new towers
 const AI_BREADTH_LAST_WAVE = 8;
 function desiredAiShrine() {
-  return 1 + Math.min(SHRINE_MAX - 1, Math.floor(matchMode === 'classic' ? simTime / 210 : wave / 7));
+  /* Was simTime/210 and wave/7: Shrine 2 at 3.5 minutes, Shrine 5 at 14 — a human
+     is on Shrine 3 by then. Measured in a 2v2, the computers sat on Shrine 2 for the
+     whole first six minutes buying Pathfinders. Shrine 5 now lands at 8 minutes in
+     Classic and wave 16 in wave mode. */
+  // Shrines 1–5 on the fast ramp; 6–8 keep their original schedule (Shrine 6 at 17.5 min
+  // in Classic, 8 at 24.5), so the computers do not stall sending while saving for them
+  const classic = matchMode === 'classic';
+  const orig = 1 + Math.min(SHRINE_MAX - 1, Math.floor(classic ? simTime / 210 : wave / 7));
+  const fast = 1 + Math.min(4, Math.floor(classic ? simTime / 120 : wave / 4));
+  return Math.max(fast, orig);
 }
 let aiAttackSerial=0;
 const aiRemoteAttacks=new Map();
@@ -6157,8 +6184,10 @@ function aiAttackPlan(ai,half=ai===enemy?ENEMY_HALF:ai.half) {
   const rush=currentStopped || stalled && ai.lastPressureShrine===ai.shrine
     && simTime-(ai.currentPressureAt ?? simTime)>=120;
   return {mode,blocked,finish,opening,burst:finish?3:blocked?2:1,
-    economyShare:opening ? .35 : finish ? .05 : blocked ? .15 : .30,
-    pressureShare:opening ? 0 : finish ? .75 : blocked ? .60 : .40,
+    // opening economy .35→.45 so income compounds sooner; steady state .20 / .45 leaves .35
+    // for the wall: at .30/.40 the friendly computer in a 2v2 never bought a single tier
+    economyShare:opening ? .45 : finish ? .05 : blocked ? .15 : .20,
+    pressureShare:opening ? 0 : finish ? .75 : blocked ? .60 : .45,
     shrine:Math.max(desiredAiShrine(),rush?Math.min(SHRINE_MAX,ai.shrine+1):ai.shrine)};
 }
 function syncAiBudget(ai) {
@@ -6170,6 +6199,11 @@ function syncAiBudget(ai) {
     ai.economyGold-=redirect;ai.pressureGold+=redirect;
   }
   ai.attackMode=plan.mode;ai.attackPlan=plan;
+  /* A WALL FUND WITH NOTHING TO BUY GOES TO THE FRONT. With the placement queue
+     exhausted, anything past what a tier-5 tower and its levels cost becomes
+     pressure; upgrades keep drawing on the rest. */
+  const queue=ai.spots || (ai===enemy?enemySpots():[]);
+  if((ai.spotIndex || 0)>=queue.length){const idle=aiBudget(ai)-1500;if(idle>0)ai.pressureGold=(ai.pressureGold || 0)+idle;}
   const held=ai.economyGold+ai.pressureGold;
   if(held>ai.gold && held>0){ai.economyGold*=ai.gold/held;ai.pressureGold*=ai.gold/held;}
   ai.budgetGold=ai.gold;
@@ -6282,8 +6316,13 @@ function aiSendPressure(ai,half) {
   const defenders=aiVisibleDefenders(half);
   let remaining=3;
   while(remaining>=plan.burst){
-    const turn=(ai.pressureTurn || 0)%4;
-    const family=turn===1?'flying':turn===3 && ai.shrine>1?'attacker':'income';
+    const turn=(ai.pressureTurn || 0)%6;   // one six-turn cycle: 1 and 3 flying, 5 attacker, the rest income
+    /* ATTACKERS ARE THE ONE SEND A WALL CANNOT OUT-EARN. They pay no bounty and a
+       Wallbreaker is 5,200 HP at armour 18; two a lane in a Brutal burst at minute
+       five is a wall nobody can keep. One in six turns, one body a lane, and at
+       least 45 s between attacker purchases per computer. */
+    const attackerTurn=turn===5 && ai.shrine>1 && simTime-(ai.lastAttackerAt ?? -1e9)>=45;
+    const family=(turn===1 || turn===3)?'flying':attackerTurn?'attacker':'income';
     const choices=pool.filter(s=>((plan.blocked || plan.finish) && family!=='attacker'?!s.attacker:sendType(s)===family)
       && (!plan.blocked || s.attacker || s.air || s.hp>=200));
     if(!choices.length)break;
@@ -6293,12 +6332,26 @@ function aiSendPressure(ai,half) {
     const candidates=attainable.length?attainable:choices.slice().sort((a,b)=>aiBurstCost(ai,a,plan.burst)-aiBurstCost(ai,b,plan.burst)).slice(0,1);
     candidates.sort((a,b)=>aiPressureScore(ai,b,defenders)-aiPressureScore(ai,a,defenders));
     const pick=candidates[0];
-    const cost=aiBurstCost(ai,pick,plan.burst);
-    ai.preparingAttack={id:pick.id,packs:plan.burst,cost,shrine:pick.shrine};
+    const packs=pick.attacker?1:plan.burst;
+    const cost=aiBurstCost(ai,pick,packs);
+    if(!ai.preparingAttack)ai.preparingSince=simTime;   // the clock runs from the first save, whatever it later picks
+    ai.preparingAttack={id:pick.id,packs,cost,shrine:pick.shrine};
     // Save for the chosen counter and release it together; cheaper failed units
-    // cannot drain this fund while the stronger attack is being prepared.
-    if(aiBudget(ai,'pressure')<cost)break;
-    for(let n=0;n<plan.burst;n++)if(!aiBuySend(ai,half,pick,'pressure'))return;
+    // cannot drain this fund while the stronger attack is being prepared —
+    // but not forever: after 40s of saving, send the strongest body affordable now,
+    // and a finishing computer never saves (measured: a Brutal rival sat on 19,600
+    // gold for a three-Bastion burst while its opponent had twelve lives left).
+    if(aiBudget(ai,'pressure')<cost){
+      if(!plan.finish && simTime-(ai.preparingSince ?? simTime)<40)break;
+      const now=candidates.filter(s=>aiBurstCost(ai,s,s.attacker?1:plan.burst)<=aiBudget(ai,'pressure'));
+      if(!now.length)break;
+      const fallback=now[0];const fpacks=fallback.attacker?1:plan.burst;
+      for(let n=0;n<fpacks;n++)if(!aiBuySend(ai,half,fallback,'pressure'))return;
+      if(fallback.attacker)ai.lastAttackerAt=simTime;
+      ai.preparingSince=simTime;remaining-=plan.burst;ai.pressureTurn=(ai.pressureTurn || 0)+1;continue;
+    }
+    for(let n=0;n<packs;n++)if(!aiBuySend(ai,half,pick,'pressure'))return;
+    if(pick.attacker)ai.lastAttackerAt=simTime;
     ai.preparingAttack=null;remaining-=plan.burst;
     ai.pressureTurn=(ai.pressureTurn || 0)+1;
   }
@@ -6306,7 +6359,11 @@ function aiSendPressure(ai,half) {
 function aiSendEconomy(ai,half) {
   const unlocked=SENDS.filter(s=>!s.attacker && s.shrine<=ai.shrine && s.cost>0 && s.income>0 && !aiFailedSend(ai,s.id));
   if(!unlocked.length){ai.pressureGold+=ai.economyGold;ai.economyGold=0;return;}
-  const limit=(ai.attackPlan || aiAttackPlan(ai,half)).mode==='pressure'?12:4;
+  /* SEND TO WIN, NOT TO FARM. Twelve tickets a cycle made every ticket a twelfth of
+     the purse, and a twelfth of any purse is a Prowler: measured over twelve minutes
+     of a 2v2 the rival bought seventy of them and banked nine thousand gold it never
+     spent. Three tickets a cycle makes each one a third of the purse. */
+  const limit=3;
   // Bigger purses buy bigger tickets within a bounded purchase count.
   for(let n=0;n<limit;n++){
     const budget=aiBudget(ai,'economy'),minTicket=budget/(limit-n);
@@ -6373,9 +6430,11 @@ function updateComputer(ai,half,dt) {
   syncAiBudget(ai);
   ai.buildClock-=dt;ai.sendClock-=dt;ai.upgradeClock=(ai.upgradeClock || 0)-dt;
   aiAdvanceShrine(ai);
-  if((matchMode==='classic'?simTime>20:wave>=2) && ai.sendClock<=0){
+  // sends start at 10s / wave 1 (was 20s / wave 2) and come 40% more often: 7s/5s in
+  // Classic, 12s/8s in wave mode (was 12/8 and 20/12)
+  if((matchMode==='classic'?simTime>10:wave>=1) && ai.sendClock<=0){
     const plan=ai.attackPlan;
-    ai.sendClock=(matchMode==='classic'?(plan.mode==='pressure'?12:8):(plan.mode==='pressure'?20:12))+(ai.seat || 0)*.4;
+    ai.sendClock=(matchMode==='classic'?(plan.mode==='pressure'?7:5):(plan.mode==='pressure'?12:8))+(ai.seat || 0)*.4;
     aiSendPressure(ai,half);aiSendEconomy(ai,half);
   }
   const list=towerListFor(ai.raceId);
@@ -6391,7 +6450,7 @@ function updateComputer(ai,half,dt) {
     if(spot){
       const budget=aiBudget(ai);
       let tier=list[0].chassis || (ai.towersBuilt || 0)<aiBreadthTarget()?0:maxTier;
-      while(tier>0 && list[tier].cost>budget*.5)tier--;
+      while(tier>0 && list[tier].cost>budget*.7)tier--;   // was half the purse; a tier-5 tower needed 700g in hand
       const def=towerDef(ai.raceId,tier);
       if(budget>=def.cost){
         const t=makeTower(spot.r,spot.c,ai.raceId,tier,half===PLAYER_HALF?'player':'enemy');
@@ -6414,7 +6473,7 @@ function updateComputer(ai,half,dt) {
   if(ai.upgradeClock<=0){
     ai.upgradeClock=AI_UPGRADE_PERIOD;
     if((ai.towersBuilt || 0)>=6 || ai.spotIndex>=(ai.spots || enemySpots()).length){
-      for(let n=0;n<3 && aiUpgradeTower(ai,half,maxTier);n++){}
+      for(let n=0;n<4 && aiUpgradeTower(ai,half,maxTier);n++){}
     }
   }
 }
@@ -11387,6 +11446,7 @@ const Coach = {
   finish() { this.active = false; profile.onboarded = true; saveProfile(); document.getElementById('coach-card')?.classList.add('hidden'); },
 };
 function startBattle() {
+  if (randomRace && !mp.active) { const r = resolveRandomRace(); commitRace(r); log(`🎲 Random element: <b>${r.name}</b>.`); }
   $('match-summary')?.classList.add('hidden');
   try { localStorage.removeItem(SKETCH_KEY); } catch (e) {}   // clear any stuck applied-sketch from older builds
   applySavedSketchToTerrain();
@@ -11548,8 +11608,18 @@ function lobbySetSize(half, n) {
   renderLobby(true);   // a local edit always redraws: the change event fires while the select still has focus
 }
 function lobbyPickRace(id) {
+  if (id === 'random') {
+    setRandomRace(true);
+    if (mp.active) {
+      if (mp.role === 'host') { const seat = [...roster.south, ...roster.north].find((s) => s.sid === mp.sid); if (seat) seat.raceId = 'random'; mpBroadcastRoster(); }
+      else mpSend({ t:'lobby-race', race:'random' });
+    }
+    renderLobby(true);
+    return;
+  }
   const race = races.find((r) => r.id === id);
   if (!race || !raceUnlocked(id)) return;
+  setRandomRace(false);
   commitRace(race);
   if(mp.active) {
     if(mp.role==='host') {const seat=[...roster.south,...roster.north].find(s=>s.sid===mp.sid);if(seat)seat.raceId=id;mpBroadcastRoster();}
@@ -11609,7 +11679,7 @@ function renderLobby(force) {
     s:roster.south.map((x) => [x.kind, x.sid, x.name]),
     n:roster.north.map((x) => [x.kind, x.sid, x.name]),
     p:Object.values(mp.peers).map((x) => [x.sid, x.name, x.raceId]),
-    m:matchMode, r:selectedRace.id, a:mp.active, role:mp.role, solo:soloRules, phase:lobbyPhase,
+    m:matchMode, r:randomRace ? 'random' : selectedRace.id, a:mp.active, role:mp.role, solo:soloRules, phase:lobbyPhase,
   });
   if (!force && sig === lobbyKey) { lobbyPatchReady(); return; }
   const focused = box.contains(document.activeElement) ? document.activeElement : null;
@@ -11637,8 +11707,8 @@ function renderLobby(force) {
     const who = isMine ? (profile.name || 'You')
       : peer ? (peer.name || 'Commander')
         : s.kind === 'human' ? (s.name || 'Player') : SEAT_KIND_LABEL[s.kind];
-    const elem = isMine ? selectedRace.name
-      : peer ? (races.find((r) => r.id === peer.raceId)?.name || 'choosing…')
+    const elem = isMine ? (randomRace ? 'Random element' : selectedRace.name)
+      : peer ? (peer.raceId === 'random' ? 'Random element' : races.find((r) => r.id === peer.raceId)?.name || 'choosing…')
         : s.kind === 'ai' ? (race ? race.name : 'Random element')
           : s.kind === 'human' ? '—' : '—';
     const kinds = (half === PLAYER_HALF || mp.active) ? SEAT_KINDS : SEAT_KINDS.filter((k) => k !== 'human');
@@ -11681,8 +11751,10 @@ function renderLobby(force) {
         <span><b>Solo rules</b> — sends only, no neutral waves, and a brutal rival that builds the whole far side rather than a corner of it. One player, one very hard opponent.</span></label>` : ''}
       <p class="lb-hint">One shared battlefield: north versus south on every device. Teammates build together and defend the same waves and sends. Gold, lumber and tower ownership stay personal; team lives are shared. Sends attack the opposite team's maze.</p>
       <div class="lb-races">${races.filter((r) => raceUnlocked(r.id)).map((r) => `
-        <button class="lb-race ${r.id === selectedRace.id ? 'on' : ''}" data-lb-race="${r.id}" style="--race:${r.color}" title="${r.name} — ${r.trait}">
-          <span>${r.symbol}</span><small>${r.name}</small></button>`).join('')}</div>
+        <button class="lb-race ${!randomRace && r.id === selectedRace.id ? 'on' : ''}" data-lb-race="${r.id}" style="--race:${r.color}" title="${r.name} — ${r.trait}">
+          <span>${r.symbol}</span><small>${r.name}</small></button>`).join('')}
+        <button class="lb-race ${randomRace ? 'on' : ''}" data-lb-race="random" style="--race:#b9c4e4" title="Random element — decided when the match starts">
+          <span>🎲</span><small>Random</small></button></div>
       ${mp.active ? `<p class="lb-room">Room <b>${escapeHTML(mp.code || '')}</b> · ${1 + Object.keys(mp.peers).length} connected${mp.role === 'host' ? ' · you are the host' : ' · the host starts the match'}</p>` : ''}
       ${mp.active && lobbyPhase ? `<button id="lb-consent" class="lb-ready" aria-pressed="${lobbyLocalReady()}">${lobbyReadyButtonText()}</button>`:''}
       <button id="lb-ready" class="lb-ready" ${mp.active && lobbyPhase && (mp.role!=='host' || !lobbyAllReady())?'disabled':''}>${!lobbyPhase?'Back to the board':mp.active?(mp.role==='host'?(lobbyAllReady()?'Start match':'Waiting for everyone to ready'):'Waiting for the host'):'Start match'}</button>
@@ -12005,8 +12077,8 @@ function renderRaceDetail() {
 /* One tap picks the element. Tapping a card used to only PREVIEW it — you had
    to find "Fight as Fire" underneath and press that too, so people walked into
    the lobby as whatever they had picked last time. */
-function commitRace(race) {
-  if (!race || !raceUnlocked(race.id)) return;
+function commitRace(race, force = false) {
+  if (!race || (!force && !raceUnlocked(race.id))) return;   // force: the room's roster assigned it
   selectedRace = race;
   const name = $('selected-name'); if (name) name.textContent = race.name;
   const desc = $('selected-desc'); if (desc) desc.textContent = race.desc;
@@ -12848,6 +12920,8 @@ function mpOnMessage(msg) {
     const humans=[...(msg.roster?.south||[]),...(msg.roster?.north||[])].filter(s=>s.kind==='human'&&s.sid);
     if(!humans.length || !humans.every(s=>msg.readyPlayers?.[s.sid]===true)) return;
     if (!mpApplyRoster(msg.roster)) return;
+    { const mine = [...roster.south, ...roster.north].find((s) => s.sid === mp.sid); const r = mine && races.find((x) => x.id === mine.raceId);
+      if (r && r.id !== selectedRace.id) { commitRace(r, true); if (randomRace) log(`🎲 Random element: <b>${r.name}</b>.`); } }
     if (msg.seed != null) pendingSeed = msg.seed >>> 0;
     if (msg.mode) { const s = document.getElementById('mode-select'); if (s) s.value = msg.mode; }
     if (msg.lives) { const s = document.getElementById('lives-select'); if (s && [...s.options].some((o) => o.value === String(msg.lives))) s.value = String(msg.lives); }
@@ -13050,7 +13124,7 @@ function lobbyProtocol(msg) {
   if(msg.t==='lobby-state' && mp.role==='guest' && sid===mp.hostSid) {
     lobbyAcceptState(msg);return;
   }
-  if(msg.t==='lobby-race' && mp.role==='host' && races.some(r=>r.id===msg.race)) {
+  if(msg.t==='lobby-race' && mp.role==='host' && (msg.race==='random' || races.some(r=>r.id===msg.race))) {
     const seat=[...roster.south,...roster.north].find(s=>s.sid===sid);
     if(seat) {seat.raceId=msg.race;if(mp.peers[sid])mp.peers[sid].raceId=msg.race;mpBroadcastRoster();}
   }
@@ -13079,6 +13153,11 @@ function mpHostStart() {
   ensureRoster(); lobbyResetIfChanged();
   if(!lobbyAllReady()) { renderLobby(true); return log('Every player must check Ready before the host starts.'); }
   const seed = (Math.floor(Math.random() * 0x7fffffff) >>> 0) || 1;
+  for (const seat of [...roster.south, ...roster.north]) if (seat.kind === 'human' && seat.raceId === 'random') {
+    const r = resolveRandomRace(); seat.raceId = r.id;
+    if (mp.peers[seat.sid]) mp.peers[seat.sid].raceId = r.id;
+    if (seat.sid === mp.sid) { commitRace(r); log(`🎲 Random element: <b>${r.name}</b>.`); }
+  }
   mp.startPacket={t:'go',seed,readyRevision:mp.lobbyRevision,readyPlayers:{...mp.lobbyReadyPlayers},readyAcks:{...mp.lobbyReadyAcks},roster:mpRosterWire(),mode:mpModeNow(),lives:startingLives(),ts:Date.now()};
   if(mp.sharedRequested){mp.startPacket.arena=ARENA_PROTOCOL;mp.sharedArena=true;}
   if(!mpLockMatchRoster(seed))return;
@@ -13780,8 +13859,17 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    lives in changelog.md, this is the "what changed for me" version.
    Bump RELEASE_TAG whenever you add an entry: the card auto-expands once per
    new tag, then collapses and stays collapsed. */
-const RELEASE_TAG = '2026-10-23-shared-arena-20';
+const RELEASE_TAG = '2026-10-25-computers-build-up';
 const RELEASE_NOTES = [
+  { date:'2026-10-25', title:'Computers build up and send harder', items:[
+    'Computers stop spreading tier-0 towers after their first ring of 24 and spend on upgrades instead; upgrades come twice as often.',
+    'Shrine 5 arrives at 8 minutes in Classic Wars and wave 16 in wave mode; Shrines 6–8 keep their old timing. Sends start at 10 seconds or wave 1 and come 40% more often, in bigger bodies.',
+    'Attackers come one a lane, at most every 45 seconds. A computer that is about to win spends instead of saving.',
+    'The RIVAL setting defaults to Brutal; Hard, Standard and Relaxed are still there.',
+  ] },
+  { date:'2026-10-25', title:'Random element for players', items:[
+    'A 🎲 Random chip in the lobby picks your element when the match starts. In a room the host picks for everyone who chose Random and the start packet carries the result.',
+  ] },
   {date:'2026-10-23',title:'One shared battlefield and more room for the map',items:[
     'Teammates now build on the same battlefield and their towers defend the same waves and sends. North and south stay in the same places on every screen.',
     'The Boards selector is gone. Allied building and sends moving through the opposing maze stay visible together. Gold, lumber and tower ownership remain personal; lives are shared by the team.',

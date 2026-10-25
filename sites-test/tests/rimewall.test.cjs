@@ -105,8 +105,8 @@ test('all three send pools sort by shrine then ROI without mutating stable IDs',
 
 test('rival and ally computers can buy Shrine 5 in Classic and wave modes', () => {
   const { run, value } = boot();
-  assert.deepEqual(value(`(() => { matchMode='classic'; const a=[0,210,420,630,840].map(n => {simTime=n; return desiredAiShrine();});
-    matchMode='survival'; const b=[0,7,14,21,28].map(n => {wave=n; return desiredAiShrine();}); return [a,b]; })()`),
+  assert.deepEqual(value(`(() => { matchMode='classic'; const a=[0,120,240,360,480].map(n => {simTime=n; return desiredAiShrine();});
+    matchMode='survival'; const b=[0,4,8,12,16].map(n => {wave=n; return desiredAiShrine();}); return [a,b]; })()`),
     [[1,2,3,4,5],[1,2,3,4,5]]);
   assert.equal(run(`(() => { matchMode='classic'; simTime=840;
     Object.assign(enemy,{shrine:1,lumber:10,gold:0,buildClock:100,upgradeClock:100,sendClock:100});
@@ -542,10 +542,10 @@ test('every Classic Wars computer sends from its own purse while wave remains ze
   })()`),Array.from({length:5},()=>[true,true,true,true,true]));
 });
 
-test('wave computers start sending at wave two and keep sending while saving for Shrine', () => {
+test('wave computers start sending at wave one and keep sending while saving for Shrine', () => {
   const {value}=boot();
   assert.deepEqual(value(`(() => {
-    const ai=makeAlly(PLAYER_HALF,1,'earth',2);matchMode='wars';simTime=120;wave=1;
+    const ai=makeAlly(PLAYER_HALF,1,'earth',2);matchMode='wars';simTime=120;wave=0;
     Object.assign(ai,{gold:500,buildClock:100,upgradeClock:100,sendClock:0});
     updateAlly(ai,.01);const before=creeps.length;
     wave=14;ai.sendClock=0;updateAlly(ai,.01);
@@ -556,7 +556,7 @@ test('wave computers start sending at wave two and keep sending while saving for
 test('large purses send higher Shrine bodies, flying units, and real multi-body swarms', () => {
   const {value}=boot();
   assert.deepEqual(value(`(() => {
-    matchMode='classic';simTime=650;
+    matchMode='classic';simTime=400;
     const ai=makeAlly(PLAYER_HALF,1,'tech',2);
     Object.assign(ai,{gold:50000,income:0,shrine:4,towersBuilt:20,buildClock:100,upgradeClock:100,sendClock:0});
     updateAlly(ai,.01);
@@ -1804,4 +1804,36 @@ test('landscape board fitting reserves the measured header and navigation at sho
     $('map-viewport').getBoundingClientRect=()=>({top:120,left:0,width:760,height:200});fitBoardToViewport();`);
   assert.equal(run("$('map-viewport').style.height"),'200px');
   assert.ok(run('frameBase.height')<=200);
+});
+
+test('computers buy attackers one body a lane and wait 45 seconds between attacker purchases', () => {
+  const {value}=boot();
+  assert.deepEqual(value(`(() => {
+    matchMode='classic';simTime=300;enemy.lives=100;
+    const ai=makeAlly(PLAYER_HALF,1,'tech',2);
+    Object.assign(ai,{gold:20000,economyGold:0,pressureGold:16000,budgetGold:20000,towersBuilt:12,shrine:4,lumber:10,pressureTurn:5});
+    ai.attackPlan=aiAttackPlan(ai);aiSendPressure(ai,PLAYER_HALF);
+    const first=creeps.filter(c=>c.attacker).length, at=ai.lastAttackerAt;
+    ai.pressureTurn=5;aiSendPressure(ai,PLAYER_HALF);
+    const again=creeps.filter(c=>c.attacker).length;
+    simTime=360;ai.pressureTurn=5;ai.pressureGold=16000;ai.gold=20000;ai.budgetGold=20000;aiSendPressure(ai,PLAYER_HALF);
+    const later=creeps.filter(c=>c.attacker).length;
+    return [first,at,again,later];
+  })()`),[2,300,2,4]);
+});
+
+test('computer breadth ends at 24 towers and the fast Shrine ramp stops at Shrine 5', () => {
+  const {value}=boot();
+  assert.deepEqual(value(`(() => { matchMode='classic';
+    const breadth=[0,600,2000].map(t=>{simTime=t;return aiBreadthTarget();});
+    const shrine=[480,840,1000,1050,1470].map(t=>{simTime=t;return desiredAiShrine();});
+    return [breadth,shrine]; })()`),[[12,24,24],[5,5,5,6,8]]);
+});
+
+test('a human can pick Random and gets a real element when the match starts', () => {
+  const {run,value}=boot();
+  assert.deepEqual(value(`(() => { lobbyPickRace('random'); const chip=randomRace===true && profile.randomRace===true;
+    lobbyPickRace('fire'); const off=randomRace===false && selectedRace.id==='fire';
+    lobbyPickRace('random'); startBattle(); const real=races.some(r=>r.id===player.races[0]) && selectedRace.id===player.races[0];
+    return [chip,off,real,randomRace]; })()`),[true,true,true,true]);
 });
