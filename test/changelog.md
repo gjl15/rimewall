@@ -9,6 +9,9 @@ Newest changes appear first. Dates use America/Los_Angeles time.
   tier upgrade needs 70% of the purse in hand instead of 50%. Measured before: in a
   2v2 at nine minutes the rival had 50 of 107 towers at tier 0 and the friendly
   computer 45 of 45.
+- `aiSendPressure`: attackers one body a lane, one pressure turn in six, at least 45 s
+  between attacker purchases per computer (a Brutal rival sent five attackers in six
+  minutes; now one in eight).
 - `desiredAiShrine`: Classic `simTime/120`, waves `wave/4` (was /210 and /7). Send
   gate 10 s / wave 1 (was 20 s / wave 2). Cadence 7/5 s Classic, 12/8 s waves (was
   12/8 and 20/12). Opening economy share .45 (was .35), steady pressure share .50

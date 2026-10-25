@@ -6117,7 +6117,13 @@ function aiSendPressure(ai,half) {
   let remaining=3;
   while(remaining>=plan.burst){
     const turn=(ai.pressureTurn || 0)%4;
-    const family=turn===1?'flying':turn===3 && ai.shrine>1?'attacker':'income';
+    /* ATTACKERS ARE THE ONE SEND A WALL CANNOT OUT-EARN. They pay no bounty and a
+       Wallbreaker is 5,200 HP at armour 18; two a lane in a Brutal burst at minute
+       five is a wall nobody can keep. One in six turns, one body a lane, and at
+       least 45 s between attacker purchases per computer. */
+    const turnMod=(ai.pressureTurn || 0)%6;
+    const attackerTurn=turnMod===5 && ai.shrine>1 && simTime-(ai.lastAttackerAt ?? -1e9)>=45;
+    const family=turn===1?'flying':attackerTurn?'attacker':'income';
     const choices=pool.filter(s=>((plan.blocked || plan.finish) && family!=='attacker'?!s.attacker:sendType(s)===family)
       && (!plan.blocked || s.attacker || s.air || s.hp>=200));
     if(!choices.length)break;
@@ -6127,9 +6133,10 @@ function aiSendPressure(ai,half) {
     const candidates=attainable.length?attainable:choices.slice().sort((a,b)=>aiBurstCost(ai,a,plan.burst)-aiBurstCost(ai,b,plan.burst)).slice(0,1);
     candidates.sort((a,b)=>aiPressureScore(ai,b,defenders)-aiPressureScore(ai,a,defenders));
     const pick=candidates[0];
-    const cost=aiBurstCost(ai,pick,plan.burst);
+    const packs=pick.attacker?1:plan.burst;
+    const cost=aiBurstCost(ai,pick,packs);
     if(!ai.preparingAttack)ai.preparingSince=simTime;   // the clock runs from the first save, whatever it later picks
-    ai.preparingAttack={id:pick.id,packs:plan.burst,cost,shrine:pick.shrine};
+    ai.preparingAttack={id:pick.id,packs,cost,shrine:pick.shrine};
     // Save for the chosen counter and release it together; cheaper failed units
     // cannot drain this fund while the stronger attack is being prepared —
     // but not forever: after 40s of saving, send the strongest body affordable now.
@@ -6137,13 +6144,15 @@ function aiSendPressure(ai,half) {
       // a finishing computer never saves: measured, a Brutal rival sat on 19,600 gold for a
       // three-Bastion burst while its opponent had twelve lives left
       if(!plan.finish && simTime-(ai.preparingSince ?? simTime)<40)break;
-      const now=candidates.filter(s=>aiBurstCost(ai,s,plan.burst)<=aiBudget(ai,'pressure'));
+      const now=candidates.filter(s=>aiBurstCost(ai,s,s.attacker?1:plan.burst)<=aiBudget(ai,'pressure'));
       if(!now.length)break;
-      const fallback=now[0];
-      for(let n=0;n<plan.burst;n++)if(!aiBuySend(ai,half,fallback,'pressure'))return;
+      const fallback=now[0];const fpacks=fallback.attacker?1:plan.burst;
+      for(let n=0;n<fpacks;n++)if(!aiBuySend(ai,half,fallback,'pressure'))return;
+      if(fallback.attacker)ai.lastAttackerAt=simTime;
       ai.preparingSince=simTime;remaining-=plan.burst;ai.pressureTurn=(ai.pressureTurn || 0)+1;continue;
     }
-    for(let n=0;n<plan.burst;n++)if(!aiBuySend(ai,half,pick,'pressure'))return;
+    for(let n=0;n<packs;n++)if(!aiBuySend(ai,half,pick,'pressure'))return;
+    if(pick.attacker)ai.lastAttackerAt=simTime;
     ai.preparingAttack=null;remaining-=plan.burst;
     ai.pressureTurn=(ai.pressureTurn || 0)+1;
   }
@@ -13432,7 +13441,7 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    lives in changelog.md, this is the "what changed for me" version.
    Bump RELEASE_TAG whenever you add an entry: the card auto-expands once per
    new tag, then collapses and stays collapsed. */
-const RELEASE_TAG = '2026-10-25-computers-upgrade';
+const RELEASE_TAG = '2026-10-25-attackers';
 const RELEASE_NOTES = [
   { date:'2026-10-25', title:'Computers build up, not just out', items:[
     'Computers stop spreading tier-0 towers after their first ring of 24 and spend on upgrades instead. Upgrades come twice as often. Measured: the 2v2 rival had half its towers at tier 0 at nine minutes; the friendly computer had all of them at tier 0.',
@@ -13441,6 +13450,7 @@ const RELEASE_NOTES = [
     'Shrine 5 arrives at 8 minutes in Classic Wars and wave 16 in wave mode (was 14 minutes / wave 28). Sends start at 10 seconds or wave 1 and come 40% more often.',
     'Computers buy three bigger sends a cycle instead of twelve Prowlers, and a fund that has saved for a body for 40 seconds sends the strongest it can afford instead of hoarding.',
     'The RIVAL setting on the setup screen defaults to Brutal. It still goes down to Hard, Standard and Relaxed.',
+    'Attackers come one a lane, at most every 45 seconds. Measured: a Brutal rival sent five attackers in six minutes, now one in eight.',
   ] },
   { date:'2026-10-25', title:'Random element for players', items:[
     'A 🎲 Random chip in the lobby picks your element when the match starts. In a room the host picks for everyone who chose Random and the start packet carries the result, so both phones agree.',
