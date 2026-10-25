@@ -1683,7 +1683,7 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
             <div class="wordmark-row"><svg class="crest-mark" viewBox="0 0 48 48" width="46" height="46" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="crestG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bfeaff"/><stop offset="1" stop-color="#4aa3e0"/></linearGradient></defs><path d="M24 2 L42 11 V26 C42 37 34 44 24 46 C14 44 6 37 6 26 V11 Z" fill="#0d1f3a" stroke="url(#crestG)" stroke-width="2"/><g stroke="url(#crestG)" stroke-width="2.4" stroke-linecap="round"><path d="M24 12 V34 M14.5 18 L33.5 28 M33.5 18 L14.5 28"/></g><g stroke="#eafcff" stroke-width="1.3" stroke-linecap="round" opacity=".9"><path d="M24 15 l-2.4 2.6 M24 15 l2.4 2.6 M24 31 l-2.4 -2.6 M24 31 l2.4 -2.6"/></g></svg><h1>Rime<span>wall</span></h1></div>
             <p class="lede">Choose your element. Build the maze. Break theirs.</p>
           </div>
-          <div class="version-pill">COMBINED TEST · TEAM MATCH 14</div>
+          <div class="version-pill">TEST BUILD · TEAM MATCH 14 + FIXES 2026-10-25</div>
         </div>
 
         <div class="selection-bar setup-bar">
@@ -5904,14 +5904,19 @@ function aiBreadthTarget() {
      6, which is what the paragraph above always claimed. The wave ceiling is
      the belt to that braces: breadth ENDS on a clock, so a future change to
      build rate or tower cost cannot quietly reopen the trap. */
-  if (matchMode === 'classic') return Math.min(64, 16 + Math.floor(simTime / 22));
+  /* MEASURED 2026-10-25: with the ceiling at 64 the Classic target was still rising
+     at the twelve-minute mark, so the computers were laying tier-0 towers all game —
+     half of a 2v2 rival's 107 towers were tier 0, and the friendly computer's 45 were
+     all tier 0. Breadth now ends at 24 towers, which is a full first ring; after
+     that the build tick buys height. */
+  if (matchMode === 'classic') return Math.min(24, 12 + Math.floor(simTime / 45));
   if (wave >= AI_BREADTH_LAST_WAVE) return 0;
-  return Math.min(64, 16 + wave);
+  return Math.min(24, 12 + wave);
 }
 function enemySpots() { return enemy && enemy.spots ? enemy.spots : aiSpots('centre'); }
 /* Each computer protects a share of real gold for its wall, economy sends,
    and pressure/Shrine savings. Every seat pays the normal prices. */
-const AI_UPGRADE_PERIOD = 5.5;
+const AI_UPGRADE_PERIOD = 3;   // was 5.5: upgrades came half as often as new towers
 const AI_BREADTH_LAST_WAVE = 8;
 function desiredAiShrine() {
   /* Was simTime/210 and wave/7: Shrine 2 at 3.5 minutes, Shrine 5 at 14 — a human
@@ -5978,8 +5983,10 @@ function aiAttackPlan(ai,half=ai===enemy?ENEMY_HALF:ai.half) {
     && simTime-(ai.currentPressureAt ?? simTime)>=120;
   return {mode,blocked,finish,opening,burst:finish?3:blocked?2:1,
     // opening economy .35→.45 so income compounds sooner; steady pressure .40→.50
-    economyShare:opening ? .45 : finish ? .05 : blocked ? .15 : .30,
-    pressureShare:opening ? 0 : finish ? .75 : blocked ? .60 : .50,
+    // steady state .20 / .45, leaving .35 for the wall: at .30/.50 the build fund was a
+    // fifth of income and the friendly computer in a 2v2 never bought a single tier
+    economyShare:opening ? .45 : finish ? .05 : blocked ? .15 : .20,
+    pressureShare:opening ? 0 : finish ? .75 : blocked ? .60 : .45,
     shrine:Math.max(desiredAiShrine(),rush?Math.min(SHRINE_MAX,ai.shrine+1):ai.shrine)};
 }
 function syncAiBudget(ai) {
@@ -5991,6 +5998,12 @@ function syncAiBudget(ai) {
     ai.economyGold-=redirect;ai.pressureGold+=redirect;
   }
   ai.attackMode=plan.mode;ai.attackPlan=plan;
+  /* A WALL FUND WITH NOTHING TO BUY GOES TO THE FRONT. Once every spot is built the
+     build share piled up: a Brutal rival banked 20,000 gold at eight minutes. With
+     the placement queue exhausted, anything past what a tier-5 tower and its levels
+     cost becomes pressure; upgrades keep drawing on the rest. */
+  const queue=ai.spots || (ai===enemy?enemySpots():[]);
+  if((ai.spotIndex || 0)>=queue.length){const idle=aiBudget(ai)-1500;if(idle>0)ai.pressureGold=(ai.pressureGold || 0)+idle;}
   const held=ai.economyGold+ai.pressureGold;
   if(held>ai.gold && held>0){ai.economyGold*=ai.gold/held;ai.pressureGold*=ai.gold/held;}
   ai.budgetGold=ai.gold;
@@ -6115,13 +6128,15 @@ function aiSendPressure(ai,half) {
     candidates.sort((a,b)=>aiPressureScore(ai,b,defenders)-aiPressureScore(ai,a,defenders));
     const pick=candidates[0];
     const cost=aiBurstCost(ai,pick,plan.burst);
-    if(ai.preparingAttack?.id!==pick.id)ai.preparingSince=simTime;
+    if(!ai.preparingAttack)ai.preparingSince=simTime;   // the clock runs from the first save, whatever it later picks
     ai.preparingAttack={id:pick.id,packs:plan.burst,cost,shrine:pick.shrine};
     // Save for the chosen counter and release it together; cheaper failed units
     // cannot drain this fund while the stronger attack is being prepared —
     // but not forever: after 40s of saving, send the strongest body affordable now.
     if(aiBudget(ai,'pressure')<cost){
-      if(simTime-(ai.preparingSince ?? simTime)<40)break;
+      // a finishing computer never saves: measured, a Brutal rival sat on 19,600 gold for a
+      // three-Bastion burst while its opponent had twelve lives left
+      if(!plan.finish && simTime-(ai.preparingSince ?? simTime)<40)break;
       const now=candidates.filter(s=>aiBurstCost(ai,s,plan.burst)<=aiBudget(ai,'pressure'));
       if(!now.length)break;
       const fallback=now[0];
@@ -6227,7 +6242,7 @@ function updateComputer(ai,half,dt) {
     if(spot){
       const budget=aiBudget(ai);
       let tier=list[0].chassis || (ai.towersBuilt || 0)<aiBreadthTarget()?0:maxTier;
-      while(tier>0 && list[tier].cost>budget*.5)tier--;
+      while(tier>0 && list[tier].cost>budget*.7)tier--;   // was half the purse; a tier-5 tower needed 700g in hand
       const def=towerDef(ai.raceId,tier);
       if(budget>=def.cost){
         const t=makeTower(spot.r,spot.c,ai.raceId,tier,half===PLAYER_HALF?'player':'enemy');
@@ -6250,7 +6265,7 @@ function updateComputer(ai,half,dt) {
   if(ai.upgradeClock<=0){
     ai.upgradeClock=AI_UPGRADE_PERIOD;
     if((ai.towersBuilt || 0)>=6 || ai.spotIndex>=(ai.spots || enemySpots()).length){
-      for(let n=0;n<3 && aiUpgradeTower(ai,half,maxTier);n++){}
+      for(let n=0;n<4 && aiUpgradeTower(ai,half,maxTier);n++){}
     }
   }
 }
@@ -13417,8 +13432,23 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    lives in changelog.md, this is the "what changed for me" version.
    Bump RELEASE_TAG whenever you add an entry: the card auto-expands once per
    new tag, then collapses and stays collapsed. */
-const RELEASE_TAG = '2026-10-19-match-teams';
+const RELEASE_TAG = '2026-10-25-computers-upgrade';
 const RELEASE_NOTES = [
+  { date:'2026-10-25', title:'Computers build up, not just out', items:[
+    'Computers stop spreading tier-0 towers after their first ring of 24 and spend on upgrades instead. Upgrades come twice as often. Measured: the 2v2 rival had half its towers at tier 0 at nine minutes; the friendly computer had all of them at tier 0.',
+  ] },
+  { date:'2026-10-25', title:'Computers send harder, in every mode', items:[
+    'Shrine 5 arrives at 8 minutes in Classic Wars and wave 16 in wave mode (was 14 minutes / wave 28). Sends start at 10 seconds or wave 1 and come 40% more often.',
+    'Computers buy three bigger sends a cycle instead of twelve Prowlers, and a fund that has saved for a body for 40 seconds sends the strongest it can afford instead of hoarding.',
+    'The RIVAL setting on the setup screen defaults to Brutal. It still goes down to Hard, Standard and Relaxed.',
+  ] },
+  { date:'2026-10-25', title:'Random element for players', items:[
+    'A 🎲 Random chip in the lobby picks your element when the match starts. In a room the host picks for everyone who chose Random and the start packet carries the result, so both phones agree.',
+  ] },
+  { date:'2026-10-20', title:'Teammates build on one board', items:[
+    'A human teammate\'s towers are built on your board too, in their lane and colour, and follow their upgrades and sells. Your creeps are still yours; their towers simply shoot them. A copy an attacker destroys on your board stays down until they sell or rebuild that cell.',
+    'Settings → Developer mode → "Copy multiplayer diagnostics" puts the room state on the clipboard for bug reports from a phone.',
+  ] },
   { date:'2026-10-19', title:'Teams stay allied throughout the match', items:[
     'Match teams are locked from the ready roster. Late seat or lobby-edit messages cannot switch anyone after starting.',
     'Sends identify the attacking seat and can only target the other team. Computer attacks relayed by a human host are labeled Computer rather than your teammate.',
