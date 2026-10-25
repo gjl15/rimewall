@@ -1692,7 +1692,7 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
             <span class="race-card-copy"><span class="selection-kicker">YOUR ELEMENT — TAP TO CHANGE</span><strong id="selected-name">Ice</strong><span id="selected-desc">Slows enemies and buys your maze time.</span></span>
             <span class="race-card-caret">▾</span>
           </button>
-          <div class="selection-actions"><label class="lives-pick" for="mode-select">MODE <select id="mode-select"><option value="skirmish" selected>Waves vs rival</option><option value="survival">Survival • creeps only, no rival</option><option value="classic">Classic Wars • sends only</option></select></label><label class="lives-pick" for="team-select">TEAM <select id="team-select"><option value="1" selected>1v1 • one batch</option><option value="2">2v2 • two batches</option><option value="3">3v3 • three batches</option></select></label><label class="lives-pick" for="ai-select">RIVAL <select id="ai-select"><option value="relaxed">Relaxed • learning the ropes</option><option value="normal">Standard • a poor rival</option><option value="hard" selected>Hard • funded, recommended</option><option value="brutal">Brutal • it out-earns you</option></select></label><label class="lives-pick" for="lives-select">LIFEFORCE <select id="lives-select"><option value="25">25 • classic</option><option value="50">50 • veteran</option><option value="100" selected>100 • easy</option></select></label></div>
+          <div class="selection-actions"><label class="lives-pick" for="mode-select">MODE <select id="mode-select"><option value="skirmish" selected>Waves vs rival</option><option value="survival">Survival • creeps only, no rival</option><option value="classic">Classic Wars • sends only</option></select></label><label class="lives-pick" for="team-select">TEAM <select id="team-select"><option value="1" selected>1v1 • one batch</option><option value="2">2v2 • two batches</option><option value="3">3v3 • three batches</option></select></label><label class="lives-pick" for="ai-select">RIVAL <select id="ai-select"><option value="relaxed">Relaxed • learning the ropes</option><option value="normal">Standard • a poor rival</option><option value="hard">Hard • funded</option><option value="brutal" selected>Brutal • it out-earns you, recommended</option></select></label><label class="lives-pick" for="lives-select">LIFEFORCE <select id="lives-select"><option value="25">25 • classic</option><option value="50">50 • veteran</option><option value="100" selected>100 • easy</option></select></label></div>
           <div class="setup-actions-row">
             <button id="start-button" class="primary-button">Enter the battlefield <span>→</span></button>
             <button id="settings-open" class="gear-button" title="Settings" aria-label="Settings">⚙</button>
@@ -3558,6 +3558,8 @@ function loadProfile() {
   profile.dragonsSent = profile.dragonsSent || 0;
   profile.achievements = profile.achievements || {};
   profile.devUnlockAll = SITE_DEV_BUILD || Boolean(profile.devUnlockAll);
+  profile.randomRace = Boolean(profile.randomRace);
+  randomRace = profile.randomRace;
 }
 function saveProfile() { try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); } catch (error) { /* per-browser only */ } }
 function raceUnlocked(raceId) {
@@ -3777,6 +3779,17 @@ function sendIncomeLabel(send) {
 function waveHpMult(n) { return Math.pow(TRAIT.hpLateRamp, Math.max(0, (n || 0) - TRAIT.hpLateFrom)); }
 function startingLives() { return Number(document.getElementById('lives-select')?.value) || 100; }
 let selectedRace = races[0];
+/* 🎲 RANDOM ELEMENT. Computers have always been able to play a random element;
+   people could not. The chip is a lobby choice, remembered per browser, and is
+   resolved to a real element the moment the match starts — on the host in a room,
+   so every client is handed the same answer in the start packet.
+   `var`, not `let`: loadProfile() runs above this line and restores the flag. */
+var randomRace;
+function resolveRandomRace() {
+  const pool = races.filter((r) => raceUnlocked(r.id));
+  return pool[Math.floor(Math.random() * pool.length)] || races[0];
+}
+function setRandomRace(on) { randomRace = !!on; try { profile.randomRace = randomRace; saveProfile(); } catch (e) {} }
 let selectedTowerTier = 0;
 let buildRaceIdx = 0;              // index into player.races — which licensed element the build panel shows
 let panelRaceId = null;           // which race the wisp build panel is currently viewing (may be a preview)
@@ -5901,7 +5914,11 @@ function enemySpots() { return enemy && enemy.spots ? enemy.spots : aiSpots('cen
 const AI_UPGRADE_PERIOD = 5.5;
 const AI_BREADTH_LAST_WAVE = 8;
 function desiredAiShrine() {
-  return 1 + Math.min(SHRINE_MAX - 1, Math.floor(matchMode === 'classic' ? simTime / 210 : wave / 7));
+  /* Was simTime/210 and wave/7: Shrine 2 at 3.5 minutes, Shrine 5 at 14 — a human
+     is on Shrine 3 by then. Measured in a 2v2, the computers sat on Shrine 2 for the
+     whole first six minutes buying Pathfinders. Shrine 5 now lands at 8 minutes in
+     Classic and wave 16 in wave mode. */
+  return 1 + Math.min(SHRINE_MAX - 1, Math.floor(matchMode === 'classic' ? simTime / 120 : wave / 4));
 }
 let aiAttackSerial=0;
 const aiRemoteAttacks=new Map();
@@ -5960,8 +5977,9 @@ function aiAttackPlan(ai,half=ai===enemy?ENEMY_HALF:ai.half) {
   const rush=currentStopped || stalled && ai.lastPressureShrine===ai.shrine
     && simTime-(ai.currentPressureAt ?? simTime)>=120;
   return {mode,blocked,finish,opening,burst:finish?3:blocked?2:1,
-    economyShare:opening ? .35 : finish ? .05 : blocked ? .15 : .30,
-    pressureShare:opening ? 0 : finish ? .75 : blocked ? .60 : .40,
+    // opening economy .35→.45 so income compounds sooner; steady pressure .40→.50
+    economyShare:opening ? .45 : finish ? .05 : blocked ? .15 : .30,
+    pressureShare:opening ? 0 : finish ? .75 : blocked ? .60 : .50,
     shrine:Math.max(desiredAiShrine(),rush?Math.min(SHRINE_MAX,ai.shrine+1):ai.shrine)};
 }
 function syncAiBudget(ai) {
@@ -6097,10 +6115,19 @@ function aiSendPressure(ai,half) {
     candidates.sort((a,b)=>aiPressureScore(ai,b,defenders)-aiPressureScore(ai,a,defenders));
     const pick=candidates[0];
     const cost=aiBurstCost(ai,pick,plan.burst);
+    if(ai.preparingAttack?.id!==pick.id)ai.preparingSince=simTime;
     ai.preparingAttack={id:pick.id,packs:plan.burst,cost,shrine:pick.shrine};
     // Save for the chosen counter and release it together; cheaper failed units
-    // cannot drain this fund while the stronger attack is being prepared.
-    if(aiBudget(ai,'pressure')<cost)break;
+    // cannot drain this fund while the stronger attack is being prepared —
+    // but not forever: after 40s of saving, send the strongest body affordable now.
+    if(aiBudget(ai,'pressure')<cost){
+      if(simTime-(ai.preparingSince ?? simTime)<40)break;
+      const now=candidates.filter(s=>aiBurstCost(ai,s,plan.burst)<=aiBudget(ai,'pressure'));
+      if(!now.length)break;
+      const fallback=now[0];
+      for(let n=0;n<plan.burst;n++)if(!aiBuySend(ai,half,fallback,'pressure'))return;
+      ai.preparingSince=simTime;remaining-=plan.burst;ai.pressureTurn=(ai.pressureTurn || 0)+1;continue;
+    }
     for(let n=0;n<plan.burst;n++)if(!aiBuySend(ai,half,pick,'pressure'))return;
     ai.preparingAttack=null;remaining-=plan.burst;
     ai.pressureTurn=(ai.pressureTurn || 0)+1;
@@ -6109,7 +6136,11 @@ function aiSendPressure(ai,half) {
 function aiSendEconomy(ai,half) {
   const unlocked=SENDS.filter(s=>!s.attacker && s.shrine<=ai.shrine && s.cost>0 && s.income>0 && !aiFailedSend(ai,s.id));
   if(!unlocked.length){ai.pressureGold+=ai.economyGold;ai.economyGold=0;return;}
-  const limit=(ai.attackPlan || aiAttackPlan(ai,half)).mode==='pressure'?12:4;
+  /* SEND TO WIN, NOT TO FARM. Twelve tickets a cycle made every ticket a twelfth of
+     the purse, and a twelfth of any purse is a Prowler: measured over twelve minutes
+     of a 2v2 the rival bought seventy of them and banked nine thousand gold it never
+     spent. Three tickets a cycle makes each one a third of the purse. */
+  const limit=3;
   // Bigger purses buy bigger tickets within a bounded purchase count.
   for(let n=0;n<limit;n++){
     const budget=aiBudget(ai,'economy'),minTicket=budget/(limit-n);
@@ -6176,9 +6207,11 @@ function updateComputer(ai,half,dt) {
   syncAiBudget(ai);
   ai.buildClock-=dt;ai.sendClock-=dt;ai.upgradeClock=(ai.upgradeClock || 0)-dt;
   aiAdvanceShrine(ai);
-  if((matchMode==='classic'?simTime>20:wave>=2) && ai.sendClock<=0){
+  // sends start at 10s / wave 1 (was 20s / wave 2) and come 40% more often: 7s/5s in
+  // Classic, 12s/8s in wave mode (was 12/8 and 20/12)
+  if((matchMode==='classic'?simTime>10:wave>=1) && ai.sendClock<=0){
     const plan=ai.attackPlan;
-    ai.sendClock=(matchMode==='classic'?(plan.mode==='pressure'?12:8):(plan.mode==='pressure'?20:12))+(ai.seat || 0)*.4;
+    ai.sendClock=(matchMode==='classic'?(plan.mode==='pressure'?7:5):(plan.mode==='pressure'?12:8))+(ai.seat || 0)*.4;
     aiSendPressure(ai,half);aiSendEconomy(ai,half);
   }
   const list=towerListFor(ai.raceId);
@@ -11134,6 +11167,7 @@ const Coach = {
   finish() { this.active = false; profile.onboarded = true; saveProfile(); document.getElementById('coach-card')?.classList.add('hidden'); },
 };
 function startBattle() {
+  if (randomRace && !mp.active) { const r = resolveRandomRace(); commitRace(r); log(`🎲 Random element: <b>${r.name}</b>.`); }
   $('match-summary')?.classList.add('hidden');
   try { localStorage.removeItem(SKETCH_KEY); } catch (e) {}   // clear any stuck applied-sketch from older builds
   applySavedSketchToTerrain();
@@ -11294,8 +11328,18 @@ function lobbySetSize(half, n) {
   renderLobby(true);   // a local edit always redraws: the change event fires while the select still has focus
 }
 function lobbyPickRace(id) {
+  if (id === 'random') {
+    setRandomRace(true);
+    if (mp.active) {
+      if (mp.role === 'host') { const seat = [...roster.south, ...roster.north].find((s) => s.sid === mp.sid); if (seat) seat.raceId = 'random'; mpBroadcastRoster(); }
+      else mpSend({ t:'lobby-race', race:'random' });
+    }
+    renderLobby(true);
+    return;
+  }
   const race = races.find((r) => r.id === id);
   if (!race || !raceUnlocked(id)) return;
+  setRandomRace(false);
   commitRace(race);
   if(mp.active) {
     if(mp.role==='host') {const seat=[...roster.south,...roster.north].find(s=>s.sid===mp.sid);if(seat)seat.raceId=id;mpBroadcastRoster();}
@@ -11355,7 +11399,7 @@ function renderLobby(force) {
     s:roster.south.map((x) => [x.kind, x.sid, x.name]),
     n:roster.north.map((x) => [x.kind, x.sid, x.name]),
     p:Object.values(mp.peers).map((x) => [x.sid, x.name, x.raceId]),
-    m:matchMode, r:selectedRace.id, a:mp.active, role:mp.role, solo:soloRules, phase:lobbyPhase,
+    m:matchMode, r:randomRace ? 'random' : selectedRace.id, a:mp.active, role:mp.role, solo:soloRules, phase:lobbyPhase,
   });
   if (!force && sig === lobbyKey) { lobbyPatchReady(); return; }
   const focused = box.contains(document.activeElement) ? document.activeElement : null;
@@ -11383,8 +11427,8 @@ function renderLobby(force) {
     const who = isMine ? (profile.name || 'You')
       : peer ? (peer.name || 'Commander')
         : s.kind === 'human' ? (s.name || 'Player') : SEAT_KIND_LABEL[s.kind];
-    const elem = isMine ? selectedRace.name
-      : peer ? (races.find((r) => r.id === peer.raceId)?.name || 'choosing…')
+    const elem = isMine ? (randomRace ? 'Random element' : selectedRace.name)
+      : peer ? (peer.raceId === 'random' ? 'Random element' : races.find((r) => r.id === peer.raceId)?.name || 'choosing…')
         : s.kind === 'ai' ? (race ? race.name : 'Random element')
           : s.kind === 'human' ? '—' : '—';
     const kinds = (half === PLAYER_HALF || mp.active) ? SEAT_KINDS : SEAT_KINDS.filter((k) => k !== 'human');
@@ -11427,8 +11471,10 @@ function renderLobby(force) {
         <span><b>Solo rules</b> — sends only, no neutral waves, and a brutal rival that builds the whole far side rather than a corner of it. One player, one very hard opponent.</span></label>` : ''}
       <p class="lb-hint">Players in the same team row share lives and cannot target each other. Colours match the board: west is left, east is right. A teammate's towers are built on your board too, in their lane, so you maze one board together. Watching their board above does not make them an opponent.</p>
       <div class="lb-races">${races.filter((r) => raceUnlocked(r.id)).map((r) => `
-        <button class="lb-race ${r.id === selectedRace.id ? 'on' : ''}" data-lb-race="${r.id}" style="--race:${r.color}" title="${r.name} — ${r.trait}">
-          <span>${r.symbol}</span><small>${r.name}</small></button>`).join('')}</div>
+        <button class="lb-race ${!randomRace && r.id === selectedRace.id ? 'on' : ''}" data-lb-race="${r.id}" style="--race:${r.color}" title="${r.name} — ${r.trait}">
+          <span>${r.symbol}</span><small>${r.name}</small></button>`).join('')}
+        <button class="lb-race ${randomRace ? 'on' : ''}" data-lb-race="random" style="--race:#b9c4e4" title="Random element — decided when the match starts">
+          <span>🎲</span><small>Random</small></button></div>
       ${mp.active ? `<p class="lb-room">Room <b>${escapeHTML(mp.code || '')}</b> · ${1 + Object.keys(mp.peers).length} connected${mp.role === 'host' ? ' · you are the host' : ' · the host starts the match'}</p>` : ''}
       ${mp.active && lobbyPhase ? `<button id="lb-consent" class="lb-ready" aria-pressed="${lobbyLocalReady()}">${lobbyReadyButtonText()}</button>`:''}
       <button id="lb-ready" class="lb-ready" ${mp.active && lobbyPhase && (mp.role!=='host' || !lobbyAllReady())?'disabled':''}>${!lobbyPhase?'Back to the board':mp.active?(mp.role==='host'?(lobbyAllReady()?'Start match':'Waiting for everyone to ready'):'Waiting for the host'):'Start match'}</button>
@@ -11750,8 +11796,8 @@ function renderRaceDetail() {
 /* One tap picks the element. Tapping a card used to only PREVIEW it — you had
    to find "Fight as Fire" underneath and press that too, so people walked into
    the lobby as whatever they had picked last time. */
-function commitRace(race) {
-  if (!race || !raceUnlocked(race.id)) return;
+function commitRace(race, force = false) {
+  if (!race || (!force && !raceUnlocked(race.id))) return;   // force: the room's roster assigned it
   selectedRace = race;
   const name = $('selected-name'); if (name) name.textContent = race.name;
   const desc = $('selected-desc'); if (desc) desc.textContent = race.desc;
@@ -12531,6 +12577,8 @@ function mpOnMessage(msg) {
     const humans=[...(msg.roster?.south||[]),...(msg.roster?.north||[])].filter(s=>s.kind==='human'&&s.sid);
     if(!humans.length || !humans.every(s=>msg.readyPlayers?.[s.sid]===true)) return;
     if (!mpApplyRoster(msg.roster)) return;
+    { const mine = [...roster.south, ...roster.north].find((s) => s.sid === mp.sid); const r = mine && races.find((x) => x.id === mine.raceId);
+      if (r && r.id !== selectedRace.id) { commitRace(r, true); if (randomRace) log(`🎲 Random element: <b>${r.name}</b>.`); } }
     if (msg.seed != null) pendingSeed = msg.seed >>> 0;
     if (msg.mode) { const s = document.getElementById('mode-select'); if (s) s.value = msg.mode; }
     if (msg.lives) { const s = document.getElementById('lives-select'); if (s && [...s.options].some((o) => o.value === String(msg.lives))) s.value = String(msg.lives); }
@@ -12723,7 +12771,7 @@ function lobbyProtocol(msg) {
   if(msg.t==='lobby-state' && mp.role==='guest' && sid===mp.hostSid) {
     lobbyAcceptState(msg);return;
   }
-  if(msg.t==='lobby-race' && mp.role==='host' && races.some(r=>r.id===msg.race)) {
+  if(msg.t==='lobby-race' && mp.role==='host' && (msg.race==='random' || races.some(r=>r.id===msg.race))) {
     const seat=[...roster.south,...roster.north].find(s=>s.sid===sid);
     if(seat) {seat.raceId=msg.race;if(mp.peers[sid])mp.peers[sid].raceId=msg.race;mpBroadcastRoster();}
   }
@@ -12752,6 +12800,11 @@ function mpHostStart() {
   ensureRoster(); lobbyResetIfChanged();
   if(!lobbyAllReady()) { renderLobby(true); return log('Every player must check Ready before the host starts.'); }
   const seed = (Math.floor(Math.random() * 0x7fffffff) >>> 0) || 1;
+  for (const seat of [...roster.south, ...roster.north]) if (seat.kind === 'human' && seat.raceId === 'random') {
+    const r = resolveRandomRace(); seat.raceId = r.id;
+    if (mp.peers[seat.sid]) mp.peers[seat.sid].raceId = r.id;
+    if (seat.sid === mp.sid) { commitRace(r); log(`🎲 Random element: <b>${r.name}</b>.`); }
+  }
   mp.startPacket={t:'go',seed,readyRevision:mp.lobbyRevision,readyPlayers:{...mp.lobbyReadyPlayers},readyAcks:{...mp.lobbyReadyAcks},roster:mpRosterWire(),mode:mpModeNow(),lives:startingLives(),ts:Date.now()};
   if(!mpLockMatchRoster(seed))return;
   mp.startAcks={};mp.startSentAt=Date.now();mpSend(mp.startPacket);
