@@ -6116,14 +6116,13 @@ function aiSendPressure(ai,half) {
   const defenders=aiVisibleDefenders(half);
   let remaining=3;
   while(remaining>=plan.burst){
-    const turn=(ai.pressureTurn || 0)%4;
+    const turn=(ai.pressureTurn || 0)%6;   // one six-turn cycle: 1 and 3 flying, 5 attacker, the rest income
     /* ATTACKERS ARE THE ONE SEND A WALL CANNOT OUT-EARN. They pay no bounty and a
        Wallbreaker is 5,200 HP at armour 18; two a lane in a Brutal burst at minute
        five is a wall nobody can keep. One in six turns, one body a lane, and at
        least 45 s between attacker purchases per computer. */
-    const turnMod=(ai.pressureTurn || 0)%6;
-    const attackerTurn=turnMod===5 && ai.shrine>1 && simTime-(ai.lastAttackerAt ?? -1e9)>=45;
-    const family=turn===1?'flying':attackerTurn?'attacker':'income';
+    const attackerTurn=turn===5 && ai.shrine>1 && simTime-(ai.lastAttackerAt ?? -1e9)>=45;
+    const family=(turn===1 || turn===3)?'flying':attackerTurn?'attacker':'income';
     const choices=pool.filter(s=>((plan.blocked || plan.finish) && family!=='attacker'?!s.attacker:sendType(s)===family)
       && (!plan.blocked || s.attacker || s.air || s.hp>=200));
     if(!choices.length)break;
