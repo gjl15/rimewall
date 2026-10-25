@@ -1837,3 +1837,34 @@ test('a human can pick Random and gets a real element when the match starts', ()
     lobbyPickRace('random'); startBattle(); const real=races.some(r=>r.id===player.races[0]) && selectedRace.id===player.races[0];
     return [chip,off,real,randomRace]; })()`),[true,true,true,true]);
 });
+
+
+test('finishing and timed-out computers spend affordable singles instead of waiting for bursts', () => {
+  for (const finish of [true,false]) {
+    const {value}=boot();
+    const result=value(`(() => {
+      matchMode='classic';simTime=100;
+      const ai=makeAlly(PLAYER_HALF,1,'tech',2);
+      Object.assign(ai,{gold:10,pressureGold:10,economyGold:0,budgetGold:10,income:0,shrine:1,pressureTurn:0,towersBuilt:12,
+        preparingAttack:{id:'stalker'},preparingSince:0});
+      ai.attackPlan={shrine:1,burst:3,finish:${finish},blocked:false,pressureShare:.75};
+      aiSendPressure(ai,PLAYER_HALF);
+      return [ai.sendStats?.purchases || 0,ai.gold,creeps.filter(c=>c.sent).length];
+    })()`);
+    assert.ok(result[0]>0,'affordable sends must be bought');
+    assert.ok(result[1]<10);assert.ok(result[2]>0);
+  }
+});
+
+test('remembered Random survives room creation, guest hello, and seat changes', async () => {
+  const c=boot();c.run(`lobbyPickRace('random');$('mp-name').value='Abdy';$('mp-code').value='ABCD';$('team-select').value='2';
+    battleRunning=false;globalThis.sent=[];globalThis.presences=[];
+    mpMakeMqttTransport=async(code,receive,onOpen)=>{globalThis.connect=onOpen;return {send:m=>sent.push(m),presence:(k,m)=>presences.push(m),close:()=>{}};};
+    mpStartHelloLoop=()=>{};mpStatus=()=>{};openLobby=()=>{};`);
+  await c.run('mpOpenRoom(false)');
+  assert.equal(c.run('roster.south[0].raceId'),'random');
+  c.run("mp.active=true;mpSit('south',1)");
+  assert.equal(c.run('roster.south[1].raceId'),'random');
+  await c.run('mpOpenRoom(true)');c.run('connect()');
+  assert.equal(c.value('presences.filter(m=>m?.t==="hello").map(m=>m.race)').at(-1),'random');
+});

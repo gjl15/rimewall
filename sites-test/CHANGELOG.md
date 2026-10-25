@@ -19,3 +19,12 @@ placement queue is exhausted), `aiBreadthTarget` (ends at 24), `AI_UPGRADE_PERIO
 element), `renderLobby` (Random chip and label), `startBattle` (solo Random),
 `loadProfile`. RIVAL select defaults to Brutal. Three fixtures moved to the new schedule;
 three regression tests added. 142/142.
+
+### PR #9 audit follow-up — October 25, 2026
+
+- Preserve the remembered Random choice in host seating, guest hello/retries,
+  seat moves, and room configuration until the host resolves the starting roster.
+- After the pressure saving deadline, or immediately in finish mode, select
+  from all eligible affordable sends and reduce the burst to the affordable size.
+  Attacker spacing and one-pack limits remain in place.
+- Add regression coverage for both cases (144 tests total).
