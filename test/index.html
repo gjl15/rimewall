@@ -6143,9 +6143,12 @@ function aiSendPressure(ai,half) {
       // a finishing computer never saves: measured, a Brutal rival sat on 19,600 gold for a
       // three-Bastion burst while its opponent had twelve lives left
       if(!plan.finish && simTime-(ai.preparingSince ?? simTime)<40)break;
-      const now=candidates.filter(s=>aiBurstCost(ai,s,s.attacker?1:plan.burst)<=aiBudget(ai,'pressure'));
+      // Search the entire eligible family, not just forecast-sized bursts.
+      const now=choices.filter(s=>aiBurstCost(ai,s,1)<=aiBudget(ai,'pressure'));
+      now.sort((a,b)=>aiPressureScore(ai,b,defenders)-aiPressureScore(ai,a,defenders));
       if(!now.length)break;
-      const fallback=now[0];const fpacks=fallback.attacker?1:plan.burst;
+      const fallback=now[0];let fpacks=fallback.attacker?1:plan.burst;
+      while(fpacks>1 && aiBurstCost(ai,fallback,fpacks)>aiBudget(ai,'pressure'))fpacks--;
       for(let n=0;n<fpacks;n++)if(!aiBuySend(ai,half,fallback,'pressure'))return;
       if(fallback.attacker)ai.lastAttackerAt=simTime;
       ai.preparingSince=simTime;remaining-=plan.burst;ai.pressureTurn=(ai.pressureTurn || 0)+1;continue;
@@ -12301,8 +12304,8 @@ function mpApplyRoster(wire) {
 /* Claim a slot. The host applies it directly; a guest asks and waits. */
 function mpSit(half, index) {
   if (!mp.active || mp.started) return;
-  if (mp.role === 'host') { mpHostSeat(mp.sid, half, index, mpPlayerName(), selectedRace.id); mpBroadcastRoster(); }
-  else mpSend({ t:'sit', sid:mp.sid, half, index, name:mpPlayerName(), race:selectedRace.id });
+  if (mp.role === 'host') { mpHostSeat(mp.sid, half, index, mpPlayerName(), mpLobbyRaceId()); mpBroadcastRoster(); }
+  else mpSend({ t:'sit', sid:mp.sid, half, index, name:mpPlayerName(), race:mpLobbyRaceId() });
 }
 function mpHostSeat(sid, half, index, name, raceId) {
   if(mp.started)return false;
@@ -12421,6 +12424,7 @@ function mpPlayerName() {
   if (name) { profile.name = name; saveProfile(); }
   return name;
 }
+function mpLobbyRaceId() { return !mp.started && randomRace ? 'random' : selectedRace.id; }
 function mpModeNow() { return document.getElementById('mode-select')?.value === 'classic' ? 'classic' : 'skirmish'; }
 function mpStartHelloLoop() {
   // handshake heartbeat: BOTH sides re-affirm readiness until the match starts, so a single
@@ -12459,10 +12463,10 @@ function mpStartHelloLoop() {
     }
     try {
       if (mp.role === 'guest') {
-        if (!mp.config) mpSend({ t:'hello', name:mpPlayerName(), race:selectedRace.id });
+        if (!mp.config) mpSend({ t:'hello', name:mpPlayerName(), race:mpLobbyRaceId() });
         else { mpSend({ t:'ready' }); }                                 // keep confirming ready until the host starts
       } else if (mp.oppName) {                                          // host has seen a guest: keep re-offering config+ready
-        mpSend({ t:'config', name:mpPlayerName(), race:selectedRace.id, mode:mpModeNow(), lives:startingLives(), team:teamSizeSetting() });
+        mpSend({ t:'config', name:mpPlayerName(), race:mpLobbyRaceId(), mode:mpModeNow(), lives:startingLives(), team:teamSizeSetting() });
         mpSend({ t:'ready' });
       }
     } catch (e) { /* a transient bad state must never kill the heartbeat */ }
@@ -12482,13 +12486,13 @@ async function mpOpenRoom(join) {
   mp.active=false;mp.team=PLAYER_HALF;mp.seat=0;mp.peers={};
   mp.seatSnaps={};mp.seatLives={};mp.seatLeaks={};mp.seatIncome={};mp.viewSeat=null;
   roster=join ? null : newRoster(teamSizeSetting());
-  if (!join) mpHostSeat(mp.sid,PLAYER_HALF,0,name,selectedRace.id);
+  if (!join) mpHostSeat(mp.sid,PLAYER_HALF,0,name,mpLobbyRaceId());
   mpStatus(join ? `Connecting to room <b>${code}</b>…` : `Opening room <b>${code}</b>…`);
   const useSupabase = Boolean(MP_CONFIG.url && MP_CONFIG.anonKey);
   const onOpen = () => {
     if (join) {
       mpStatus(`Looking for the host of <b>${code}</b>…`);
-      mpPresence('guest', { t:'hello', name:mpPlayerName(), race:selectedRace.id, ts:Date.now() });
+      mpPresence('guest', { t:'hello', name:mpPlayerName(), race:mpLobbyRaceId(), ts:Date.now() });
       mpStartHelloLoop();
     } else {
       const link = mpInviteLink(code);
@@ -12500,7 +12504,7 @@ async function mpOpenRoom(join) {
         catch (e) { $('mp-copy-link').textContent = 'Copy failed — long-press the link below'; }
       });
       // retained host beacon: a guest that subscribes at ANY later time instantly receives this — kills the discovery race
-      mpPresence('host', { t:'config', name:mpPlayerName(), race:selectedRace.id, mode:mpModeNow(), lives:startingLives(), team:teamSizeSetting(), ts:Date.now() });
+      mpPresence('host', { t:'config', name:mpPlayerName(), race:mpLobbyRaceId(), mode:mpModeNow(), lives:startingLives(), team:teamSizeSetting(), ts:Date.now() });
     }
   };
   const fallbackLocal = () => {
@@ -12563,8 +12567,8 @@ function mpOnMessage(msg) {
       }
       mpBroadcastRoster();
     }
-    mpSend({ t:'config', name:mpPlayerName(), race:selectedRace.id, mode:mpModeNow(), lives:startingLives(), team:teamSizeSetting() });
-    mpPresence('host', { t:'config', name:mpPlayerName(), race:selectedRace.id, mode:mpModeNow(), lives:startingLives(), team:teamSizeSetting(), ts:Date.now() });
+    mpSend({ t:'config', name:mpPlayerName(), race:mpLobbyRaceId(), mode:mpModeNow(), lives:startingLives(), team:teamSizeSetting() });
+    mpPresence('host', { t:'config', name:mpPlayerName(), race:mpLobbyRaceId(), mode:mpModeNow(), lives:startingLives(), team:teamSizeSetting(), ts:Date.now() });
     {
       const orace = races.find((r) => r.id === mp.oppRace);
       mpStatus(`<b>✓ ${escapeHTML(mp.oppName)} joined!</b>${orace ? ` Playing <span style="color:${orace.color}">${orace.symbol} ${orace.name}</span>.` : ''} Starting the match…`);
@@ -12860,7 +12864,7 @@ function mpMaybeStart() {
     // the host holds a seat too, and nothing had ever written its sid down
     if (!['south', 'north'].some((h) => roster[h].some((s) => s.sid === mp.sid))) {
       const i = roster[mp.team].findIndex((s) => s.kind !== 'closed');
-      mpHostSeat(mp.sid, mp.team, Math.max(0, i), mpPlayerName(), selectedRace.id);
+      mpHostSeat(mp.sid, mp.team, Math.max(0, i), mpPlayerName(), mpLobbyRaceId());
     }
     mpBroadcastRoster();
   }

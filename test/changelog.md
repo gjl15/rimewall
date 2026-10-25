@@ -9,6 +9,10 @@ Newest changes appear first. Dates use America/Los_Angeles time.
   tier upgrade needs 70% of the purse in hand instead of 50%. Measured before: in a
   2v2 at nine minutes the rival had 50 of 107 towers at tier 0 and the friendly
   computer 45 of 45.
+- From Abdy's review of PR #9 (2e0e249), ported here: `mpLobbyRaceId()` carries a remembered
+  Random into seat, hello, config and sit messages until the match starts; the AI's
+  timed-out/finishing fallback searches the whole eligible family at single-pack cost
+  and shrinks the burst to what it can afford.
 - `aiSendPressure`: attackers one body a lane, one pressure turn in six, at least 45 s
   between attacker purchases per computer (a Brutal rival sent five attackers in six
   minutes; now one in eight).
