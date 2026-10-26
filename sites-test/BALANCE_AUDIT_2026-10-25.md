@@ -10,7 +10,7 @@ This first audit combines real regression checks, a reproducible economy and dam
 | High | Crystal formations cross teammate ownership | In a real two-client shared room, adjacent host and guest Crystals formed one group; the host's free bonus switch changed the guest's tower too. | Fixed by matching the stable player seat in shared rooms and the computer owner in solo/legacy rooms. New tests cover both clients and friendly computers. |
 | High | Guest state stops updating above 400 active creeps | 400 creeps applied at state sequence 2. The next valid host snapshot contained 401 creeps, but the guest remained at 400 and sequence 2. The payload was 78,228 characters. | Open. The decoder rejects the whole state at its 400-creep limit while the host can exceed that population. This must be addressed before accepting long or heavily populated shared matches. |
 | Medium | Attacker prices reward later combat power and income too cheaply | Wallbreaker cost the same 2 lumber as Breacher. Siege Ruiner returned 40% of its purchase price each cycle, versus 20% for Sapper. | Abdy selected candidate prices of 10 / 20 / 30 / 50 lumber, with recurring income retained. |
-| Calibration | A passing functional suite does not establish game balance | Baseline 144/144; current candidate 154/154. The 20-minute computer economy test clears creeps during its accounting simulation. | Keep economy, controlled combat, full-match behavior and device performance as separate measurements. |
+| Calibration | A passing functional suite does not establish game balance | Baseline 144/144; current candidate 158/158. The 20-minute computer economy test clears creeps during its accounting simulation. | Keep economy, controlled combat, full-match behavior and device performance as separate measurements. |
 | Documentation | Attacker kill bounty is mode-dependent | The shipped `sendCreepDef` pays zero in Classic, but a minimum 20 gold per attacker outside Classic. | Correct the earlier broad wording that attackers never award bounty. This patch leaves the mode rules intact. |
 
 The snapshot finding is reproduced in `audit/baseline.json` and remains visible in `audit/candidate.json`. It is not hidden by the passing regression count. A suitable repair must deliver the complete authoritative population, for example through bounded atomic pages, with loss/reordering recovery. Silently truncating the visible creeps or merely moving the cutoff is not a complete repair.
@@ -62,6 +62,10 @@ Abdy selected these changes after reviewing the first audit. These are base valu
 
 Attack intervals and ranges retain their prior values. Mace and Spear remain 70 and 75 damage. Initiate fits any of the seven Master weapons for 5 gold; normal fitted-weapon swaps cost 1 gold and preserve progress/imbuements. The new Fist option is appended so Dagger through Shuriken retain their tier IDs. Ninja Bulwark base HP remains 1,848 despite its new index, and Fist retains the starter's durability baseline.
 
+Fist follow-up: both landed combo strikes now count toward the hit counter and automatic ranks, including the Initiate's combo. The second strike has its own victim-credit scope; its shield/body damage and imbuement effects cannot duplicate that strike's credit. A first-strike kill adds no phantom second hit, and lingering damage still adds no rank progress. Four new checks failed before this correction and pass after it, including free promotion across a rank boundary and shared host/guest synchronization.
+
+This changes the earlier passive-rank estimate for Fist. With one durable target, no paid ranks, a Master fitted at the start and 50% active firing time, three seeded runs (20261025-20261027) each reached rank 11 / 32.76 damage at 8 minutes, rank 14 / 34.32 at 17.5 minutes, and rank 16 / 36.66 at 24.5 minutes. These conditional firing estimates exclude movement, target death, construction and competition from other towers; they do not predict every tower's rank in a match.
+
 Shadow has no shared pool, target divisor or crowd damage cap: three unarmored neutral-class targets each take 40, for 120 combined, before later modifiers. Cross geometry, radius, half filtering, elemental effects and distinct-victim rank credit retain their existing rules. Tests exercise 1, 2, 4 and 10 targets, exclude diagonal/out-of-range/opposite-half targets, and verify that each valid target still receives its imbuement effect. This is a substantial crowd-damage increase; these functional checks do not establish full-match balance.
 
 Candidate direct-damage references and all 66 controlled-combat scenarios were rerun after this revision. The matrix now stops Wallbreaker in 6 builder scenarios and leaks in 5; the prior run stopped 5 and leaked in 6. Eight scenarios still remain unresolved at the cutoff. The ordinary direct-damage table excludes procs, area coverage and imbuements and must not be interpreted as full weapon DPS.
@@ -89,7 +93,7 @@ Candidate direct-damage references and all 66 controlled-combat scenarios were r
 | Stone | The three critical profiles and exclusion of Earth abilities pass. |
 | Crystal | Same-owner groups now stay isolated in shared and solo computer cases. Chaos and free switching checks continue to pass. |
 | Rank limits and rewards | Standard rank 10 requires 990 points; splash 3,175. Ranks remain uncapped. Rank 10 damage is 1.24 times rank-3 damage and attack rate 1.07 times rank-3 rate before other modifiers. |
-| Rank credit | Distinct victims, DOT exclusion, beam cadence and existing weapon behavior pass. Different attack rates and crowd exposure still create different promotion speeds. |
+| Rank credit | Distinct victims, separate credit for both Fist combo strikes, DOT exclusion and beam cadence pass. Different attack rates and crowd exposure still create different promotion speeds. |
 | Paid rank finishing | Currency separation, no automatic spending, partial progress and preservation through weapon changes pass. |
 | Bulwark | Core/aura caps, expertise, reflected damage credit and protected-strike exclusion pass. Veteran growth still needs late-game calibration. |
 | Tower durability and attacker stats | Listed attacker durability and one-second swings pass. Ordinary HP doubling and Bulwark exclusion pass. |
@@ -121,7 +125,8 @@ An unresolved scenario is not a win or a successful defense. These fixtures comp
 ## Validation and reproducibility
 
 - Untouched baseline: 144/144 behavioral tests passed.
-- Current candidate: 154/154 passed, including ten additional regression checks.
+- Current candidate: 158/158 passed, including fourteen additional regression checks.
+- Fist combo follow-up: 154/154 passed before adding four new checks; all four failed against the old combo-credit behavior, then 158/158 passed after the correction. All 66 controlled-combat scenarios were rerun with the same outcome counts.
 - The new price and ownership tests were run against the baseline first and failed, then passed after the patch.
 - Inline JavaScript and shared-arena syntax checks passed.
 - `git diff --check` passed.

@@ -2,6 +2,44 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const {boot,fundedArena,arenaCells}=require('../audit/runtime.cjs');
 
+test('each landed Fist combo strike counts toward hits and ranks while preserving both fire procs',()=>{
+ for(const name of ['Initiate','Fist Master'])for(const proc of [false,true]){
+  const {value}=boot();
+  const out=value(`(()=>{const t=testTower('ninja',${JSON.stringify(name)});t.bolt='fire';
+   const c=testCreep(t.c+1,t.r+.5),damage=towerLiveStats(t).dmg;rng=()=>${proc?'.499':'.5'};
+   testHit(t,c);return {damage:1e6-c.hp,base:damage,hits:t.landedHits,bank:t.rankBank,burns:c.dots.length};})()`);
+  const hits=proc?2:1;
+  assert.equal(out.damage,out.base*hits);assert.equal(out.hits,hits);assert.equal(out.bank,hits);assert.equal(out.burns,hits);
+ }
+});
+
+test('Fist combo earns a free promotion and carries both landed strikes through the rank boundary',()=>{
+ const {value}=boot();
+ assert.deepEqual(value(`(()=>{const t=testTower('ninja','Fist Master'),c=testCreep(t.c+1,t.r+.5);
+  player.gold=0;player.lumber=0;grantTowerXp(t,4);rng=()=>0;testHit(t,c);
+  return [t.landedHits,towerTotalRank(t),t.rankBank,player.gold,player.lumber];})()`),[6,1,1,0,0]);
+});
+
+test('Fist counts real shield and body strikes without extra imbuement, DOT or killing-blow credits',()=>{
+ for(const [bolt,hp,shield,want] of [['chaos',1e6,0,2],['fire',1e6,30,2],['fire',10,0,1],['fire',0,0,0]]){
+  const {value}=boot();
+  const out=value(`(()=>{const t=testTower('ninja','Fist Master');t.bolt=${JSON.stringify(bolt)};
+   const c=testCreep(t.c+1,t.r+.5,{hp:${hp},maxHp:1e6,shield:${shield},shieldMax:${shield}});rng=()=>0;
+   testHit(t,c);const hits=t.landedHits||0;if(c.hp>0){c.stunUntil=simTime+10;simTime+=.1;updateCreep(c,.1);}
+   return [hits,t.landedHits||0];})()`);
+  assert.deepEqual(out,[want,want]);
+ }
+});
+
+test('shared snapshots preserve Fist combo hit credit, rank and carried progress on both clients',async()=>{
+ const {host,guest,flush}=await fundedArena();const [cell]=arenaCells(host);
+ host.run("for(const p of Object.values(mp.arenaPlayers))p.races=['ninja'];arenaBroadcast(true);");flush();
+ guest.run('buildAt('+JSON.stringify(cell)+')');flush();
+ host.run(`const fist=[...towers.values()][0];fist.tier=TOWERS.ninja.findIndex(d=>d.name==='Fist Master');fist.buildUntil=0;fist.bolt='fire';
+  grantTowerXp(fist,4);const target=testCreep(fist.c+1,fist.r+.5);rng=()=>0;testHit(fist,target);arenaBroadcast(true);`);flush();
+ for(const client of [host,guest])assert.deepEqual(client.value("(()=>{const t=[...towers.values()][0];return [t.landedHits,towerTotalRank(t),t.rankBank];})()"),[6,1,1]);
+});
+
 test('Initiate offers all seven Master fittings at the same initial price and can swap back to Fist',()=>{
  const {value}=boot();
  const out=value(`(()=>{const t=testTower('ninja','Initiate');

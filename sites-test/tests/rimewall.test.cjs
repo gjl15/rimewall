@@ -259,6 +259,7 @@ test('actual landed hits earn rank one at five hits with no gold or lumber', () 
   assert.deepEqual(value(`(() => {
     const t=testTower('ninja','Initiate'),c=testCreep(13, t.r+.5);
     player.gold=0;player.lumber=0;
+    rng=()=>.5; // Exercise five single strikes; combo rank credit has separate coverage.
     for(let i=0;i<4;i++)testHit(t,c);
     const before=[towerTotalRank(t),t.rankBank];
     testHit(t,c);

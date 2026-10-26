@@ -1,5 +1,11 @@
 # Rimewall changelog
 
+## October 25 2026 — Fist combo rank credit
+
+- Both landed Fist combo strikes now advance the hit counter and automatic ranks, including the Initiate's combo. An ordinary attack counts once and a landed double hit counts twice.
+- Each strike retains its imbuement proc. Shield/body transitions and added imbuement damage cannot duplicate the same strike's credit; lingering damage and an unneeded second strike after a killing blow add no hits.
+- Added regressions for combo probability, automatic promotion with carried progress, shield/imbuement/DOT/kill behavior, and authoritative hit/rank synchronization to both clients.
+
 ## October 25 2026 — Ninja Initiate and Master damage pass
 
 - Renamed the 5-gold starting tower to Initiate, retaining its 8 damage, attack speed, range and double-hit behavior.
