@@ -5,53 +5,53 @@
       "id": "sapper",
       "name": "Sapper",
       "shrine": 2,
-      "lumber": 2,
+      "lumber": 10,
       "woodIncome": 0.2,
       "hp": 1400,
       "armor": 8,
       "strikeDamage": 12,
-      "paybackCycles": 10,
-      "classicPaybackSeconds": 150,
-      "wavePaybackSeconds": 250
+      "paybackCycles": 50,
+      "classicPaybackSeconds": 750,
+      "wavePaybackSeconds": 1250
     },
     {
       "id": "breacher",
       "name": "Breacher",
       "shrine": 3,
-      "lumber": 4,
+      "lumber": 20,
       "woodIncome": 0.35,
       "hp": 2800,
       "armor": 13,
       "strikeDamage": 24,
-      "paybackCycles": 11.428571428571429,
-      "classicPaybackSeconds": 171.42857142857144,
-      "wavePaybackSeconds": 285.7142857142857
+      "paybackCycles": 57.142857142857146,
+      "classicPaybackSeconds": 857.1428571428572,
+      "wavePaybackSeconds": 1428.5714285714287
     },
     {
       "id": "breaker",
       "name": "Wallbreaker",
       "shrine": 4,
-      "lumber": 8,
+      "lumber": 30,
       "woodIncome": 0.6,
       "hp": 5200,
       "armor": 18,
       "strikeDamage": 36,
-      "paybackCycles": 13.333333333333334,
-      "classicPaybackSeconds": 200,
-      "wavePaybackSeconds": 333.33333333333337
+      "paybackCycles": 50,
+      "classicPaybackSeconds": 750,
+      "wavePaybackSeconds": 1250
     },
     {
       "id": "ruiner",
       "name": "Siege Ruiner",
       "shrine": 5,
-      "lumber": 20,
+      "lumber": 50,
       "woodIncome": 1.6,
       "hp": 13500,
       "armor": 24,
       "strikeDamage": 96,
-      "paybackCycles": 12.5,
-      "classicPaybackSeconds": 187.5,
-      "wavePaybackSeconds": 312.5
+      "paybackCycles": 31.25,
+      "classicPaybackSeconds": 468.75,
+      "wavePaybackSeconds": 781.25
     }
   ],
   "lateShrines": [
@@ -4391,12 +4391,12 @@
       "seq": 2
     },
     "hostCreeps": 401,
-    "payloadCharactersAt401": 78235
+    "payloadCharactersAt401": 78229
   },
   "attackerCombat": [
     {
       "name": "Sapper",
-      "lumber": 2,
+      "lumber": 10,
       "duration": 42.75,
       "towersDestroyed": 1,
       "livesLost": 0,
@@ -4405,7 +4405,7 @@
     },
     {
       "name": "Breacher",
-      "lumber": 4,
+      "lumber": 20,
       "duration": 77.25,
       "towersDestroyed": 12,
       "livesLost": 2,
@@ -4414,7 +4414,7 @@
     },
     {
       "name": "Wallbreaker",
-      "lumber": 8,
+      "lumber": 30,
       "duration": 64.5,
       "towersDestroyed": 12,
       "livesLost": 2,
@@ -4423,7 +4423,7 @@
     },
     {
       "name": "Siege Ruiner",
-      "lumber": 20,
+      "lumber": 50,
       "duration": 50.75,
       "towersDestroyed": 12,
       "livesLost": 2,

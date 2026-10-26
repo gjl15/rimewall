@@ -1,7 +1,7 @@
 # Rimewall shared test balance audit
 October 25, 2026. Baseline: `954a19b5225144ae57e9ddab882f9c801ff73f16` on `test/sites-shared-arena-20`.
 
-This first audit combines real regression checks, a reproducible economy and damage reference, and bounded combat scenarios. The candidate raises attacker lumber prices and fixes Crystal ownership. It is a first balance pass for review, not a claim that every race, late-game system or physical-device match is balanced.
+This first audit combines real regression checks, a reproducible economy and damage reference, and bounded combat scenarios. The candidate applies Abdy's 10/20/30/50 attacker prices, fixes Crystal ownership, and prevents unaffordable attacker turns from stalling AI pressure after the saving deadline. It is a first balance pass for review, not a claim that every race, late-game system or physical-device match is balanced.
 
 ## Findings and disposition
 
@@ -9,8 +9,8 @@ This first audit combines real regression checks, a reproducible economy and dam
 |---|---|---|---|
 | High | Crystal formations cross teammate ownership | In a real two-client shared room, adjacent host and guest Crystals formed one group; the host's free bonus switch changed the guest's tower too. | Fixed by matching the stable player seat in shared rooms and the computer owner in solo/legacy rooms. New tests cover both clients and friendly computers. |
 | High | Guest state stops updating above 400 active creeps | 400 creeps applied at state sequence 2. The next valid host snapshot contained 401 creeps, but the guest remained at 400 and sequence 2. The payload was 78,228 characters. | Open. The decoder rejects the whole state at its 400-creep limit while the host can exceed that population. This must be addressed before accepting long or heavily populated shared matches. |
-| Medium | Attacker prices reward later combat power and income too cheaply | Wallbreaker cost the same 2 lumber as Breacher. Siege Ruiner returned 40% of its purchase price each cycle, versus 20% for Sapper. | Candidate prices are 2 / 4 / 8 / 20 lumber, with recurring income retained. |
-| Calibration | A passing functional suite does not establish game balance | Baseline 144/144; candidate 149/149. The 20-minute computer economy test clears creeps during its accounting simulation. | Keep economy, controlled combat, full-match behavior and device performance as separate measurements. |
+| Medium | Attacker prices reward later combat power and income too cheaply | Wallbreaker cost the same 2 lumber as Breacher. Siege Ruiner returned 40% of its purchase price each cycle, versus 20% for Sapper. | Abdy selected candidate prices of 10 / 20 / 30 / 50 lumber, with recurring income retained. |
+| Calibration | A passing functional suite does not establish game balance | Baseline 144/144; current candidate 150/150. The 20-minute computer economy test clears creeps during its accounting simulation. | Keep economy, controlled combat, full-match behavior and device performance as separate measurements. |
 | Documentation | Attacker kill bounty is mode-dependent | The shipped `sendCreepDef` pays zero in Classic, but a minimum 20 gold per attacker outside Classic. | Correct the earlier broad wording that attackers never award bounty. This patch leaves the mode rules intact. |
 
 The snapshot finding is reproduced in `audit/baseline.json` and remains visible in `audit/candidate.json`. It is not hidden by the passing regression count. A suitable repair must deliver the complete authoritative population, for example through bounded atomic pages, with loss/reordering recovery. Silently truncating the visible creeps or merely moving the cutoff is not a complete repair.
@@ -21,29 +21,31 @@ One purchase sends one attacker down each lane. Price and recurring income are p
 
 | Attacker | Shrine | Existing lumber | Candidate lumber | Recurring lumber per cycle | Existing nominal payback cycles | Candidate nominal payback cycles |
 |---|---:|---:|---:|---:|---:|---:|
-| Sapper | 2 | 1 | 2 | 0.20 | 5.00 | 10.00 |
-| Breacher | 3 | 2 | 4 | 0.35 | 5.71 | 11.43 |
-| Wallbreaker | 4 | 2 | 8 | 0.60 | 3.33 | 13.33 |
-| Siege Ruiner | 5 | 4 | 20 | 1.60 | 2.50 | 12.50 |
+| Sapper | 2 | 1 | 10 | 0.20 | 5.00 | 50.00 |
+| Breacher | 3 | 2 | 20 | 0.35 | 5.71 | 57.14 |
+| Wallbreaker | 4 | 2 | 30 | 0.60 | 3.33 | 50.00 |
+| Siege Ruiner | 5 | 4 | 50 | 1.60 | 2.50 | 31.25 |
 
-Candidate recurring return is 10%, 8.75%, 7.5% and 8% of cost per cycle. This removes the old late-tier rise to 30% and 40%, while preserving recurring lumber as a reason to send.
+Candidate recurring return is 2%, 1.75%, 2% and 3.2% of cost per cycle. This reduces the old late-tier returns of 30% and 40%, while preserving recurring lumber as a reason to send.
 
-Payback divides price by recurring income without reinvestment. Whole lumber arrives through the fractional bank: from an empty bank, recovering the full candidate cost takes 10, 12, 14 and 13 payouts respectively. Classic cycles are 15 seconds and wave-mode cycles 25 seconds; the time to the first payout depends on when the purchase occurs.
+Payback divides price by recurring income without reinvestment. Whole lumber arrives through the fractional bank: from an empty bank, recovering the full candidate cost takes 50, 58, 50 and 32 payouts respectively. Classic cycles are 15 seconds and wave-mode cycles 25 seconds; the time to the first payout depends on when the purchase occurs.
 
-### Why this curve
+### Selected curve and comparison
+
+Abdy selected 10 / 20 / 30 / 50 after the initial 2 / 4 / 8 / 20 proposal. That earlier proposal remains in the preceding PR commit for history. The current source, candidate results, tests and PR description use the selected values.
 
 Using the game's physical armor formula, the following comparison assumes no armor piercing, class bonus or chaos damage. It is a durability reference, not universal survival time.
 
 | Attacker | HP | Armor | Tower swing damage | Effective HP before piercing | Candidate effective HP per lumber | Candidate swing damage per lumber |
 |---|---:|---:|---:|---:|---:|---:|
-| Sapper | 1,400 | 8 | 12 | 2,072 | 1,036 | 6.0 |
-| Breacher | 2,800 | 13 | 24 | 4,984 | 1,246 | 6.0 |
-| Wallbreaker | 5,200 | 18 | 36 | 10,816 | 1,352 | 4.5 |
-| Siege Ruiner | 13,500 | 24 | 96 | 32,940 | 1,647 | 4.8 |
+| Sapper | 1,400 | 8 | 12 | 2,072 | 207.2 | 1.2 |
+| Breacher | 2,800 | 13 | 24 | 4,984 | 249.2 | 1.2 |
+| Wallbreaker | 5,200 | 18 | 36 | 10,816 | 360.53 | 1.2 |
+| Siege Ruiner | 13,500 | 24 | 96 | 32,940 | 658.8 | 1.92 |
 
-Later Shrines still offer stronger bodies and somewhat better durability per lumber. Wallbreaker now requires a larger commitment than Breacher. Siege Ruiner's 96-damage swing can still destroy a basic 96-HP ordinary tower in one strike, so its price includes a premium for that ability.
+Later Shrines still offer stronger bodies and more durability per lumber. Wallbreaker requires a larger commitment than Breacher. Siege Ruiner's 96-damage swing can still destroy a basic 96-HP ordinary tower in one strike. Its higher return and damage per lumber remain visible in the comparison and should be checked in full matches.
 
-Human and computer purchases use the same send table. Tests verify the new prices, insufficient funds, conversion of only missing AI lumber, recurring income, two-lane spawning and duplicate-command protection. Four old fixture expectations were updated for the new prices, ROI and remaining gold.
+Human and computer purchases use the same send table. Tests verify the new prices, insufficient funds, conversion of only missing AI lumber, recurring income, two-lane spawning and duplicate-command protection. Price-dependent fixtures were updated for the selected prices, ROI and remaining gold. The higher prices exposed an AI pressure-cycle stall: if no attacker is affordable after 40 seconds of saving, or immediately in finish mode, the computer now advances to the next send family. The 20-minute economy/construction check and a dedicated deadline/finish regression both pass without lowering the requested prices.
 
 ## Current state across the feature set
 
@@ -58,7 +60,7 @@ Human and computer purchases use the same send table. Tests verify the new price
 | Team income display | Roster-based income and personal accounting checks pass. |
 | Send menus and mobile layout | Ordering and dynamic ROI markup pass. The new prices flow from the shared data table. Real-device readability remains unmeasured in this audit. |
 | Computer mazes and upgrades | Spiral routes, repair, weapon mixes, 24-tower breadth and upgrade accounting pass. The long economy simulation is not a combat difficulty score. |
-| Computer budgets and affordable attacks | Existing anti-hoarding and fallback tests pass at the higher attacker prices; the five new checks include real AI conversion/accounting. |
+| Computer budgets and affordable attacks | Anti-hoarding and fallback tests pass at the selected higher prices. Six additional checks include real AI conversion/accounting and advancing past an unaffordable attacker turn after the deadline or in finish mode. |
 | Computer Shrine progression | The existing fast Shrine 1-5 and slower 6-8 targets remain and pass their schedule checks. |
 | Computer send cadence and limits | One attacker per lane, six-turn pressure cycle and 45-second spacing checks pass. |
 | Random element | Solo choice, remembered selection, host resolution and lobby preservation checks pass. |
@@ -100,7 +102,7 @@ An unresolved scenario is not a win or a successful defense. These fixtures comp
 ## Validation and reproducibility
 
 - Untouched baseline: 144/144 behavioral tests passed.
-- Candidate: 149/149 passed, including five additional regression checks.
+- Current candidate: 150/150 passed, including six additional regression checks.
 - The new price and ownership tests were run against the baseline first and failed, then passed after the patch.
 - Inline JavaScript and shared-arena syntax checks passed.
 - `git diff --check` passed.

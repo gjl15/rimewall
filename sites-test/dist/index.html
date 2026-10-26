@@ -3469,13 +3469,13 @@ const SENDS = [
      level, Bulwark upgrade, or second element: sending one gives up real
      progress to take a wall down. They walk to the nearest tower in their
      way and hit it instead of filing past it. */
-  { id:'sapper', name:'Sapper', symbol:'⚒', cost:0, income:0, lumber:2, woodIncome:.2, attacker:true, breakPower:1,
+  { id:'sapper', name:'Sapper', symbol:'⚒', cost:0, income:0, lumber:10, woodIncome:.2, attacker:true, breakPower:1,
     hp:1400, spd:2.5, armor:8, aClass:'siege', shrine:2 },
-  { id:'breacher', name:'Breacher', symbol:'⌁', cost:0, income:0, lumber:4, woodIncome:.35, attacker:true, breakPower:2,
+  { id:'breacher', name:'Breacher', symbol:'⌁', cost:0, income:0, lumber:20, woodIncome:.35, attacker:true, breakPower:2,
     hp:2800, spd:2.3, armor:13, aClass:'siege', shrine:3 },
-  { id:'breaker', name:'Wallbreaker', symbol:'🜛', cost:0, income:0, lumber:8, woodIncome:.6, attacker:true, breakPower:3,
+  { id:'breaker', name:'Wallbreaker', symbol:'🜛', cost:0, income:0, lumber:30, woodIncome:.6, attacker:true, breakPower:3,
     hp:5200, spd:2.2, armor:18, aClass:'siege', shrine:4 },
-  { id:'ruiner', name:'Siege Ruiner', symbol:'⛏', cost:0, income:0, lumber:20, woodIncome:1.6, attacker:true, breakPower:8,
+  { id:'ruiner', name:'Siege Ruiner', symbol:'⛏', cost:0, income:0, lumber:50, woodIncome:1.6, attacker:true, breakPower:8,
     hp:13500, spd:2.0, armor:24, aClass:'siege', role:'juggernaut', shrine:5 }
 ];
 // Append only: send IDs and existing indices remain stable for wire snapshots.
@@ -6352,7 +6352,15 @@ function aiSendPressure(ai,half) {
       // Search the entire eligible family, not just forecast-sized bursts.
       const now=choices.filter(s=>aiBurstCost(ai,s,1)<=aiBudget(ai,'pressure'));
       now.sort((a,b)=>aiPressureScore(ai,b,defenders)-aiPressureScore(ai,a,defenders));
-      if(!now.length)break;
+      if(!now.length){
+        // A high lumber price must not trap the pressure cycle on attackers.
+        // After the saving deadline (or in finish mode), try the next family.
+        if(family==='attacker'){
+          ai.preparingAttack=null;ai.preparingSince=simTime;
+          ai.pressureTurn=(ai.pressureTurn || 0)+1;remaining-=plan.burst;continue;
+        }
+        break;
+      }
       const fallback=now[0];let fpacks=fallback.attacker?1:plan.burst;
       while(fpacks>1 && aiBurstCost(ai,fallback,fpacks)>aiBudget(ai,'pressure'))fpacks--;
       for(let n=0;n<fpacks;n++)if(!aiBuySend(ai,half,fallback,'pressure'))return;
@@ -13869,10 +13877,10 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    lives in changelog.md, this is the "what changed for me" version.
    Bump RELEASE_TAG whenever you add an entry: the card auto-expands once per
    new tag, then collapses and stays collapsed. */
-const RELEASE_TAG = '2026-10-25-balance-audit-attackers';
+const RELEASE_TAG = '2026-10-25-attacker-costs-10-20-30-50';
 const RELEASE_NOTES = [
   { date:'2026-10-25', title:'Attacker lumber costs and Crystal ownership', items:[
-    'Sapper costs 2 lumber, Breacher 4, Wallbreaker 8, and Siege Ruiner 20. Recurring lumber income is unchanged. These prices are a first balance pass for testing.',
+    'Sapper costs 10 lumber, Breacher 20, Wallbreaker 30, and Siege Ruiner 50. Recurring lumber income is unchanged. These are the attacker prices selected by Abdy for testing.',
     'Crystal formations now group only towers belonging to the same player or computer. A teammate cannot change your formation bonus through a connected group.',
   ] },
   { date:'2026-10-25', title:'Computers build up and send harder', items:[

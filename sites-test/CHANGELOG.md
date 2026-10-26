@@ -1,10 +1,18 @@
 # Rimewall changelog
 
+## October 25 2026 — Attacker prices selected by Abdy
+
+- Replaced the initial 2/4/8/20 proposal with Sapper 10, Breacher 20, Wallbreaker 30 and Siege Ruiner 50 lumber.
+- Recurring lumber income remains 0.2/0.35/0.6/1.6 per purchase per cycle. Nominal payback is now 50, 57.14, 50 and 31.25 cycles.
+- Updated runtime release notes, human/AI purchase fixtures, audit tables and candidate measurements to the selected prices. Earlier combat measurements remain applicable because attacker combat stats did not change.
+- Fixed the AI pressure cycle exposed by the higher prices: after 40 seconds without an affordable attacker, or immediately in finish mode, the computer advances to the next send family instead of remaining stuck on the attacker turn.
+- 150/150 behavioral checks pass, including a new deadline/finish fallback regression and the existing 20-minute economy/construction check.
+
 ## October 25 2026 — Attacker lumber and Crystal ownership audit
 
-- First test cost pass: Sapper 1→2, Breacher 2→4, Wallbreaker 2→8, Siege Ruiner 4→20 lumber. Recurring lumber income is retained, so nominal payback becomes 10, 11.43, 13.33 and 12.5 cycles.
+- Superseded first proposal: Sapper 1→2, Breacher 2→4, Wallbreaker 2→8, Siege Ruiner 4→20 lumber. Recurring lumber income was retained; nominal payback was 10, 11.43, 13.33 and 12.5 cycles.
 - Crystal formations now compare player/computer ownership instead of treating every teammate as one owner. One player's free formation switch cannot change another player's towers.
-- 149 behavioral checks pass (144 existing plus five additional price/accounting/ownership checks), with prior price-dependent expectations updated.
+- The initial proposal passed 149 behavioral checks (144 existing plus five additional price/accounting/ownership checks), with prior price-dependent expectations updated.
 - Reproducible balance references and 66 seeded combat scenarios are in `audit/`. Read [BALANCE_AUDIT_2026-10-25.md](BALANCE_AUDIT_2026-10-25.md) for methods and limits.
 - The audit also reproduces an OPEN shared-state rejection above 400 active creeps. Full shared-battlefield balance and physical-device acceptance are not signed off.
 
