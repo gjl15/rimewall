@@ -3918,7 +3918,7 @@
     },
     {
       "race": "ninja",
-      "tower": "Fist Master",
+      "tower": "Initiate",
       "tier": 0,
       "cost": 5,
       "range": 1.5,
@@ -3930,7 +3930,7 @@
     },
     {
       "race": "ninja",
-      "tower": "Fist Master",
+      "tower": "Initiate",
       "tier": 0,
       "cost": 5,
       "range": 1.5,
@@ -3942,7 +3942,7 @@
     },
     {
       "race": "ninja",
-      "tower": "Fist Master",
+      "tower": "Initiate",
       "tier": 0,
       "cost": 5,
       "range": 1.5,
@@ -3954,7 +3954,7 @@
     },
     {
       "race": "ninja",
-      "tower": "Fist Master",
+      "tower": "Initiate",
       "tier": 0,
       "cost": 5,
       "range": 1.5,
@@ -3966,7 +3966,7 @@
     },
     {
       "race": "ninja",
-      "tower": "Fist Master",
+      "tower": "Initiate",
       "tier": 0,
       "cost": 5,
       "range": 1.5,
@@ -3985,8 +3985,8 @@
       "attacksPerSecond": 4,
       "aClass": "unarmored",
       "damageFraction": 0.7142857142857065,
-      "directDps": 57.14285714285652,
-      "directDpsPerGold": 11.428571428571304
+      "directDps": 85.71428571428478,
+      "directDpsPerGold": 17.142857142856958
     },
     {
       "race": "ninja",
@@ -3997,8 +3997,8 @@
       "attacksPerSecond": 4,
       "aClass": "light",
       "damageFraction": 0.6887755102040864,
-      "directDps": 55.10204081632692,
-      "directDpsPerGold": 11.020408163265383
+      "directDps": 82.65306122449037,
+      "directDpsPerGold": 16.530612244898073
     },
     {
       "race": "ninja",
@@ -4009,8 +4009,8 @@
       "attacksPerSecond": 4,
       "aClass": "medium",
       "damageFraction": 0.5612244897959136,
-      "directDps": 44.89795918367308,
-      "directDpsPerGold": 8.979591836734617
+      "directDps": 67.34693877550963,
+      "directDpsPerGold": 13.469387755101925
     },
     {
       "race": "ninja",
@@ -4021,8 +4021,8 @@
       "attacksPerSecond": 4,
       "aClass": "heavy",
       "damageFraction": 0.3061224489795859,
-      "directDps": 24.489795918366873,
-      "directDpsPerGold": 4.8979591836733745
+      "directDps": 36.734693877550306,
+      "directDpsPerGold": 7.346938775510061
     },
     {
       "race": "ninja",
@@ -4033,8 +4033,8 @@
       "attacksPerSecond": 4,
       "aClass": "fortified",
       "damageFraction": 0.22959183673468941,
-      "directDps": 18.367346938775153,
-      "directDpsPerGold": 3.6734693877550306
+      "directDps": 27.551020408162728,
+      "directDpsPerGold": 5.510204081632546
     },
     {
       "race": "ninja",
@@ -4045,8 +4045,8 @@
       "attacksPerSecond": 2.5,
       "aClass": "unarmored",
       "damageFraction": 0.5737704918032795,
-      "directDps": 48.77049180327876,
-      "directDpsPerGold": 9.754098360655751
+      "directDps": 57.37704918032796,
+      "directDpsPerGold": 11.475409836065591
     },
     {
       "race": "ninja",
@@ -4057,8 +4057,8 @@
       "attacksPerSecond": 2.5,
       "aClass": "light",
       "damageFraction": 0.5532786885245877,
-      "directDps": 47.02868852458996,
-      "directDpsPerGold": 9.405737704917993
+      "directDps": 55.32786885245877,
+      "directDpsPerGold": 11.065573770491755
     },
     {
       "race": "ninja",
@@ -4069,8 +4069,8 @@
       "attacksPerSecond": 2.5,
       "aClass": "medium",
       "damageFraction": 0.45081967213114693,
-      "directDps": 38.31967213114749,
-      "directDpsPerGold": 7.663934426229498
+      "directDps": 45.081967213114694,
+      "directDpsPerGold": 9.016393442622938
     },
     {
       "race": "ninja",
@@ -4081,8 +4081,8 @@
       "attacksPerSecond": 2.5,
       "aClass": "heavy",
       "damageFraction": 0.2459016393442653,
-      "directDps": 20.90163934426255,
-      "directDpsPerGold": 4.18032786885251
+      "directDps": 24.590163934426528,
+      "directDpsPerGold": 4.9180327868853055
     },
     {
       "race": "ninja",
@@ -4093,8 +4093,8 @@
       "attacksPerSecond": 2.5,
       "aClass": "fortified",
       "damageFraction": 0.18442622950818988,
-      "directDps": 15.676229508196139,
-      "directDpsPerGold": 3.1352459016392276
+      "directDps": 18.442622950818986,
+      "directDpsPerGold": 3.688524590163797
     },
     {
       "race": "ninja",
@@ -4225,8 +4225,8 @@
       "attacksPerSecond": 2.0833333333333335,
       "aClass": "unarmored",
       "damageFraction": 0.5737704918032795,
-      "directDps": 38.25136612021864,
-      "directDpsPerGold": 7.650273224043728
+      "directDps": 47.8142076502733,
+      "directDpsPerGold": 9.56284153005466
     },
     {
       "race": "ninja",
@@ -4237,8 +4237,8 @@
       "attacksPerSecond": 2.0833333333333335,
       "aClass": "light",
       "damageFraction": 0.5532786885245877,
-      "directDps": 36.88524590163919,
-      "directDpsPerGold": 7.3770491803278375
+      "directDps": 46.10655737704898,
+      "directDpsPerGold": 9.221311475409795
     },
     {
       "race": "ninja",
@@ -4249,8 +4249,8 @@
       "attacksPerSecond": 2.0833333333333335,
       "aClass": "medium",
       "damageFraction": 0.45081967213114693,
-      "directDps": 30.05464480874313,
-      "directDpsPerGold": 6.010928961748626
+      "directDps": 37.568306010928914,
+      "directDpsPerGold": 7.513661202185783
     },
     {
       "race": "ninja",
@@ -4261,8 +4261,8 @@
       "attacksPerSecond": 2.0833333333333335,
       "aClass": "heavy",
       "damageFraction": 0.2459016393442653,
-      "directDps": 16.39344262295102,
-      "directDpsPerGold": 3.278688524590204
+      "directDps": 20.491803278688778,
+      "directDpsPerGold": 4.098360655737755
     },
     {
       "race": "ninja",
@@ -4273,8 +4273,8 @@
       "attacksPerSecond": 2.0833333333333335,
       "aClass": "fortified",
       "damageFraction": 0.18442622950818988,
-      "directDps": 12.29508196721266,
-      "directDpsPerGold": 2.459016393442532
+      "directDps": 15.368852459015825,
+      "directDpsPerGold": 3.073770491803165
     },
     {
       "race": "ninja",
@@ -4285,8 +4285,8 @@
       "attacksPerSecond": 1.8181818181818181,
       "aClass": "unarmored",
       "damageFraction": 0.5737704918032795,
-      "directDps": 39.64232488822658,
-      "directDpsPerGold": 7.928464977645317
+      "directDps": 52.16095380029814,
+      "directDpsPerGold": 10.432190760059628
     },
     {
       "race": "ninja",
@@ -4297,8 +4297,8 @@
       "attacksPerSecond": 1.8181818181818181,
       "aClass": "light",
       "damageFraction": 0.5532786885245877,
-      "directDps": 38.22652757078969,
-      "directDpsPerGold": 7.645305514157938
+      "directDps": 50.29806259314434,
+      "directDpsPerGold": 10.059612518628867
     },
     {
       "race": "ninja",
@@ -4309,8 +4309,8 @@
       "attacksPerSecond": 1.8181818181818181,
       "aClass": "medium",
       "damageFraction": 0.45081967213114693,
-      "directDps": 31.14754098360651,
-      "directDpsPerGold": 6.229508196721302
+      "directDps": 40.983606557376994,
+      "directDpsPerGold": 8.196721311475399
     },
     {
       "race": "ninja",
@@ -4321,8 +4321,8 @@
       "attacksPerSecond": 1.8181818181818181,
       "aClass": "heavy",
       "damageFraction": 0.2459016393442653,
-      "directDps": 16.989567809240146,
-      "directDpsPerGold": 3.3979135618480294
+      "directDps": 22.3546944858423,
+      "directDpsPerGold": 4.47093889716846
     },
     {
       "race": "ninja",
@@ -4333,8 +4333,68 @@
       "attacksPerSecond": 1.8181818181818181,
       "aClass": "fortified",
       "damageFraction": 0.18442622950818988,
-      "directDps": 12.74217585692948,
-      "directDpsPerGold": 2.548435171385896
+      "directDps": 16.7660208643809,
+      "directDpsPerGold": 3.35320417287618
+    },
+    {
+      "race": "ninja",
+      "tower": "Fist Master",
+      "tier": 7,
+      "cost": 5,
+      "range": 1.5,
+      "attacksPerSecond": 3.3333333333333335,
+      "aClass": "unarmored",
+      "damageFraction": 0.5737704918032795,
+      "directDps": 38.25136612021864,
+      "directDpsPerGold": 7.650273224043728
+    },
+    {
+      "race": "ninja",
+      "tower": "Fist Master",
+      "tier": 7,
+      "cost": 5,
+      "range": 1.5,
+      "attacksPerSecond": 3.3333333333333335,
+      "aClass": "light",
+      "damageFraction": 0.5532786885245877,
+      "directDps": 36.88524590163919,
+      "directDpsPerGold": 7.3770491803278375
+    },
+    {
+      "race": "ninja",
+      "tower": "Fist Master",
+      "tier": 7,
+      "cost": 5,
+      "range": 1.5,
+      "attacksPerSecond": 3.3333333333333335,
+      "aClass": "medium",
+      "damageFraction": 0.45081967213114693,
+      "directDps": 30.05464480874313,
+      "directDpsPerGold": 6.010928961748626
+    },
+    {
+      "race": "ninja",
+      "tower": "Fist Master",
+      "tier": 7,
+      "cost": 5,
+      "range": 1.5,
+      "attacksPerSecond": 3.3333333333333335,
+      "aClass": "heavy",
+      "damageFraction": 0.2459016393442653,
+      "directDps": 16.39344262295102,
+      "directDpsPerGold": 3.278688524590204
+    },
+    {
+      "race": "ninja",
+      "tower": "Fist Master",
+      "tier": 7,
+      "cost": 5,
+      "range": 1.5,
+      "attacksPerSecond": 3.3333333333333335,
+      "aClass": "fortified",
+      "damageFraction": 0.18442622950818988,
+      "directDps": 12.29508196721266,
+      "directDpsPerGold": 2.459016393442532
     }
   ],
   "training": {
@@ -4391,7 +4451,7 @@
       "seq": 2
     },
     "hostCreeps": 401,
-    "payloadCharactersAt401": 78229
+    "payloadCharactersAt401": 78230
   },
   "attackerCombat": [
     {

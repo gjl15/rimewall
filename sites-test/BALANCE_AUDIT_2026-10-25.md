@@ -1,7 +1,7 @@
 # Rimewall shared test balance audit
 October 25, 2026. Baseline: `954a19b5225144ae57e9ddab882f9c801ff73f16` on `test/sites-shared-arena-20`.
 
-This first audit combines real regression checks, a reproducible economy and damage reference, and bounded combat scenarios. The candidate applies Abdy's 10/20/30/50 attacker prices, fixes Crystal ownership, and prevents unaffordable attacker turns from stalling AI pressure after the saving deadline. It is a first balance pass for review, not a claim that every race, late-game system or physical-device match is balanced.
+This first audit combines real regression checks, a reproducible economy and damage reference, and bounded combat scenarios. The candidate applies Abdy's 10/20/30/50 attacker prices and selected Ninja damage/Shadow changes, fixes Crystal ownership, and prevents unaffordable attacker turns from stalling AI pressure after the saving deadline. It is a first balance pass for review, not a claim that every race, late-game system or physical-device match is balanced.
 
 ## Findings and disposition
 
@@ -10,7 +10,7 @@ This first audit combines real regression checks, a reproducible economy and dam
 | High | Crystal formations cross teammate ownership | In a real two-client shared room, adjacent host and guest Crystals formed one group; the host's free bonus switch changed the guest's tower too. | Fixed by matching the stable player seat in shared rooms and the computer owner in solo/legacy rooms. New tests cover both clients and friendly computers. |
 | High | Guest state stops updating above 400 active creeps | 400 creeps applied at state sequence 2. The next valid host snapshot contained 401 creeps, but the guest remained at 400 and sequence 2. The payload was 78,228 characters. | Open. The decoder rejects the whole state at its 400-creep limit while the host can exceed that population. This must be addressed before accepting long or heavily populated shared matches. |
 | Medium | Attacker prices reward later combat power and income too cheaply | Wallbreaker cost the same 2 lumber as Breacher. Siege Ruiner returned 40% of its purchase price each cycle, versus 20% for Sapper. | Abdy selected candidate prices of 10 / 20 / 30 / 50 lumber, with recurring income retained. |
-| Calibration | A passing functional suite does not establish game balance | Baseline 144/144; current candidate 150/150. The 20-minute computer economy test clears creeps during its accounting simulation. | Keep economy, controlled combat, full-match behavior and device performance as separate measurements. |
+| Calibration | A passing functional suite does not establish game balance | Baseline 144/144; current candidate 154/154. The 20-minute computer economy test clears creeps during its accounting simulation. | Keep economy, controlled combat, full-match behavior and device performance as separate measurements. |
 | Documentation | Attacker kill bounty is mode-dependent | The shipped `sendCreepDef` pays zero in Classic, but a minimum 20 gold per attacker outside Classic. | Correct the earlier broad wording that attackers never award bounty. This patch leaves the mode rules intact. |
 
 The snapshot finding is reproduced in `audit/baseline.json` and remains visible in `audit/candidate.json`. It is not hidden by the passing regression count. A suitable repair must deliver the complete authoritative population, for example through bounded atomic pages, with loss/reordering recovery. Silently truncating the visible creeps or merely moving the cutoff is not a complete repair.
@@ -47,6 +47,25 @@ Later Shrines still offer stronger bodies and more durability per lumber. Wallbr
 
 Human and computer purchases use the same send table. Tests verify the new prices, insufficient funds, conversion of only missing AI lumber, recurring income, two-lane spawning and duplicate-command protection. Price-dependent fixtures were updated for the selected prices, ROI and remaining gold. The higher prices exposed an AI pressure-cycle stall: if no attacker is affordable after 40 seconds of saving, or immediately in finish mode, the computer now advances to the next send family. The 20-minute economy/construction check and a dedicated deadline/finish regression both pass without lowering the requested prices.
 
+## Ninja damage and cross-pulse revision
+
+Abdy selected these changes after reviewing the first audit. These are base values before ranks, armor, class multipliers or imbuements.
+
+| Tower | Previous | Current candidate |
+|---|---|---|
+| Starting tower | Fist Master, 8 damage | Initiate, 8 damage; same 5-gold opening |
+| Fist Master fitting | No separate fitting | 20 damage; 5 gold to fit; 50% double hit with both imbuement procs |
+| Dagger Master | 20 damage | 30 damage; ignores 8 armor |
+| Sword Master | 34 damage | 40 damage; 30% chance of 2.5× critical damage |
+| Shadow Master | 32 damage with a bounded shared pool | 40 damage independently to each enemy caught in its cross |
+| Shuriken Master | 38 damage | 50 damage; one air-to-air bounce at 70% |
+
+Attack intervals and ranges retain their prior values. Mace and Spear remain 70 and 75 damage. Initiate fits any of the seven Master weapons for 5 gold; normal fitted-weapon swaps cost 1 gold and preserve progress/imbuements. The new Fist option is appended so Dagger through Shuriken retain their tier IDs. Ninja Bulwark base HP remains 1,848 despite its new index, and Fist retains the starter's durability baseline.
+
+Shadow has no shared pool, target divisor or crowd damage cap: three unarmored neutral-class targets each take 40, for 120 combined, before later modifiers. Cross geometry, radius, half filtering, elemental effects and distinct-victim rank credit retain their existing rules. Tests exercise 1, 2, 4 and 10 targets, exclude diagonal/out-of-range/opposite-half targets, and verify that each valid target still receives its imbuement effect. This is a substantial crowd-damage increase; these functional checks do not establish full-match balance.
+
+Candidate direct-damage references and all 66 controlled-combat scenarios were rerun after this revision. The matrix now stops Wallbreaker in 6 builder scenarios and leaks in 5; the prior run stopped 5 and leaked in 6. Eight scenarios still remain unresolved at the cutoff. The ordinary direct-damage table excludes procs, area coverage and imbuements and must not be interpreted as full weapon DPS.
+
 ## Current state across the feature set
 
 | Area from the change record | Audit evidence and current state |
@@ -64,7 +83,7 @@ Human and computer purchases use the same send table. Tests verify the new price
 | Computer Shrine progression | The existing fast Shrine 1-5 and slower 6-8 targets remain and pass their schedule checks. |
 | Computer send cadence and limits | One attacker per lane, six-turn pressure cycle and 45-second spacing checks pass. |
 | Random element | Solo choice, remembered selection, host resolution and lobby preservation checks pass. |
-| Ninja | Existing weapon-specific tests pass. The combat matrix uses actual computer weapon choices and ranks; it does not measure every possible human build. |
+| Ninja | Initiate is the starter; all seven Master weapons are fittings. Fist/Dagger/Sword/Shadow/Shuriken damage is 20/30/40/40/50, and Shadow deals full damage per cross target. Actual-hit, fitting/accounting and shared-snapshot tests cover the changes. Human-build balance is not certified. |
 | Tech | Chassis, three-target Multishot, Bola, Painter and weapon-mix checks pass. Class penalties still matter. |
 | Earth | Fault Line, Tremor delay/location, ground-only behavior and synchronized choices pass. |
 | Stone | The three critical profiles and exclusion of Earth abilities pass. |
@@ -80,7 +99,7 @@ Human and computer purchases use the same send table. Tests verify the new price
 | Gold/lumber economy | Fractional accumulation, mixed-currency ordering, mode timing and fixed-with-time send HP checks pass. Attacker bounty is zero only in Classic. |
 | Test access and release identification | Test unlocks remain enabled. The candidate release tag and notes identify this cost/ownership pass. |
 
-The direct-damage reference includes 340 combinations of the current damaging tower definitions and five armor classes at 24 armor. It calls actual damage functions, but excludes sustained status/control value and uses listed tower prices. It is not a cross-race efficiency ranking; weapon chassis and cumulative investment must be considered before drawing that conclusion.
+The direct-damage reference includes 345 combinations of the current damaging tower definitions and five armor classes at 24 armor. It calls actual damage functions, but excludes sustained status/control value and uses listed tower prices. It is not a cross-race efficiency ranking; weapon chassis and cumulative investment must be considered before drawing that conclusion.
 
 ## Controlled combat measurements
 
@@ -92,7 +111,7 @@ A second reproducible matrix covers eleven builders and six send choices: 66 sce
 |---|---:|---:|---:|
 | Miner | 11 | 0 | 0 |
 | Breacher | 11 | 0 | 0 |
-| Wallbreaker | 5 | 6 | 0 |
+| Wallbreaker | 6 | 5 | 0 |
 | Siege Ruiner | 0 | 10 | 1 |
 | World Titan | 0 | 11 | 0 |
 | Root Leviathan | 0 | 4 | 7 |
@@ -102,7 +121,7 @@ An unresolved scenario is not a win or a successful defense. These fixtures comp
 ## Validation and reproducibility
 
 - Untouched baseline: 144/144 behavioral tests passed.
-- Current candidate: 150/150 passed, including six additional regression checks.
+- Current candidate: 154/154 passed, including ten additional regression checks.
 - The new price and ownership tests were run against the baseline first and failed, then passed after the patch.
 - Inline JavaScript and shared-arena syntax checks passed.
 - `git diff --check` passed.

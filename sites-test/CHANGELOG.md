@@ -1,5 +1,15 @@
 # Rimewall changelog
 
+## October 25 2026 — Ninja Initiate and Master damage pass
+
+- Renamed the 5-gold starting tower to Initiate, retaining its 8 damage, attack speed, range and double-hit behavior.
+- Added Fist Master as a separate 5-gold fitting: 20 damage per hit, 0.30-second attacks, 1.5 range and a 50% chance of a second full hit, including imbuement effects. It is available again when swapping from another weapon.
+- Raised Dagger Master 20→30 damage, Sword Master 34→40, Shadow Master 32→40 and Shuriken Master 38→50.
+- Shadow now applies its full damage independently to every enemy caught in the orthogonal cross. There is no shared pool or division by target count. Cross geometry, range, armor handling and per-victim rank credit retain their existing rules.
+- Weapon fitting preserves ranks, partial progress and imbuements; computer weapon selection now buys Fist Master instead of treating the Initiate as its finished fist weapon.
+- Existing Dagger through Shuriken tier IDs and Ninja Bulwark base durability are preserved. Adding the Fist fitting does not grant a durability increase from its new array position.
+- Added regression coverage for fitting/swap prices and progress, shared ownership/accounting, retained durability and Shadow damage at 1, 2, 4 and 10 targets. Candidate measurements and the 66-scenario combat reference were refreshed.
+
 ## October 25 2026 — Attacker prices selected by Abdy
 
 - Replaced the initial 2/4/8/20 proposal with Sapper 10, Breacher 20, Wallbreaker 30 and Siege Ruiner 50 lumber.

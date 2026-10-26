@@ -129,10 +129,10 @@ test('Tech has one buildable chassis; weapon conversion keeps levels and imbueme
 
 test('Ninja range hierarchy and distinct weapon definitions', () => {
   const { run } = boot();
-  assert.equal(run(`(() => { const [f,d,s,m,p,h,k]=TOWERS.ninja;
+  assert.equal(run(`(() => { const [i,d,s,m,p,h,k,f]=TOWERS.ninja;
     return f.range<d.range && h.range<d.range && [s,m,p,k].every(w=>d.range<w.range)
-      && TOWERS.ninja.slice(0,6).every(w=>w.range<k.range) && !k.airOnly
-      && new Set(TOWERS.ninja.map(w=>w.weaponKind)).size===7 && d.armorPierce===8; })()`), true);
+      && TOWERS.ninja.every(w=>w===k || w.range<k.range) && !k.airOnly
+      && i.chassis && f.weapon && TOWERS.ninja.filter(w=>w.weapon).length===7 && new Set(TOWERS.ninja.filter(w=>w.weapon).map(w=>w.weaponKind)).size===7 && d.armorPierce===8; })()`), true);
 });
 
 test('Fist double hit includes a second imbuement proc at exactly the 50% threshold', () => {
@@ -143,14 +143,14 @@ test('Fist double hit includes a second imbuement proc at exactly the 50% thresh
     testHit(t,c); const a={damage:1e6-c.hp,effects,burn:c.dots.reduce((s,d)=>s+d.dps,0)};
     c.hp=1e6;c.dots=[];effects=0;rng=()=>.5;testHit(t,c);
     return [a,{damage:1e6-c.hp,effects,burn:c.dots.reduce((s,d)=>s+d.dps,0)}]; })()`),
-    [{ damage:16, effects:2, burn:8*.2/3*2 }, { damage:8, effects:1, burn:8*.2/3 }]);
+    [{ damage:40, effects:2, burn:20*.2/3*2 }, { damage:20, effects:1, burn:20*.2/3 }]);
 });
 
 test('Sword crit is 30% at 2.5x damage', () => {
   const { value } = boot();
   assert.deepEqual(value(`(() => { const t=testTower('ninja','Sword Master'), c=testCreep(t.c+1,t.r+.5);
     rng=()=>.299;testHit(t,c);const crit=1e6-c.hp;c.hp=1e6;rng=()=>.3;testHit(t,c);
-    return [crit,1e6-c.hp]; })()`), [85,34]);
+    return [crit,1e6-c.hp]; })()`), [100,40]);
 });
 
 test('Mace damage travels outward, hits once, hits harder at the edge, and shreds armor', () => {
@@ -173,12 +173,12 @@ test('Spear hits targets directly behind the mark, not off-axis or opposite-half
     testHit(t,mark);return [mark,behind,aside,rival].map(c=>1e6-c.hp); })()`), [75,33.75,0,0]);
 });
 
-test('Shadow emits only an orthogonal pulse and distributes a bounded damage pool', () => {
+test('Shadow emits only an orthogonal pulse and deals full damage to each target', () => {
   const { value } = boot();
   const out=value(`(() => {const t=testTower('ninja','Shadow Master');
     const n=testCreep(t.c+.5,t.r-.5), e=testCreep(t.c+1.5,t.r+.5), diagonal=testCreep(t.c+1.5,t.r+1.5);
     fireNinjaPulse(t,towerLiveStats(t));return {damage:[n,e,diagonal].map(c=>1e6-c.hp),projectiles:projectiles.length};})()`);
-  assert.ok(Math.abs(out.damage[0]-23.2)<1e-7); assert.equal(out.damage[0],out.damage[1]);
+  assert.equal(out.damage[0],40); assert.equal(out.damage[0],out.damage[1]);
   assert.equal(out.damage[2],0); assert.equal(out.projectiles,0);
 });
 
@@ -188,7 +188,7 @@ test('Shuriken hits ground and air but chains only once, from air to air', () =>
     const ground=testCreep(t.c+1,t.r+.5), a=testCreep(t.c+1.5,t.r+.5,{air:true}), b=testCreep(t.c+2,t.r+.5,{air:true});
     const selected=pickTarget(t,towerLiveStats(t));testHit(t,a);const bounce=projectiles.shift();
     resolveProjectileHit(bounce);return {selected:selected.id===ground.id,ground:1e6-ground.hp,air:[1e6-a.hp,1e6-b.hp],extras:projectiles.length};})()`);
-  assert.equal(out.selected,true); assert.equal(out.ground,0); assert.equal(out.air[0],38); assert.equal(out.air[1],27); assert.equal(out.extras,0);
+  assert.equal(out.selected,true); assert.equal(out.ground,0); assert.equal(out.air[0],50); assert.equal(out.air[1],35); assert.equal(out.extras,0);
   assert.equal(run(`creeps.forEach(c=>c.air=false); testHit([...towers.values()][0],creeps[0]); pickTarget([...towers.values()][0],towerLiveStats([...towers.values()][0]))!==null && projectiles.length===0`),true);
 });
 
@@ -257,7 +257,7 @@ test('the first three ranks keep the agreed damage, range, and attacks/s bonuses
 test('actual landed hits earn rank one at five hits with no gold or lumber', () => {
   const {value}=boot();
   assert.deepEqual(value(`(() => {
-    const t=testTower('ninja','Fist Master'),c=testCreep(13, t.r+.5);
+    const t=testTower('ninja','Initiate'),c=testCreep(13, t.r+.5);
     player.gold=0;player.lumber=0;
     for(let i=0;i<4;i++)testHit(t,c);
     const before=[towerTotalRank(t),t.rankBank];
@@ -269,7 +269,7 @@ test('actual landed hits earn rank one at five hits with no gold or lumber', () 
 test('all ranks are earned freely from zero, carrying excess hits across ranks', () => {
   const {value}=boot();
   assert.deepEqual(value(`(() => {
-    const t=testTower('ninja','Fist Master');player.gold=0;player.lumber=0;
+    const t=testTower('ninja','Initiate');player.gold=0;player.lumber=0;
     grantTowerXp(t,600);
     const first=[towerTotalRank(t),t.level,t.rank,t.rankBank];
     grantTowerXp(t,2401);
@@ -282,7 +282,7 @@ test('all ranks are earned freely from zero, carrying excess hits across ranks',
 test('paid finishing uses gold only for ranks 1–3, then lumber, without inventing hits', () => {
   const {value}=boot();
   assert.deepEqual(value(`(() => {
-    const t=testTower('ninja','Fist Master');player.gold=100;player.lumber=5;
+    const t=testTower('ninja','Initiate');player.gold=100;player.lumber=5;
     grantTowerXp(t,2);boostTowerRank(t);
     const first=[towerTotalRank(t),player.gold,player.lumber,t.landedHits,t.rankBoost,t.rankBank];
     boostTowerRank(t);boostTowerRank(t);
@@ -311,7 +311,7 @@ test('paid ranks reject other owners, construction and missing currency, but con
 test('mixed rank batch spends each currency once and skips unaffordable towers', () => {
   const {value}=boot();
   assert.deepEqual(value(`(() => {
-    const low=testTower('ninja','Fist Master');
+    const low=testTower('ninja','Initiate');
     const high=makeTower(low.r,low.c+2,'tech',0,'player');high.buildUntil=0;high.level=3;addTower(high);
     const poor=makeTower(low.r,low.c+4,'ninja',0,'player');poor.buildUntil=0;poor.level=2;addTower(poor);
     selectedTowerKey=low.key;selectedGroupKeys=[low.key,high.key,poor.key];
@@ -326,7 +326,7 @@ test('tier and weapon changes preserve earned ranks and partial hit progress', (
     const t=testTower('ice',TOWERS.ice[0].name);grantTowerXp(t,14);
     selectedTowerKey=t.key;selectedGroupKeys=[t.key];player.gold=10000;towerAction('tier');
     const tiered=[t.tier,towerTotalRank(t),t.rankBank,t.landedHits];
-    const n=testTower('ninja','Fist Master');grantTowerXp(n,14);
+    const n=testTower('ninja','Initiate');grantTowerXp(n,14);
     selectedTowerKey=n.key;selectedGroupKeys=[n.key];towerAction('weapon:3');
     return [tiered,[n.tier,towerTotalRank(n),n.rankBank,n.landedHits]];
   })()`),[[1,1,9,14],[3,1,9,14]]);
@@ -334,7 +334,7 @@ test('tier and weapon changes preserve earned ranks and partial hit progress', (
 
 test('splash starts five positions ahead on the agreed requirement sequence', () => {
   const {value}=boot();
-  assert.deepEqual(value(`(() => {const a=testTower('tech','Ballista'),b=testTower('ninja','Fist Master');return [[0,1,2,3].map(r=>rankNeed(r,a)),[0,1,2,3].map(r=>rankNeed(r,b))];})()`),[[100,125,150,200],[5,10,25,50]]);
+  assert.deepEqual(value(`(() => {const a=testTower('tech','Ballista'),b=testTower('ninja','Initiate');return [[0,1,2,3].map(r=>rankNeed(r,a)),[0,1,2,3].map(r=>rankNeed(r,b))];})()`),[[100,125,150,200],[5,10,25,50]]);
 });
 
 test('multishot credits each distinct enemy hit in its volley', () => {
@@ -439,7 +439,7 @@ test('Mace armor reduction refreshes without permanent accumulation and expires 
 
 test('veteran damage uses rank-three baseline and total-rank fifth milestones', () => {
   const {value}=boot();
-  assert.deepEqual(value(`(() => {const t=testTower('ninja','Fist Master');t.level=3;t.rank=1;const one=towerLiveStats(t).dmg;t.rank=5;return [one,towerLiveStats(t).dmg];})()`),[10.608,11.96]);
+  assert.deepEqual(value(`(() => {const t=testTower('ninja','Initiate');t.level=3;t.rank=1;const one=towerLiveStats(t).dmg;t.rank=5;return [one,towerLiveStats(t).dmg];})()`),[10.608,11.96]);
 });
 
 test('rendered mixed send panel never restarts lower shrine tiers at the attacker section', () => {
@@ -612,9 +612,9 @@ test('Tech computers fit a weapon mix with one Painter, and Ninja can use all se
     const tech=make('tech');for(let i=0;i<7;i++)aiUpgradeTower(tech,PLAYER_HALF,5);
     const techNames=[...towers.values()].map(t=>towerDef(t.raceId,t.tier).name);
     const gold=tech.gold;
-    const ninja=make('ninja');for(let i=0;i<6;i++)aiUpgradeTower(ninja,PLAYER_HALF,5);
+    const ninja=make('ninja');for(let i=0;i<7;i++)aiUpgradeTower(ninja,PLAYER_HALF,5);
     return [techNames,gold,[...towers.values()].map(t=>t.tier)];
-  })()`),[['Ballista','Multishot','Bola Rig','Siege Tank','Ballista','Multishot','Target Painter'],9265,[0,1,2,3,4,5,6]]);
+  })()`),[['Ballista','Multishot','Bola Rig','Siege Tank','Ballista','Multishot','Target Painter'],9265,[7,1,2,3,4,5,6]]);
 });
 
 test('computers rebuild destroyed spiral cells even after their placement queue is finished', () => {
@@ -633,7 +633,7 @@ test('computers rebuild destroyed spiral cells even after their placement queue 
 
 test('rank controls show natural progress and use lumber after rank three on desktop and phone', () => {
   const {run,elements}=boot();
-  run(`const t=testTower('ninja','Fist Master');selectedTowerKey=t.key;selectedGroupKeys=[t.key];
+  run(`const t=testTower('ninja','Initiate');selectedTowerKey=t.key;selectedGroupKeys=[t.key];
     player.gold=100;player.lumber=10;grantTowerXp(t,4);renderTowerDetails();`);
   assert.match(elements.get('tower-details').innerHTML,/Finish rank 1 • 10g/);
   assert.match(run('renderWispInspect()'),/4 \/ 5 toward rank 1/);
@@ -1494,12 +1494,12 @@ test('Shrines 6 through 8 have five stronger sends each and the requested curren
 
 test('standard and splash promotion totals match the plan including the growing jumps',()=>{
   const {value}=boot();
-  assert.deepEqual(value(`(()=>{const a=testTower('ninja','Fist Master'),b=testTower('tech','Ballista');const req=t=>Array.from({length:10},(_,i)=>rankNeed(i,t));return [req(a),req(b),req(a).reduce((a,b)=>a+b),req(b).reduce((a,b)=>a+b),rankNeed(14,a)];})()`),[[5,10,25,50,75,100,125,150,200,250],[100,125,150,200,250,300,375,450,550,675],990,3175,675]);
+  assert.deepEqual(value(`(()=>{const a=testTower('ninja','Initiate'),b=testTower('tech','Ballista');const req=t=>Array.from({length:10},(_,i)=>rankNeed(i,t));return [req(a),req(b),req(a).reduce((a,b)=>a+b),req(b).reduce((a,b)=>a+b),rankNeed(14,a)];})()`),[[5,10,25,50,75,100,125,150,200,250],[100,125,150,200,250,300,375,450,550,675],990,3175,675]);
 });
 
 test('rank ten damage and attack rate are fixed additive increases over rank three',()=>{
   const {run}=boot();
-  assert.equal(run(`(()=>{const t=testTower('ninja','Fist Master');t.level=3;const a=towerLiveStats(t);t.rank=7;const b=towerLiveStats(t);return Math.abs(b.dmg/a.dmg-1.24)<1e-9&&Math.abs(a.cd/b.cd-1.07)<1e-9&&a.range===b.range;})()`),true);
+  assert.equal(run(`(()=>{const t=testTower('ninja','Initiate');t.level=3;const a=towerLiveStats(t);t.rank=7;const b=towerLiveStats(t);return Math.abs(b.dmg/a.dmg-1.24)<1e-9&&Math.abs(a.cd/b.cd-1.07)<1e-9&&a.range===b.range;})()`),true);
 });
 
 test('splash credits five victims once each while imbuement and DOT add no duplicate hits',()=>{
