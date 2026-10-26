@@ -2848,6 +2848,12 @@ function towerLiveStats(tower) {
 /* October test batch: crystal formations, Tech designation, critical profiles. */
 const CRYSTAL_BONUSES = {damage:'+15% damage',speed:'+15% attack speed',range:'+1 range'};
 let crystalCacheVersion = -1, crystalGroups = new Map(), formationRevision = 0;
+function crystalSameOwner(a, b) {
+  if (!a || !b || a.owner !== b.owner) return false;
+  if (arenaActive()) return mpTowerSeatKey(a) === mpTowerSeatKey(b);
+  return (a.allySeat ?? null) === (b.allySeat ?? null)
+    && (a.allyHalf || halfOfRow(a.r)) === (b.allyHalf || halfOfRow(b.r));
+}
 function crystalFormation(tower) {
   // A remote key may equal a local tower's key. Its formation must come only
   // from the same seat's snapshot, never from the live simulation cache.
@@ -2866,7 +2872,7 @@ function crystalFormation(tower) {
       for (let i=0;i<members.length && members.length<4;i++) {
         for (const t of pool) {
           if (members.length >= 4) break;
-          if (unseen.has(t) && t.owner === first.owner && halfOfRow(t.r) === halfOfRow(first.r)
+          if (unseen.has(t) && crystalSameOwner(t, first) && halfOfRow(t.r) === halfOfRow(first.r)
               && Math.max(Math.abs(t.r-members[i].r),Math.abs(t.c-members[i].c)) <= 1) {
             members.push(t); unseen.delete(t);
           }
@@ -3463,13 +3469,13 @@ const SENDS = [
      level, Bulwark upgrade, or second element: sending one gives up real
      progress to take a wall down. They walk to the nearest tower in their
      way and hit it instead of filing past it. */
-  { id:'sapper', name:'Sapper', symbol:'⚒', cost:0, income:0, lumber:1, woodIncome:.2, attacker:true, breakPower:1,
+  { id:'sapper', name:'Sapper', symbol:'⚒', cost:0, income:0, lumber:2, woodIncome:.2, attacker:true, breakPower:1,
     hp:1400, spd:2.5, armor:8, aClass:'siege', shrine:2 },
-  { id:'breacher', name:'Breacher', symbol:'⌁', cost:0, income:0, lumber:2, woodIncome:.35, attacker:true, breakPower:2,
+  { id:'breacher', name:'Breacher', symbol:'⌁', cost:0, income:0, lumber:4, woodIncome:.35, attacker:true, breakPower:2,
     hp:2800, spd:2.3, armor:13, aClass:'siege', shrine:3 },
-  { id:'breaker', name:'Wallbreaker', symbol:'🜛', cost:0, income:0, lumber:2, woodIncome:.6, attacker:true, breakPower:3,
+  { id:'breaker', name:'Wallbreaker', symbol:'🜛', cost:0, income:0, lumber:8, woodIncome:.6, attacker:true, breakPower:3,
     hp:5200, spd:2.2, armor:18, aClass:'siege', shrine:4 },
-  { id:'ruiner', name:'Siege Ruiner', symbol:'⛏', cost:0, income:0, lumber:4, woodIncome:1.6, attacker:true, breakPower:8,
+  { id:'ruiner', name:'Siege Ruiner', symbol:'⛏', cost:0, income:0, lumber:20, woodIncome:1.6, attacker:true, breakPower:8,
     hp:13500, spd:2.0, armor:24, aClass:'siege', role:'juggernaut', shrine:5 }
 ];
 // Append only: send IDs and existing indices remain stable for wire snapshots.
@@ -13863,8 +13869,12 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    lives in changelog.md, this is the "what changed for me" version.
    Bump RELEASE_TAG whenever you add an entry: the card auto-expands once per
    new tag, then collapses and stays collapsed. */
-const RELEASE_TAG = '2026-10-25-computers-build-up';
+const RELEASE_TAG = '2026-10-25-balance-audit-attackers';
 const RELEASE_NOTES = [
+  { date:'2026-10-25', title:'Attacker lumber costs and Crystal ownership', items:[
+    'Sapper costs 2 lumber, Breacher 4, Wallbreaker 8, and Siege Ruiner 20. Recurring lumber income is unchanged. These prices are a first balance pass for testing.',
+    'Crystal formations now group only towers belonging to the same player or computer. A teammate cannot change your formation bonus through a connected group.',
+  ] },
   { date:'2026-10-25', title:'Computers build up and send harder', items:[
     'Computers stop spreading tier-0 towers after their first ring of 24 and spend on upgrades instead; upgrades come twice as often.',
     'Shrine 5 arrives at 8 minutes in Classic Wars and wave 16 in wave mode; Shrines 6–8 keep their old timing. Sends start at 10 seconds or wave 1 and come 40% more often, in bigger bodies.',
@@ -14830,3 +14840,4 @@ requestAnimationFrame((now) => { lastFrame = now; requestAnimationFrame(frame); 
 </script>
 </body>
 </html>
+

@@ -99,7 +99,7 @@ test('all three send pools sort by shrine then ROI without mutating stable IDs',
         if (a.shrine > b.shrine || (a.shrine === b.shrine && sendRoi(a) > sendRoi(b))) return false; }
     } return ids === SENDS.map(s => s.id).join(','); })()`), true);
   assert.deepEqual(value(`SENDS.filter(s => s.attacker).map(s => [s.id, s.cost, s.lumber, s.woodIncome])`),
-    [['sapper',0,1,.2], ['breacher',0,2,.35], ['breaker',0,2,.6], ['ruiner',0,4,1.6]]);
+    [['sapper',0,2,.2], ['breacher',0,4,.35], ['breaker',0,8,.6], ['ruiner',0,20,1.6]]);
   assert.deepEqual(value(`[sendGlyph(SENDS[0]), sendGlyph(SENDS.find(s => s.air)), sendGlyph(SENDS.find(s => s.attacker))]`), ['↗','▲','⚒']);
 });
 
@@ -503,7 +503,7 @@ test('all send menus sort each Shrine by highest income return, including lumber
     assert.match(markup,/ROI \d+\.\d+% \/ cycle/);
   }
   assert.equal(run("sendRoiLabel(SENDS.find(s=>s.id==='miner'))"),'25.00% / cycle');
-  assert.equal(run("sendRoiLabel(SENDS.find(s=>s.id==='ruiner'))"),'40.00% / cycle');
+  assert.equal(run("sendRoiLabel(SENDS.find(s=>s.id==='ruiner'))"),'8.00% / cycle');
 });
 
 test('Shrine headings collapse only their own tab and preserve send command buttons', () => {
@@ -574,14 +574,14 @@ test('AI attackers charge lumber and gold conversions, bank fractional wood inco
   const {value}=boot();
   assert.deepEqual(value(`(() => {
     const ai=makeAlly(PLAYER_HALF,1,'earth',2),s=SENDS.find(s=>s.id==='sapper');
-    Object.assign(ai,{gold:499,shrine:2,pressureGold:499,budgetGold:499});
+    Object.assign(ai,{gold:999,shrine:2,pressureGold:999,budgetGold:999});
     const poor=aiBuySend(ai,PLAYER_HALF,s,'pressure');
     ai.gold++;ai.pressureGold++;ai.budgetGold++;
     const bought=aiBuySend(ai,PLAYER_HALF,s,'pressure');
     const paid=[ai.gold,ai.lumber,ai.income,ai.woodIncome,ai.sendStats.gold,ai.sendStats.lumber];
     for(let i=0;i<5;i++)payWoodIncome(ai);
     return [poor,bought,paid,ai.lumber,ai.woodBank,creeps.length];
-  })()`),[false,true,[0,0,0,.2,500,1],1,0,2]);
+  })()`),[false,true,[0,0,0,.2,1000,2],1,0,2]);
 });
 
 test('computer upgrades cannot spend another seat gold or alter its towers', () => {
@@ -850,7 +850,7 @@ test('lumber attackers that damage the maze are recorded as useful even when kil
     }
     const result=ai.attackResults.byId.sapper;
     return [result.killed,result.leaked,result.towerDamage>0,aiFailedSend(ai,'sapper'),ai.gold];
-  })()`),[4,0,true,false,4000]);
+  })()`),[4,0,true,false,3000]);
 });
 
 test('a fully defended Shrine-5 ladder still receives strong counter bursts instead of AI silence', () => {
@@ -1868,3 +1868,4 @@ test('remembered Random survives room creation, guest hello, and seat changes', 
   await c.run('mpOpenRoom(true)');c.run('connect()');
   assert.equal(c.value('presences.filter(m=>m?.t==="hello").map(m=>m.race)').at(-1),'random');
 });
+
