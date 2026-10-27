@@ -1,5 +1,37 @@
 # Rimewall changelog
 
+## October 25 2026 — Fist combo rank credit
+
+- Both landed Fist combo strikes now advance the hit counter and automatic ranks, including the Initiate's combo. An ordinary attack counts once and a landed double hit counts twice.
+- Each strike retains its imbuement proc. Shield/body transitions and added imbuement damage cannot duplicate the same strike's credit; lingering damage and an unneeded second strike after a killing blow add no hits.
+- Added regressions for combo probability, automatic promotion with carried progress, shield/imbuement/DOT/kill behavior, and authoritative hit/rank synchronization to both clients.
+
+## October 25 2026 — Ninja Initiate and Master damage pass
+
+- Renamed the 5-gold starting tower to Initiate, retaining its 8 damage, attack speed, range and double-hit behavior.
+- Added Fist Master as a separate 5-gold fitting: 20 damage per hit, 0.30-second attacks, 1.5 range and a 50% chance of a second full hit, including imbuement effects. It is available again when swapping from another weapon.
+- Raised Dagger Master 20→30 damage, Sword Master 34→40, Shadow Master 32→40 and Shuriken Master 38→50.
+- Shadow now applies its full damage independently to every enemy caught in the orthogonal cross. There is no shared pool or division by target count. Cross geometry, range, armor handling and per-victim rank credit retain their existing rules.
+- Weapon fitting preserves ranks, partial progress and imbuements; computer weapon selection now buys Fist Master instead of treating the Initiate as its finished fist weapon.
+- Existing Dagger through Shuriken tier IDs and Ninja Bulwark base durability are preserved. Adding the Fist fitting does not grant a durability increase from its new array position.
+- Added regression coverage for fitting/swap prices and progress, shared ownership/accounting, retained durability and Shadow damage at 1, 2, 4 and 10 targets. Candidate measurements and the 66-scenario combat reference were refreshed.
+
+## October 25 2026 — Attacker prices selected by Abdy
+
+- Replaced the initial 2/4/8/20 proposal with Sapper 10, Breacher 20, Wallbreaker 30 and Siege Ruiner 50 lumber.
+- Recurring lumber income remains 0.2/0.35/0.6/1.6 per purchase per cycle. Nominal payback is now 50, 57.14, 50 and 31.25 cycles.
+- Updated runtime release notes, human/AI purchase fixtures, audit tables and candidate measurements to the selected prices. Earlier combat measurements remain applicable because attacker combat stats did not change.
+- Fixed the AI pressure cycle exposed by the higher prices: after 40 seconds without an affordable attacker, or immediately in finish mode, the computer advances to the next send family instead of remaining stuck on the attacker turn.
+- 150/150 behavioral checks pass, including a new deadline/finish fallback regression and the existing 20-minute economy/construction check.
+
+## October 25 2026 — Attacker lumber and Crystal ownership audit
+
+- Superseded first proposal: Sapper 1→2, Breacher 2→4, Wallbreaker 2→8, Siege Ruiner 4→20 lumber. Recurring lumber income was retained; nominal payback was 10, 11.43, 13.33 and 12.5 cycles.
+- Crystal formations now compare player/computer ownership instead of treating every teammate as one owner. One player's free formation switch cannot change another player's towers.
+- The initial proposal passed 149 behavioral checks (144 existing plus five additional price/accounting/ownership checks), with prior price-dependent expectations updated.
+- Reproducible balance references and 66 seeded combat scenarios are in `audit/`. Read [BALANCE_AUDIT_2026-10-25.md](BALANCE_AUDIT_2026-10-25.md) for methods and limits.
+- The audit also reproduces an OPEN shared-state rejection above 400 active creeps. Full shared-battlefield balance and physical-device acceptance are not signed off.
+
 The maintained release history is [dist/changelog.md](dist/changelog.md).
 It is published with the game and linked from the home-screen Changelog.
 
@@ -28,3 +60,4 @@ three regression tests added. 142/142.
   from all eligible affordable sends and reduce the burst to the affordable size.
   Attacker spacing and one-pack limits remain in place.
 - Add regression coverage for both cases (144 tests total).
+

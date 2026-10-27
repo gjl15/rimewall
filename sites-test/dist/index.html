@@ -2226,9 +2226,9 @@ const TOWERS = {
        race is supposed to be for.
        Reach is still the identity: 1.5 covers the eight cells around the blade,
        and nothing beyond them. */
-    { name:'Fist Master', spriteName:'Shadow Initiate', spriteTier:0, weaponKind:'fist', weaponGlyph:'拳', chassis:true, cost:5, levelCost:10, maxLevel:8, dmg:8, cd:.30, range:1.5, special:'fistcombo', doubleChance:.50, desc:'The base Ninja discipline. Every hit has a 50% chance to strike twice; the second hit also triggers its imbuement.' },
-    { name:'Dagger Master', spriteName:'Dagger Adept', spriteTier:1, weaponKind:'dagger', weaponGlyph:'†', weapon:true, cost:5, levelCost:10, maxLevel:8, dmg:20, cd:.25, range:2.0, special:'dagger', armorPierce:8, desc:'Fast and precise. More reach than Fist or Shadow, and ignores 8 armor on every stab.' },
-    { name:'Sword Master', spriteName:'Sword Ronin', spriteTier:2, weaponKind:'sword', weaponGlyph:'╱', weapon:true, cost:5, levelCost:10, maxLevel:8, dmg:34, cd:.40, range:2.5, special:'swordcrit', critChance:.30, critMult:2.5, desc:'A measured blade with a 30% chance to crit for 2.5× damage.' },
+    { name:'Initiate', spriteName:'Shadow Initiate', spriteTier:0, weaponKind:'fist', weaponGlyph:'拳', chassis:true, cost:5, levelCost:10, maxLevel:8, dmg:8, cd:.30, range:1.5, special:'fistcombo', doubleChance:.50, desc:'The starting Ninja. Fit one of seven Master weapons. Every hit has a 50% chance to strike twice; both strikes trigger its imbuement and count toward ranks.' },
+    { name:'Dagger Master', spriteName:'Dagger Adept', spriteTier:1, weaponKind:'dagger', weaponGlyph:'†', weapon:true, cost:5, levelCost:10, maxLevel:8, dmg:30, cd:.25, range:2.0, special:'dagger', armorPierce:8, desc:'Fast and precise. More reach than Fist or Shadow, and ignores 8 armor on every stab.' },
+    { name:'Sword Master', spriteName:'Sword Ronin', spriteTier:2, weaponKind:'sword', weaponGlyph:'╱', weapon:true, cost:5, levelCost:10, maxLevel:8, dmg:40, cd:.40, range:2.5, special:'swordcrit', critChance:.30, critMult:2.5, desc:'A measured blade with a 30% chance to crit for 2.5× damage.' },
     { name:'Mace Master', spriteName:'Mace Breaker', spriteTier:3, weaponKind:'mace', weaponGlyph:'●', weapon:true, cost:5, levelCost:10, maxLevel:8, dmg:70, cd:1.1, range:2.7, special:'macepulse', armorShred:3, armorShredDur:4, desc:'A slow radial shockwave. It hits everything in reach, deals more damage near the outer edge, and reduces armor by 3 for 4 seconds.' },
     /* A SPEAR IS THROWN. Gene: "ninja spear shouldnt be the same as beam, it
        should be a a spear literally being thrown." It carried special:'beamline'
@@ -2238,8 +2238,10 @@ const TOWERS = {
        instantaneous. 'spearthrow' is a real projectile with a real flight time
        that pierces past its mark on impact, which is what the card always said. */
     { name:'Spear Master', spriteName:'Spear Sentinel', spriteTier:4, weaponKind:'spear', weaponGlyph:'➤', weapon:true, cost:5, levelCost:10, maxLevel:8, dmg:75, cd:.85, range:3.4, special:'spearthrow', desc:'A thrown spear: full damage to its mark, then 45% through every creep lined up behind it for two more cells.' },
-    { name:'Shadow Master', spriteTier:5, weaponKind:'shadow', weaponGlyph:'✚', weapon:true, cost:5, levelCost:14, maxLevel:8, dmg:32, cd:.48, range:1.8, special:'shadowcross', crossWidth:.55, desc:'No single-target strike. It pulses only north, south, east, and west; its damage pool is distributed across the creeps caught in that cross.' },
-    { name:'Shuriken Master', spriteName:'Shadow Master', spriteTier:5, weaponKind:'shuriken', weaponGlyph:'✣', weapon:true, cost:5, levelCost:12, maxLevel:8, dmg:38, cd:.55, range:4.4, special:'shurikenbounce', bounceMult:.70, desc:'The longest Ninja reach. Hits ground or air; only an air-first hit bounces to a second flier for 70% damage.' }
+    { name:'Shadow Master', spriteTier:5, weaponKind:'shadow', weaponGlyph:'✚', weapon:true, cost:5, levelCost:14, maxLevel:8, dmg:40, cd:.48, range:1.8, special:'shadowcross', crossWidth:.55, desc:'Pulses north, south, east, and west. Every enemy caught in the cross takes full damage; damage is never divided among targets.' },
+    { name:'Shuriken Master', spriteName:'Shadow Master', spriteTier:5, weaponKind:'shuriken', weaponGlyph:'✣', weapon:true, cost:5, levelCost:12, maxLevel:8, dmg:50, cd:.55, range:4.4, special:'shurikenbounce', bounceMult:.70, desc:'The longest Ninja reach. Hits ground or air; only an air-first hit bounces to a second flier for 70% damage.' },
+    // Append the new fitting so existing Master weapon tier IDs stay stable.
+    { name:'Fist Master', spriteName:'Shadow Initiate', spriteTier:0, weaponKind:'fist', weaponGlyph:'拳', weapon:true, hpTier:0, cost:5, levelCost:10, maxLevel:8, dmg:20, cd:.30, range:1.5, special:'fistcombo', doubleChance:.50, desc:'A close-range combo specialist. Deals 20 damage per hit with a 50% chance of a second full hit; both strikes trigger its imbuement and count toward ranks.' }
   ],
   gravity:[
     { name:'Gravity Well', cost:10, dmg:9, cd:.95, range:5.5, special:'warp', desc:'A single warped slug that drags its target to a crawl.' },
@@ -2309,7 +2311,11 @@ function bulwarkRank(tower) { return Math.max(0, tower?.bulwarkRank || 0); }
 function bulwarkRankValue(tower, values, fallback = 0) { const rank = Math.min(3, bulwarkRank(tower)); return rank ? values[rank - 1] : fallback; }
 const BULWARK_TOWER = { name:'Bulwark Stake', cost:4, dmg:0, cd:1, range:0, special:'bulwark', hpMult:14,
   desc:'No attack at all — a frontline bastion that gains expertise by absorbing raw damage. Install inclusive core upgrades and choose one aura.' };
-function towerListFor(raceId) { return [...(TOWERS[raceId] || TOWERS.ice), BULWARK_TOWER]; }
+function towerListFor(raceId) {
+  // Adding a Ninja fitting must not increase the existing Bulwark's durability.
+  const wall = raceId === 'ninja' ? { ...BULWARK_TOWER, hpTier:7 } : BULWARK_TOWER;
+  return [...(TOWERS[raceId] || TOWERS.ice), wall];
+}
 /* WHAT YOU CAN PLACE ON AN EMPTY CELL, which is not the same as what exists.
    Gene: "thers ballista here which is not what we wanted on the selct tower we
    want to build a bolt tower, and then on the right panel teher should be an
@@ -2368,7 +2374,7 @@ function bannerBonus(tower) {
 }
 function wardHpMult(tower) { return bulwarkHas(tower, 'health') ? bulwarkRankValue(tower, WARD.health, 1) : 1; }
 function towerMaxHp(def, tier, level) {
-  const base = (4 + tier) * SWING_DMG * (def && def.hpMult ? def.hpMult : 1);
+  const base = (4 + (def?.hpTier ?? tier)) * SWING_DMG * (def && def.hpMult ? def.hpMult : 1);
   return Math.round(base * (1 + .35 * (level || 0)) * (def?.special === 'bulwark' ? 1 : 2));
 }
 function bulwarkMaxHp(tower) {
@@ -2637,12 +2643,12 @@ function specialBlurb(sp) {
     bulwark:`No attack at all. It exists to be hit: ${BULWARK_TOWER.hpMult}x the hit points of an ordinary tower, so the front row can soak attackers while the towers behind keep firing.`,
     beam:`A continuous ray rather than a volley: damage lands every frame, so the rate holds at any framerate.`,
     beamline:`A continuous ray that PIERCES: full damage to its mark, and ${pct(TRAIT.beamLineMult)} to every creep the ray passes through on the way there.`,
-    fistcombo:`Every hit has a 50% chance to land a second full hit. Both hits trigger the fitted imbuement.`,
+    fistcombo:`Every hit has a 50% chance to land a second full hit. Both strikes trigger the fitted imbuement and count toward ranks.`,
     dagger:`Ignores 8 points of armor on every fast stab.`,
     swordcrit:`30% of hits crit for 2.5× damage. Crits print in gold.`,
     macepulse:`A radial pulse rather than a target strike: 55% damage beside the tower, rising to 120% at the outer edge, and every hit reduces armor by 3 for 4 seconds.`,
     spearthrow:`A thrown spear: full damage to its mark, and ${pct(TRAIT.beamLineMult)} to anything it runs through — including the ${TRAIT.beamLineBehind} cells BEHIND the target.`,
-    shadowcross:`An orthogonal pulse only — no diagonals and no single-target shot. Its damage pool is distributed across every creep caught in the cross.`,
+    shadowcross:`An orthogonal pulse only — no diagonals and no single-target shot. Every enemy caught in the cross takes full damage, with no splitting.`,
     shurikenbounce:`Hits ground and air. Only an air-first hit chains once to another flier for 70%; ground hits never chain.`,
     bola:`Light splash within one cell. Every third shot roots at most three nearby targets for 1.25s; bosses are slowed instead.`,
     warp:`A single warped slug that drags its target to a crawl.` + gravTail,
@@ -2661,7 +2667,7 @@ function towerDef(raceId, tier) {
   const list = towerListFor(raceId);
   const def = list[Math.min(tier, list.length - 1)];
   const race = races.find((item) => item.id === raceId) || races[0];
-  const isWall = def === BULWARK_TOWER;
+  const isWall = def.special === 'bulwark';
   return { ...def, raceId:race.id, tier,
     color:isWall ? '#9aa7bd' : race.color,
     symbol:isWall ? '⬛' : race.symbol };
@@ -2848,6 +2854,12 @@ function towerLiveStats(tower) {
 /* October test batch: crystal formations, Tech designation, critical profiles. */
 const CRYSTAL_BONUSES = {damage:'+15% damage',speed:'+15% attack speed',range:'+1 range'};
 let crystalCacheVersion = -1, crystalGroups = new Map(), formationRevision = 0;
+function crystalSameOwner(a, b) {
+  if (!a || !b || a.owner !== b.owner) return false;
+  if (arenaActive()) return mpTowerSeatKey(a) === mpTowerSeatKey(b);
+  return (a.allySeat ?? null) === (b.allySeat ?? null)
+    && (a.allyHalf || halfOfRow(a.r)) === (b.allyHalf || halfOfRow(b.r));
+}
 function crystalFormation(tower) {
   // A remote key may equal a local tower's key. Its formation must come only
   // from the same seat's snapshot, never from the live simulation cache.
@@ -2866,7 +2878,7 @@ function crystalFormation(tower) {
       for (let i=0;i<members.length && members.length<4;i++) {
         for (const t of pool) {
           if (members.length >= 4) break;
-          if (unseen.has(t) && t.owner === first.owner && halfOfRow(t.r) === halfOfRow(first.r)
+          if (unseen.has(t) && crystalSameOwner(t, first) && halfOfRow(t.r) === halfOfRow(first.r)
               && Math.max(Math.abs(t.r-members[i].r),Math.abs(t.c-members[i].c)) <= 1) {
             members.push(t); unseen.delete(t);
           }
@@ -2963,7 +2975,7 @@ function batchPanelHtml(group) {
   const t=group[0]; if(!t || towerDef(t.raceId,t.tier).special==='bulwark') return '';
   const button=(action,label,on=false)=>`<button class="ghost-button ${on?'on':''}" data-batch="${action}" style="min-height:44px">${label}</button>`;
   const actual=towerTotalRank(t);
-  let html=`<div class="batch-rack"><p class="td-desc">Rank ${actual} · uncapped automatic ranks from rank 0.<br>${Math.floor(t.landedHits||0)} enemy hits · ${Math.floor(t.rankBank||0)} / ${rankNeed(actual,t)} toward rank ${actual+1}.<br>Every damaged enemy counts once per attack; lingering damage does not add hits. Beams count enemies at their attack cadence, without a one-second limit.<br>Finish rank: gold for ranks 1–3, then lumber. Resources are never spent automatically.<br>Ranks 1–3: +10% base damage, +0.5 range, +0.1 attacks/s each. Later: +2% rank-3 damage and +1% rank-3 attack speed each; +5% damage at total ranks 5, 10, 15…</p>`;
+  let html=`<div class="batch-rack"><p class="td-desc">Rank ${actual} · uncapped automatic ranks from rank 0.<br>${Math.floor(t.landedHits||0)} enemy hits · ${Math.floor(t.rankBank||0)} / ${rankNeed(actual,t)} toward rank ${actual+1}.<br>Every damaged enemy counts once per attack; Fist combo strikes count separately. Lingering damage does not add hits. Beams count enemies at their attack cadence, without a one-second limit.<br>Finish rank: gold for ranks 1–3, then lumber. Resources are never spent automatically.<br>Ranks 1–3: +10% base damage, +0.5 range, +0.1 attacks/s each. Later: +2% rank-3 damage and +1% rank-3 attack speed each; +5% damage at total ranks 5, 10, 15…</p>`;
   if(t.raceId==='crystal') {
     const f=crystalFormation(t);
     const live=towerLiveStats(t);
@@ -3463,13 +3475,13 @@ const SENDS = [
      level, Bulwark upgrade, or second element: sending one gives up real
      progress to take a wall down. They walk to the nearest tower in their
      way and hit it instead of filing past it. */
-  { id:'sapper', name:'Sapper', symbol:'⚒', cost:0, income:0, lumber:1, woodIncome:.2, attacker:true, breakPower:1,
+  { id:'sapper', name:'Sapper', symbol:'⚒', cost:0, income:0, lumber:10, woodIncome:.2, attacker:true, breakPower:1,
     hp:1400, spd:2.5, armor:8, aClass:'siege', shrine:2 },
-  { id:'breacher', name:'Breacher', symbol:'⌁', cost:0, income:0, lumber:2, woodIncome:.35, attacker:true, breakPower:2,
+  { id:'breacher', name:'Breacher', symbol:'⌁', cost:0, income:0, lumber:20, woodIncome:.35, attacker:true, breakPower:2,
     hp:2800, spd:2.3, armor:13, aClass:'siege', shrine:3 },
-  { id:'breaker', name:'Wallbreaker', symbol:'🜛', cost:0, income:0, lumber:2, woodIncome:.6, attacker:true, breakPower:3,
+  { id:'breaker', name:'Wallbreaker', symbol:'🜛', cost:0, income:0, lumber:30, woodIncome:.6, attacker:true, breakPower:3,
     hp:5200, spd:2.2, armor:18, aClass:'siege', shrine:4 },
-  { id:'ruiner', name:'Siege Ruiner', symbol:'⛏', cost:0, income:0, lumber:4, woodIncome:1.6, attacker:true, breakPower:8,
+  { id:'ruiner', name:'Siege Ruiner', symbol:'⛏', cost:0, income:0, lumber:50, woodIncome:1.6, attacker:true, breakPower:8,
     hp:13500, spd:2.0, armor:24, aClass:'siege', role:'juggernaut', shrine:5 }
 ];
 // Append only: send IDs and existing indices remain stable for wire snapshots.
@@ -5191,11 +5203,14 @@ function resolveProjectileDamage(projectile) {
     if (tower && tower.raceId === 'gravity' && target.hp > 0 && rng() < TRAIT.gravSlowChance * tierPot(tower)) gravityImpulse(target, tower, stats);
     if (crit) pushFx({ kind:'num', x:target.x, y:target.y - .6, text:`${Math.round(dmg)}!`, until:simTime + .9, color:'#ffc93d', big:true });
     applyHitEffects(target, tower, stats);
-    /* Fist Master really lands two HITS, not one hit with a damage multiplier:
-       the second strike runs the complete on-hit path, including imbuements. */
+    /* Each Fist combo strike earns its own landed-hit/rank credit. A fresh
+       victim scope separates the second strike while keeping its shield/body
+       damage and imbuement effects from counting the same victim twice. */
     if (stats.special === 'fistcombo' && target.hp > 0 && rng() < (stats.doubleChance || .5)) {
-      applyDamage(target, stats.dmg, tower);
-      applyHitEffects(target, tower, stats);
+      withHitCredit(tower, new Set(), () => {
+        applyDamage(target, stats.dmg, tower);
+        applyHitEffects(target, tower, stats);
+      });
       pushFx({ kind:'num', x:target.x, y:target.y - .5, text:'×2', until:simTime + .6, color:'#f3f5ff' });
     }
     /* The inexpensive Bola pays for control, not damage. Every third direct
@@ -5449,9 +5464,7 @@ function fireNinjaPulseDamage(tower, stats) {
       .sort((a, b) => creepProgress(b) - creepProgress(a));
     if (!eligible.length) return false;
     creditAttack(tower, stats);
-    const pool = stats.dmg * Math.min(2.5, 1 + Math.max(0, eligible.length - 1) * .45);
-    const each = pool / eligible.length;
-    eligible.forEach((creep) => { applyDamage(creep, each, tower); if (creep.hp > 0) applyHitEffects(creep, tower, stats); });
+    eligible.forEach((creep) => { applyDamage(creep, stats.dmg, tower); if (creep.hp > 0) applyHitEffects(creep, tower, stats); });
     pushFx({ kind:'shadowcross', x:cx, y:cy, radius:stats.range, color:stats.color, until:simTime + .45 });
     return true;
   }
@@ -6346,7 +6359,15 @@ function aiSendPressure(ai,half) {
       // Search the entire eligible family, not just forecast-sized bursts.
       const now=choices.filter(s=>aiBurstCost(ai,s,1)<=aiBudget(ai,'pressure'));
       now.sort((a,b)=>aiPressureScore(ai,b,defenders)-aiPressureScore(ai,a,defenders));
-      if(!now.length)break;
+      if(!now.length){
+        // A high lumber price must not trap the pressure cycle on attackers.
+        // After the saving deadline (or in finish mode), try the next family.
+        if(family==='attacker'){
+          ai.preparingAttack=null;ai.preparingSince=simTime;
+          ai.pressureTurn=(ai.pressureTurn || 0)+1;remaining-=plan.burst;continue;
+        }
+        break;
+      }
       const fallback=now[0];let fpacks=fallback.attacker?1:plan.burst;
       while(fpacks>1 && aiBurstCost(ai,fallback,fpacks)>aiBudget(ai,'pressure'))fpacks--;
       for(let n=0;n<fpacks;n++)if(!aiBuySend(ai,half,fallback,'pressure'))return;
@@ -6382,7 +6403,7 @@ function aiWeaponTier(ai,tower) {
     ? ['smallsplash','multishot','bola','splash','smallsplash','multishot','targetpainter']
     : ['fistcombo','dagger','swordcrit','macepulse','spearthrow','shadowcross','shurikenbounce'];
   const special=cycle[(tower.aiBuildOrder || 0)%cycle.length];
-  return Math.max(0,towerListFor(ai.raceId).findIndex(def=>def.special===special));
+  return Math.max(0,towerListFor(ai.raceId).findIndex(def=>def.weapon && def.special===special));
 }
 function aiUpgradeTower(ai,half,maxTier) {
   const mine=[...towers.values()].filter(t=>aiOwnsTower(ai,half,t) && !underConstruction(t));
@@ -10157,7 +10178,7 @@ const WEAPON_TRAIT = {
   spearthrow:'pierces behind', multishot:'3 targets', ion:'anti-healthy',
   snipe:'hits the leader', pierce:'ignores 4 armour', basic:'',
   fistcombo:'50% double hit', dagger:'ignores 8 armour', swordcrit:'30% · 2.5× crit',
-  macepulse:'edge pulse + shred', shadowcross:'orthogonal split', shurikenbounce:'2 air targets', bola:'every 3rd roots',
+  macepulse:'edge pulse + shred', shadowcross:'full-damage cross', shurikenbounce:'2 air targets', bola:'every 3rd roots',
 };
 function weaponTrait(def) {
   const bits = [];
@@ -13863,8 +13884,22 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    lives in changelog.md, this is the "what changed for me" version.
    Bump RELEASE_TAG whenever you add an entry: the card auto-expands once per
    new tag, then collapses and stays collapsed. */
-const RELEASE_TAG = '2026-10-25-computers-build-up';
+const RELEASE_TAG = '2026-10-25-fist-combo-rank-credit';
 const RELEASE_NOTES = [
+  { date:'2026-10-25', title:'Fist double hits advance ranks', items:[
+    'Both landed strikes of a Fist combo count toward the hit counter and automatic ranks. This also applies to the Initiate.',
+    'Both strikes still trigger the fitted imbuement. A target killed by the first strike awards only that landed hit.',
+  ] },
+  { date:'2026-10-25', title:'Ninja Initiate and stronger Master weapons', items:[
+    'Ninja starts with an Initiate for 5 gold. Fist Master is now a separate 5-gold weapon fitting with 20 damage per hit and its 50% double-hit combo.',
+    'Dagger Master now deals 30 damage, Sword Master 40, Shadow Master 40, and Shuriken Master 50. Attack speeds and ranges keep their existing rules.',
+    'Shadow Master deals full damage to every enemy caught in its north/south/east/west pulse. Adding targets no longer divides its damage.',
+    'All seven Master weapons can be fitted or swapped while retaining ranks, hit progress and imbuements. Computers choose Fist Master as a weapon instead of staying Initiates.',
+  ] },
+  { date:'2026-10-25', title:'Attacker lumber costs and Crystal ownership', items:[
+    'Sapper costs 10 lumber, Breacher 20, Wallbreaker 30, and Siege Ruiner 50. Recurring lumber income is unchanged. These are the attacker prices selected by Abdy for testing.',
+    'Crystal formations now group only towers belonging to the same player or computer. A teammate cannot change your formation bonus through a connected group.',
+  ] },
   { date:'2026-10-25', title:'Computers build up and send harder', items:[
     'Computers stop spreading tier-0 towers after their first ring of 24 and spend on upgrades instead; upgrades come twice as often.',
     'Shrine 5 arrives at 8 minutes in Classic Wars and wave 16 in wave mode; Shrines 6–8 keep their old timing. Sends start at 10 seconds or wave 1 and come 40% more often, in bigger bodies.',
@@ -14830,3 +14865,4 @@ requestAnimationFrame((now) => { lastFrame = now; requestAnimationFrame(frame); 
 </script>
 </body>
 </html>
+
