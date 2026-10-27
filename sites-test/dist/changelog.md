@@ -1,5 +1,16 @@
 # Rimewall test build — changelog
 
+## October 26, 2026 — NINJA 21 approved test build
+
+- Initiate is the 5-gold, 8-damage starting Ninja; Fist Master is a separate 5-gold fitting dealing 20 damage.
+- Fist has a 50% second strike. Each landed strike triggers its imbuement and counts toward automatic ranks.
+- Dagger deals 30 damage with 8 armor penetration; Sword deals 40 with its 30% chance of a 2.5x critical hit.
+- Shadow deals 40 independently to every enemy caught in its cross; Shuriken deals 50 with one air-to-air bounce at 70%.
+- Attacker lumber costs are Sapper 10, Breacher 20, Wallbreaker 30 and Siege Ruiner 50.
+- Crystal formations respect individual ownership. Computers use the approved upgrade/send tuning and Random element choice from Gene's contribution.
+- Fire and Toxic still share the existing 30-effect cap. The uncapped comparison is documented in the audit only.
+- Refresh both players to the NINJA 21 badge and create a fresh room for multiplayer testing.
+
 Newest changes appear first. Dates use America/Los_Angeles time.
 
 ## October 23, 2026 — Shared team battlefield (SHARED ARENA 20)

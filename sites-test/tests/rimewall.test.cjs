@@ -1869,4 +1869,3 @@ test('remembered Random survives room creation, guest hello, and seat changes', 
   await c.run('mpOpenRoom(true)');c.run('connect()');
   assert.equal(c.value('presences.filter(m=>m?.t==="hello").map(m=>m.race)').at(-1),'random');
 });
-
