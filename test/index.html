@@ -1683,7 +1683,7 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
             <div class="wordmark-row"><svg class="crest-mark" viewBox="0 0 48 48" width="46" height="46" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="crestG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bfeaff"/><stop offset="1" stop-color="#4aa3e0"/></linearGradient></defs><path d="M24 2 L42 11 V26 C42 37 34 44 24 46 C14 44 6 37 6 26 V11 Z" fill="#0d1f3a" stroke="url(#crestG)" stroke-width="2"/><g stroke="url(#crestG)" stroke-width="2.4" stroke-linecap="round"><path d="M24 12 V34 M14.5 18 L33.5 28 M33.5 18 L14.5 28"/></g><g stroke="#eafcff" stroke-width="1.3" stroke-linecap="round" opacity=".9"><path d="M24 15 l-2.4 2.6 M24 15 l2.4 2.6 M24 31 l-2.4 -2.6 M24 31 l2.4 -2.6"/></g></svg><h1>Rime<span>wall</span></h1></div>
             <p class="lede">Choose your element. Build the maze. Break theirs.</p>
           </div>
-          <div class="version-pill">TEST BUILD · TEAM MATCH 14 + FIXES 2026-10-25</div>
+          <div class="version-pill">TEST BUILD · TEAM MATCH 14 + FIXES 2026-10-31</div>
         </div>
 
         <div class="selection-bar setup-bar">
@@ -12099,7 +12099,14 @@ function mpSnapOf(rows, flip) {
         Math.max(0, Math.round((t.blockMaxHp || 0) - (t.blockHp || 0))),   // damage taken; full is 0 and trims away
         left(t.blockingAt),
         beamOn ? fx(t.beamTo.x) : 0, beamOn ? fy(t.beamTo.y) : 0,
-        towerLaneColor(t) || 0
+        towerLaneColor(t) || 0,
+        /* WHOSE TOWER, SAID BY THE SENDER. The receiver used to work it out by
+           matching the lane colour against its own seat list, which only holds
+           when both phones agree on every seat — two tabs on one machine always
+           do, two phones through the relay did not, and the filter then threw
+           every tower away. 1 = my own tower, 2 = anything else on my half (a
+           computer ally's, a copy of a teammate's). Never 0, so it survives trim. */
+        (t.owner === 'player' && t.allySeat == null && !t.remoteSeat) ? 1 : 2
       ]);
     }),
     creeps:creeps.filter((c) => c.hp > 0 && (flip ? c.half === ENEMY_HALF : c.half === PLAYER_HALF))
@@ -13011,12 +13018,14 @@ function mpSyncTeammateTowers(key, rows) {
   const seats = seatsOn(PLAYER_HALF);
   const lane = localSeatLane(PLAYER_HALF, seat.index, seats);
   const want = new Map();
+  const stat = { rows:rows.length, theirs:0, placed:0, kept:0, badRow:0, blocked:0, at:Math.round(simTime) };
   rows.forEach((e) => {
     if (!Array.isArray(e)) return;
-    const [r, c, raceIdx, tier, , level, boltN, buildLeft, buildTime, , , , , , laneMark] = e;
-    // their own towers carry their lane colour; their computer ally's, and their copies of mine, do not
-    if (seats > 1 && laneMark !== lane.color) return;
-    if (!inBounds(r, c) || !isPlayerBuildRow(r)) return;
+    const [r, c, raceIdx, tier, , level, boltN, buildLeft, buildTime, , , , , , laneMark, own] = e;
+    // the sender says which rows are its own towers; a row from an older build has no mark, so fall back to its lane colour
+    if (own != null ? own !== 1 : (seats > 1 && laneMark !== lane.color)) return;
+    stat.theirs++;
+    if (!inBounds(r, c) || !isPlayerBuildRow(r)) { stat.badRow++; return; }
     want.set(idx(r, c), { r, c, raceId:(races[raceIdx] || races[0]).id, tier:tier || 0, level:level || 0,
       bolt:boltN ? (BOLT_MODS[boltN - 1] || {}).id || null : null, buildLeft:buildLeft || 0, buildTime:buildTime || 1 });
   });
@@ -13027,7 +13036,7 @@ function mpSyncTeammateTowers(key, rows) {
     if (!w) { removeTower(t.key); changed = true; continue; }
     if (w.tier !== t.tier) { t.tier = w.tier; t.tierAt = simTime; t.blockHp = t.blockMaxHp = 4 + w.tier; }
     t.level = w.level; t.bolt = w.bolt;
-    want.delete(t.key);
+    want.delete(t.key); stat.kept++;
   }
   want.forEach((w, k) => {
     if (towers.has(k) || terrainAt(w.r, w.c) !== T.FLOOR || protectedCells.has(k)) return;
@@ -13037,9 +13046,10 @@ function mpSyncTeammateTowers(key, rows) {
     t.buildTime = w.buildTime; t.buildUntil = w.buildLeft > 0 ? simTime + w.buildLeft : simTime - 1;
     addTower(t);
     // their board let it through, but next to my wall it may seal a lane here; theirs stands, my copy waits
-    if (routeLength(PLAYER_HALF, 'west') == null || routeLength(PLAYER_HALF, 'east') == null) { removeTower(k); return; }
-    changed = true;
+    if (routeLength(PLAYER_HALF, 'west') == null || routeLength(PLAYER_HALF, 'east') == null) { removeTower(k); stat.blocked++; return; }
+    changed = true; stat.placed++;
   });
+  (mp.syncStats || (mp.syncStats = {}))[key] = stat;
   if (changed) creeps.forEach((creep) => { if (creep.half === PLAYER_HALF) creep.path = null; });
 }
 function drawOpponentMirror(ctx) {
@@ -13446,6 +13456,9 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    new tag, then collapses and stays collapsed. */
 const RELEASE_TAG = '2026-10-25-attackers';
 const RELEASE_NOTES = [
+  { date:'2026-10-31', title:'Teammate towers no longer depend on the phones agreeing', items:[
+    'Your snapshot now says which towers are yours. The receiving phone used to work that out from lane colours against its own seat list, which only held when both phones had the same seats; through the relay they often did not, and every teammate tower was silently dropped. Diagnostics now show, per seat, how many rows arrived and how many were placed.',
+  ] },
   { date:'2026-10-25', title:'Computers build up, not just out', items:[
     'Computers stop spreading tier-0 towers after their first ring of 24 and spend on upgrades instead. Upgrades come twice as often. Measured: the 2v2 rival had half its towers at tier 0 at nine minutes; the friendly computer had all of them at tier 0.',
   ] },
@@ -14337,7 +14350,7 @@ $('set-resetmap')?.addEventListener('click', () => {
    whole room on the clipboard in one tap: who is seated where, which transport
    is carrying the room, what each board has sent, and what this board built
    from it. Paste it to whoever is debugging. */
-const BUILD_ID = 'TEAM MATCH 14 + shared board 2026-10-20';
+const BUILD_ID = 'TEAM MATCH 14 + shared board 2026-10-31';
 function mpDiagnostics() {
   const s4 = (sid) => (sid ? String(sid).slice(0, 4) : '-');
   const seatLine = (half) => (roster ? roster[half].map((x) => `${half}:${x.index}=${x.kind}${x.sid ? '/' + s4(x.sid) : ''}${x.name ? '/' + x.name : ''}`).join(' ') : 'no roster');
@@ -14358,6 +14371,7 @@ function mpDiagnostics() {
     `peers: ${peers}`,
     `snapshots received: ${snaps}`,
     `towers on my board: mine ${all.filter((t) => t.owner === 'player' && t.allySeat == null).length}, computer allies ${all.filter((t) => t.allySeat != null && !t.remoteSeat && t.owner === 'player').length}, teammate copies ${JSON.stringify(remote)}, rival ${all.filter((t) => t.owner === 'enemy').length}`,
+    `teammate sync (last snapshot per seat: rows received, rows that are theirs, placed/kept/blocked, bad rows, sim second): ${JSON.stringify(mp.syncStats || {})}`,
     `lives: me ${player ? player.lives : '-'} seats ${JSON.stringify(mp.seatLives || {})} leaks ${JSON.stringify(mp.seatLeaks || {})}`,
     `lobby: ready ${JSON.stringify(mp.lobbyReadyPlayers || {})} revision ${mp.lobbyRevision || 0}`,
   ].join('\n');

@@ -2,6 +2,18 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## October 31, 2026 — Teammate towers survive a seat-list mismatch (Claude)
+
+- `mpSnapOf` tower rows carry a 16th field: 1 = the sender's own tower, 2 = anything
+  else on its half (computer ally, copy of a teammate's). `mpSyncTeammateTowers` trusts
+  that mark and falls back to the lane-colour comparison only for rows from an older
+  build. Reproduced: with the guest alone disagreeing on lane colours the old build
+  mirrored zero teammate towers both ways; the new build mirrors all of them.
+- `mpDiagnostics` adds a "teammate sync" line: per seat, rows received, rows that are
+  theirs, placed / kept / blocked, bad rows, and the sim second of the last snapshot.
+- `tools/harness/teamboard.js` on `main` is the two-client check; it must print
+  RESULT PASS on any multiplayer change.
+
 ## October 25, 2026 — Computers build up, send harder; Random element (Claude)
 
 - Computer breadth target ends at 24 towers (was 64 in Classic); after that the build
