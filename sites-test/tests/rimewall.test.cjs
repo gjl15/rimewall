@@ -1869,3 +1869,46 @@ test('remembered Random survives room creation, guest hello, and seat changes', 
   await c.run('mpOpenRoom(true)');c.run('connect()');
   assert.equal(c.value('presences.filter(m=>m?.t==="hello").map(m=>m.race)').at(-1),'random');
 });
+
+test('Wind Needle open pattern, slowed targets and four available upgrades', () => {
+  const {value} = boot();
+  assert.deepEqual(value(`(() => {
+    const t = testTower('wind', 'Wind Needle'), y = t.r+.5;
+    const targets = [14,15,16,17].map(c => testCreep(c+.5,y));
+    targets.push(testCreep(15.5,y-1),testCreep(15.5,y+1),testCreep(16.5,y+1));
+    testHit(t,targets[0]);
+    return {damage:targets.map(c=>1e6-c.hp),slow:targets.map(c=>c.windSlows?.[0].pct || 0),
+      prices:weaponsFor(t).map(w=>weaponCost(t,w.tier))};
+  })()`), {damage:[8,6,4,2,2,2,0],slow:[20,10,10,10,10,10,0],prices:[40,90,90,275]});
+});
+
+test('Wind tunnel turns upstream, includes five cells and excludes off-path and air targets', () => {
+  const {value} = boot();
+  assert.deepEqual(value(`(() => {
+    const t=testTower('wind','Wind Needle'), r=t.r, c=t.c;
+    const route=[{r:r-2,c:c-3},{r:r-2,c:c-2},{r:r-1,c:c-2},{r,c:c-2},{r,c:c-1},{r:r+1,c:c-1}];
+    const target=testCreep(c-1+.5,r+.5);
+    const others=route.map(cell=>testCreep(cell.c+.5,cell.r+.5));
+    const flyer=testCreep(c-2+.5,r+.5,{air:true});
+    const flank=testCreep(c-1+.5,r-1+.5);
+    windRouteVersion=towersVersion; windRoutes.set(target.half+':'+target.side,route);
+    const blocker=makeTower(r,c-1,'ice',0,'player');
+    towers.set(idx(r-1,c-1),blocker);
+    testHit(t,target);
+    return {damage:[target,...others,flyer,flank].map(x=>Math.round((1e6-x.hp)*10)/10),
+      slows:[target,others[0],flyer].map(x=>x.windSlows?.[0].pct || 0)};
+  })()`),{damage:[9.6,4.8,4.8,4.8,4.8,4.8,0,0,0],slows:[25,12.5,0]});
+});
+
+test('Vortex hits once per pulse, with weaker damage and stronger slow at range', () => {
+  const {value} = boot();
+  const result=value(`(() => {
+    const t=testTower('wind','Vortex'), x=t.c+.5, y=t.r+.5;
+    const near=testCreep(x+.1,y), far=testCreep(x+3.1,y);
+    fireNinjaPulse(t,towerLiveStats(t));
+    updateProjectile(projectiles[0],.1);
+    updateProjectile(projectiles[0],.4);
+    return [1e6-near.hp,1e6-far.hp,near.windSlows[0].pct,far.windSlows[0].pct];
+  })()`);
+  assert.ok(result[0]>100 && result[1]<56 && result[3]>result[2]);
+});
