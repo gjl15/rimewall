@@ -2,6 +2,24 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 5, 2026 — Wind element, ported from Abdy's branch (Claude)
+
+- Abdy's Wind builder (`test/sites-shared-arena-20` at `b484ca7`, 2026-11-03) ported
+  function by function: `races` and `TOWERS.wind` (Wind Needle chassis 10 g; Gale,
+  Razorwind, Vortex, Tempest as fittings), `weaponCost` (chassis pays the difference),
+  `ATTACK_PROFILE.wind` (Pierce), `rankNeed` (wind counts as splash), `DEFAULT_RACES`,
+  `moveAlong` (wind slows), the `WIND` table and `windRoute` / `windTunnel` /
+  `windOpenCells` / `applyWindSlow` / `windPush` / `resolveWindShot`, the dispatch at
+  the top of `resolveProjectileHit`, Shatter counting wind slows, Vortex riding the
+  mace-pulse path in `fireNinjaPulse` / `updateTower` / `updateProjectile`,
+  `aiWeaponTier`, `drawCreep`, `towerAction`, `weaponPanelHtml`, `effectiveDps`.
+  Not ported: anything from SHARED ARENA; multiplayer code untouched.
+- Checks: `node --check`; the 88-test suite plus Abdy's three Wind regressions 91/91 on
+  this file; `tools/harness/teamboard.js` PASS; phone-size solo smoke (Wind chip in the
+  lobby, rack prices 40/90/90/275, all four fittings, creeps slowed, no page errors).
+- Known, pre-existing: `hudContractReport()` reports R1 (two centred rows) on this
+  lineage's phone HUD, with or without Wind; same on the previous build.
+
 ## October 31, 2026 — Teammate towers survive a seat-list mismatch (Claude)
 
 - `mpSnapOf` tower rows carry a 16th field: 1 = the sender's own tower, 2 = anything

@@ -1683,7 +1683,7 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
             <div class="wordmark-row"><svg class="crest-mark" viewBox="0 0 48 48" width="46" height="46" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="crestG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bfeaff"/><stop offset="1" stop-color="#4aa3e0"/></linearGradient></defs><path d="M24 2 L42 11 V26 C42 37 34 44 24 46 C14 44 6 37 6 26 V11 Z" fill="#0d1f3a" stroke="url(#crestG)" stroke-width="2"/><g stroke="url(#crestG)" stroke-width="2.4" stroke-linecap="round"><path d="M24 12 V34 M14.5 18 L33.5 28 M33.5 18 L14.5 28"/></g><g stroke="#eafcff" stroke-width="1.3" stroke-linecap="round" opacity=".9"><path d="M24 15 l-2.4 2.6 M24 15 l2.4 2.6 M24 31 l-2.4 -2.6 M24 31 l2.4 -2.6"/></g></svg><h1>Rime<span>wall</span></h1></div>
             <p class="lede">Choose your element. Build the maze. Break theirs.</p>
           </div>
-          <div class="version-pill">TEST BUILD · TEAM MATCH 14 + FIXES 2026-10-31</div>
+          <div class="version-pill">TEST BUILD · TEAM MATCH 14 + FIXES 2026-11-05</div>
         </div>
 
         <div class="selection-bar setup-bar">
@@ -1987,7 +1987,8 @@ const races = [
   { id:'electricity', name:'Electricity', title:'Power Plant', builder:'Spark', symbol:'ϟ', color:'#ffd65e', desc:'Fast attacks, chain lightning, and area shocks.', trait:'Fast / chain' },
   { id:'gravity', name:'Gravity', title:'Gravity Generator', builder:'Gravity Lord', symbol:'◉', color:'#dc94e4', desc:'Reality-bending towers that crush percentages of HP.', trait:'Gimmicks / AoE' },
   { id:'beam', name:'Beam', title:'Lumen Array', builder:'Lightwright', symbol:'⌖', color:'#7ef0d4', desc:'Continuous light at long reach. Tiny damage, never stops.', trait:'Sustained / reach' },
-  { id:'ninja', name:'Ninja', title:'Shadow Dojo', builder:'Shadow', symbol:'刃', color:'#eef1f8', desc:'Melee only. Enormous damage inside one or two squares, and nothing at all outside them. Every blade takes an elemental imbuing.', trait:'Melee / imbued' }
+  { id:'ninja', name:'Ninja', title:'Shadow Dojo', builder:'Shadow', symbol:'刃', color:'#eef1f8', desc:'Melee only. Enormous damage inside one or two squares, and nothing at all outside them. Every blade takes an elemental imbuing.', trait:'Melee / imbued' },
+  { id:'wind', name:'Wind', title:'Wind Spire', builder:'Wind Weaver', symbol:'〰', color:'#a6ecd9', desc:'Piercing gusts slow waves and grow stronger in maze corridors.', trait:'Wind tunnels / anti-air' }
 ];
 
 /* Six towers per race (Earth has five); each line ends on its own tower.
@@ -2221,6 +2222,13 @@ const TOWERS = {
     { name:'Collapsar', cost:280, dmg:70, cd:.35, range:5.0, special:'repulse', desc:'Very fast pulses that mostly shove the lead creep back down the lane.' },
     { name:'Singularity Mortar', cost:280, dmg:220, cd:1.4, range:6.25, special:'liftoff', desc:'Heavy pulses that mostly hurl the lead creep into the air.' },
     { name:'Event Horizon', cost:350, dmg:400, cd:1.6, range:4.5, special:'blackhole', desc:'Every warp effect at once — slow, slam, lift, shove, and the rare fling forward.' }
+  ],
+  wind:[
+    { name:'Wind Needle', chassis:true, cost:10, dmg:8, cd:.95, range:5, special:'windneedle', airBonus:1.25, desc:'Piercing gusts fan out behind the target. In a maze, they follow five path cells toward incoming enemies with +20% damage and +25% slow strength.' },
+    { name:'Gale', weapon:true, cost:50, dmg:36, cd:1.10, range:4.5, special:'windgale', airBonus:1.25, pushChance:.15, desc:'Directional wind with a 15% chance to shove the primary ground target back along the lane.' },
+    { name:'Razorwind', weapon:true, cost:100, dmg:80, cd:1.15, range:5, special:'windrazor', airBonus:1.25, critChance:.15, critMult:1.75, desc:'A piercing gust with a 15% chance to deal 1.75× damage.' },
+    { name:'Vortex', weapon:true, cost:100, dmg:105, cd:1.20, range:3.2, special:'windvortex', airBonus:1.25, desc:'An expanding ring deals 105 damage close up and 52.5 at the edge. The slow grows from 10% to 25% with distance.' },
+    { name:'Tempest', weapon:true, cost:285, dmg:250, cd:.90, range:5.5, special:'windtempest', airBonus:1.80, desc:'Directional wind with +80% air damage, a stronger air slow, and more frequent air stuns.' }
   ]
 };
 /* THE LASER CANNON IS GONE. Gene, on the four open calls: "none except the one
@@ -2309,6 +2317,7 @@ function weaponsFor(tower) {
 function weaponCost(tower, tier) {
   const to = towerDef(tower.raceId, tier);
   const from = towerDef(tower.raceId, tower.tier);
+  if (tower.raceId === 'wind' && from.chassis) return to.cost - from.cost;
   // swapping one weapon for another only charges the difference, never less than a quarter
   return from.weapon ? Math.max(Math.round(to.cost * .25), to.cost - from.cost) : to.cost;
 }
@@ -2386,6 +2395,7 @@ const ATTACK_PROFILE = {
   ice:{ label:'Frost', vs:{ light:1.15, heavy:1.25, fortified:.55 } },
   fire:{ label:'Blast', vs:{ unarmored:1.25, medium:1.25, fortified:.65 } },
   earth:{ label:'Siege', vs:{ light:.6, heavy:1.15, fortified:1.55 } },
+  wind:{ label:'Pierce', vs:{ unarmored:1.3, light:1.5, medium:1.1, heavy:.6, fortified:.4 } },
   tech:{ label:'Pierce', vs:{ unarmored:1.3, light:1.5, medium:1.1, heavy:.6, fortified:.4 } },
   crystal:{ label:'Chaos', chaos:true, vs:{ unarmored:1, light:1, medium:1, heavy:1, fortified:1 } },
   poison:{ label:'Venom', vs:{ unarmored:1.3, light:1.25, heavy:.75, fortified:.5 } },
@@ -2716,7 +2726,7 @@ function levelDmgStep(raceId) { return LEVEL_DMG_DEFAULT; }
 const RANK_DMG = .001, RANK_MAX = 47, RANK_HIT_XP = 1;
 function rankNeed(rank, tower) {
   const def = tower && towerDef(tower.raceId, tower.tier);
-  const splash = def && (splashSpec(def.special) || ['chain','macepulse','shadowcross','beamline'].includes(def.special));
+  const splash = def && (def.special.startsWith('wind') || splashSpec(def.special) || ['chain','macepulse','shadowcross','beamline'].includes(def.special));
   return Math.ceil(splash ? 100 * Math.pow(1.5, rank) : 100 * Math.pow(rank + 1, 2));
 }
 function towerRank(tower) { return Math.min(RANK_MAX, tower.rank || 0); }
@@ -3488,7 +3498,7 @@ function sendShortcutAt(index) {
    the other five are earned through play. Achievements toast when earned. */
 const SITE_DEV_BUILD = true;
 const PROFILE_KEY = 'wmw-profile-v1';
-const DEFAULT_RACES = ['ice', 'fire', 'tech', 'stone', 'beam', 'ninja'];
+const DEFAULT_RACES = ['ice', 'fire', 'tech', 'stone', 'beam', 'ninja', 'wind'];
 const ACHIEVEMENTS = [
   { id:'first_win', icon:'🏆', name:'First Blood', desc:'Win a match', unlocks:'earth' },
   { id:'wave_15', icon:'🌊', name:'Storm Chaser', desc:'Reach wave 15', unlocks:'electricity' },
@@ -4511,7 +4521,11 @@ function moveAlong(creep, node, dt) {
   const otherPct = creep.slowUntil > simTime ? (creep.slowPct || 0) : 0;
   // ceiling raised 80 -> 92: the old cap sat below Ice's own ramp, so the top
   // of the ramp bought nothing at all. A full halt is the freeze, above.
-  const speed = creep.spd * (1 - Math.min(92, Math.max(frostPct, otherPct)) / 100);
+  let windPct = 0;
+  if (creep.windSlows) {
+    for (const slow of creep.windSlows) if (slow.until > simTime) windPct = Math.max(windPct,slow.pct);
+  }
+  const speed = creep.spd * (1 - Math.min(92, Math.max(frostPct, otherPct, windPct)) / 100);
   const tx = node.c + .5, ty = node.r + .5;
   const dx = tx - creep.x, dy = ty - creep.y;
   const dist = Math.hypot(dx, dy) || 1;
@@ -4891,9 +4905,123 @@ function splashSpec(special) {
   if (special === 'skyhunter') return { radius:1.4, mult:.5 };
   return null;
 }
+/* WIND, ported from Abdy's SHARED ARENA branch (b484ca7, 2026-11-03) function by
+   function. Directional gusts fan out behind the target in the open; inside a maze
+   corridor they follow five path cells upstream with more damage and slow. */
+const WIND = { tunnelCells:5, tunnelDamage:1.2, tunnelSlow:1.25, tunnelSecondary:.5,
+  slow:20, secondarySlow:10, slowDuration:1.2, airSlow:1.5, tempestAirSlow:2,
+  airStunChance:.12, tempestStunChance:.25, airStunDuration:.35, pushCooldown:3 };
+const windRoutes = new Map();
+let windRouteVersion = -1;
+
+function windRoute(creep) {
+  if (windRouteVersion !== towersVersion) {
+    windRoutes.clear();
+    windRouteVersion = towersVersion;
+  }
+  const key = creep.half + ':' + creep.side;
+  if (!windRoutes.has(key)) {
+    const nodes = [SPAWNS[creep.half][creep.side], ...creepGoals(creep)];
+    const route = [];
+    for (let i = 1; i < nodes.length; i++) {
+      const segment = findPath(nodes[i - 1], nodes[i]);
+      if (!segment) break;
+      route.push(...(i === 1 ? segment : segment.slice(1)));
+    }
+    windRoutes.set(key, route);
+  }
+  return windRoutes.get(key);
+}
+
+function windRouteIndex(route, creep) {
+  const {r,c} = creepCell(creep);
+  return route.findIndex(cell => cell.r === r && cell.c === c);
+}
+
+function windTunnel(tower, target) {
+  if (target.air) return [];
+  const route = windRoute(target), targetIndex = windRouteIndex(route, target);
+  if (targetIndex < 0) return [];
+  for (let i = targetIndex; i < Math.min(route.length, targetIndex + WIND.tunnelCells); i++) {
+    const {r,c} = route[i];
+    if (Math.abs(tower.r - r) + Math.abs(tower.c - c) !== 1) continue;
+    // The tower forms one wall. An adjacent path cell needs another blocked
+    // neighbor to count as a corridor entrance rather than open ground.
+    const neighbors = [[r-1,c],[r+1,c],[r,c-1],[r,c+1]];
+    if (neighbors.filter(([nr,nc]) => !cellOpen(nr,nc)).length < 2) continue;
+    return route.slice(Math.max(0,i-WIND.tunnelCells+1),i+1).reverse();
+  }
+  return [];
+}
+
+function windOpenCells(tower, target) {
+  const {r,c} = creepCell(target);
+  const angle = Math.atan2(target.y - tower.r - .5, target.x - tower.c - .5);
+  const octant = Math.round(angle / (Math.PI / 4));
+  const dr = Math.round(Math.sin(octant * Math.PI / 4));
+  const dc = Math.round(Math.cos(octant * Math.PI / 4));
+  return [[r+dr,c+dc,.75],[r+2*dr,c+2*dc,.5],[r+3*dr,c+3*dc,.25],
+    [r+dr-dc,c+dc+dr,.25],[r+dr+dc,c+dc-dr,.25]];
+}
+
+function applyWindSlow(creep, stats, pct, direct = false) {
+  if (creep.hp <= 0) return;
+  const tempest = stats.special === 'windtempest';
+  if (creep.air) pct *= tempest ? WIND.tempestAirSlow : WIND.airSlow;
+  const until = simTime + WIND.slowDuration;
+  const active = (creep.windSlows || []).filter(slow => slow.until > simTime && slow.pct > pct);
+  active.push({pct,until});
+  creep.windSlows = active;
+  if (creep.air && direct && rng() < (tempest ? WIND.tempestStunChance : WIND.airStunChance)) {
+    tryHold(creep, simTime + WIND.airStunDuration);
+  }
+}
+
+function windPush(tower, creep, stats) {
+  if (!stats.pushChance || creep.air || creep.boss || creep.hp <= 0 || (creep.pushUntil || 0) > simTime) return;
+  if (rng() >= stats.pushChance) return;
+  const route = windRoute(creep), i = windRouteIndex(route, creep);
+  if (i < 1) return;
+  const cell = route[i-1];
+  creep.x = cell.c + .5;
+  creep.y = cell.r + .5;
+  creep.path = null;
+  creep.pushUntil = simTime + WIND.pushCooldown;
+  pushFx({kind:'num',x:creep.x,y:creep.y-.6,text:'«',color:stats.color,until:simTime+.5});
+}
+
+function resolveWindShot(projectile) {
+  const {tower,stats,target,half} = projectile;
+  if (!target || target.hp <= 0) return;
+  const tunnel = windTunnel(tower,target);
+  const inTunnel = tunnel.length > 0;
+  const cells = inTunnel ? tunnel.map(({r,c}) => [r,c,WIND.tunnelSecondary]) : windOpenCells(tower,target);
+  const weights = new Map(cells.filter(([r,c]) => inBounds(r,c)).map(([r,c,weight]) => [idx(r,c),weight]));
+  const crit = stats.critChance && rng() < stats.critChance;
+  const damage = stats.dmg * (crit ? stats.critMult : 1) * (inTunnel ? WIND.tunnelDamage : 1);
+  const slow = inTunnel ? WIND.tunnelSlow : 1;
+  creditAttack(tower,stats);
+  applyDamage(target,damage,tower);
+  applyWindSlow(target,stats,WIND.slow*slow,true);
+  if (crit) pushFx({kind:'num',x:target.x,y:target.y-.6,text:'Crit!',color:stats.color,until:simTime+.55});
+  for (const other of creeps) {
+    if (other === target || other.hp <= 0 || other.half !== half) continue;
+    if (inTunnel && other.air) continue;
+    const {r,c} = creepCell(other), weight = weights.get(idx(r,c));
+    if (!weight) continue;
+    applyDamage(other,damage*weight,tower);
+    applyWindSlow(other,stats,WIND.secondarySlow*slow);
+  }
+  const glow = (r,c) => pushFx({kind:'impact',x:c+.5,y:r+.5,color:stats.color,until:simTime+.28});
+  for (const [r,c] of cells) if (inBounds(r,c)) glow(r,c);
+  if (!inTunnel) glow(Math.floor(target.y),Math.floor(target.x));
+  windPush(tower,target,stats);
+}
+
 function resolveProjectileHit(projectile) {
   const { tower, stats } = projectile;
   const target = projectile.target;
+  if (tower?.raceId === 'wind') return resolveWindShot(projectile);
   const impactX = target && target.hp > 0 ? target.x : projectile.tx;
   const impactY = target && target.hp > 0 ? target.y : projectile.ty;
   if (projectile.aftershock) {
@@ -4979,7 +5107,7 @@ function resolveProjectileHit(projectile) {
       tower.lastFireAt = simTime;
     }
     // frozen counts as slowed — Absolute Zero's whole point is finishing what the wall froze
-    if (stats.special === 'shatter' && (target.slowUntil > simTime || target.frostUntil > simTime || target.frozenUntil > simTime)) dmg *= TRAIT.shatterMult;
+    if (stats.special === 'shatter' && (target.slowUntil > simTime || target.windSlows?.some(slow => slow.until > simTime) || target.frostUntil > simTime || target.frozenUntil > simTime)) dmg *= TRAIT.shatterMult;
     if (stats.special === 'entangle' && !target.boss) {
       target.stunUntil = Math.max(target.stunUntil, simTime + TRAIT.entangleDur);
       target.knockKind = 'root'; target.knockUntil = target.stunUntil;
@@ -5264,7 +5392,7 @@ function fireNinjaPulse(tower, stats) {
     pushFx({ kind:'shadowcross', x:cx, y:cy, radius:stats.range, color:stats.color, until:simTime + .45 });
     return true;
   }
-  if (stats.special === 'macepulse') {
+  if (stats.special === 'macepulse' || stats.special === 'windvortex') {
     if (!eligible.length) return false;
     projectiles.push({tower,stats,half,x:cx,y:cy,sx:cx,sy:cy,tx:cx,ty:cy,style:'macepulse',t:0,dur:.45,hitIds:new Set()});
     return true;
@@ -5465,7 +5593,7 @@ function updateTower(tower, dt) {
   tower.cooldown -= dt;
   if (tower.cooldown > 0) return;
   const stats = towerLiveStats(tower);
-  if (stats.special === 'macepulse' || stats.special === 'shadowcross') {
+  if (stats.special === 'macepulse' || stats.special === 'shadowcross' || stats.special === 'windvortex') {
     if (fireNinjaPulse(tower, stats)) tower.cooldown = stats.cd;
     else tower.cooldown = .08;
     return;
@@ -5516,7 +5644,13 @@ function updateProjectile(projectile, dt) {
       const distance=Math.hypot(creep.x-projectile.sx,creep.y-projectile.sy);
       if(distance>radius) continue;
       projectile.hitIds.add(creep.id); creditAttack(tower,stats);
-      applyDamage(creep,stats.dmg*(.55+.65*clamp01(distance/Math.max(.01,stats.range))),tower);
+      const fraction = clamp01(distance / Math.max(.01,stats.range));
+      if (stats.special === 'windvortex') {
+        applyDamage(creep,stats.dmg*(1-.5*fraction),tower);
+        applyWindSlow(creep,stats,10+15*fraction,true);
+        continue;
+      }
+      applyDamage(creep,stats.dmg*(.55+.65*fraction),tower);
       creep.maceArmorShred=Math.max(creep.maceArmorShred||0,stats.armorShred||3);
       creep.maceArmorShredUntil=simTime+(stats.armorShredDur||4);
       if(creep.hp>0) applyHitEffects(creep,tower,stats);
@@ -6178,7 +6312,7 @@ function aiSendEconomy(ai,half) {
   }
 }
 function aiWeaponTier(ai,tower) {
-  const cycle=ai.raceId==='tech'
+  const cycle=ai.raceId==='wind' ? ['windgale','windrazor','windvortex','windtempest'] : ai.raceId==='tech'
     ? ['smallsplash','multishot','bola','splash','smallsplash','multishot','targetpainter']
     : ['fistcombo','dagger','swordcrit','macepulse','spearthrow','shadowcross','shurikenbounce'];
   const special=cycle[(tower.aiBuildOrder || 0)%cycle.length];
@@ -7956,7 +8090,7 @@ function drawCreep(ctx, creep) {
     ctx.fillStyle = 'rgba(0,0,0,.30)';
     ctx.beginPath(); ctx.ellipse(0, size * .95, size * .78, size * .30, 0, 0, Math.PI * 2); ctx.fill();
   }
-  if (creep.slowUntil > simTime) { ctx.fillStyle = '#77d6ff33'; ctx.beginPath(); ctx.arc(0, 0, size + 4, 0, Math.PI * 2); ctx.fill(); }
+  if (creep.slowUntil > simTime || creep.windSlows?.some(slow => slow.until > simTime)) { ctx.fillStyle = '#77d6ff33'; ctx.beginPath(); ctx.arc(0, 0, size + 4, 0, Math.PI * 2); ctx.fill(); }
   /* A CREEP THAT LOOKS LIKE ITSELF. 25 named wave creeps resolved to 14
      appearances and the send ladder put 27 more names on the same handful, so
      a Mossback and an Aegis Runner were the same dot in different colours.
@@ -9717,7 +9851,7 @@ function towerAction(kind) {
        fliers would make the rack unusable. */
     const tier = Number(kind.slice(7));
     const fits = group.filter((t) => weaponsFor(t).some((w) => w.tier === tier));
-    if (!fits.length) { log('Only a bolt chassis or a fitted weapon can be re-armed.'); return; }
+    if (!fits.length) { log('This tower cannot take that upgrade.'); return; }
     let done = 0, spent = 0;
     for (const t of fits) {
       const cost = weaponCost(t, tier);
@@ -9941,7 +10075,7 @@ function weaponPanelHtml(group) {
   const many = fits.length > 1;
   const total = (tier) => fits.reduce((sum, t) => sum + weaponCost(t, tier), 0);
   return `<div class="weapon-rack">
-    <span class="panel-heading">WEAPON${many ? ` • ${fits.length} TOWERS` : ''}${here.weapon ? ` • now ${here.name}` : ''}</span>
+    <span class="panel-heading">${lead.raceId === 'wind' ? 'WIND UPGRADES' : 'WEAPON'}${many ? ` • ${fits.length} TOWERS` : ''}${here.weapon ? ` • now ${here.name}` : ''}</span>
     <div class="weapon-row">${options.map(({ def, tier }) => {
       const cost = total(tier);
       /* WHAT IS DIFFERENT ABOUT THIS ONE, not what is true of all of them.
@@ -9961,7 +10095,7 @@ function weaponPanelHtml(group) {
     }).join('')}</div>
     <p class="weapon-note">${here.weapon
       ? `Fitted with the ${here.name}. Swapping charges the difference.`
-      : 'A chassis. Fit it with the weapon the wave in front of you is asking for.'}</p>
+      : lead.raceId === 'wind' ? 'Choose a Wind Needle upgrade.' : 'A chassis. Fit it with the weapon the wave in front of you is asking for.'}</p>
   </div>`;
 }
 function boltPanelHtml(group) {
@@ -13243,7 +13377,8 @@ function attackSpeedText(def) {
   return `${per >= 10 ? per.toFixed(0) : per.toFixed(2)}/s (${def.cd.toFixed(2)}s)`;
 }
 function effectiveDps(def, raceId) {
-  const raw = def.dmg / def.cd;
+  const crit = def.special === 'windrazor' ? 1 + def.critChance * (def.critMult - 1) : 1;
+  const raw = def.dmg * crit / def.cd;
   /* Venom is keyed on the RACE now, so every poison tower carries it — the old
      check on special === 'poison' skipped Toxin Creeper, the one rung whose card
      already claimed to poison. The venom is a share of the TARGET'S max HP, not
@@ -13456,6 +13591,9 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    new tag, then collapses and stays collapsed. */
 const RELEASE_TAG = '2026-10-25-attackers';
 const RELEASE_NOTES = [
+  { date:'2026-11-05', title:'Wind, a new element (from Abdy)', items:[
+    'Wind Weaver builds the 10-gold Wind Needle and upgrades it to Gale, Razorwind, Vortex or Tempest. Gusts fan out behind the target in the open; inside a maze corridor they follow five path cells upstream with +20% damage and a stronger slow. Strong against air; weak against heavy and fortified armour.',
+  ] },
   { date:'2026-10-31', title:'Teammate towers no longer depend on the phones agreeing', items:[
     'Your snapshot now says which towers are yours. The receiving phone used to work that out from lane colours against its own seat list, which only held when both phones had the same seats; through the relay they often did not, and every teammate tower was silently dropped. Diagnostics now show, per seat, how many rows arrived and how many were placed.',
   ] },
