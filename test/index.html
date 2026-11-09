@@ -1724,7 +1724,8 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
      economy in one strip; card text on a diet until a card is chosen. */
   body.playing.arena .builder-tabs { grid-template-columns:repeat(2,minmax(0,1fr)); }
   body.playing.arena.mobile-panel-build #build-extras { display:none !important; }
-  body.playing.arena.mobile-panel-build .tower-row { height:auto; min-height:48px; align-items:flex-start; overflow:visible; }
+  body.playing.arena.mobile-panel-build .tower-list { grid-auto-rows:max-content; }   /* content-sized rows: the grid collapsed them to 48 px once the rows stopped being flex-centred */
+  body.playing.arena.mobile-panel-build .tower-row { min-height:48px; align-items:flex-start; }
   body.playing.arena.mobile-panel-build .tower-row > span { min-width:0; }
   body.playing.arena.mobile-panel-build .tower-row b { align-self:flex-start; margin-top:2px; }
   body.playing.arena.mobile-panel-build .tower-row:not(.selected) .profile-line,

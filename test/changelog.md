@@ -19,6 +19,9 @@ Newest changes appear first. Dates use America/Los_Angeles time.
   BUILDER 2 tab opens the strip. The SUPPORT · RESERVED tab is removed.
 - Tower cards show name, numbers and price; the armour line and imbue line
   appear on the chosen card only.
+- Fix (same day): the BUILD tray's tower rows collapsed to 48 px and their text
+  spilled over the next row once they stopped being flex-centred; the list's grid
+  rows are `max-content` again (rows 105/63 px, none overflowing).
 - Top-bar contract: the phone HUD is a two-row grid by design, so R1 now holds per
   row (`hudContractReport`); it reported R1 on every phone render before.
 - Measured at 390×844 (arenaaudit.js), before → after: BUILD controls 14 → 10,
