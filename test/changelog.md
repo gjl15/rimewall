@@ -2,6 +2,28 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 9, 2026 — One icon language (Claude, redesign phase 4)
+
+- An original inline SVG icon set (`ICONS`, `icon(name)`, 46 glyphs on a 24 px grid,
+  2 px round stroke, drawn in the control's own colour) replaces every emoji and
+  dingbat in interactive controls: home gear, Settings (title, close, tutorial, map,
+  tool cards), the HUD (wave skull, hourglass, lives, gold, income, lumber, rival,
+  team; pause/play, restart, undo, targeting, settings, menu), the map toggles, the
+  five-tab bar, the wisp and its tools, the lobby (leave, share, Random dice), the
+  economy strip, the locked builder tab, tower actions (rank, tier, target, sell,
+  select all, close, fit a weapon, warnings) in the tray, the ring and the rails,
+  the send-type glyphs, the profile strip and the Daily Gauntlet card. The lumber
+  glyph is `LUMBER_ICON` everywhere a price or label is rendered as HTML. Element
+  symbols (❄ ✹ ◒ …) stay: they are the elements' marks, in their colours.
+- Lobby seat-size buttons carry labels ("2 seats").
+- Contrast: unlocked count, builder-tab captions, tower and send stat lines and the
+  zoom hint move from 3.4–4.1:1 to ≥ 4.5:1 on their surfaces.
+- Measured at 390×844 across home, settings, lobby and the five arena trays
+  (emoji-audit.js, contrast-audit.js), before → after: controls carrying an emoji
+  80 → 0; icon-only controls without a label 6 → 0; text below the contrast floor
+  4 token/size pairs → 0 (board-overlay map markers excluded, they sit on art, not
+  a surface). Home, lobby and arena audits unchanged; teamboard.js PASS.
+
 ## November 9, 2026 — Arena panels on the phone (Claude, redesign phase 3)
 
 - One surface per thing: a tap on your tower opens the TOWER tray, a tap on a creep,

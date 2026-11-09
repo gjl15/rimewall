@@ -25,6 +25,13 @@
 
 :root { color-scheme: dark; --ink:#e9edff; --muted:#8e98b7; --deep:#080c19; --panel:#11182b; --panel-2:#151f37; --line:#273252; --ice:#8adcff; --fire:#ff9068; --earth:#d9b070; --tech:#98acff; --crystal:#cf9dff; --poison:#b4e870; --stone:#bcc6da; --electric:#ffd65e; --gravity:#dc94e4; --beam:#7ff0cf; --ninja:#eef1f8; }
 * { box-sizing: border-box; }
+/* ONE ICON LANGUAGE (2026-11-09, redesign phase 4): original inline SVG on a 24 px
+   grid, 2 px round stroke, drawn in the control's own colour. Emoji in controls
+   rendered as whatever the phone's font had, in colour, at the wrong weight. */
+.ic { display:inline-block; width:1.15em; height:1.15em; vertical-align:-.22em; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; flex:0 0 auto; }
+.ic .f { fill:currentColor; stroke:none; }
+.ic-lumber { color:#d9b070; }
+.ic-lg { width:1.5em; height:1.5em; vertical-align:-.35em; }
 body { margin:0; min-width:320px; min-height:100vh; background:radial-gradient(circle at 75% 0%,#1b2b4c 0,#0b1020 42%,#060914 100%); color:var(--ink); font-family:Manrope,system-ui,sans-serif; }
 button { font:inherit; color:inherit; cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
 select { touch-action:manipulation; }
@@ -70,7 +77,7 @@ h1 span { color:var(--ice); }
 .send-card[hidden], .dock-send-card[hidden] { display:none; }
 .rule-line { display:flex; align-items:center; gap:16px; margin-bottom:18px; color:#c5cde0; font:500 11px 'DM Mono',monospace; letter-spacing:.15em; }
 .rule-line i { height:1px; flex:1; background:linear-gradient(90deg,#334264,transparent); }
-.rule-line small { color:#657293; font:inherit; letter-spacing:.08em; }
+.rule-line small { color:#8e98b7; font:inherit; letter-spacing:.08em; }
 .race-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
 .race-card { position:relative; overflow:hidden; min-height:144px; padding:18px; text-align:left; border:1px solid var(--line); border-radius:14px; background:linear-gradient(150deg,#151e34,#0f1526); transition:.2s ease; }
 .race-card:hover,.race-card.selected { transform:translateY(-3px); border-color:var(--race); box-shadow:0 12px 30px #0005, inset 0 0 0 1px var(--race); }
@@ -438,7 +445,7 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
 #mt-target i { position:absolute; right:2px; bottom:1px; font:700 7px 'DM Mono',monospace; font-style:normal; letter-spacing:.02em; }
 .wisp-undo { position:absolute; top:-14px; left:-14px; display:flex; align-items:center; justify-content:center; width:34px; height:34px; border:1.5px solid #ffd86b; border-radius:50%; background:#3a2a08; color:#ffd86b; font-size:13px; font-style:normal; box-shadow:0 0 10px #ffd86b99; animation:undo-pulse 1.1s ease-in-out infinite; }
 .wisp-undo.hidden { display:none; }
-.map-zoom-controls { position:absolute; right:12px; bottom:12px; z-index:30; display:flex; align-items:center; gap:8px; padding:5px; border:1px solid #2c4a7a; border-radius:10px; background:#101a2ecc; box-shadow:0 4px 12px #0007; backdrop-filter:blur(6px); }.map-zoom-controls button { min-width:44px; height:44px; padding:0 6px; border:0; border-radius:7px; color:#cfe0ff; background:transparent; font:700 15px 'DM Mono',monospace; }.map-zoom-controls button:hover { background:#1d2b47; }.map-zoom-controls span { min-width:37px; color:#8fa3c8; font:700 8px 'DM Mono',monospace; text-align:center; }.map-zoom-controls button:last-child { min-width:44px; font-size:8px; text-transform:uppercase; }.zoom-hint { position:absolute; left:12px; bottom:15px; z-index:30; color:#5f739a; font:700 8px 'DM Mono',monospace; letter-spacing:.08em; pointer-events:none; }
+.map-zoom-controls { position:absolute; right:12px; bottom:12px; z-index:30; display:flex; align-items:center; gap:8px; padding:5px; border:1px solid #2c4a7a; border-radius:10px; background:#101a2ecc; box-shadow:0 4px 12px #0007; backdrop-filter:blur(6px); }.map-zoom-controls button { min-width:44px; height:44px; padding:0 6px; border:0; border-radius:7px; color:#cfe0ff; background:transparent; font:700 15px 'DM Mono',monospace; }.map-zoom-controls button:hover { background:#1d2b47; }.map-zoom-controls span { min-width:37px; color:#8fa3c8; font:700 8px 'DM Mono',monospace; text-align:center; }.map-zoom-controls button:last-child { min-width:44px; font-size:8px; text-transform:uppercase; }.zoom-hint { position:absolute; left:12px; bottom:15px; z-index:30; color:#8e98b7; font:700 8px 'DM Mono',monospace; letter-spacing:.08em; pointer-events:none; }
 .log-strip { display:flex; align-items:center; gap:10px; min-height:48px; margin-top:12px; padding:0 14px; border:1px solid #233150; border-radius:10px; color:#9ba7c4; font:11px 'DM Mono',monospace; background:#0d1424; }
 .command-panel { align-self:start; padding:18px; border:1px solid #2c3959; border-radius:15px; background:linear-gradient(160deg,#17213a,#0e1527); }
 .race-identity { gap:12px; padding-bottom:18px; border-bottom:1px solid #2a3858; }.big-rune { display:grid; place-items:center; width:48px; height:48px; border:1px solid var(--race,#77d6ff); border-radius:13px; color:var(--race,#77d6ff); background:#77d6ff12; font-size:25px; }.race-identity strong,.race-identity span:last-child { display:block; }.race-identity strong { margin-top:5px; font-size:18px; }.race-identity span:last-child { margin-top:3px; color:#8e9ab8; font-size:11px; }
@@ -619,14 +626,14 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
 .send-locked { opacity:.45; }
 .tower-row { display:flex; justify-content:space-between; gap:10px; padding:10px; border:1px solid #273554; border-radius:8px; background:#10182b; }.tower-row strong { display:block; font-size:11px; }.tower-row small { display:block; margin-top:3px; color:#8590ae; font-size:9px; }.tower-row b { align-self:center; color:#f5d36d; font:11px 'DM Mono',monospace; }.tower-row.selected { border-color:var(--race); box-shadow:inset 0 0 0 1px var(--race); }
 .action-button { width:100%; margin-top:12px; padding:12px 13px; font-size:11px; }.action-button:disabled { opacity:.45; cursor:not-allowed; }.send-action { background:#ff8a9a; }.send-card { width:100%; justify-content:space-between; text-align:left; gap:8px; margin-bottom:8px; padding:10px; border:1px solid #2a3654; border-radius:8px; background:#10182b; color:inherit; }.send-card:hover { border-color:#ff8a9a; }
-.tower-stats { color:#6f7c9e !important; font:500 8px 'DM Mono',monospace !important; }
+.tower-stats { color:#8995b4 !important; font:500 8px 'DM Mono',monospace !important; }
 /* the paragraph on the OPEN card only: why you would want this tower, as prose */
 .tower-why { margin-top:4px !important; color:#9aa6c4 !important; font-size:9px !important; line-height:1.45 !important; }
 /* The chrome pass sets .tower-row b to gold Playfair for the COST. The special
    name is also a <b>, inside the mono stat line, and was inheriting the serif —
    so "deepfreeze" rendered like a price. Keep it mono; colour alone carries it. */
 .tower-stats b { font:700 8px 'DM Mono',monospace !important; letter-spacing:.06em; }
-.send-stats { color:#6f7c9e !important; font:500 8px 'DM Mono',monospace !important; }
+.send-stats { color:#8995b4 !important; font:500 8px 'DM Mono',monospace !important; }
 .air-tag { margin-left:4px; padding:1px 4px; border:1px solid #9fd8ff88; border-radius:4px; color:#9fd8ff; background:#9fd8ff14; font:700 7px 'DM Mono',monospace; letter-spacing:.08em; font-style:normal; vertical-align:1px; }
 .income-tag { margin-left:4px; padding:1px 4px; border:1px solid #8fe6b888; border-radius:4px; color:#8fe6b8; background:#8fe6b814; font:700 7px 'DM Mono',monospace; letter-spacing:.08em; font-style:normal; vertical-align:1px; }
 .send-split { margin-top:14px !important; }
@@ -1647,7 +1654,7 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
     background:#10182b; color:#8693b3; font:700 9px 'DM Mono',monospace;
   }
   body.playing.arena .builder-tabs button span { max-width:100%; overflow:hidden; color:var(--tab-race,#aab5d2); white-space:nowrap; text-overflow:ellipsis; }
-  body.playing.arena .builder-tabs button small { color:#66738f; font-size:7px; letter-spacing:.05em; }
+  body.playing.arena .builder-tabs button small { color:#8995b4; font-size:7px; letter-spacing:.05em; }
   body.playing.arena .builder-tabs button.active { border-color:var(--tab-race,#77d6ff); color:#eff7ff; background:#12203a; box-shadow:inset 0 -2px 0 var(--tab-race,#77d6ff); }
   body.playing.arena .builder-tabs button.builder-locked { border-style:dashed; }
   body.playing.arena .builder-tabs button:disabled { opacity:.55; }
@@ -1730,7 +1737,7 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
   body.playing.arena.mobile-panel-build .tower-row b { align-self:flex-start; margin-top:2px; }
   body.playing.arena.mobile-panel-build .tower-row:not(.selected) .profile-line,
   body.playing.arena.mobile-panel-build .tower-row:not(.selected) .imbue-line { display:none; }
-  body.playing.arena.mobile-panel-build .tower-row .tower-stats { font-size:10px; }
+  body.playing.arena.mobile-panel-build .tower-row .tower-stats { font-size:10px; color:#8995b4; }
   body.playing.arena.mobile-panel-build .tower-row b { font-size:13px; }
   body.playing.arena.mobile-panel-build #build-mode-button { min-height:48px; }
   body.playing.arena .td-prose-toggle { min-height:44px; padding:0 10px; border:1px solid #2c4a7a; border-radius:9px; background:#111a30; color:#bcd2ff; font:600 11px 'DM Mono',monospace; }
@@ -1777,7 +1784,7 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
       
     <div id="settings-modal" class="settings-modal hidden" role="dialog" aria-label="Settings">
       <div class="settings-card">
-        <div class="settings-head"><h3 id="settings-title" title="Tap five times for developer tools">⚙ Settings</h3><button id="settings-close" aria-label="Close">✕</button></div>
+        <div class="settings-head"><h3 id="settings-title" title="Tap five times for developer tools"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg> Settings</h3><button id="settings-close" aria-label="Close"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
         <label class="set-row">
           <span>Layout</span>
           <select id="set-uimode"><option value="auto">Auto (detect device)</option><option value="touch">Touch / mobile</option><option value="desktop">Desktop / mouse</option></select>
@@ -1794,27 +1801,27 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
         <label class="set-toggle"><input type="checkbox" id="set-reduce"> <span>Reduce motion (calmer effects)</span></label>
         <label class="set-toggle"><input type="checkbox" id="set-noparticles"> <span>Turn off particles (helps lag)</span></label>
         <div class="settings-sep"></div>
-        <button id="set-tutorial" class="ghost-button set-dev">🎓 Replay tutorial</button>
-        <button id="set-resetmap" class="ghost-button set-dev">🗺 Restore default map</button>
+        <button id="set-tutorial" class="ghost-button set-dev"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4zM20 4h-6a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h7z"/></svg> Replay tutorial</button>
+        <button id="set-resetmap" class="ghost-button set-dev"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2zM9 4v14M15 6v14"/></svg> Restore default map</button>
         <button id="set-dev" class="ghost-button set-dev">DEV: unlock all elements</button>
         <button id="set-mpdiag" class="ghost-button set-dev">DEV: copy multiplayer diagnostics</button>
         <div class="settings-sep"></div>
         <div class="tool-cards">
-          <button id="open-drawpad-card" class="tool-card"><span>🗺</span><strong>Map builder</strong><small>Sketch your own battlefield</small></button>
-          <button id="open-collab-card" class="tool-card"><span>🤝</span><strong>Build hub</strong><small>Tasks, notes, and handoff</small></button>
+          <button id="open-drawpad-card" class="tool-card"><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2zM9 4v14M15 6v14"/></svg></span><strong>Map builder</strong><small>Sketch your own battlefield</small></button>
+          <button id="open-collab-card" class="tool-card"><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15 15.5c2.8 0 5 2 5 4.5"/></svg></span><strong>Build hub</strong><small>Tasks, notes, and handoff</small></button>
         </div>
       </div>
     </div>
             <div id="wisp-radial" class="wisp-radial hidden" aria-label="Wisp actions"></div>
             <div id="wisp-panel" class="wisp-panel hidden" aria-label="Wisp panel"></div>
-            <button id="wisp" class="wisp hidden" aria-label="Command wisp — tap for towers and sends, drag to move"><span>✦</span><b id="wisp-undo" class="wisp-undo hidden" title="Cancel construction — full refund">↩</b></button>
+            <button id="wisp" class="wisp hidden" aria-label="Command wisp — tap for towers and sends, drag to move"><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg></span><b id="wisp-undo" class="wisp-undo hidden" title="Cancel construction — full refund"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/></svg></b></button>
       <div id="command-sheet" class="command-sheet hidden"></div>
       <section id="race-screen" class="screen race-screen">
         <div class="brand-row home-brand">
           <div class="brand-lockup">
             <div class="wordmark-row"><svg class="crest-mark" viewBox="0 0 48 48" width="46" height="46" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="crestG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bfeaff"/><stop offset="1" stop-color="#4aa3e0"/></linearGradient></defs><path d="M24 2 L42 11 V26 C42 37 34 44 24 46 C14 44 6 37 6 26 V11 Z" fill="#0d1f3a" stroke="url(#crestG)" stroke-width="2"/><g stroke="url(#crestG)" stroke-width="2.4" stroke-linecap="round"><path d="M24 12 V34 M14.5 18 L33.5 28 M33.5 18 L14.5 28"/></g><g stroke="#eafcff" stroke-width="1.3" stroke-linecap="round" opacity=".9"><path d="M24 15 l-2.4 2.6 M24 15 l2.4 2.6 M24 31 l-2.4 -2.6 M24 31 l2.4 -2.6"/></g></svg><h1>Rime<span>wall</span></h1></div>
           </div>
-          <button id="settings-open" class="gear-button" title="Settings" aria-label="Settings">⚙</button>
+          <button id="settings-open" class="gear-button" title="Settings" aria-label="Settings"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
         </div>
 
         <div class="setup-card">
@@ -1954,29 +1961,29 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
         <header class="hud">
           <button id="push-wave-button" class="test-button" title="Testing shortcut: immediately start the next wave">Push wave</button>
           <div class="match-state" aria-label="Wave status">
-            <span class="hud-stat-icon" aria-hidden="true">☠</span><span class="hud-wave-label">WAVE</span><strong id="wave-label">01 / 20</strong>
+            <span class="hud-stat-icon" aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a8 8 0 0 0-8 8c0 3 2 5 3 6v3h10v-3c1-1 3-3 3-6a8 8 0 0 0-8-8zM9 19v3M15 19v3"/><circle class="f" cx="9" cy="10" r="1.5"/><circle class="f" cx="15" cy="10" r="1.5"/></svg></span><span class="hud-wave-label">WAVE</span><strong id="wave-label">01 / 20</strong>
             <span class="hud-rule" aria-hidden="true"></span>
-            <span class="hud-stat-icon" aria-hidden="true">⌛</span><span class="hud-next-label">NEXT WAVE</span><span id="timer-label">00:30</span>
+            <span class="hud-stat-icon" aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12M6 21h12M8 3v4l4 5 4-5V3M8 21v-4l4-5 4 5v4"/></svg></span><span class="hud-next-label">NEXT WAVE</span><span id="timer-label">00:30</span>
             <span id="wave-threat" class="wave-threat"></span>
           </div>
           <div class="resources">
-            <span class="resource lives" title="Your lifeforce"><i class="resource-icon">♥</i><b>LIVES</b><em id="lives-label">100</em></span>
-            <span class="resource gold"><i class="resource-icon coin-icon">●</i><b>GOLD</b><em id="gold-label">30</em></span>
-            <span class="resource income" title="Gold paid on each income tick"><i class="resource-icon income-icon">◇</i><b>INCOME</b><em id="income-label">+24</em><i id="income-eta" class="income-eta">25s</i></span>
-            <span class="resource lumber" title="Lumber buys shrine upgrades, a second element, tower wards, and attacker sends."><i class="resource-icon lumber-icon">♠</i><b>LUMBER</b><em id="lumber-label">0</em></span>
-            <span class="resource wood-income" title="Lumber earned over time by attacker sends"><i class="resource-icon lumber-icon">♠</i><b>LUMBER INCOME</b><em id="wood-income-label">+0.0</em></span>
+            <span class="resource lives" title="Your lifeforce"><i class="resource-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-4.5-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.5-9 9-9 9z"/></svg></i><b>LIVES</b><em id="lives-label">100</em></span>
+            <span class="resource gold"><i class="resource-icon coin-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10.5h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4"/></svg></i><b>GOLD</b><em id="gold-label">30</em></span>
+            <span class="resource income" title="Gold paid on each income tick"><i class="resource-icon income-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 9-9 9-9-9z"/></svg></i><b>INCOME</b><em id="income-label">+24</em><i id="income-eta" class="income-eta">25s</i></span>
+            <span class="resource lumber" title="Lumber buys shrine upgrades, a second element, tower wards, and attacker sends."><i class="resource-icon lumber-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h12a4 5 0 0 1 0 10H4zM4 7v10"/><circle cx="16" cy="12" r="2"/></svg></i><b>LUMBER</b><em id="lumber-label">0</em></span>
+            <span class="resource wood-income" title="Lumber earned over time by attacker sends"><i class="resource-icon lumber-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h12a4 5 0 0 1 0 10H4zM4 7v10"/><circle cx="16" cy="12" r="2"/></svg></i><b>LUMBER INCOME</b><em id="wood-income-label">+0.0</em></span>
             <span class="resource rival-income" title="Rival income"><b>RIVAL INC</b><em id="rival-income-label">+0</em></span>
             <span class="vs-mark">/</span>
-            <span class="resource enemy" title="Rival lifeforce"><i class="resource-icon">☠</i><b id="rival-name-label">RIVAL</b><em id="enemy-lives-label">100</em></span>
-            <span class="resource player-count" title="Your team seats / all active seats"><i class="resource-icon">♟</i><b>TEAM</b><em id="player-count-label">1/2</em></span>
+            <span class="resource enemy" title="Rival lifeforce"><i class="resource-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a8 8 0 0 0-8 8c0 3 2 5 3 6v3h10v-3c1-1 3-3 3-6a8 8 0 0 0-8-8zM9 19v3M15 19v3"/><circle class="f" cx="9" cy="10" r="1.5"/><circle class="f" cx="15" cy="10" r="1.5"/></svg></i><b id="rival-name-label">RIVAL</b><em id="enemy-lives-label">100</em></span>
+            <span class="resource player-count" title="Your team seats / all active seats"><i class="resource-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15 15.5c2.8 0 5 2 5 4.5"/></svg></i><b>TEAM</b><em id="player-count-label">1/2</em></span>
           </div>
           <div class="hud-actions">
-            <button id="pause-button" class="hud-icon-button" aria-pressed="false" title="Pause match" aria-label="Pause match">Ⅱ</button>
-            <button id="restart-button" class="hud-icon-button" title="Restart match" aria-label="Restart match">↻</button>
-            <button id="undo-slot" class="hud-icon-button undo-slot" title="Nothing to undo" aria-label="Undo last build or sale" disabled>↩</button>
-            <button id="sl-target" class="hud-icon-button hud-target" title="Targeting for all your towers — tap to switch first / last">🎯 <b id="sl-target-tag">FIRST</b></button>
-            <button id="settings-open-hud" class="hud-icon-button" title="Settings" aria-label="Settings">⚙</button>
-            <button id="hud-menu-button" class="hud-icon-button" title="Game menu" aria-label="Game menu">☰</button>
+            <button id="pause-button" class="hud-icon-button" aria-pressed="false" title="Pause match" aria-label="Pause match"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14" stroke-width="2.6"/></svg></button>
+            <button id="restart-button" class="hud-icon-button" title="Restart match" aria-label="Restart match"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 3-6.2M4 4v5h5"/></svg></button>
+            <button id="undo-slot" class="hud-icon-button undo-slot" title="Nothing to undo" aria-label="Undo last build or sale" disabled><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
+            <button id="sl-target" class="hud-icon-button hud-target" title="Targeting for all your towers — tap to switch first / last"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg> <b id="sl-target-tag">FIRST</b></button>
+            <button id="settings-open-hud" class="hud-icon-button" title="Settings" aria-label="Settings"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+            <button id="hud-menu-button" class="hud-icon-button" title="Game menu" aria-label="Game menu"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
           </div>
         </header>
         <div id="lobby" class="lobby hidden" aria-label="Match lobby"></div>
@@ -1992,7 +1999,7 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
                 <p class="eyebrow">FORCE 1 VS FORCE 2</p>
                 <h2>Your defense <span>is the weapon.</span></h2>
               </div>
-              <div class="title-actions"><button id="back-button" class="ghost-button">← Change race</button></div>
+              <div class="title-actions"><button id="back-button" class="ghost-button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg> Change race</button></div>
             </div>
 
             <!-- ARENA RAILS. Every control used to sit ON the board — four toggles
@@ -2021,7 +2028,7 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
               </div>
               <div id="arena-log" class="arena-log" aria-live="polite"></div>
               <div id="action-ring" class="action-ring hidden"></div>
-              <div class="map-toggles collapsed" aria-label="Map indicators"><button id="mt-more" title="View options — routes, ranges, inspect, targeting, zoom" aria-expanded="false">👁</button><button id="mt-routes" title="Show creep routes">🧭</button><button id="mt-ranges" title="Show tower ranges">◎</button><button id="mt-inspect" title="Inspect — tap a tower or creep to read its stats" aria-pressed="false">🔍</button><button id="mt-target" title="Targeting for ALL your towers — tap to switch first / last">🎯<i id="mt-target-tag">1st</i></button></div>
+              <div class="map-toggles collapsed" aria-label="Map indicators"><button id="mt-more" title="View options — routes, ranges, inspect, targeting, zoom" aria-expanded="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button><button id="mt-routes" title="Show creep routes"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15 9l-2 5-5 2 2-5z"/></svg></button><button id="mt-ranges" title="Show tower ranges"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke-dasharray="3 3"/><circle cx="12" cy="12" r="4"/><circle class="f" cx="12" cy="12" r="1.3"/></svg></button><button id="mt-inspect" title="Inspect — tap a tower or creep to read its stats" aria-pressed="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="M21 21l-6-6"/></svg></button><button id="mt-target" title="Targeting for ALL your towers — tap to switch first / last"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg><i id="mt-target-tag">1st</i></button></div>
               <div class="map-zoom-controls" aria-label="Map zoom controls"><button id="zoom-out-button" aria-label="Zoom out">−</button><span id="zoom-label">100%</span><button id="zoom-in-button" aria-label="Zoom in">+</button><button id="zoom-reset-button" aria-label="Reset map zoom">reset</button></div>
               <div class="zoom-hint">PINCH TO ZOOM • DRAG WHEN ZOOMED<span class="hotkey-hint"> • 1–9 SEND • Q–U TOWERS • ESC = UNDO • RIGHT-CLICK / HOLD = SELL</span></div>
             </div>
@@ -2090,11 +2097,11 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
             </div>
           </section>
           <nav id="mobile-tactical-nav" class="mobile-tactical-nav" aria-label="Mobile match panels">
-            <button class="mobile-tactical-button active" data-mobile-panel="map" aria-pressed="true"><span>▦</span><small>MAP</small></button>
-            <button class="mobile-tactical-button" data-mobile-panel="build" aria-pressed="false"><span>♜</span><small>BUILD</small></button>
-            <button class="mobile-tactical-button" data-mobile-panel="sends" aria-pressed="false"><span>⚔</span><small>SENDS</small></button>
-            <button class="mobile-tactical-button" data-mobile-panel="tower" aria-pressed="false"><span>◎</span><small>TOWER</small></button>
-            <button class="mobile-tactical-button" data-mobile-panel="enemy" aria-pressed="false"><span>☠</span><small>ENEMY</small></button>
+            <button class="mobile-tactical-button active" data-mobile-panel="map" aria-pressed="true"><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2zM9 4v14M15 6v14"/></svg></span><small>MAP</small></button>
+            <button class="mobile-tactical-button" data-mobile-panel="build" aria-pressed="false"><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21h12M8 21V9M16 21V9M6 9h12M6 9V5h3v2h2V5h2v2h2V5h3v4"/></svg></span><small>BUILD</small></button>
+            <button class="mobile-tactical-button" data-mobile-panel="sends" aria-pressed="false"><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4L4 14.5l5.5 5.5M9.5 4L20 14.5 14.5 20M3 21l3-3M21 21l-3-3"/></svg></span><small>SENDS</small></button>
+            <button class="mobile-tactical-button" data-mobile-panel="tower" aria-pressed="false"><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></span><small>TOWER</small></button>
+            <button class="mobile-tactical-button" data-mobile-panel="enemy" aria-pressed="false"><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a8 8 0 0 0-8 8c0 3 2 5 3 6v3h10v-3c1-1 3-3 3-6a8 8 0 0 0-8-8zM9 19v3M15 19v3"/><circle class="f" cx="9" cy="10" r="1.5"/><circle class="f" cx="15" cy="10" r="1.5"/></svg></span><small>ENEMY</small></button>
           </nav>
         </div>
       </section>
@@ -2109,6 +2116,9 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
    the reference design (studied as research context — no assets copied) plus the classic maze-TD send/income
    loop observed in the referenced gameplay videos. Ranges are source units ÷ 128
    cells; damage is the map's stated tooltip value; sell refund is 75%. */
+const ICONS = {gear:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',menu:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',close:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',chevronLeft:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>',chevronRight:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>',share:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M12 3v12M8 7l4-4 4 4"/></svg>',dice:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle class="f" cx="8" cy="8" r="1.4"/><circle class="f" cx="16" cy="8" r="1.4"/><circle class="f" cx="12" cy="12" r="1.4"/><circle class="f" cx="8" cy="16" r="1.4"/><circle class="f" cx="16" cy="16" r="1.4"/></svg>',pause:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14" stroke-width="2.6"/></svg>',play:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M7 4l13 8-13 8z"/></svg>',restart:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 3-6.2M4 4v5h5"/></svg>',undo:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/></svg>',target:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>',eye:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>',compass:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15 9l-2 5-5 2 2-5z"/></svg>',ranges:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke-dasharray="3 3"/><circle cx="12" cy="12" r="4"/><circle class="f" cx="12" cy="12" r="1.3"/></svg>',search:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="M21 21l-6-6"/></svg>',map:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2zM9 4v14M15 6v14"/></svg>',build:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21h12M8 21V9M16 21V9M6 9h12M6 9V5h3v2h2V5h2v2h2V5h3v4"/></svg>',swords:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4L4 14.5l5.5 5.5M9.5 4L20 14.5 14.5 20M3 21l3-3M21 21l-3-3"/></svg>',skull:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a8 8 0 0 0-8 8c0 3 2 5 3 6v3h10v-3c1-1 3-3 3-6a8 8 0 0 0-8-8zM9 19v3M15 19v3"/><circle class="f" cx="9" cy="10" r="1.5"/><circle class="f" cx="15" cy="10" r="1.5"/></svg>',log:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h12a4 5 0 0 1 0 10H4zM4 7v10"/><circle cx="16" cy="12" r="2"/></svg>',shrine:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16M6 5l1-2h10l1 2M5 9h14M8 9v12M16 9v12M6 21h12"/></svg>',flask:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/></svg>',lock:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',rankUp:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20V5M5 12l7-7 7 7"/></svg>',tierUp:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 17l6-6 6 6M6 11l6-6 6 6"/></svg>',coins:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="9" r="6"/><path d="M5 15a6 6 0 1 0 10-4"/></svg>',selectAll:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="13" height="13" rx="2"/><path d="M8 21h11a2 2 0 0 0 2-2V8"/></svg>',star:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg>',trophy:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4a3 3 0 0 0 3 3M17 6h3a3 3 0 0 1-3 3"/></svg>',book:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4zM20 4h-6a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h7z"/></svg>',users:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15 15.5c2.8 0 5 2 5 4.5"/></svg>',box:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2" stroke-dasharray="3 3"/></svg>',lasso:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10c0-4 4-6 8-6s8 2 8 6-4 6-8 6c-1 0-2 0-3-.3M9 15.7c-1 2-2 3-3 4"/></svg>',warning:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l10 18H2zM12 10v4M12 18h.01"/></svg>',hammer:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4l6 6-2 2-6-6zM12 10L4 18l2 2 8-8"/></svg>',exit:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>',sparkle:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>',income:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg>',flying:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l8 16-8-4-8 4z"/></svg>',heart:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-4.5-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.5-9 9-9 9z"/></svg>',coin:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10.5h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4"/></svg>',diamond:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 9-9 9-9-9z"/></svg>',hourglass:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12M6 21h12M8 3v4l4 5 4-5V3M8 21v-4l4-5 4 5v4"/></svg>',clipboard:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2h6v2M9 11h6M9 15h4"/></svg>',tools:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0 5 5L22 14l-8 8-2.7-2.7a4 4 0 0 0-5-5L2 10l8-8zM9 15l-6 6"/></svg>'};
+function icon(name, cls) { return (ICONS[name] || '').replace('class="ic"', `class="ic${cls ? ' ' + cls : ''}"`); }
+const LUMBER_ICON = icon('log', 'ic-lumber');
 const races = [
   { id:'ice', name:'Ice', title:'Ice Freezer', builder:'Ice Former', symbol:'❄', color:'#8adcff', desc:'Frost attacks slow everything they touch.', trait:'Slow / control' },
   { id:'fire', name:'Fire', title:'Forge of Fire', builder:'Fire Minion', symbol:'✹', color:'#ff9068', desc:'Splash damage that punishes crowded waves.', trait:'Splash damage' },
@@ -2893,7 +2903,7 @@ function towerRankCost(tower) {
     ? {gold:towerLevelCost(tower),lumber:0}
     : {gold:0,lumber:Math.ceil((towerTotalRank(tower) + 1) / 10)};
 }
-function rankCostText(cost) { return [cost.gold ? `${cost.gold}g` : '',cost.lumber ? `${cost.lumber}🪵` : ''].filter(Boolean).join(' + ') || '—'; }
+function rankCostText(cost) { return [cost.gold ? `${cost.gold}g` : '',cost.lumber ? `${cost.lumber}${LUMBER_ICON}` : ''].filter(Boolean).join(' + ') || '—'; }
 function rankBatchCost(group) {
   return group.filter(canLevel).reduce((sum,t)=>{const c=towerRankCost(t);sum.gold+=c.gold;sum.lumber+=c.lumber;return sum;},{gold:0,lumber:0});
 }
@@ -3580,9 +3590,9 @@ SENDS.forEach((send) => {
    permanent-income payback. Attackers use lumber / wood income for the same
    comparison. The three top-level families always carry the same glyph. */
 const SEND_TYPE_META = {
-  income:{ glyph:'↗', label:'INCOME' },
-  flying:{ glyph:'▲', label:'FLYING' },
-  attacker:{ glyph:'⚒', label:'ATTACKER' },
+  income:{ glyph:icon('income'), label:'INCOME' },
+  flying:{ glyph:icon('flying'), label:'FLYING' },
+  attacker:{ glyph:icon('hammer'), label:'ATTACKER' },
 };
 function sendType(send) { return send.attacker ? 'attacker' : (send.air ? 'flying' : 'income'); }
 function sendTypeMeta(send) { return SEND_TYPE_META[sendType(send)]; }
@@ -3640,7 +3650,7 @@ const ACHIEVEMENTS = [
   { id:'boss_slain', icon:'👑', name:'Tyrant Slayer', desc:'Defeat the Frost Tyrant', unlocks:'gravity' },
   { id:'perfect_10', icon:'🛡️', name:'Untouchable', desc:'No lifeforce lost through wave 10' },
   { id:'dragon_rider', icon:'🐉', name:'Dragon Rider', desc:'Send 10 dragon pairs (lifetime)' },
-  { id:'lumberjack', icon:'🪵', name:'Lumberjack', desc:'Spend 3 lumber in one match' }
+  { id:'lumberjack', icon:'' + LUMBER_ICON + '', name:'Lumberjack', desc:'Spend 3 lumber in one match' }
 ];
 let profile;
 /* ---------------- Sound (Web Audio, fully synthesized — no assets) ---------------- */
@@ -9121,7 +9131,7 @@ function renderRing() {
     ];
     label = `${def.name} −${def.cost}g`;
   } else if (mode === 'construction') {
-    btns = [{ slot:'left', glyph:'↩', tag:`+${towerSellValue(tower)}g`, color:'#ffd86b', act:'t-cancel' }];
+    btns = [{ slot:'left', glyph:icon('undo'), tag:`+${towerSellValue(tower)}g`, color:'#ffd86b', act:'t-cancel' }];
     label = `undo — full refund (${Math.max(0, Math.ceil(REFUND_GRACE - (simTime - tower.placedAt)))}s)`;
   } else {
     const rungSet = ownedLike(tower, true), elemSet = ownedLike(tower, false);
@@ -9145,16 +9155,16 @@ function renderRing() {
     btns = [
       bulwarkHere
         ? { slot:'top', glyph:'★', tag:`R${bulwarkRank(tower)}`, color:'#8fe6b8', act:'t-weapon' }
-        : { slot:'top', glyph:'⬆', tag:'LVL', color:'#8fe6b8', act:'t-level' },
+        : { slot:'top', glyph:icon('rankUp'), tag:'LVL', color:'#8fe6b8', act:'t-level' },
       bulwarkHere
-        ? { slot:'right', glyph:'⚒', tag:'UPGR', color:'#77d6ff', act:'t-weapon' }
+        ? { slot:'right', glyph:icon('hammer'), tag:'UPGR', color:'#77d6ff', act:'t-weapon' }
         : rackHere
-        ? { slot:'right', glyph:'⚒', tag:'ARM', color:'#ffb86b', act:'t-weapon' }
-        : { slot:'right', glyph:'⏫', tag:'TIER', color:'#77d6ff', act:'t-tier' },
-      { slot:'left', glyph:armed ? '⚠' : '💰', tag:armed ? 'SURE?' : `+${towerSellValue(tower)}`, color:armed ? '#ff6b81' : '#ff9faf', act:'t-sell' },
-      { slot:'bottom', glyph:'🎯', tag:tower.priority.toUpperCase().slice(0, 5), color:'#ffd86b', act:'t-priority' },
+        ? { slot:'right', glyph:icon('hammer'), tag:'ARM', color:'#ffb86b', act:'t-weapon' }
+        : { slot:'right', glyph:icon('tierUp'), tag:'TIER', color:'#77d6ff', act:'t-tier' },
+      { slot:'left', glyph:armed ? icon('warning') : icon('coins'), tag:armed ? 'SURE?' : `+${towerSellValue(tower)}`, color:armed ? '#ff6b81' : '#ff9faf', act:'t-sell' },
+      { slot:'bottom', glyph:icon('target'), tag:tower.priority.toUpperCase().slice(0, 5), color:'#ffd86b', act:'t-priority' },
     ];
-    if (alike > 1 || elemSet.length > 1) btns.push({ slot:'topleft', glyph:'⧉',
+    if (alike > 1 || elemSet.length > 1) btns.push({ slot:'topleft', glyph:icon('selectAll'),
       tag:widens ? `+${elemSet.length - rungSet.length}` : (many ? `${selectedGroupKeys.length}` : `ALL ${alike}`),
       color:widens ? '#8fe6b8' : '#c9b6ff', act:'t-selectall' });
     /* IMBUING WAS UNREACHABLE ON A PHONE, which is where this game is played.
@@ -9465,7 +9475,7 @@ function renderRails() {
   const leftHtml = cats.map((c) => `<button class="rl-btn ${railTab === c.id ? 'on' : ''}" data-rail="${c.id}">
       <span>${c.ico}</span><small>${c.label}</small>${c.badge ? `<i>${c.badge}</i>` : ''}</button>`).join('')
     + `<button class="rl-btn ${selectMode ? 'on' : ''}" data-rail-select="1"><span>${selIco}</span><small>${selLbl}</small></button>`
-    + `<button class="rl-btn ${undoLive ? 'on' : ''}" data-rail-undo="1"><span>↩</span><small>UNDO</small></button>`
+    + `<button class="rl-btn ${undoLive ? 'on' : ''}" data-rail-undo="1"><span>${icon('undo')}</span><small>UNDO</small></button>`
     + `<button class="rl-btn ${routeBlocked ? 'rl-alarm' : ''}" data-rail-reset="1"><span>${routeBlocked ? '⚠' : '⛶'}</span><small>${routeBlocked ? 'BLOCK' : 'RESET'}</small></button>`;
   if (leftHtml !== railLeftHtml) { left.innerHTML = leftHtml; railLeftHtml = leftHtml; }
 
@@ -9540,7 +9550,7 @@ function railBody(tab) {
          surfaces print. */
       return card(`data-rail-tower="${tier}"`, d.color, d.name,
         `${d.dmg} dmg · ${towerStatLine(d)}`,
-        `${d.cost}g${woodCost ? `+${woodCost}🪵` : ''}`, tier === selectedTowerTier, player.gold < d.cost);
+        `${d.cost}g${woodCost ? `+${woodCost}${LUMBER_ICON}` : ''}`, tier === selectedTowerTier, player.gold < d.cost);
     }).join('');
   }
   if (tab === 'send') {
@@ -9578,16 +9588,16 @@ function railBody(tab) {
     + card('data-rail-tool="routes"', '#8fe6b8', '🧭 Routes', debug.routes ? 'showing' : 'hidden', '', debug.routes, false)
     + card('data-rail-tool="box"', '#bcd2ff', '▭ Box select', selectMode === 'box' ? 'armed' : '', '', selectMode === 'box', false)
     + card('data-rail-tool="lasso"', '#bcd2ff', '➰ Lasso', selectMode === 'lasso' ? 'armed' : '', '', selectMode === 'lasso', false)
-    + card('data-rail-tool="lumber"', '#c9a06a', '🪵 Lumber', `you have ${player.lumber}`, `${LUMBER_PRICE}g`, false, player.gold < LUMBER_PRICE)
+    + card('data-rail-tool="lumber"', '#c9a06a', '' + LUMBER_ICON + ' Lumber', `you have ${player.lumber}`, `${LUMBER_PRICE}g`, false, player.gold < LUMBER_PRICE)
     /* THE SECOND ELEMENT WAS DESKTOP-ONLY. Licensing lives in the side panel,
        which the arena hides — so on a phone there was no way to buy one at all,
        and no way to find out that you could. */
     + (player.races.length < 2
-        ? card('data-rail-tool="license"', '#c9b6ff', '⚗ 2nd element', `${player.lumber}/2 lumber — adds a second tower line`, '2🪵', false, player.lumber < 2)
+        ? card('data-rail-tool="license"', '#c9b6ff', '⚗ 2nd element', `${player.lumber}/2 lumber — adds a second tower line`, '2' + LUMBER_ICON + '', false, player.lumber < 2)
         : card('data-rail-tool="swaprace"', '#c9b6ff', `⚗ ${races.find((r) => r.id === currentBuildRaceId())?.name || ''}`, `tap to switch build line (${player.races.length} licensed)`, '', false, false))
-    + (player.shrine < SHRINE_MAX ? card('data-rail-tool="shrine"', '#d9b8ff', `⛩ Shrine L${player.shrine}`, 'unlocks bigger sends', '1🪵', false, player.lumber < 1) : '')
+    + (player.shrine < SHRINE_MAX ? card('data-rail-tool="shrine"', '#d9b8ff', `⛩ Shrine L${player.shrine}`, 'unlocks bigger sends', '1' + LUMBER_ICON + '', false, player.lumber < 1) : '')
     + card('data-rail-tool="pause"', '#a5afd0', battlePaused ? '▶ Resume' : '⏸ Pause', '', '', battlePaused, false)
-    + card('data-rail-tool="learn"', '#9fb0d2', '🎓 Learn', 'towers, waves, sends', '', false, false)
+    + card('data-rail-tool="learn"', '#9fb0d2', `${icon('book')} Learn`, 'towers, waves, sends', '', false, false)
     + card('data-rail-tool="records"', '#9fb0d2', '📈 Records', 'race audit & playbook', '', false, false);
 }
 function renderQuickSend() {
@@ -9637,7 +9647,7 @@ function renderUndoSlot() {
   slot.classList.toggle('undo-live', live);
   const undoText = canCancel ? `Cancel build and refund ${t.invested} gold`
     : canUnsell ? `Restore sold tower for ${lastSold.refund} gold` : 'Nothing to undo';
-  slot.textContent = '↩';
+  slot.innerHTML = icon('undo');
   slot.title = undoText;
   slot.setAttribute('aria-label', undoText);
   $('wisp-undo')?.classList.toggle('hidden', !live);
@@ -9743,7 +9753,7 @@ function renderHud() {
   if (playerCountLabel) playerCountLabel.textContent = `${seatsOn(PLAYER_HALF)}/${seatsOn(PLAYER_HALF) + seatsOn(ENEMY_HALF)}`;
   // keep economy buttons in step with live gold/lumber
   const buyLumber = $('buy-lumber');
-  if (buyLumber) { buyLumber.disabled = player.gold < LUMBER_PRICE; buyLumber.textContent = `Buy 1 lumber — ${LUMBER_PRICE}g (you have ${player.lumber}🪵)`; }
+  if (buyLumber) { buyLumber.disabled = player.gold < LUMBER_PRICE; buyLumber.textContent = `Buy 1 lumber — ${LUMBER_PRICE}g (you have ${player.lumber}${LUMBER_ICON})`; }
   const licenseButton = $('license-button');
   if (licenseButton) licenseButton.disabled = player.lumber < 2;
   const shrineUpgrade = $('shrine-upgrade');
@@ -9820,7 +9830,7 @@ function renderHud() {
   }
   renderTacticalDock();
   enforceHudContract();   // R1-R3: re-fit the row after every live label is written
-  $('pause-button').textContent = battlePaused ? '▶' : 'Ⅱ';
+  $('pause-button').innerHTML = battlePaused ? icon('play') : icon('pause');
   $('pause-button').title = battlePaused ? 'Resume match' : 'Pause match';
   $('pause-button').setAttribute('aria-label', battlePaused ? 'Resume match' : 'Pause match');
   $('pause-button').setAttribute('aria-pressed', String(battlePaused));
@@ -9839,7 +9849,7 @@ function renderBuilderTabs() {
       <span>${first.symbol} ${first.name}</span><small>BUILDER 1</small>
     </button>
     <button class="${secondReady && buildRaceIdx === 1 ? 'active' : ''} ${secondReady ? '' : 'builder-locked'}" ${secondReady ? 'data-builder-index="1"' : 'data-builder-license="1"'} style="--tab-race:${second?.color || '#c9b6ff'}">
-      <span>${secondReady ? `${second.symbol} ${second.name}` : '⚗ LOCKED'}</span><small>${secondReady ? 'BUILDER 2' : '2 LUMBER'}</small>
+      <span>${secondReady ? `${second.symbol} ${second.name}` : `${icon('lock')} LOCKED`}</span><small>${secondReady ? 'BUILDER 2' : '2 LUMBER'}</small>
     </button>
 `;
   tabs.querySelectorAll('[data-builder-index]').forEach((button) => button.addEventListener('click', () => {
@@ -9886,7 +9896,7 @@ function renderTowerList() {
       <small class="tower-stats">${def.dmg} dmg • ${def.range.toFixed(1)} reach • ${attackSpeedText(def)} • ${effectiveDps(def).toFixed(0)} dps${def.groundOnly ? ' • NO AIR' : ''}</small>
       <small class="tower-stats profile-line">${def.special && def.special !== 'basic' ? `<b style="color:${def.color || 'inherit'}">${def.special}</b> · ` : ''}${attackProfileText(raceId, def)}${def.raceId === 'poison' ? ' · venom' : ''}</small>
       ${boltEligible({ raceId:raceId, tier }) ? `<small class="tower-stats imbue-line">✧ takes an imbuing — <b>${boltCost({ raceId:raceId, tier })}g</b>${raceId === 'ninja' ? ', which is where a blade\'s damage comes from' : ''}</small>` : ''}
-      ${chosen ? `<small class="tower-why">${def.desc} ${specialBlurbs[def.special] || ''}</small>` : ''}</span><b>${def.cost}g${lum ? ` +${lum}🪵` : ''}</b></button>`;
+      ${chosen ? `<small class="tower-why">${def.desc} ${specialBlurbs[def.special] || ''}</small>` : ''}</span><b>${def.cost}g${lum ? ` +${lum}${LUMBER_ICON}` : ''}</b></button>`;
   }).join('');
   document.querySelectorAll('[data-tower]').forEach((button) => button.addEventListener('click', () => {
     selectedTowerTier = Number(button.dataset.tower);
@@ -9898,7 +9908,7 @@ function renderTowerList() {
 function buyLumber() {
   if (!player || player.gold < LUMBER_PRICE) { log(`Lumber costs ${LUMBER_PRICE}g.`); return false; }
   player.gold -= LUMBER_PRICE; player.lumber += 1;
-  log(`Bought 1 lumber (${player.lumber}🪵). Spend it on a shrine upgrade, a second element, a tower ward, or an attacker send.`);
+  log(`Bought 1 lumber (${player.lumber}${LUMBER_ICON}). Spend it on a shrine upgrade, a second element, a tower ward, or an attacker send.`);
   renderHud(); renderTowerList(); renderSendPanel();
   return true;
 }
@@ -9922,9 +9932,9 @@ function renderBuildExtras() {
     }).join('')}</div>`;
   } else {
     const options = races.filter((race) => race.id !== player.races[0] && raceUnlocked(race.id)).map((race) => `<option value="${race.id}">${race.name}</option>`).join('');
-    html += `<div class="license-row"><select id="license-select" aria-label="Second element">${options}</select><button id="license-button" class="ghost-button" ${player.lumber < 2 ? 'disabled' : ''}>License 2nd element • 2🪵</button></div>`;
+    html += `<div class="license-row"><select id="license-select" aria-label="Second element">${options}</select><button id="license-button" class="ghost-button" ${player.lumber < 2 ? 'disabled' : ''}>License 2nd element • 2' + LUMBER_ICON + '</button></div>`;
   }
-  html += `<button id="buy-lumber" class="ghost-button lumber-button" ${player.gold < LUMBER_PRICE ? 'disabled' : ''}>Buy 1 lumber — ${LUMBER_PRICE}g (you have ${player.lumber}🪵)</button>`;
+  html += `<button id="buy-lumber" class="ghost-button lumber-button" ${player.gold < LUMBER_PRICE ? 'disabled' : ''}>Buy 1 lumber — ${LUMBER_PRICE}g (you have ${player.lumber}' + LUMBER_ICON + ')</button>`;
   /* Abdy: "Intergrate the shrine into the menu."
      The phone tray already carried a Shrine chip next to Lumber. The desktop
      panel did not: the shrine lived under the SEND tab while the lumber that
@@ -9940,7 +9950,7 @@ function renderBuildExtras() {
     const names = opens.slice(0, 2).map((send) => send.name).join(', ');
     html += `<div class="shrine-row"><span>⛩ Shrine <b>L${player.shrine}</b>${opens.length
       ? ` — L${next} opens ${opens.length} send${opens.length > 1 ? 's' : ''}<small>${names}${opens.length > 2 ? ` +${opens.length - 2} more` : ''}</small>`
-      : ''}</span><button id="shrine-upgrade-build" class="ghost-button" ${player.lumber < 1 ? 'disabled' : ''}>L${next} • 1🪵</button></div>`;
+      : ''}</span><button id="shrine-upgrade-build" class="ghost-button" ${player.lumber < 1 ? 'disabled' : ''}>L${next} • 1' + LUMBER_ICON + '</button></div>`;
   }
   box.innerHTML = html;
   document.querySelectorAll('[data-chip]').forEach((chip) => chip.addEventListener('click', () => {
@@ -10035,8 +10045,8 @@ function towerAction(kind) {
       towersVersion += 1;
       if (player.lumberSpent >= 3) award('lumberjack');
       SFX.play('build');
-      log(`${ward.glyph} ${ward.name} ${ward.kind === 'core' ? 'installed on' : 'chosen for'} ${done} Bulwark${done > 1 ? 's' : ''} for ${spent}🪵. ${WARD_BLURB[id]}`);
-    } else log(`${ward.name} costs ${wardCost()}🪵 per Bulwark — buy lumber first.`);
+      log(`${ward.glyph} ${ward.name} ${ward.kind === 'core' ? 'installed on' : 'chosen for'} ${done} Bulwark${done > 1 ? 's' : ''} for ${spent}' + LUMBER_ICON + '. ${WARD_BLURB[id]}`);
+    } else log(`${ward.name} costs ${wardCost()}${LUMBER_ICON} per Bulwark — buy lumber first.`);
   } else if (kind.startsWith('bolt:')) {
     const id = kind.slice(5);
     const mod = BOLT_BY_ID[id];
@@ -10336,7 +10346,7 @@ function renderTowerDetails() {
     panel.innerHTML = `
       <div class="td-head"><span class="td-rune" style="--race:${race.color}">${race.symbol}</span>
         <div><strong>${def.name}</strong><small>${race.name} tower · ready to place · 1 cell</small></div></div>
-      <div class="build-preview-cost"><span>TOWER COST</span><b>${def.cost}g${lumberCost ? ` +${lumberCost}🪵` : ''}</b></div>
+      <div class="build-preview-cost"><span>TOWER COST</span><b>${def.cost}g${lumberCost ? ` +${lumberCost}${LUMBER_ICON}` : ''}</b></div>
       <div class="td-stats"><span>DMG <b>${def.dmg}</b></span><span>RANGE <b>${def.range.toFixed(1)}</b></span><span>SPEED <b>${attackSpeedText(def)}</b></span><span>DPS <b>${effectiveDps(def, raceId).toFixed(0)}</b></span></div>
       <p class="td-desc profile-line">${attackProfileText(raceId, def)}${def.groundOnly ? ' · cannot target air' : ''}</p>
       <div class="td-ability" style="--ability:${race.color}"><b>${ability}</b>${def.desc || ''}${specialBlurbs[def.special] ? ` ${specialBlurbs[def.special]}` : ''}</div>
@@ -10359,7 +10369,7 @@ function renderTowerDetails() {
   const graceNote = !many && fullRefund(tower) ? ' • undo, full refund' : many ? '' : ' • 75%';
   const alike = [...towers.values()].filter((t) => isMine(t) && t.raceId === tower.raceId && t.tier === tower.tier).length;
   const sellArmed = many && pendingSell && pendingSell.sig === selectionSig(group) && simTime - pendingSell.at < SELL_CONFIRM_WINDOW;
-  const sellLabel = sellArmed ? `⚠ Confirm — sell all ${group.length}` : `Sell${many ? ' all' : ''} ${sellAll}g${graceNote}`;
+  const sellLabel = sellArmed ? `${icon('warning')} Confirm — sell all ${group.length}` : `Sell${many ? ' all' : ''} ${sellAll}g${graceNote}`;
   const woodNext = towerTierUp(tower)?.next.lumber || 0;
   /* A rack race has no tier to take and is not "max" — it has five weapons
      sitting in the panel below. Saying Max tier there is the label lying. */
@@ -10391,7 +10401,7 @@ function renderTowerDetails() {
     const setBtn = (id, off, text) => { const b = $(id); if (!b) return; b.disabled = !!off; if (text != null && b.textContent !== text) b.textContent = text; };
     setBtn('td-level', levelBlocked, levelLabel);
     setBtn('td-tier', tierBlocked, rackInstead ? '\u2692 Fit a weapon below' : !tierable.length ? 'Max tier'
-      : `→ ${towerTierUp(tower)?.next.name || 'next tier'}${many ? ` all • ${tierCostAll}g` : ` ${tierCostAll}g`}${woodNext ? ` +${woodNext}🪵` : ''}`);
+      : `→ ${towerTierUp(tower)?.next.name || 'next tier'}${many ? ` all • ${tierCostAll}g` : ` ${tierCostAll}g`}${woodNext ? ` +${woodNext}${LUMBER_ICON}` : ''}`);
     setBtn('td-sell', false, sellLabel);
     $('td-sell')?.classList.toggle('td-sell-armed', !!sellArmed);
     return;
@@ -10400,7 +10410,7 @@ function renderTowerDetails() {
   panel.innerHTML = `
     <div class="td-head"><span class="td-rune" style="--race:${stats.color}">${stats.symbol}</span>
       <div><strong>${many ? `${group.length} × ` : ''}${stats.name}</strong><small>${isYours ? (many ? 'Batch selection — actions apply to all' : `Rank ${towerTotalRank(tower)} • ${tower.kills} kills`) : towerOwnerLabel(tower)}</small></div>
-      <button id="td-close" class="ghost-button" aria-label="Close tower details">✕</button></div>
+      <button id="td-close" class="ghost-button" aria-label="Close tower details">${icon('close')}</button></div>
     ${/* THE ACTIONS SIT DIRECTLY UNDER THE HEAD, ABOVE EVERY VARIABLE-HEIGHT
           BLOCK. The description, the stat row and the attack-profile line all
           change when a tower is upgraded, and any of them re-wrapping moves the
@@ -10418,10 +10428,10 @@ function renderTowerDetails() {
           that is what stopped a reflow moving Sell under a finger mid-press. */''}
     ${isYours ? `<div class="td-actions">
       <button id="td-level" class="action-button" ${levelBlocked ? 'disabled' : ''}>${levelLabel}</button>
-      <button id="td-tier" class="action-button td-tier" ${tierBlocked ? 'disabled' : ''}>${rackInstead ? '\u2692 Fit a weapon below' : !tierable.length ? 'Max tier' : `→ ${towerTierUp(tower)?.next.name || 'next tier'}${many ? ` all • ${tierCostAll}g` : ` ${tierCostAll}g`}${woodNext ? ` +${woodNext}🪵` : ''}`}</button>
+      <button id="td-tier" class="action-button td-tier" ${tierBlocked ? 'disabled' : ''}>${rackInstead ? '\u2692 Fit a weapon below' : !tierable.length ? 'Max tier' : `→ ${towerTierUp(tower)?.next.name || 'next tier'}${many ? ` all • ${tierCostAll}g` : ` ${tierCostAll}g`}${woodNext ? ` +${woodNext}${LUMBER_ICON}` : ''}`}</button>
       <button id="td-priority" class="ghost-button">Target: ${tower.priority}</button>
       <button id="td-sell" class="ghost-button td-sell-danger ${sellArmed ? 'td-sell-armed' : ''}">${sellLabel}</button>
-      ${alike > 1 ? `<button id="td-selectall" class="ghost-button td-wide">⧉ Select all ${alike}${many ? ` · ${group.length} selected` : ''}</button>` : ''}
+      ${alike > 1 ? `<button id="td-selectall" class="ghost-button td-wide">${icon('selectAll')} Select all ${alike}${many ? ` · ${group.length} selected` : ''}</button>` : ''}
     </div>` : ''}
     <p class="td-desc">${many ? 'Double-tap selected every like tower.' : `${stats.desc} ${specialBlurbs[stats.special] || ''}`}</p>
     ${/* WHAT THE NEXT RUNG WOULD BE, in words rather than two numbers. The tier
@@ -10467,14 +10477,14 @@ function renderSendPanel() {
   const shrineBox = $('shrine-status');
   if (shrineBox && player) {
     shrineBox.innerHTML = `<span class="panel-heading">SHRINE LEVEL ${player.shrine}${player.shrine >= SHRINE_MAX ? ' • MAX' : ''}</span>
-      ${player.shrine < SHRINE_MAX ? `<button id="shrine-upgrade" class="ghost-button" ${player.lumber < 1 ? 'disabled' : ''}>Upgrade to L${player.shrine + 1} • 1🪵</button>` : ''}`;
+      ${player.shrine < SHRINE_MAX ? `<button id="shrine-upgrade" class="ghost-button" ${player.lumber < 1 ? 'disabled' : ''}>Upgrade to L${player.shrine + 1} • 1' + LUMBER_ICON + '</button>` : ''}`;
     $('shrine-upgrade')?.addEventListener('click', upgradeShrine);
   }
   // Mixed menus retain shrine order across income, flying, and attacker types.
   const card = (send) => `
     <button class="send-card" data-send="${send.id}"><span class="send-icon" title="${sendTypeLabel(send)}">${sendGlyph(send)}</span>
       <div><strong>${send.name} <em class="${send.attacker ? 'atk-tag' : (send.air ? 'air-tag' : 'income-tag')}">${sendTypeLabel(send)}</em></strong>
-      <small data-send-note="${send.id}">${send.attacker ? `<b style="color:#ff9faf">no gold income</b> • breaks towers · ${SWING_DMG * send.breakPower} dmg a swing${send.woodIncome ? ` · <b style="color:#b9a877">+${send.woodIncome}🪵 / cycle</b>` : ''}` : `+${send.income} income`}</small>
+      <small data-send-note="${send.id}">${send.attacker ? `<b style="color:#ff9faf">no gold income</b> • breaks towers · ${SWING_DMG * send.breakPower} dmg a swing${send.woodIncome ? ` · <b style="color:#b9a877">+${send.woodIncome}" + LUMBER_ICON + " / cycle</b>` : ''}` : `+${send.income} income`}</small>
       <small class="send-stats">Shrine ${send.shrine} · ROI ${sendRoiLabel(send)} · payback ${sendRoi(send).toFixed(2)} cycles<br>${sendShownHp(send)}${send.bodies > 1 ? ` HP × ${send.bodies}` : ' HP'} • ${send.spd.toFixed(1)} spd • ${send.armor} armor (${send.aClass})</small></div><b>${sendPriceText(send)}</b></button>`;
   $('send-list').innerHTML = sendTierMarkup(SENDS, card);
   document.querySelectorAll('[data-send]').forEach((button) => button.addEventListener('click', () => buySend(button.dataset.send)));
@@ -10509,7 +10519,7 @@ function buySend(id) {
   if (player.income >= 300) award('income_300');
   if (send.air) { profile.dragonsSent += 1; if (profile.dragonsSent >= 10) award('dragon_rider'); saveProfile(); }
   // quote the PAYOUT, not the raw ladder total — the raw number contradicts the HUD above it
-  log(`${send.name} × 2 sent (west + east)${send.air ? ' — flying over the maze' : ''}. ${send.attacker ? `No gold income; +${send.woodIncome || 0}🪵 per ${currentIncomePeriod()}s.` : `Income ${incWas} → ${incNow}g per ${currentIncomePeriod()}s.`}`);
+  log(`${send.name} × 2 sent (west + east)${send.air ? ' — flying over the maze' : ''}. ${send.attacker ? `No gold income; +${send.woodIncome || 0}${LUMBER_ICON} per ${currentIncomePeriod()}s.` : `Income ${incWas} → ${incNow}g per ${currentIncomePeriod()}s.`}`);
   renderHud();
 
   return true;
@@ -10540,11 +10550,11 @@ function renderEconStrip() {
   const options = races.filter((race) => race.id !== player.races[0] && raceUnlocked(race.id));
   const pick = box.querySelector('#econ-license')?.value || options[0]?.id || '';
   box.innerHTML = `
-    <button class="econ-btn" data-econ="lumber" ${player.gold < LUMBER_PRICE ? 'disabled' : ''} aria-label="Buy one lumber for ${LUMBER_PRICE} gold"><b>🪵 ${player.lumber}</b><small>+1 · ${LUMBER_PRICE}g</small></button>
-    <button class="econ-btn" data-econ="shrine" ${maxed || player.lumber < 1 ? 'disabled' : ''} aria-label="${maxed ? 'Shrine is at its top level' : `Upgrade the Shrine to level ${player.shrine + 1} for one lumber`}"><b>⛩ L${player.shrine}</b><small>${maxed ? 'max' : `→ L${player.shrine + 1} · 1🪵`}</small></button>
+    <button class="econ-btn" data-econ="lumber" ${player.gold < LUMBER_PRICE ? 'disabled' : ''} aria-label="Buy one lumber for ${LUMBER_PRICE} gold"><b>${LUMBER_ICON} ${player.lumber}</b><small>+1 · ${LUMBER_PRICE}g</small></button>
+    <button class="econ-btn" data-econ="shrine" ${maxed || player.lumber < 1 ? 'disabled' : ''} aria-label="${maxed ? 'Shrine is at its top level' : `Upgrade the Shrine to level ${player.shrine + 1} for one lumber`}"><b>${icon('shrine')} L${player.shrine}</b><small>${maxed ? 'max' : `→ L${player.shrine + 1} · 1${LUMBER_ICON}`}</small></button>
     ${second
       ? `<div class="econ-btn econ-done" aria-label="Second element licensed"><b style="color:${second.color}">${second.symbol} ${second.name}</b><small>2nd element</small></div>`
-      : `<div class="econ-license"><select id="econ-license" aria-label="Second element to license">${options.map((race) => `<option value="${race.id}" ${race.id === pick ? 'selected' : ''}>${race.symbol} ${race.name}</option>`).join('')}</select><button class="econ-btn" data-econ="license" ${player.lumber < 2 ? 'disabled' : ''} aria-label="License the second element for two lumber"><b>⚗ 2nd</b><small>2🪵</small></button></div>`}`;
+      : `<div class="econ-license"><select id="econ-license" aria-label="Second element to license">${options.map((race) => `<option value="${race.id}" ${race.id === pick ? 'selected' : ''}>${race.symbol} ${race.name}</option>`).join('')}</select><button class="econ-btn" data-econ="license" ${player.lumber < 2 ? 'disabled' : ''} aria-label="License the second element for two lumber"><b>${icon('flask')} 2nd</b><small>2${LUMBER_ICON}</small></button></div>`}`;
   if (!box._bound) {
     box._bound = true;
     box.addEventListener('click', (event) => {
@@ -11732,7 +11742,7 @@ function lobbyBoardGuide(myHalf) {
   const band=(half,friendly)=>{
     const active=ensureRoster()[half].filter(s=>s.kind!=='closed');
     const size=Math.max(1,active.length);
-    const sizer=canEdit?`<div class="lb-size" role="group" aria-label="${friendly?'Your team':'Opponent'} seats">${[1,2,3].map(n=>`<button class="${n===size?'on':''}" data-lb-size="${half}:${n}" aria-pressed="${n===size}">${n}</button>`).join('')}</div>`:'';
+    const sizer=canEdit?`<div class="lb-size" role="group" aria-label="${friendly?'Your team':'Opponent'} seats">${[1,2,3].map(n=>`<button class="${n===size?'on':''}" data-lb-size="${half}:${n}" aria-pressed="${n===size}" aria-label="${n} seat${n>1?'s':''}">${n}</button>`).join('')}</div>`:'';
     const tiles=active.map((s,i)=>{
       const lane=seatLane(half,i,active.length),zone=seatZone(half,i,active.length);
       const mine=mp.active?s.sid===mp.sid:s.kind==='human';
@@ -11786,9 +11796,9 @@ function renderLobby(force) {
   box.innerHTML = `
     <div class="lb-card">
       <div class="lb-top">
-        <button id="lb-leave" class="lb-icon" aria-label="Leave the lobby">‹</button>
+        <button id="lb-leave" class="lb-icon" aria-label="Leave the lobby">${icon('chevronLeft','ic-lg')}</button>
         <div class="lb-title"><strong>Lobby</strong><small>${solo ? 'Solo' : `${sizeS}v${sizeN}`} · ${modeName}${mp.active ? '' : ` · ${(document.getElementById('ai-select')?.selectedOptions[0]?.textContent || '').split('•')[0].trim()} rival`}</small></div>
-        ${mp.active ? `<button id="lb-share" class="lb-icon" aria-label="Share the invite link">⇪</button>` : `<span class="lb-icon lb-icon-blank" aria-hidden="true"></span>`}
+        ${mp.active ? `<button id="lb-share" class="lb-icon" aria-label="Share the invite link">${icon('share','ic-lg')}</button>` : `<span class="lb-icon lb-icon-blank" aria-hidden="true"></span>`}
       </div>
       ${mp.active ? `<div class="lb-roomrow"><span><em>ROOM</em><b>${code}</b></span><span class="lb-conn"><i></i>${connected} connected · ${mp.role === 'host' ? 'you host' : 'the host starts'}</span></div>` : ''}
       ${lobbyBoardGuide(myHalf)}
@@ -11801,7 +11811,7 @@ function renderLobby(force) {
         <button class="lb-race ${!randomRace && r.id === selectedRace.id ? 'on' : ''}" data-lb-race="${r.id}" style="--race:${r.color}" aria-label="${r.name}" aria-pressed="${!randomRace && r.id === selectedRace.id}" title="${r.name} — ${r.trait}">
           <span>${r.symbol}</span><small>${r.name}</small></button>`).join('')}
         <button class="lb-race ${randomRace ? 'on' : ''}" data-lb-race="random" style="--race:#b9c4e4" aria-label="Random element" aria-pressed="${!!randomRace}" title="Random element — decided when the match starts">
-          <span>🎲</span><small>Random</small></button></div>
+          <span>${icon('dice')}</span><small>Random</small></button></div>
       <div class="lb-foot">
         ${mp.active && lobbyPhase ? `<button id="lb-consent" class="lb-ready lb-ready-primary" aria-pressed="${lobbyLocalReady()}">${lobbyReadyButtonText()}</button>`:''}
         ${mp.active && lobbyPhase && mp.role !== 'host'
@@ -12181,8 +12191,8 @@ function renderDailyQuests() {
   if (!box) return;
   const daily = ensureDaily();
   const rod = raceOfDay();
-  box.innerHTML = `<p class="dq-title">🗒 DAILY GAUNTLET <small>everyone plays <span style="color:${rod.color}">${rod.symbol} ${rod.name}</span> on the same seed — one run a day</small></p>
-    <button id="play-daily" class="dq-play ${dailyDoneToday() ? 'dq-play-done' : ''}">${dailyDoneToday() ? `✓ Today's run: Wave ${profile.dailyBest || 0} — back tomorrow` : `▶ Play today's gauntlet`}</button>
+  box.innerHTML = `<p class="dq-title">${icon('clipboard')} DAILY GAUNTLET <small>everyone plays <span style="color:${rod.color}">${rod.symbol} ${rod.name}</span> on the same seed — one run a day</small></p>
+    <button id="play-daily" class="dq-play ${dailyDoneToday() ? 'dq-play-done' : ''}">${dailyDoneToday() ? `✓ Today's run: Wave ${profile.dailyBest || 0} — back tomorrow` : `${icon('play')} Play today's gauntlet`}</button>
     ${profile.dailyStreak > 1 ? `<p class="dq-streak">🔥 ${profile.dailyStreak}-day streak</p>` : ''}
     <div class="dq-rows">${dailyQuests().map((q) => {
       const done = daily.done.includes(q.id);
@@ -12197,7 +12207,7 @@ function renderProfileStrip() {
   if (!strip) return;
   const earned = Object.keys(profile.achievements).length;
   const _cl = commanderLevel();
-  strip.innerHTML = `<button id="achievements-toggle" class="profile-summary">⭐ Lv ${_cl.level} • 🏆 ${earned}/${ACHIEVEMENTS.length} • ${profile.wins} wins • best W${profile.bestWave}${nextUnlockHint() ? ` • <em>${nextUnlockHint()}</em>` : ''}</button>
+  strip.innerHTML = `<button id="achievements-toggle" class="profile-summary">${icon('star')} Lv ${_cl.level} • ${icon('trophy')} ${earned}/${ACHIEVEMENTS.length} • ${profile.wins} wins • best W${profile.bestWave}${nextUnlockHint() ? ` • <em>${nextUnlockHint()}</em>` : ''}</button>
     <div id="achievements-list" class="achievements-list hidden">${ACHIEVEMENTS.map((a) => {
       const got = Boolean(profile.achievements[a.id]);
       const unlockRace = a.unlocks ? races.find((race) => race.id === a.unlocks) : null;
@@ -13496,9 +13506,9 @@ function renderCommandBar() {
     // the grace window is 8s from placement now, but this chip still tested
     // underConstruction — so it vanished after 1.2s while the refund was still full
     const undoChip = (lastT && fullRefund(lastT))
-      ? `<button id="bar-undo" class="bar-card toggle-on"><span>↩</span><small>UNDO</small><b>+${lastT.invested}g</b></button>`
-      : sellUndoLive() ? `<button id="bar-undo" class="bar-card toggle-on"><span>↩</span><small>UNSELL</small><b>−${lastSold.refund}g</b></button>` : '';
-    const econ = `<button id="cb-lumber" class="bar-card ${player.gold < LUMBER_PRICE ? 'poor' : ''}"><span>🪵</span><small>Lumber</small><b>${LUMBER_PRICE}g</b></button>${player.shrine < SHRINE_MAX ? `<button id="cb-shrine" class="bar-card ${player.lumber < 1 ? 'poor' : ''}"><span>⛩</span><small>Shrine L${player.shrine}</small><b>1🪵</b></button>` : `<span class="bar-card locked"><span>⛩</span><small>Shrine</small><b>MAX</b></span>`}`;
+      ? `<button id="bar-undo" class="bar-card toggle-on"><span>${icon('undo')}</span><small>UNDO</small><b>+${lastT.invested}g</b></button>`
+      : sellUndoLive() ? `<button id="bar-undo" class="bar-card toggle-on"><span>${icon('undo')}</span><small>UNSELL</small><b>−${lastSold.refund}g</b></button>` : '';
+    const econ = `<button id="cb-lumber" class="bar-card ${player.gold < LUMBER_PRICE ? 'poor' : ''}"><span>" + LUMBER_ICON + "</span><small>Lumber</small><b>${LUMBER_PRICE}g</b></button>${player.shrine < SHRINE_MAX ? `<button id="cb-shrine" class="bar-card ${player.lumber < 1 ? 'poor' : ''}"><span>⛩</span><small>Shrine L${player.shrine}</small><b>1" + LUMBER_ICON + "</b></button>` : `<span class="bar-card locked"><span>⛩</span><small>Shrine</small><b>MAX</b></span>`}`;
     buildBody.innerHTML = undoChip + econ + buildableListFor(raceId).map(({ def, tier }) => `
       <button class="bar-card ${tier === selectedTowerTier ? 'on' : ''} ${player.gold < def.cost ? 'poor' : ''}" data-bar-tower="${tier}">
         <span>${towerDef(raceId, tier).symbol}</span><small>${def.name.split(' ')[0]}</small><b>${def.cost}g</b><i class="bar-stats">${towerStatLine(towerDef(raceId, tier))}</i></button>`).join('');
@@ -13589,7 +13599,7 @@ function sendShownHp(sd) { return Math.round(Math.round((sd.hp || 0) * sendGrowt
    every send card built its own label out of the gold price — so all four would
    read "0g +2 lumber" the moment the price moved off gold. */
 function sendPriceText(send, short) {
-  const wood = send.lumber ? `${send.lumber}🪵` : '';
+  const wood = send.lumber ? `${send.lumber}${LUMBER_ICON}` : '';
   if (!send.cost) return wood || 'free';
   return short ? `${send.cost}` : `${send.cost}g${wood ? ` +${wood}` : ''}`;
 }
@@ -14055,7 +14065,7 @@ function renderCommandSheet() {
       : wager.tokens < 1 ? 'no proposals left this match'
       : wagerReady ? `both bank +${wagerBonus()}g if accepted` : `ready in ${Math.max(1, Math.ceil(wager.cooldownUntil - simTime))}s`;
     body = `${matchMode === 'classic' ? '' : `<button id="sheet-wager" class="wager-chip ${wagerReady ? '' : 'cooling'}"><span>⏩</span><b>Rush the wave</b><small>${wagerLine}</small><i>×${wager.tokens}</i></button>`}
-      <div class="sheet-grid">${orderedSends().map((send) => { const inc = sendIncomeLabel(send); const gain = send.attacker ? `+${send.woodIncome || 0}🪵` : inc.text; return `
+      <div class="sheet-grid">${orderedSends().map((send) => { const inc = sendIncomeLabel(send); const gain = send.attacker ? `+${send.woodIncome || 0}${LUMBER_ICON}` : inc.text; return `
       <button class="sheet-chip ${player.shrine < send.shrine ? 'locked' : ''} ${sendAffordable(send) ? '' : 'poor'}" data-sheet-send="${send.id}" title="${send.name} — Shrine ${send.shrine}, ROI ${sendRoiLabel(send)}, ${sendTypeLabel(send)}, ${sendPriceText(send)}, ${send.attacker ? `${gain} per cycle` : `ladder +${send.income} income${inc.cut ? `, ${inc.text} after diminishing returns` : ''}`}">
         <span>${sendGlyph(send)}</span><small>${send.name.split(' ')[0]}</small><b>${sendPriceText(send)}<i class="${!send.attacker && inc.cut ? 'inc-cut' : ''}">${gain}</i></b></button>`; }).join('')}</div>
       <p class="sheet-hint"><b>↗ Income</b> sends raise gold income, <b>▲ Flying</b> sends cross the maze, and <b>⚒ Attackers</b> cost lumber to break towers. Shrine tier is first; highest income ROI within that tier is first. ROI is income per cycle divided by its price, using lumber for attackers. You are paid <b>${BASE_INCOME + incomePayout(player.income)}g</b> every ${currentIncomePeriod()}s.${player.shrine < SHRINE_MAX ? 'Higher shrine levels unlock the elite tiers.' : 'Shrine is maxed.'}</p>`;
@@ -14079,7 +14089,7 @@ function renderCommandSheet() {
           ${/* always present, greyed when there is nothing to buy — a chip that
                 vanishes shuffles Sell into the space Tier just left, which is
                 the same trap the side panel had */''}
-          <button class="sheet-chip ${!tierable.length || player.gold < 1 || (woodNext && player.lumber < woodNext) ? 'poor' : ''}" data-sheet-act="tier"><span>⏫</span><small>${!tierable.length ? 'Max' : (towerTierUp(t0)?.next.name.split(' ')[0] || 'Tier')}</small><b>${!tierable.length ? '—' : `${tierCostAll}g${woodNext ? `+${woodNext}🪵` : ''}`}</b></button>
+          <button class="sheet-chip ${!tierable.length || player.gold < 1 || (woodNext && player.lumber < woodNext) ? 'poor' : ''}" data-sheet-act="tier"><span>⏫</span><small>${!tierable.length ? 'Max' : (towerTierUp(t0)?.next.name.split(' ')[0] || 'Tier')}</small><b>${!tierable.length ? '—' : `${tierCostAll}g${woodNext ? `+${woodNext}${LUMBER_ICON}` : ''}`}</b></button>
           <button class="sheet-chip" data-sheet-act="priority"><span>🎯</span><small>Target</small><b>${t0.priority}</b></button>
           ${(() => { const armed = many && pendingSell && pendingSell.sig === selectionSig(sel) && simTime - pendingSell.at < SELL_CONFIRM_WINDOW;
             return `<button class="sheet-chip sell-chip ${armed ? 'armed' : ''}" data-sheet-act="sell"><span>${armed ? '⚠' : '💰'}</span><small>${armed ? 'Confirm' : `Sell${many ? ' all' : ''}`}</small><b>${armed ? sel.length + ' towers' : sellAll + 'g'}</b></button>`; })()}
@@ -14096,7 +14106,7 @@ function renderCommandSheet() {
     body = learnContent();
   }
   sheet.innerHTML = `
-    <div class="sheet-res"><span>💰 ${Math.floor(player.gold)}g</span><span>🪵 ×${player.lumber}</span><span>↗ +${player.income}</span><span>🌊 ${Math.min(wave + 1, WAVES.length)}/${WAVES.length}</span></div>
+    <div class="sheet-res"><span>💰 ${Math.floor(player.gold)}g</span><span>" + LUMBER_ICON + " ×${player.lumber}</span><span>↗ +${player.income}</span><span>🌊 ${Math.min(wave + 1, WAVES.length)}/${WAVES.length}</span></div>
     <div class="sheet-bar">
       <button class="sheet-tab tab-build ${sheetTab === 'towers' ? 'on' : ''}" data-sheet-tab="towers"><span class="ti">⛫</span><span class="tl">Build</span></button>
       <button class="sheet-tab tab-send ${sheetTab === 'sends' ? 'on' : ''}" data-sheet-tab="sends"><span class="ti">⚔</span><span class="tl">Send</span></button>
@@ -14106,8 +14116,8 @@ function renderCommandSheet() {
       <button id="sheet-close" class="sheet-tab tab-close" aria-label="Close"><span class="ti">✕</span><span class="tl">Close</span></button>
     </div>
     <div class="sheet-econ">
-      <button id="sheet-lumber" class="econ-chip" ${player.gold < LUMBER_PRICE ? 'disabled' : ''}>🪵 ×${player.lumber} <i>buy • ${LUMBER_PRICE}g</i></button>
-      ${player.shrine < SHRINE_MAX ? `<button id="sheet-shrine" class="econ-chip" ${player.lumber < 1 ? 'disabled' : ''}>⛩ Shrine L${player.shrine} <i>upgrade • 1🪵</i></button>` : `<span class="econ-chip econ-max">⛩ Shrine MAX</span>`}
+      <button id="sheet-lumber" class="econ-chip" ${player.gold < LUMBER_PRICE ? 'disabled' : ''}>' + LUMBER_ICON + ' ×${player.lumber} <i>buy • ${LUMBER_PRICE}g</i></button>
+      ${player.shrine < SHRINE_MAX ? `<button id="sheet-shrine" class="econ-chip" ${player.lumber < 1 ? 'disabled' : ''}>⛩ Shrine L${player.shrine} <i>upgrade • 1' + LUMBER_ICON + '</i></button>` : `<span class="econ-chip econ-max">⛩ Shrine MAX</span>`}
       <button id="sheet-boxsel" class="econ-chip ${selectMode === 'box' ? 'econ-on' : ''}">▭ <i>box</i></button>
       <button id="sheet-lasso" class="econ-chip ${selectMode === 'lasso' ? 'econ-on' : ''}">➰ <i>lasso</i></button>
       <button id="sheet-exit" class="econ-chip">✕ <i>close</i></button>
@@ -14232,21 +14242,21 @@ function renderWispPanel(mode) {
   if (wispTab === 'inspect') {
     body = renderWispInspect();
   } else if (wispTab === 'learn') {
-    body = `<div class="wp-head"><span>🎓 Learn</span><button data-wp-do="close">✕</button></div><div class="wp-learn">${learnContent()}</div>`;
+    body = `<div class="wp-head"><span>${icon('book')} Learn</span><button data-wp-do="close">✕</button></div><div class="wp-learn">${learnContent()}</div>`;
   } else {
     // UTILITY + TOOLS hub — declutters the HUD and map
     const z = Math.round(camZoomNow() * 100);
-    body = `<div class="wp-head"><span>🧰 Tools &amp; controls</span><button data-wp-do="close">✕</button></div>
+    body = `<div class="wp-head"><span>${icon('tools')} Tools &amp; controls</span><button data-wp-do="close">✕</button></div>
       <div class="wp-util">
-        <button class="wp-u ${selectMode==='box'?'on':''}" data-wp-do="box">▭<i>Box</i></button>
-        <button class="wp-u ${selectMode==='lasso'?'on':''}" data-wp-do="lasso">➰<i>Lasso</i></button>
-        <button class="wp-u" data-wp-do="learn">🎓<i>Learn</i></button>
-        <button class="wp-u ${debug.routes?'on':''}" data-wp-do="routes">🧭<i>Routes</i></button>
-        <button class="wp-u ${debug.ranges?'on':''}" data-wp-do="ranges">◎<i>Ranges</i></button>
-        <button class="wp-u ${battlePaused?'on':''}" data-wp-do="pause">${battlePaused?'▶':'⏸'}<i>${battlePaused?'Resume':'Pause'}</i></button>
-        <button class="wp-u" data-wp-do="restart">↻<i>Restart</i></button>
-        <button class="wp-u" data-wp-do="settings">⚙<i>Settings</i></button>
-        <button class="wp-u" data-wp-do="exit">⏏<i>Exit</i></button>
+        <button class="wp-u ${selectMode==='box'?'on':''}" data-wp-do="box">${icon('box')}<i>Box</i></button>
+        <button class="wp-u ${selectMode==='lasso'?'on':''}" data-wp-do="lasso">${icon('lasso')}<i>Lasso</i></button>
+        <button class="wp-u" data-wp-do="learn">${icon('book')}<i>Learn</i></button>
+        <button class="wp-u ${debug.routes?'on':''}" data-wp-do="routes">${icon('compass')}<i>Routes</i></button>
+        <button class="wp-u ${debug.ranges?'on':''}" data-wp-do="ranges">${icon('ranges')}<i>Ranges</i></button>
+        <button class="wp-u ${battlePaused?'on':''}" data-wp-do="pause">${battlePaused?icon('play'):icon('pause')}<i>${battlePaused?'Resume':'Pause'}</i></button>
+        <button class="wp-u" data-wp-do="restart">${icon('restart')}<i>Restart</i></button>
+        <button class="wp-u" data-wp-do="settings">${icon('gear')}<i>Settings</i></button>
+        <button class="wp-u" data-wp-do="exit">${icon('exit')}<i>Exit</i></button>
       </div>`;
   }
   panel.innerHTML = body;
@@ -14292,7 +14302,7 @@ function renderWispPanel(mode) {
 }
 function renderWispInspect() {
   const ie = inspectEntity;
-  const close = `<div class="wp-head"><span>🛠 Inspect</span><button data-wp-do="close">✕</button></div>`;
+  const close = `<div class="wp-head"><span>${icon('search')} Inspect</span><button data-wp-do="close">✕</button></div>`;
   /* Something on the board you are WATCHING. There was nothing to tap up there
      before — it was paint — so you could see a team-mate had built something
      and never find out what. The snapshot carries the element and the tier,
@@ -14362,20 +14372,20 @@ function renderWispInspect() {
   const act = (kind, glyph, label, poor) =>
     `<button class="wp-act ${poor ? 'wp-poor' : ''}" data-wp-act="${kind}">${glyph} ${label}</button>`;
   const actions = [
-    act('level', '⬆', upgradable.length ? `Finish rank${many?'s':''} ${rankCostText(levelAll)}` : (sel.every(wardEligible)?'Expertise · auto':'Max rank'),
+    act('level', icon('rankUp'), upgradable.length ? `Finish rank${many?'s':''} ${rankCostText(levelAll)}` : (sel.every(wardEligible)?'Expertise · auto':'Max rank'),
       !upgradable.some(t=>canAffordRank(t))),
     rackHere
-      ? `<button class="wp-act wp-arm" data-wp-act="armhint">⚒ Fit a weapon</button>`
-      : act('tier', '⏫', tierable.length
+      ? `<button class="wp-act wp-arm" data-wp-act="armhint">${icon('hammer')} Fit a weapon</button>`
+      : act('tier', icon('tierUp'), tierable.length
           ? `${towerTierUp(t0)?.next.name.split(' ')[0]} ${tierAll}g${woodNext ? ` +${woodNext}` : ''}`
           : 'Max tier',
         !tierable.length || player.gold < tierAll || (woodNext && player.lumber < woodNext)),
-    act('priority', '🎯', String(t0.priority).toUpperCase(), false),
-    `<button class="wp-act ${armed ? 'wp-armed' : ''}" data-wp-act="sell">${armed ? '⚠ Sure?' : `💰 Sell +${sellWorth}g`}</button>`,
+    act('priority', icon('target'), String(t0.priority).toUpperCase(), false),
+    `<button class="wp-act ${armed ? 'wp-armed' : ''}" data-wp-act="sell">${armed ? `${icon('warning')} Sure?` : `${icon('coins')} Sell +${sellWorth}g`}</button>`,
   ];
   const rung = ownedLike(t0, true), elem = ownedLike(t0, false);
   if (rung.length > 1 || elem.length > 1) {
-    actions.push(`<button class="wp-act" data-wp-act="selectall">⧉ Select all ${Math.max(rung.length, elem.length)}</button>`);
+    actions.push(`<button class="wp-act" data-wp-act="selectall">${icon('selectAll')} Select all ${Math.max(rung.length, elem.length)}</button>`);
   }
   return close + `<div class="wp-title"><b>${sel.length>1?sel.length+'× ':''}${stats.name}</b> · R${towerTotalRank(t0)} · ${stats.dmg} dmg · ${stats.range.toFixed(1)} range</div>
     <div class="wp-actions">${actions.join('')}</div>
