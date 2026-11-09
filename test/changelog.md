@@ -2,6 +2,28 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 9, 2026 — Lobby: tap a seat (Claude, redesign phase 2)
+
+- The board guide is the seat control. Tap a tile to change who sits there (host or
+  offline: computer → open → closed, open seats only in a room); a guest taps an open
+  seat to sit in it; a connected player is never moved by a tap. The 1/2/3 size
+  pickers sit in each band's header. Element, lane, position and ready state are on
+  the tile, so the per-seat `<select>` rows are gone. Header: Leave, title with the
+  setup line, Share (copies or shares the invite link). Room code and connected
+  count in a row. All 13 element chips in one 7-column grid above the fold. Ready
+  and Start sit in a sticky foot; a guest sees a status line instead of a dead
+  button. New: `lobbyCycleSeat`, `lobbySeatCycle`; rewritten `lobbyBoardGuide` and
+  the `renderLobby` template; `lb-leave`, `lb-share`, `data-lb-cycle` handlers.
+- Fixed: leaving a lobby never cleared `lobbyPhase`, so a room created afterwards
+  rendered into a hidden overlay (`leaveMatch` now calls `closeLobby`).
+- Phase-1 follow-up: Map builder and Build hub moved from the home screen into
+  Settings (home controls above the fold 9 → 7).
+- Measured at 390×844 (lobbyaudit.js), before → after: visible controls solo 13 → 10,
+  2v2 12 → 11, host 14 → 12, guest 8 → 3; tap targets under 44 px 13 → 0; element
+  chips above the fold 10 → 13 of 13; taps to change a seat 2 → 1; Ready in the
+  bottom quarter of the screen no → yes on every view; two-client room: both ready,
+  host Start enabled, match starts on both; teamboard.js PASS; no page errors.
+
 ## November 9, 2026 — Home screen: play first (Claude, redesign phase 1)
 
 - The setup is a "Next match" card: element and a one-line summary of mode, team,

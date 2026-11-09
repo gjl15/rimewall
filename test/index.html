@@ -321,6 +321,51 @@ body.reduce-motion .mp-spin { animation:none; border-top-color:#8ee89f55; }
 .lb-ready { width:100%; margin-top:12px; min-height:44px; border:1px solid #77d6ff; border-radius:10px; background:#12314e; color:#eafcff; font:600 12px 'DM Mono',monospace; letter-spacing:.08em; }
 .lb-ready:active { transform:scale(.98); }
 @media (max-width:420px) { .lb-cols { grid-template-columns:1fr; } .lb-races { grid-template-columns:repeat(5,1fr); } }
+/* LOBBY, TAP A SEAT (2026-11-09): one card, the board guide is the control, the
+   element chips fit above the fold, Ready sits where the thumb rests. */
+.lb-card { display:flex; flex-direction:column; gap:10px; padding:14px 12px 0; border-radius:20px; }
+.lb-top { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.lb-icon { flex:0 0 44px; width:44px; height:44px; padding:0; border:1px solid #273252; border-radius:12px; background:#11182b; color:var(--ink); font-size:22px; line-height:1; display:flex; align-items:center; justify-content:center; }
+.lb-icon-blank { visibility:hidden; }
+.lb-title { flex:1; min-width:0; text-align:center; }
+.lb-title strong { display:block; font-size:18px; font-weight:800; line-height:1.1; }
+.lb-title small { display:block; margin-top:2px; color:var(--muted); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.lb-roomrow { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 14px; border:1px solid #273252; border-radius:14px; background:#11182b; }
+.lb-roomrow em { margin-right:10px; color:var(--muted); font:500 11px 'DM Mono',monospace; font-style:normal; letter-spacing:.14em; }
+.lb-roomrow b { font:500 20px 'DM Mono',monospace; letter-spacing:.16em; }
+.lb-conn { display:flex; align-items:center; gap:8px; color:#b4e870; font-size:12px; white-space:nowrap; }
+.lb-conn i { width:8px; height:8px; border-radius:50%; background:#b4e870; }
+.lb-map { margin-top:0; padding:12px; border-radius:18px; display:flex; flex-direction:column; gap:10px; }
+.lb-band-head { display:flex; align-items:center; justify-content:space-between; }
+.lb-map-label { margin:0; font-size:11px; letter-spacing:.14em; }
+.lb-size { gap:0; border:1px solid #273252; border-radius:10px; overflow:hidden; }
+.lb-size button { width:44px; height:44px; border:0; border-radius:0; font-size:14px; }
+.lb-map-row { gap:10px; }
+.lb-map-seat { position:relative; min-height:64px; padding:8px 10px; border:2px solid var(--lane); border-radius:14px; text-align:left; background:#151f37; color:var(--ink); font:inherit; display:flex; flex-direction:column; justify-content:center; gap:3px; }
+.lb-map-seat b { font-size:14px; font-weight:800; overflow-wrap:anywhere; }
+.lb-map-seat span { margin:0; font-size:11px; }
+.lb-map-seat.mine { background:color-mix(in srgb, var(--lane) 14%, #151f37); }
+.lb-map-seat.open { border-style:dashed; }
+button.lb-map-seat:active { transform:scale(.98); }
+.lb-tap { position:absolute; right:9px; bottom:6px; color:var(--muted); font:500 9px 'DM Mono',monospace; font-style:normal; letter-spacing:.12em; text-transform:uppercase; }
+button.lb-map-seat { padding-bottom:18px; }
+.lb-elem-head { display:flex; align-items:baseline; justify-content:space-between; margin-top:2px; }
+.lb-elem-head small { color:var(--muted); font-size:13px; }
+.lb-races { grid-template-columns:repeat(7, minmax(0, 1fr)); gap:4px; margin-top:0; }
+.lb-solo { align-items:center; min-height:52px; }
+.lb-solo input { flex:0 0 44px; width:44px; height:44px; margin:0; appearance:none; -webkit-appearance:none; border:2px solid #2e3b5c; border-radius:12px; background:#0c1324; display:grid; place-items:center; }
+.lb-solo input::before { content:''; width:18px; height:18px; border-radius:5px; background:var(--ice); transform:scale(0); transition:transform .12s ease; }
+.lb-solo input:checked::before { transform:scale(1); }
+.lb-solo input:checked { border-color:var(--ice); }
+.lb-race { min-height:46px; padding:0; border-radius:12px; justify-content:center; }
+.lb-race span { font-size:20px; }
+.lb-race small { display:none; }
+.lb-hint { margin-top:0; font-size:12px; }
+.lb-foot { position:sticky; bottom:0; margin:4px -12px 0; padding:10px 12px 14px; background:linear-gradient(#0d142400, #0d1424f8 30%); display:flex; flex-direction:column; gap:8px; }
+.lb-ready { margin-top:0; min-height:56px; border-radius:14px; font:800 17px Manrope,system-ui,sans-serif; letter-spacing:0; }
+.lb-ready-primary:not(:disabled) { background:var(--ice); color:#06101c; border-color:var(--ice); }
+.lb-ready-alt { min-height:48px; font-size:15px; }
+.lb-wait { margin:0; text-align:center; color:var(--muted); font-size:12px; }
 /* ---- STATUS LINE: wave, threat, clock and targeting, under the top bar ---- */
 .status-line { display:flex; align-items:center; gap:10px; margin:7px 0 0; padding:7px 12px; border:1px solid #202c48; border-radius:10px; background:#0b1020e8; }
 .status-line .match-state { flex:1; min-width:0; gap:9px; }
@@ -1704,6 +1749,11 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
         <button id="set-resetmap" class="ghost-button set-dev">🗺 Restore default map</button>
         <button id="set-dev" class="ghost-button set-dev">DEV: unlock all elements</button>
         <button id="set-mpdiag" class="ghost-button set-dev">DEV: copy multiplayer diagnostics</button>
+        <div class="settings-sep"></div>
+        <div class="tool-cards">
+          <button id="open-drawpad-card" class="tool-card"><span>🗺</span><strong>Map builder</strong><small>Sketch your own battlefield</small></button>
+          <button id="open-collab-card" class="tool-card"><span>🤝</span><strong>Build hub</strong><small>Tasks, notes, and handoff</small></button>
+        </div>
       </div>
     </div>
             <div id="wisp-radial" class="wisp-radial hidden" aria-label="Wisp actions"></div>
@@ -1757,10 +1807,6 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
           <p id="mp-status" class="mp-status" aria-live="polite"></p>
         </div>
 
-        <div class="tool-cards">
-          <button id="open-drawpad-card" class="tool-card"><span>🗺</span><strong>Map builder</strong><small>Sketch your own battlefield</small></button>
-          <button id="open-collab-card" class="tool-card"><span>🤝</span><strong>Build hub</strong><small>Tasks, notes, and handoff</small></button>
-        </div>
         <div class="home-foot"><div class="version-pill">TEST BUILD · TEAM MATCH 14 + FIXES 2026-11-09</div></div>
 
 
@@ -11432,8 +11478,9 @@ function matchAtRisk() { return battleRunning && !matchOver; }
 function leaveMatch() {
   const go = () => {
     if (mp.active) mpLeave();
-    window.clearInterval(lobbyTimer); lobbyTimer = null; lobbyLeft = 0;
-    $('lobby')?.classList.add('hidden');
+    // closeLobby, not just hiding it: lobbyPhase stayed true after a Leave, so the
+    // next room's mpMaybeStart skipped openLobby and rendered into a hidden overlay
+    closeLobby();
     battleRunning = false; matchOver = false;
     closeCommandSheet(); closeWispMenus?.(); applyUiMode();
     $('battle-screen').classList.add('hidden');
@@ -11569,19 +11616,47 @@ function mpTeamUpAgainstComputers() {
   mpBroadcastRoster();renderLobby(true);
   return true;
 }
+/* THE BOARD GUIDE IS THE SEAT CONTROL (2026-11-09). The lobby used to draw the
+   seats twice: a picture of the board, then a row of <select>s per seat that said
+   the same thing. The picture is the control now: tap a tile to change who sits
+   there (host or offline), tap an open seat to sit in it (guest); the 1/2/3 size
+   pickers live in each band's header. Element, lane and ready state sit on the
+   tile, so there is nothing left for a second list to say. */
+function lobbySeatCycle(half) {
+  // what a tapped seat becomes next: computers and closed offline; open seats only in a room
+  return mp.active ? ['ai', 'open', 'closed'] : ['ai', 'closed'];
+}
+function lobbyCycleSeat(half, index) {
+  const s = ensureRoster()[half][index]; if (!s) return;
+  const order = lobbySeatCycle(half);
+  const at = order.indexOf(s.kind);
+  lobbySetSeat(half, index, order[(at + 1) % order.length]);
+}
 function lobbyBoardGuide(myHalf) {
   const foes=myHalf===PLAYER_HALF?ENEMY_HALF:PLAYER_HALF;
+  const canEdit = !mp.active || mp.role === 'host';
   const band=(half,friendly)=>{
     const active=ensureRoster()[half].filter(s=>s.kind!=='closed');
-    return `<div class="lb-map-label">${friendly?'YOUR TEAM · BOTTOM':'OPPONENTS · TOP'}</div><div class="lb-map-row">`
-      +active.map((s,i)=>{
-        const lane=seatLane(half,i,active.length),zone=seatZone(half,i,active.length);
-        const mine=mp.active?s.sid===mp.sid:s.kind==='human';
-        const name=mine?'You':(s.sid&&mp.peers[s.sid]?.name)||s.name||(s.kind==='ai'?'Computer '+(i+1):SEAT_KIND_LABEL[s.kind]);
-        return `<div class="lb-map-seat" data-map-seat="${half}:${s.index}" style="--lane:${lane.color};grid-column:${active.length===1?'1 / 4':seatLaneIdx(i,active.length)+1}"><b>${escapeHTML(name)}</b><span>${lane.name} · ${zone.label}</span></div>`;
-      }).join('')+'</div>';
+    const size=Math.max(1,active.length);
+    const sizer=canEdit?`<div class="lb-size" role="group" aria-label="${friendly?'Your team':'Opponent'} seats">${[1,2,3].map(n=>`<button class="${n===size?'on':''}" data-lb-size="${half}:${n}" aria-pressed="${n===size}">${n}</button>`).join('')}</div>`:'';
+    const tiles=active.map((s,i)=>{
+      const lane=seatLane(half,i,active.length),zone=seatZone(half,i,active.length);
+      const mine=mp.active?s.sid===mp.sid:s.kind==='human';
+      const peer=s.sid&&s.sid!==mp.sid?mp.peers[s.sid]:null;
+      const name=mine?(profile.name||'You'):peer?(peer.name||'Commander'):s.kind==='human'?(s.name||'Player'):s.kind==='ai'?'Computer '+(i+1):'Open seat';
+      const race=s.raceId?races.find(r=>r.id===s.raceId):null;
+      const elem=mine?(randomRace?'Random':selectedRace.name):peer?(peer.raceId==='random'?'Random':races.find(r=>r.id===peer.raceId)?.name||'choosing…'):s.kind==='ai'?(race?race.name:'Random'):s.kind==='open'?'waiting for a player':'';
+      const ready=mp.active&&s.sid?` · <span data-ready-sid="${escapeHTML(s.sid)}">${lobbySeatReadyText(s.sid)}</span>`:'';
+      const canSit=mp.active&&!mine&&s.kind==='open'&&!s.sid;
+      const canCycle=canEdit&&!mine&&!s.sid;   // a connected player is never moved by a tap
+      const tappable=canSit||canCycle;
+      const tag=tappable?'button':'div';
+      const action=canSit?`data-lb-sit="${half}:${s.index}"`:canCycle?`data-lb-cycle="${half}:${s.index}"`:'';
+      return `<${tag} ${action} class="lb-map-seat ${mine?'mine':''} ${s.kind==='open'?'open':''}" data-map-seat="${half}:${s.index}" style="--lane:${lane.color};grid-column:${active.length===1?'1 / 4':seatLaneIdx(i,active.length)+1}"${tappable?` aria-label="${escapeHTML(name)}, ${canSit?'tap to sit here':'tap to change'}"`:''}><b>${escapeHTML(name)}${peer?' <i class="lb-live">●</i>':''}</b><span>${elem}${elem?' · ':''}${lane.name} ${zone.label}${ready}</span>${tappable?`<em class="lb-tap">${canSit?'sit':'change'}</em>`:''}</${tag}>`;
+    }).join('');
+    return `<div class="lb-band-head"><div class="lb-map-label">${friendly?'YOUR TEAM · BOTTOM':'OPPONENTS · TOP'}</div>${sizer}</div><div class="lb-map-row">${tiles}</div>`;
   };
-  return `<div class="lb-map" aria-label="Team colors and board positions">${matchMode==='survival'?'':band(foes,false)}${band(myHalf,true)}</div>`;
+  return `<div class="lb-map" aria-label="Seats, team colours and board positions">${matchMode==='survival'?'':band(foes,false)}${band(myHalf,true)}</div>`;
 }
 function renderLobby(force) {
   const box = $('lobby');
@@ -11611,70 +11686,34 @@ function renderLobby(force) {
   const sizeS = count(myHalf), sizeN = count(foeHalf);
   const solo = sizeS === 1 && (matchMode === 'survival' || sizeN === 1) && !mp.active;
 
-  const seatRow = (s, i, seatsHere, half) => {
-    const inPlay = s.kind !== 'closed';
-    // position among the seats actually in play on THIS roster half (not the
-    // local view) — the lobby always talks in roster space
-    const pos = inPlay ? ensureRoster()[half].filter((x) => x.kind !== 'closed').indexOf(s) : -1;
-    const lane = inPlay ? seatLane(half, pos, seatsHere) : null;
-    const zone = inPlay ? seatZone(half, pos, seatsHere) : null;
-    const race = s.raceId ? races.find((r) => r.id === s.raceId) : null;
-    const isMine = mp.active ? s.sid === mp.sid : s.kind === 'human';
-    const peer = s.sid && s.sid !== mp.sid ? mp.peers[s.sid] : null;
-    const who = isMine ? (profile.name || 'You')
-      : peer ? (peer.name || 'Commander')
-        : s.kind === 'human' ? (s.name || 'Player') : SEAT_KIND_LABEL[s.kind];
-    const elem = isMine ? (randomRace ? 'Random element' : selectedRace.name)
-      : peer ? (peer.raceId === 'random' ? 'Random element' : races.find((r) => r.id === peer.raceId)?.name || 'choosing…')
-        : s.kind === 'ai' ? (race ? race.name : 'Random element')
-          : s.kind === 'human' ? '—' : '—';
-    const kinds = (half === PLAYER_HALF || mp.active) ? SEAT_KINDS : SEAT_KINDS.filter((k) => k !== 'human');
-    // in a room only the host rearranges the slots; anyone can take a free one
-    const canEdit = !mp.active || mp.role === 'host';
-    const canSit = mp.active && !isMine && inPlay && !s.sid;
-    return `<div data-lobby-seat="${half}:${i}" class="lb-slot ${inPlay ? '' : 'off'} ${isMine ? 'mine' : ''}" style="--lane:${lane ? lane.color : '#3a466a'}">
-      <span class="lb-swatch" title="${lane ? lane.name + ' lane' : 'not in play'}">${lane ? lane.name[0] : '·'}</span>
-      ${canEdit
-        ? `<select class="lb-kind" data-lb-kind="${half}:${i}" aria-label="Slot ${i + 1}">
-            ${kinds.map((k) => `<option value="${k}" ${k === s.kind ? 'selected' : ''}>${SEAT_KIND_LABEL[k]}</option>`).join('')}
-          </select>`
-        : `<span class="lb-kind lb-kind-fixed">${s.kind === 'human' && !isMine ? 'Player' : SEAT_KIND_LABEL[s.kind]}</span>`}
-      <span class="lb-name"><b>${escapeHTML(who)}${peer ? ' <i class="lb-live">●</i>' : ''}</b><small>${elem}${zone ? ` · ${zone.label}` : ''}${mp.active && s.sid ? ` · <span data-ready-sid="${escapeHTML(s.sid)}">${lobbySeatReadyText(s.sid)}</span>` : ''}</small></span>
-      ${canSit ? `<button class="lb-sit" data-lb-sit="${half}:${i}">Sit</button>` : `<span class="lb-lane">${lane ? lane.name : ''}</span>`}
-    </div>`;
-  };
-  const column = (half, title, size) => `
-    <div class="lb-col">
-      <div class="lb-colhead"><h4>${title}</h4>
-        <div class="lb-size">${[1, 2, 3].map((n) => `<button class="${n === size ? 'on' : ''}" data-lb-size="${half}:${n}">${n}</button>`).join('')}</div>
-      </div>
-      ${ensureRoster()[half].map((s, i) => seatRow(s, i, size, half)).join('')}
-    </div>`;
-
+  const canEdit = !mp.active || mp.role === 'host';
+  const code = mp.active ? escapeHTML(mp.code || '') : '';
+  const connected = mp.active ? 1 + Object.keys(mp.peers).length : 0;
   box.innerHTML = `
     <div class="lb-card">
-      <div class="lb-head">
-        <span class="lb-tag">LOBBY</span>
-        <strong>${solo ? 'Solo' : `${sizeS}v${sizeN}`} · ${modeName}</strong>
-        <span class="lb-count">${mp.active ? (mp.role === 'host' ? 'HOST' : 'GUEST') : 'LOCAL'}</span>
+      <div class="lb-top">
+        <button id="lb-leave" class="lb-icon" aria-label="Leave the lobby">‹</button>
+        <div class="lb-title"><strong>Lobby</strong><small>${solo ? 'Solo' : `${sizeS}v${sizeN}`} · ${modeName}${mp.active ? '' : ` · ${(document.getElementById('ai-select')?.selectedOptions[0]?.textContent || '').split('•')[0].trim()} rival`}</small></div>
+        ${mp.active ? `<button id="lb-share" class="lb-icon" aria-label="Share the invite link">⇪</button>` : `<span class="lb-icon lb-icon-blank" aria-hidden="true"></span>`}
       </div>
+      ${mp.active ? `<div class="lb-roomrow"><span><em>ROOM</em><b>${code}</b></span><span class="lb-conn"><i></i>${connected} connected · ${mp.role === 'host' ? 'you host' : 'the host starts'}</span></div>` : ''}
       ${lobbyBoardGuide(myHalf)}
-      ${mp.active && mp.role==='host' && !mp.started && lobbyHumans().length>=2 ? `<button id="lb-team-up" class="lb-ready" ${mpHumansVsComputers()?'disabled':''}>${mpHumansVsComputers()?'Playing together vs computers':'Play together vs computers'}</button>` : ''}
-      <div class="lb-cols">
-        ${column(myHalf, 'Your team · bottom', sizeS)}
-        ${matchMode === 'survival' ? '' : column(foeHalf, 'Opponents · top', sizeN)}
-      </div>
+      ${mp.active && mp.role==='host' && !mp.started && lobbyHumans().length>=2 ? `<button id="lb-team-up" class="lb-ready lb-ready-alt" ${mpHumansVsComputers()?'disabled':''}>${mpHumansVsComputers()?'Playing together vs computers':'Play together vs computers'}</button>` : ''}
+      <p class="lb-hint">${canEdit ? 'Tap a seat to change who sits there. Teammates share lives and build one board together, each in their own lane.' : 'Only the host changes seats. Tap an open seat to sit in it. Teammates share lives and build one board together.'}</p>
       ${solo ? `<label class="lb-solo"><input type="checkbox" id="lb-solo" ${soloRules ? 'checked' : ''}>
         <span><b>Solo rules</b> — sends only, no neutral waves, and a brutal rival that builds the whole far side rather than a corner of it. One player, one very hard opponent.</span></label>` : ''}
-      <p class="lb-hint">Players in the same team row share lives and cannot target each other. Colours match the board: west is left, east is right. A teammate's towers are built on your board too, in their lane, so you maze one board together. Watching their board above does not make them an opponent.</p>
+      <div class="lb-elem-head"><span class="lb-map-label">YOUR ELEMENT</span><small>${randomRace ? 'Random' : selectedRace.name}</small></div>
       <div class="lb-races">${races.filter((r) => raceUnlocked(r.id)).map((r) => `
-        <button class="lb-race ${!randomRace && r.id === selectedRace.id ? 'on' : ''}" data-lb-race="${r.id}" style="--race:${r.color}" title="${r.name} — ${r.trait}">
+        <button class="lb-race ${!randomRace && r.id === selectedRace.id ? 'on' : ''}" data-lb-race="${r.id}" style="--race:${r.color}" aria-label="${r.name}" aria-pressed="${!randomRace && r.id === selectedRace.id}" title="${r.name} — ${r.trait}">
           <span>${r.symbol}</span><small>${r.name}</small></button>`).join('')}
-        <button class="lb-race ${randomRace ? 'on' : ''}" data-lb-race="random" style="--race:#b9c4e4" title="Random element — decided when the match starts">
+        <button class="lb-race ${randomRace ? 'on' : ''}" data-lb-race="random" style="--race:#b9c4e4" aria-label="Random element" aria-pressed="${!!randomRace}" title="Random element — decided when the match starts">
           <span>🎲</span><small>Random</small></button></div>
-      ${mp.active ? `<p class="lb-room">Room <b>${escapeHTML(mp.code || '')}</b> · ${1 + Object.keys(mp.peers).length} connected${mp.role === 'host' ? ' · you are the host' : ' · the host starts the match'}</p>` : ''}
-      ${mp.active && lobbyPhase ? `<button id="lb-consent" class="lb-ready" aria-pressed="${lobbyLocalReady()}">${lobbyReadyButtonText()}</button>`:''}
-      <button id="lb-ready" class="lb-ready" ${mp.active && lobbyPhase && (mp.role!=='host' || !lobbyAllReady())?'disabled':''}>${!lobbyPhase?'Back to the board':mp.active?(mp.role==='host'?(lobbyAllReady()?'Start match':'Waiting for everyone to ready'):'Waiting for the host'):'Start match'}</button>
+      <div class="lb-foot">
+        ${mp.active && lobbyPhase ? `<button id="lb-consent" class="lb-ready lb-ready-primary" aria-pressed="${lobbyLocalReady()}">${lobbyReadyButtonText()}</button>`:''}
+        ${mp.active && lobbyPhase && mp.role !== 'host'
+          ? `<p class="lb-wait">The host starts the match once everyone is ready.</p>`
+          : `<button id="lb-ready" class="lb-ready ${mp.active && lobbyPhase ? '' : 'lb-ready-primary'}" ${mp.active && lobbyPhase && (mp.role!=='host' || !lobbyAllReady())?'disabled':''}>${!lobbyPhase?'Back to the board':mp.active?(mp.role==='host'?(lobbyAllReady()?'Start match':'Waiting for everyone to ready'):'Waiting for the host'):'Start match'}</button>`}
+      </div>
     </div>`;
   // put focus back where it was, so a rebuild does not lose your place
   if (restore) {
@@ -11684,10 +11723,18 @@ function renderLobby(force) {
   $('lb-team-up')?.addEventListener('click',mpTeamUpAgainstComputers);
   $('lb-solo')?.addEventListener('change', (e) => { soloRules = e.target.checked; renderLobby(true); });
   box.querySelectorAll('[data-lb-race]').forEach((b) => b.addEventListener('click', () => lobbyPickRace(b.dataset.lbRace)));
-  box.querySelectorAll('[data-lb-kind]').forEach((sel) => sel.addEventListener('change', () => {
-    const [half, i] = sel.dataset.lbKind.split(':');
-    lobbySetSeat(half, Number(i), sel.value);
+  box.querySelectorAll('[data-lb-cycle]').forEach((b) => b.addEventListener('click', () => {
+    const [half, i] = b.dataset.lbCycle.split(':');
+    lobbyCycleSeat(half, Number(i));
   }));
+  $('lb-leave')?.addEventListener('click', leaveMatch);
+  $('lb-share')?.addEventListener('click', async () => {
+    const link = mpInviteLink(mp.code);
+    try {
+      if (navigator.share) await navigator.share({ title:'Rimewall room ' + mp.code, text:'Join my Rimewall room', url:link });
+      else { await navigator.clipboard.writeText(link); showToast('<b>Invite link copied</b><span>Send it to your teammate.</span>'); }
+    } catch (e) { window.prompt('Copy this invite link:', link); }
+  });
   box.querySelectorAll('[data-lb-size]').forEach((b) => b.addEventListener('click', () => {
     const [half, n] = b.dataset.lbSize.split(':');
     lobbySetSize(half, Number(n));
@@ -11697,7 +11744,7 @@ function renderLobby(force) {
     mpSit(half, Number(i));
   }));
   $('lb-consent')?.addEventListener('click',lobbyToggleReady);
-  $('lb-ready').addEventListener('click', () => {
+  $('lb-ready')?.addEventListener('click', () => {
     if (!lobbyPhase) return closeLobby();
     if (mp.active) return mpHostStart();          // the host starts the whole room at once
     const solo = applySoloRules();
@@ -14307,8 +14354,8 @@ $('start-button').addEventListener('click', () => {
   setupCanvasesOnce(); buildOverlay(); fitBoardToViewport(); resetMapZoom(); redrawBoard();
   openLobby();
 });
-$('open-drawpad-card')?.addEventListener('click', () => openDrawpad('race-screen'));
-$('open-collab-card')?.addEventListener('click', openCollabDashboard);
+$('open-drawpad-card')?.addEventListener('click', () => { closeSettings?.(); openDrawpad('race-screen'); });
+$('open-collab-card')?.addEventListener('click', () => { closeSettings?.(); openCollabDashboard(); });
 $('collab-back-button').addEventListener('click', () => { $('collab-screen').classList.add('hidden'); $('race-screen').classList.remove('hidden'); });
 $('collab-map-button').addEventListener('click', () => openDrawpad('collab-screen'));
 $('collab-test-button').addEventListener('click', startBattle);
