@@ -1718,6 +1718,54 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
   body.playing.arena .enemy-hpbar i { display:block; height:100%; background:linear-gradient(90deg,#d52f46,#ff6d7d); }
   body.playing.arena .enemy-hptext { display:flex; justify-content:space-between; gap:8px; color:#d9e1f2; font:600 8px 'DM Mono',monospace; }
   body.playing.arena .enemy-meta { margin-top:7px; color:#8996b3; font:500 8px/1.5 'DM Mono',monospace; }
+
+  /* ARENA PANELS, PHASE 3 (2026-11-09). One tower layer, one enemy layer; send
+     cards a third of their height, three a row, scrolled down not sideways; the
+     economy in one strip; card text on a diet until a card is chosen. */
+  body.playing.arena .builder-tabs { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  body.playing.arena.mobile-panel-build #build-extras { display:none !important; }
+  body.playing.arena.mobile-panel-build .tower-row { height:auto; min-height:48px; align-items:flex-start; overflow:visible; }
+  body.playing.arena.mobile-panel-build .tower-row > span { min-width:0; }
+  body.playing.arena.mobile-panel-build .tower-row b { align-self:flex-start; margin-top:2px; }
+  body.playing.arena.mobile-panel-build .tower-row:not(.selected) .profile-line,
+  body.playing.arena.mobile-panel-build .tower-row:not(.selected) .imbue-line { display:none; }
+  body.playing.arena.mobile-panel-build .tower-row .tower-stats { font-size:10px; }
+  body.playing.arena.mobile-panel-build .tower-row b { font-size:13px; }
+  body.playing.arena.mobile-panel-build #build-mode-button { min-height:48px; }
+  body.playing.arena .td-prose-toggle { min-height:44px; padding:0 10px; border:1px solid #2c4a7a; border-radius:9px; background:#111a30; color:#bcd2ff; font:600 11px 'DM Mono',monospace; }
+  body.playing.arena .td-prose-toggle[aria-pressed="true"] { border-color:#77d6ff; color:#eafcff; background:#12304b; }
+  body.td-prose-hidden.playing.arena .tower-inspector .td-desc:not(.td-hint),
+  body.td-prose-hidden.playing.arena .tower-inspector .td-next,
+  body.td-prose-hidden.playing.arena .tower-inspector .td-ability { display:none; }
+  body.playing.arena .tower-inspector .td-actions button { min-height:48px; }
+  body.playing.arena .tower-inspector .weapon-row button,
+  body.playing.arena .tower-inspector .bolt-row button,
+  body.playing.arena .tower-inspector .ward-row button,
+  body.playing.arena .tower-inspector .batch-row button { min-height:44px; }
+  body.playing.arena .tower-inspector #td-close { min-width:44px; min-height:44px; }
+  body.playing.arena.mobile-panel-sends .tactical-dock { height:min(56dvh,480px); }
+  body.playing.arena .econ-strip { flex:0 0 auto; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.5fr); gap:6px; padding:8px 8px 6px; border-bottom:1px solid #2a3550; background:#0d1424; }
+  body.playing.arena .econ-btn { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-height:48px; padding:4px 6px; border:1px solid #2c3959; border-radius:10px; background:#111a30; color:#eafcff; }
+  body.playing.arena .econ-btn b { font:700 13px 'DM Mono',monospace; }
+  body.playing.arena .econ-btn small { color:#8e98b7; font:600 9px 'DM Mono',monospace; letter-spacing:.04em; }
+  body.playing.arena .econ-btn:disabled { opacity:.5; }
+  body.playing.arena .econ-done { border-style:dashed; }
+  body.playing.arena .econ-license { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px; min-width:0; }
+  body.playing.arena .econ-license select { min-width:0; min-height:48px; padding:0 4px; border:1px solid #2c3959; border-radius:10px; background:#0c1324; color:#dbe4fa; font:600 11px 'DM Mono',monospace; }
+  body.playing.arena .econ-flash { animation:econ-flash .9s ease; }
+  @keyframes econ-flash { 0%,100% { box-shadow:none; } 40% { box-shadow:inset 0 0 0 2px #77d6ff; } }
+  body.playing.arena .send-dock-tabs { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  body.playing.arena .send-dock-tab.shrine { display:none; }
+  body.playing.arena .desktop-send-list { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); grid-auto-rows:max-content; gap:7px; overflow-x:hidden; overflow-y:auto; scroll-snap-type:none; padding:8px; }
+  body.playing.arena .desktop-send-list .dock-shrine-divider { grid-column:1 / -1; }
+  body.playing.arena .dock-send-card { flex:none; width:auto; min-height:0; max-height:200px; gap:4px; padding:7px; }
+  body.playing.arena .dock-send-card strong { max-width:100%; font-size:10px; }
+  body.playing.arena .dock-send-card .send-glyph { width:26px; height:26px; font-size:14px; }
+  body.playing.arena .dock-send-card .send-top small { display:none; }
+  body.playing.arena .dock-send-stats { font-size:8px; line-height:1.35; }
+  body.playing.arena .dock-send-buy { flex-direction:column; align-items:flex-start; gap:1px; }
+  body.playing.arena .dock-send-buy i { text-align:left; }
+  body.playing.arena .dock-empty { grid-column:1 / -1; }
 }
 </style>
 </head>
@@ -2021,7 +2069,7 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
           </aside>
 
           <aside id="tower-inspector" class="tower-inspector" aria-label="Tower information">
-            <div class="inspector-title"><span class="selection-kicker">TOWER INFORMATION</span><span id="inspector-builder-tag">BUILDER 1</span></div>
+            <div class="inspector-title"><span class="selection-kicker">TOWER</span><button id="td-prose-toggle" class="td-prose-toggle" aria-pressed="false" aria-label="Show the full description">ⓘ Details</button><span id="inspector-builder-tag">BUILDER 1</span></div>
             <div id="tower-details" class="tower-details"></div>
           </aside>
 
@@ -2031,6 +2079,7 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
               <canvas id="tactical-minimap" width="260" height="144" aria-label="Battlefield minimap"></canvas>
             </div>
             <div class="send-dock">
+              <div id="econ-strip" class="econ-strip" aria-label="Lumber, shrine and second element"></div>
               <div id="send-dock-tabs" class="send-dock-tabs" aria-label="Send categories"></div>
               <div id="desktop-send-list" class="desktop-send-list"></div>
             </div>
@@ -8984,8 +9033,9 @@ function ringAction(act) {
     if (t) sellTowerAt({ r:t.r, c:t.c });
     selectedGroupKeys = []; selectedTowerKey = null; renderTowerDetails();
   } else if (act === 't-imbue' || act === 't-weapon') {
-    // both racks live in the wisp panel; this is the one press that finds them
-    wispTab = 'inspect'; renderWispPanel('inspect');
+    // both racks live in the TOWER tray on a phone and in the side panel on a desktop
+    if (touchUI() && document.body.classList.contains('arena')) phoneInspect('tower');
+    else { wispTab = 'inspect'; renderWispPanel('inspect'); }
   } else towerAction(act.slice(2));
   renderRing();
 }
@@ -9606,6 +9656,10 @@ let bannerShownWave = -1;
    R1  ONE ROW.        Never wraps, never scrolls. (Height is left to the
                        stylesheet — the bar is position:fixed and its content
                        set is owned by the HUD rules, not by this check.)
+                       The phone HUD (max-width 900, body.arena) is laid out as
+                       a two-row grid on purpose — match state and actions on
+                       the first row, resources on the second — so there R1
+                       holds per row: nothing within a row may stack.
    R2  NO HALF-VALUES. A number shows in full or abbreviates (20983 -> 21.0k);
                        it is never clipped mid-digit.
    R3  YIELD ORDER.    When space runs out, items drop whole, lowest priority
@@ -9648,10 +9702,17 @@ function hudContractReport() {
      it as a known unfixed bug for weeks. Nothing was stacking. Compare vertical
      CENTRES, which share a value on one row whatever the heights are. */
   const kids = [...hud.children].filter((e) => getComputedStyle(e).display !== 'none');
-  const centres = kids.map((e) => { const r = e.getBoundingClientRect(); return Math.round(r.top + r.height / 2); });
-  if (centres.length > 1 && Math.max(...centres) - Math.min(...centres) > 6) {
-    bad.push(`R1: items are on ${new Set(centres).size} rows (centres ${[...new Set(centres)].join(',')}) - arena .hud cascade is stacking them`);
-  }
+  const centre = (e) => { const r = e.getBoundingClientRect(); return Math.round(r.top + r.height / 2); };
+  // the phone HUD is a two-row grid by design (see R1): check each row on its own
+  const rows = getComputedStyle(hud).display === 'grid'
+    ? [kids.filter((e) => !e.classList.contains('resources')), kids.filter((e) => e.classList.contains('resources'))]
+    : [kids];
+  rows.forEach((row, i) => {
+    const centres = row.map(centre);
+    if (centres.length > 1 && Math.max(...centres) - Math.min(...centres) > 6) {
+      bad.push(`R1: row ${i + 1} items are on ${new Set(centres).size} rows (centres ${[...new Set(centres)].join(',')}) - arena .hud cascade is stacking them`);
+    }
+  });
   if (bad.length) console.warn('[top bar contract]', bad.join(' | '));
   return bad;
 }
@@ -9779,9 +9840,7 @@ function renderBuilderTabs() {
     <button class="${secondReady && buildRaceIdx === 1 ? 'active' : ''} ${secondReady ? '' : 'builder-locked'}" ${secondReady ? 'data-builder-index="1"' : 'data-builder-license="1"'} style="--tab-race:${second?.color || '#c9b6ff'}">
       <span>${secondReady ? `${second.symbol} ${second.name}` : '⚗ LOCKED'}</span><small>${secondReady ? 'BUILDER 2' : '2 LUMBER'}</small>
     </button>
-    <button class="builder-locked" disabled style="--tab-race:#8fe6b8" title="Reserved for a future support system">
-      <span>✦ SUPPORT</span><small>RESERVED</small>
-    </button>`;
+`;
   tabs.querySelectorAll('[data-builder-index]').forEach((button) => button.addEventListener('click', () => {
     buildRaceIdx = Number(button.dataset.builderIndex);
     selectedTowerTier = 0;
@@ -9791,6 +9850,7 @@ function renderBuilderTabs() {
     log(`${race?.name || 'Builder'} tower line selected.`);
   }));
   tabs.querySelector('[data-builder-license]')?.addEventListener('click', () => {
+    if (touchUI() && document.body.classList.contains('arena')) { setMobileTacticalPanel('sends', true); flashEconStrip(); return; }
     const license = $('license-button');
     license?.scrollIntoView({ block:'nearest', behavior:rmReduced() ? 'auto' : 'smooth' });
     showToast(`<b>Second builder slot</b><span>License another element below for 2 lumber.</span>`);
@@ -10467,6 +10527,38 @@ function desktopSendPool() {
   if (desktopSendTab === 'flying') return orderedSends(SENDS.filter((send) => send.air));
   return orderedSends(SENDS.filter((send) => !send.attacker && !send.air));
 }
+/* THE ECONOMY STRIP. Lumber, the Shrine and the second element are the three
+   things gold and lumber convert into, and they sat under BUILD behind the tower
+   list while the Shrine also lived under SENDS. One strip, on the SENDS tray,
+   above the send tabs. It delegates to the same functions the BUILD extras use. */
+function renderEconStrip() {
+  const box = $('econ-strip');
+  if (!box || !player) return;
+  const maxed = player.shrine >= SHRINE_MAX;
+  const second = player.races[1] ? races.find((r) => r.id === player.races[1]) : null;
+  const options = races.filter((race) => race.id !== player.races[0] && raceUnlocked(race.id));
+  const pick = box.querySelector('#econ-license')?.value || options[0]?.id || '';
+  box.innerHTML = `
+    <button class="econ-btn" data-econ="lumber" ${player.gold < LUMBER_PRICE ? 'disabled' : ''} aria-label="Buy one lumber for ${LUMBER_PRICE} gold"><b>🪵 ${player.lumber}</b><small>+1 · ${LUMBER_PRICE}g</small></button>
+    <button class="econ-btn" data-econ="shrine" ${maxed || player.lumber < 1 ? 'disabled' : ''} aria-label="${maxed ? 'Shrine is at its top level' : `Upgrade the Shrine to level ${player.shrine + 1} for one lumber`}"><b>⛩ L${player.shrine}</b><small>${maxed ? 'max' : `→ L${player.shrine + 1} · 1🪵`}</small></button>
+    ${second
+      ? `<div class="econ-btn econ-done" aria-label="Second element licensed"><b style="color:${second.color}">${second.symbol} ${second.name}</b><small>2nd element</small></div>`
+      : `<div class="econ-license"><select id="econ-license" aria-label="Second element to license">${options.map((race) => `<option value="${race.id}" ${race.id === pick ? 'selected' : ''}>${race.symbol} ${race.name}</option>`).join('')}</select><button class="econ-btn" data-econ="license" ${player.lumber < 2 ? 'disabled' : ''} aria-label="License the second element for two lumber"><b>⚗ 2nd</b><small>2🪵</small></button></div>`}`;
+  if (!box._bound) {
+    box._bound = true;
+    box.addEventListener('click', (event) => {
+      const b = event.target.closest('[data-econ]'); if (!b || b.disabled) return;
+      if (b.dataset.econ === 'lumber') buyLumber();
+      else if (b.dataset.econ === 'shrine') upgradeShrine();
+      else if (b.dataset.econ === 'license') licenseSecondElement($('econ-license')?.value);
+      tacticalDockKey = ''; renderTacticalDock(); renderTowerList();
+    });
+  }
+}
+function flashEconStrip() {
+  const box = $('econ-strip'); if (!box) return;
+  box.classList.remove('econ-flash'); void box.offsetWidth; box.classList.add('econ-flash');
+}
 function renderTacticalDock() {
   const tabs = $('send-dock-tabs'), list = $('desktop-send-list');
   if (!tabs || !list || !player) return;
@@ -10496,9 +10588,10 @@ function renderTacticalDock() {
   }
   const pool = desktopSendPool();
   const key = [desktopSendTab, player.shrine, Math.floor(player.gold), player.lumber,
-    Math.round(player.income), Math.round(sendGrowth() * 100), pool.map((send) => send.id).join(',')].join('|');
+    Math.round(player.income), Math.round(sendGrowth() * 100), pool.map((send) => send.id).join(','), player.races.join('+')].join('|');
   if (key !== tacticalDockKey) {
     tacticalDockKey = key;
+    renderEconStrip();
     const shrineMaxed = player.shrine >= SHRINE_MAX;
     tabs.innerHTML = `
       <button class="send-dock-tab ${desktopSendTab === 'sends' ? 'active' : ''}" data-dock-tab="sends">SENDS</button>
@@ -10650,7 +10743,7 @@ function handleBoardTap(event) {
     if (ghost) ghost = null;
     if (tower.owner !== 'player') {   // rival tower — inspect what they're building, no select
       inspectEntity = { kind:'enemy', ref:tower };
-      if (touchUI() && document.body.classList.contains('arena')) { wispTab = 'inspect'; renderWispPanel('inspect'); }
+      if (touchUI() && document.body.classList.contains('arena')) phoneInspect('enemy');
       else log(`Rival is building ${towerLiveStats(tower).name} (${towerLiveStats(tower).dmg} dmg, ${towerLiveStats(tower).range.toFixed(1)} range).`);
       return;
     }
@@ -10702,7 +10795,7 @@ function handleBoardTap(event) {
          sell and both racks, so it is the surface; the rail goes back to being
          build and send. */
       railClose();
-      wispTab = 'inspect'; renderWispPanel('inspect');
+      phoneInspect('tower');
     }
     return;
   }
@@ -10715,7 +10808,7 @@ function handleBoardTap(event) {
     creeps.forEach((cr) => { if (cr.hp <= 0) return; const d = Math.hypot(cr.x - px, cr.y - py); if (d < bd) { bd = d; best = cr; } });
     if (best) {
       inspectEntity = { kind:'creep', ref:best };
-      if (touchUI() && document.body.classList.contains('arena')) { wispTab = 'inspect'; renderWispPanel('inspect'); }
+      if (touchUI() && document.body.classList.contains('arena')) phoneInspect('enemy');
       else log(`${best.name}: ${Math.round(best.hp)}/${best.maxHp} HP · ${best.armor} armor · ${best.aClass}${best.air?' · air':''}`);
       return;
     }
@@ -10723,7 +10816,7 @@ function handleBoardTap(event) {
     const hit = mp.active ? mirrorHit(px, py) : null;
     if (hit) {
       inspectEntity = hit;
-      if (touchUI() && document.body.classList.contains('arena')) { wispTab = 'inspect'; renderWispPanel('inspect'); }
+      if (touchUI() && document.body.classList.contains('arena')) phoneInspect('enemy');
       else if (hit.kind === 'mirror-tower') {
         const st = towerLiveStats(hit.ref);
         log(`${mpSeatName(mp.viewSeat) || 'They'} built ${st.name} — ${st.dmg} dmg · ${st.range.toFixed(1)} range · ${(st.dmg / st.cd).toFixed(0)} dps.`);
@@ -14120,6 +14213,14 @@ function renderCommandSheet() {
   });
 }
 function closeWispMenus() { $('wisp-radial')?.classList.add('hidden'); $('wisp-panel')?.classList.add('hidden'); }
+/* ONE SURFACE PER THING ON A PHONE (2026-11-09). A tap on a tower used to open the
+   floating chip AND leave the TOWER tray carrying the same five buttons; a tap on
+   a creep did the same with the ENEMY tray. The tray is the surface now: a tower
+   opens TOWER, anything else opens ENEMY, and the chip stays closed. */
+function phoneInspect(kind) {
+  closeWispMenus();
+  setMobileTacticalPanel(kind === 'tower' ? 'tower' : 'enemy', true);
+}
 let wispTab = 'build';
 let inspectEntity = null;   // {kind:'tower'|'enemy'|'creep', ref}
 function renderWispPanel(mode) {
@@ -14390,6 +14491,11 @@ $('build-mode-button').addEventListener('click', () => {
   log('Tap any open tile on your half (south of the river) to place the selected tower.');
   if (document.body.classList.contains('arena')) setMobileTacticalPanel('map', true);
 });
+$('td-prose-toggle')?.addEventListener('click', () => {
+  const on = !document.body.classList.toggle('td-prose-hidden');
+  $('td-prose-toggle').setAttribute('aria-pressed', String(on));
+});
+document.body.classList.add('td-prose-hidden');
 $('mobile-tactical-nav')?.addEventListener('click', (event) => {
   const button = event.target.closest('[data-mobile-panel]');
   if (button) setMobileTacticalPanel(button.dataset.mobilePanel);

@@ -2,6 +2,31 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 9, 2026 — Arena panels on the phone (Claude, redesign phase 3)
+
+- One surface per thing: a tap on your tower opens the TOWER tray, a tap on a creep,
+  rival tower or watched-board piece opens the ENEMY tray, and the floating chip
+  stays closed (`phoneInspect`; the five tap sites and the rack shortcut). The TOWER
+  tray hides the description, next-tier and rank paragraphs behind a ⓘ Details
+  toggle; actions, stats and racks stay.
+- Sends: the cards are a 3-column grid scrolled down, not sideways, 103 px tall
+  (were 341 px, one row of 27 cards scrolled sideways); Shrine dividers span the
+  row. An economy strip sits above the send tabs: lumber (+1 · 500 g), Shrine
+  (→ next level · 1🪵) and the second-element licence with its picker
+  (`renderEconStrip`, delegating to `buyLumber`, `upgradeShrine`,
+  `licenseSecondElement`). The BUILD tray no longer carries the licence, lumber
+  and shrine rows; the dock's Shrine tab is gone (the strip has it). The locked
+  BUILDER 2 tab opens the strip. The SUPPORT · RESERVED tab is removed.
+- Tower cards show name, numbers and price; the armour line and imbue line
+  appear on the chosen card only.
+- Top-bar contract: the phone HUD is a two-row grid by design, so R1 now holds per
+  row (`hudContractReport`); it reported R1 on every phone render before.
+- Measured at 390×844 (arenaaudit.js), before → after: BUILD controls 14 → 10,
+  under 44 px 4 → 0; send cards per row 27 → 3, card height 341 → 103 px,
+  horizontal scroll yes → no; tower tap: chip open + tray closed → tray open, chip
+  closed, one action set, prose hidden; creep tap: chip → ENEMY tray; HUD contract
+  R1 → clean; no page errors; teamboard.js PASS.
+
 ## November 9, 2026 — Lobby: tap a seat (Claude, redesign phase 2)
 
 - The board guide is the seat control. Tap a tile to change who sits there (host or
