@@ -2,6 +2,24 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 9, 2026 — Home screen: play first (Claude, redesign phase 1)
+
+- The setup is a "Next match" card: element and a one-line summary of mode, team,
+  rival and lives, with one Change control that folds the four selects out. Play is
+  a 56 px button under it; "With a friend" folds out the multiplayer panel and
+  "Daily gauntlet" the gauntlet card. The element is picked in one place, a row of
+  72×84 chips; the duplicate element toggle is gone. Settings sits by the wordmark;
+  the version pill moves to the foot. The changelog card starts collapsed.
+- Measured at 390×844 (homeaudit.js), before → after: controls above the fold
+  9 → 7; element pickers 2 → 1; tap targets under 44 px 5 → 0; taps to play the
+  last setup 1 → 1; taps to change element and play 2 → 2; no horizontal overflow;
+  no page errors. teamboard.js PASS.
+- Changed: the race-screen markup, `renderWhatsNew` (collapsed by default),
+  `renderRaceDetail`'s close (no longer hides the element row), `renderRaceCards`
+  (unlocked count), new `renderSetupSummary` and the fold-out handlers. The
+  `#race-card` toggle no longer exists; `commitRace` still updates
+  `#race-card-symbol`, `#selected-name` and `#selected-desc`.
+
 ## November 5, 2026 — Wind element, ported from Abdy's branch (Claude)
 
 - Abdy's Wind builder (`test/sites-shared-arena-20` at `b484ca7`, 2026-11-03) ported

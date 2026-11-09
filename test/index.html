@@ -862,6 +862,40 @@ body.reduce-motion .map-toggles button.mt-alarm { animation:none; box-shadow:0 0
 /* Settings gear + modal (single settings home on every device) */
 .setup-actions-row { display:flex; gap:10px; align-items:stretch; }
 .setup-actions-row .primary-button { flex:1; }
+/* HOME, PLAY FIRST (2026-11-09). The last-used setup is a summary with one Change
+   control; Play is the first thing a thumb reaches; multiplayer and the Daily
+   Gauntlet are secondary and fold out; the element is picked in one place. */
+.home-brand { margin-bottom:14px; align-items:center; }
+.home-brand .gear-button { width:44px; height:44px; }
+.setup-card { display:flex; flex-direction:column; gap:12px; margin-top:4px; padding:16px; border:1px solid #273252; border-radius:18px; background:#11182bcc; }
+.setup-head { display:flex; align-items:center; justify-content:space-between; }
+.setup-change { display:flex; align-items:center; gap:4px; min-height:44px; padding:0 6px; border:0; background:none; color:var(--ice); font:500 13px 'DM Mono',monospace; }
+.setup-change span { font-size:17px; line-height:1; transition:transform .16s ease; }
+.setup-change[aria-expanded="true"] span { transform:rotate(90deg); }
+.setup-summary { display:flex; align-items:center; gap:14px; }
+.setup-summary .race-symbol { flex:0 0 56px; height:56px; margin:0; display:flex; align-items:center; justify-content:center; border-radius:16px; border:1px solid #2a5c7a; background:#0e2a3d; font-size:30px; }
+.setup-summary strong { display:block; font-size:22px; font-weight:800; line-height:1.1; }
+.setup-summary #setup-summary { display:block; margin-top:4px; color:var(--muted); font-size:14px; }
+.setup-card .selection-actions { display:flex; flex-direction:column; align-items:stretch; gap:8px; padding-top:4px; }
+.setup-card .selection-actions.hidden { display:none; }
+.setup-card .lives-pick { justify-content:space-between; min-height:44px; }
+.setup-card .lives-pick select { flex:1; margin-left:10px; min-height:44px; }
+.setup-card .primary-button { min-height:56px; border-radius:14px; font-size:18px; }
+.setup-secondary { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
+.secondary-button { min-height:48px; border:1px solid #273252; border-radius:12px; background:#151f37; color:var(--ink); font-weight:700; font-size:15px; }
+.secondary-button[aria-expanded="true"] { border-color:var(--ice); color:var(--ice); }
+#home-daily { border-color:#3a4a2a; background:#17241a; color:#d9f29a; }
+.race-grid-wrap { margin-top:18px; }
+.race-grid-wrap .rule-line { margin-bottom:10px; }
+.element-blurb { margin:6px 2px 0; color:var(--muted); font-size:13px; line-height:1.4; min-height:18px; }
+.race-grid .race-card { flex:0 0 72px; aspect-ratio:auto; height:84px; justify-content:center; gap:6px; padding:6px 4px; }
+.race-grid .race-card .race-symbol { position:static; transform:none; font-size:24px; text-shadow:none; }
+.race-grid .race-card strong { font:700 12px Manrope,system-ui,sans-serif; letter-spacing:0; }
+.race-grid .race-card small, .race-grid .race-card .active-mark { display:none; }
+.race-grid .race-card.selected { border-color:var(--race); box-shadow:0 0 0 2px color-mix(in srgb, var(--race) 55%, transparent); }
+.daily-quests.hidden, .mp-panel.hidden { display:none; }
+.home-foot { display:flex; justify-content:center; margin-top:22px; }
+.profile-summary, .whats-new button, .daily-quests button, .tool-card { min-height:44px; }
 .gear-button { flex:0 0 auto; width:52px; border:1px solid #334264; border-radius:12px; background:#0d1730; color:#bcd2ff; font-size:20px; cursor:pointer; }
 .gear-button:hover { border-color:#77d6ff; color:#eafcff; }
 .gear-hud { font-size:15px; }
@@ -1677,40 +1711,42 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
             <button id="wisp" class="wisp hidden" aria-label="Command wisp — tap for towers and sends, drag to move"><span>✦</span><b id="wisp-undo" class="wisp-undo hidden" title="Cancel construction — full refund">↩</b></button>
       <div id="command-sheet" class="command-sheet hidden"></div>
       <section id="race-screen" class="screen race-screen">
-        <div class="brand-row">
+        <div class="brand-row home-brand">
           <div class="brand-lockup">
-            <p class="eyebrow">FROZEN RIVER • TOWER WARS</p>
             <div class="wordmark-row"><svg class="crest-mark" viewBox="0 0 48 48" width="46" height="46" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="crestG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bfeaff"/><stop offset="1" stop-color="#4aa3e0"/></linearGradient></defs><path d="M24 2 L42 11 V26 C42 37 34 44 24 46 C14 44 6 37 6 26 V11 Z" fill="#0d1f3a" stroke="url(#crestG)" stroke-width="2"/><g stroke="url(#crestG)" stroke-width="2.4" stroke-linecap="round"><path d="M24 12 V34 M14.5 18 L33.5 28 M33.5 18 L14.5 28"/></g><g stroke="#eafcff" stroke-width="1.3" stroke-linecap="round" opacity=".9"><path d="M24 15 l-2.4 2.6 M24 15 l2.4 2.6 M24 31 l-2.4 -2.6 M24 31 l2.4 -2.6"/></g></svg><h1>Rime<span>wall</span></h1></div>
-            <p class="lede">Choose your element. Build the maze. Break theirs.</p>
           </div>
-          <div class="version-pill">TEST BUILD · TEAM MATCH 14 + FIXES 2026-11-05</div>
+          <button id="settings-open" class="gear-button" title="Settings" aria-label="Settings">⚙</button>
         </div>
 
-        <div class="selection-bar setup-bar">
-          <button id="race-card" class="race-card-toggle" aria-expanded="true">
+        <div class="setup-card">
+          <div class="setup-head"><span class="selection-kicker">NEXT MATCH</span><button id="setup-toggle" class="setup-change" aria-expanded="false" aria-controls="setup-options">Change <span aria-hidden="true">›</span></button></div>
+          <div class="setup-summary">
             <span id="race-card-symbol" class="race-symbol">❄</span>
-            <span class="race-card-copy"><span class="selection-kicker">YOUR ELEMENT — TAP TO CHANGE</span><strong id="selected-name">Ice</strong><span id="selected-desc">Slows enemies and buys your maze time.</span></span>
-            <span class="race-card-caret">▾</span>
-          </button>
-          <div class="selection-actions"><label class="lives-pick" for="mode-select">MODE <select id="mode-select"><option value="skirmish" selected>Waves vs rival</option><option value="survival">Survival • creeps only, no rival</option><option value="classic">Classic Wars • sends only</option></select></label><label class="lives-pick" for="team-select">TEAM <select id="team-select"><option value="1" selected>1v1 • one batch</option><option value="2">2v2 • two batches</option><option value="3">3v3 • three batches</option></select></label><label class="lives-pick" for="ai-select">RIVAL <select id="ai-select"><option value="relaxed">Relaxed • learning the ropes</option><option value="normal">Standard • a poor rival</option><option value="hard">Hard • funded</option><option value="brutal" selected>Brutal • it out-earns you, recommended</option></select></label><label class="lives-pick" for="lives-select">LIFEFORCE <select id="lives-select"><option value="25">25 • classic</option><option value="50">50 • veteran</option><option value="100" selected>100 • easy</option></select></label></div>
+            <span class="race-card-copy"><strong id="selected-name">Ice</strong><span id="setup-summary">Waves vs rival · 1v1 · Brutal · 100 lives</span></span>
+          </div>
+          <div id="setup-options" class="selection-actions hidden"><label class="lives-pick" for="mode-select">MODE <select id="mode-select"><option value="skirmish" selected>Waves vs rival</option><option value="survival">Survival • creeps only, no rival</option><option value="classic">Classic Wars • sends only</option></select></label><label class="lives-pick" for="team-select">TEAM <select id="team-select"><option value="1" selected>1v1 • one batch</option><option value="2">2v2 • two batches</option><option value="3">3v3 • three batches</option></select></label><label class="lives-pick" for="ai-select">RIVAL <select id="ai-select"><option value="relaxed">Relaxed • learning the ropes</option><option value="normal">Standard • a poor rival</option><option value="hard">Hard • funded</option><option value="brutal" selected>Brutal • it out-earns you, recommended</option></select></label><label class="lives-pick" for="lives-select">LIFEFORCE <select id="lives-select"><option value="25">25 • classic</option><option value="50">50 • veteran</option><option value="100" selected>100 • easy</option></select></label></div>
           <div class="setup-actions-row">
-            <button id="start-button" class="primary-button">Enter the battlefield <span>→</span></button>
-            <button id="settings-open" class="gear-button" title="Settings" aria-label="Settings">⚙</button>
+            <button id="start-button" class="primary-button">Play <span>→</span></button>
+          </div>
+          <div class="setup-secondary">
+            <button id="home-mp" class="secondary-button" aria-expanded="false" aria-controls="mp-panel">With a friend</button>
+            <button id="home-daily" class="secondary-button" aria-expanded="false" aria-controls="daily-quests">Daily gauntlet</button>
           </div>
         </div>
 
         <div id="race-grid-wrap" class="race-grid-wrap">
-          <div class="rule-line"><span>SELECT YOUR RACE</span><i></i><small id="race-count">— ELEMENTS</small></div>
+          <div class="rule-line"><span>ELEMENT</span><i></i><small id="race-count">— UNLOCKED</small></div>
           <div id="race-grid" class="race-grid" aria-label="Element roster"></div>
+          <p id="selected-desc" class="element-blurb">Slows enemies and buys your maze time.</p>
           <div id="race-detail" class="race-detail hidden"></div>
         </div>
 
         <div id="profile-strip" class="profile-strip"></div>
-        <div id="daily-quests" class="daily-quests"></div>
+        <div id="daily-quests" class="daily-quests hidden"></div>
         <div id="team-roster" class="team-roster"></div>
         <div id="whats-new" class="whats-new"></div>
 
-        <div class="mp-panel">
+        <div id="mp-panel" class="mp-panel hidden">
           <div class="mp-head"><span class="selection-kicker">MULTIPLAYER • LIVE 1V1 • BETA</span><strong>Challenge a real commander.</strong><small class="mp-note">Best played with a friend — share the invite link when your room opens.</small></div>
           <div class="mp-controls">
             <input id="mp-name" type="text" maxlength="16" placeholder="Your commander name" autocomplete="nickname" />
@@ -1725,6 +1761,7 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
           <button id="open-drawpad-card" class="tool-card"><span>🗺</span><strong>Map builder</strong><small>Sketch your own battlefield</small></button>
           <button id="open-collab-card" class="tool-card"><span>🤝</span><strong>Build hub</strong><small>Tasks, notes, and handoff</small></button>
         </div>
+        <div class="home-foot"><div class="version-pill">TEST BUILD · TEAM MATCH 14 + FIXES 2026-11-09</div></div>
 
 
       </section>
@@ -11946,8 +11983,6 @@ function renderRaceDetail() {
   // like a choice was really just a preview.
   $('race-confirm').addEventListener('click', () => {
     if (locked) return;
-    $('race-grid-wrap')?.classList.add('hidden');
-    $('race-card')?.setAttribute('aria-expanded', 'false');
     box.classList.add('hidden');
     previewRaceId = null;
     renderRaceCards();
@@ -11994,7 +12029,8 @@ function renderRaceCards() {
   focusCard?.scrollIntoView({ inline:'center', block:'nearest', behavior:'smooth' });
   const count = $('race-count');
   // was hard-coded "9 ELEMENTS" and went stale the moment Beam landed
-  if (count) count.textContent = `${races.length} ELEMENTS`;
+  if (count) count.textContent = `${races.filter((race) => raceUnlocked(race.id)).length} OF ${races.length} UNLOCKED`;
+  renderSetupSummary();
   renderProfileStrip();
   renderTeamRoster();
   renderWhatsNew();
@@ -13725,7 +13761,10 @@ function renderWhatsNew() {
   const box = $('whats-new');
   if (!box) return;
   const seen = profile.releaseSeen === RELEASE_TAG;
-  const open = box.dataset.open === '1' || !seen;
+  // collapsed by default on the home screen (2026-11-09): the full notes pushed
+  // the multiplayer and gauntlet panels a screen and a half down; the "new" badge
+  // on the one-line header still says there is something to read
+  const open = box.dataset.open === '1';
   box.innerHTML = `
     <button class="wn-head" id="wn-toggle" aria-expanded="${open}">
       <span class="wn-tag">CHANGELOG</span>
@@ -13741,7 +13780,6 @@ function renderWhatsNew() {
     if (!seen) { profile.releaseSeen = RELEASE_TAG; saveProfile(); }
     renderWhatsNew();
   });
-  if (!seen) box.dataset.open = '1';
 }
 /* THE BOARD. Every run in the pool, scored and ranked inside its own bracket.
    It reads the pool that already exists — your own log plus anything imported
@@ -14353,12 +14391,28 @@ document.addEventListener('keydown', (event) => {
   }
   if (key === 'p') toggleBattlePause();
 });
-$('race-card')?.addEventListener('click', () => {
-  const wrap = $('race-grid-wrap');
-  if (!wrap) return;
-  const open = wrap.classList.toggle('hidden');
-  $('race-card').setAttribute('aria-expanded', String(!open));
+/* The summary line under the element name: what the four selects say, without
+   the explanations, so the setup reads in one glance and the selects fold away. */
+function renderSetupSummary() {
+  const el = $('setup-summary'); if (!el) return;
+  const pick = (id) => { const s = $(id); const o = s && s.options[s.selectedIndex]; return o ? o.textContent.split('•')[0].trim() : ''; };
+  const lives = pick('lives-select');
+  el.textContent = [pick('mode-select'), pick('team-select'), pick('ai-select'), lives ? `${lives} lives` : ''].filter(Boolean).join(' · ');
+}
+['mode-select', 'team-select', 'ai-select', 'lives-select'].forEach((id) => $(id)?.addEventListener('change', renderSetupSummary));
+$('setup-toggle')?.addEventListener('click', () => {
+  const box = $('setup-options'); if (!box) return;
+  const open = !box.classList.toggle('hidden');
+  $('setup-toggle').setAttribute('aria-expanded', String(open));
 });
+const foldOut = (buttonId, panelId) => $(buttonId)?.addEventListener('click', () => {
+  const panel = $(panelId); if (!panel) return;
+  const open = !panel.classList.toggle('hidden');
+  $(buttonId).setAttribute('aria-expanded', String(open));
+  if (open) panel.scrollIntoView({ block:'nearest', behavior:'smooth' });
+});
+foldOut('home-mp', 'mp-panel');
+foldOut('home-daily', 'daily-quests');
 $('undo-slot')?.addEventListener('click', undoAction);
 function syncMapToggles() {
   const routes = $('mt-routes');
