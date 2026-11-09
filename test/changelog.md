@@ -2,6 +2,28 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 9, 2026 — Motion with a purpose (Claude, redesign phase 5)
+
+- Entrances: screens fade in (220 ms), the lobby card, Settings and confirm cards
+  pop in (200 ms), phone trays slide up (220 ms), fold-outs and the wisp panel
+  unfold (200 ms). Taps land: every button, chip, tile and card eases its colours
+  (150 ms) and presses to 97 % while held.
+- Feedback on the board (`feedbackPulse`): a placement pulse in the element's
+  colour, a gold bloom on a tier upgrade, a green bloom on a finished rank, a red
+  pulse on a sale, a send-launch pulse at the far gate in the send type's colour.
+  HUD numbers tick when they change (`hudTick`: gold on income and sales, income
+  and gold on a send, lives on a leak); the board shakes for 250 ms on a leak
+  (`shakeBoard`). The wave banner fade is 300 ms.
+- Reduce motion: one rule for the OS setting and one for the in-game toggle now
+  cover every animation and transition in the file (0.001 s, one iteration), and
+  the feedback helpers step aside under either.
+- Measured at 390×844 (motionaudit.js, speed.js): longest enter or feedback
+  animation 220 ms and longest transition 300 ms on every screen (timed notices and
+  ambient loops excepted and listed in the audit); all eight hooks fire; with
+  reduce-motion on, longest animation and transition 0.001 s and no tick or shake;
+  draw 3.6 ms per frame at minute 6 (budget 8; was 3.5 before the pass). Home,
+  lobby, arena audits and teamboard.js unchanged.
+
 ## November 9, 2026 — One icon language (Claude, redesign phase 4)
 
 - An original inline SVG icon set (`ICONS`, `icon(name)`, 46 glyphs on a 24 px grid,

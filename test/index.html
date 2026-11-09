@@ -32,6 +32,33 @@
 .ic .f { fill:currentColor; stroke:none; }
 .ic-lumber { color:#d9b070; }
 .ic-lg { width:1.5em; height:1.5em; vertical-align:-.35em; }
+/* MOTION WITH A PURPOSE (2026-11-09, redesign phase 5). Every animation here answers
+   "what just happened": a screen or tray arriving, a tap landing, gold paid, a
+   leak. Enter and feedback motion is 300 ms or less; timed notices (the wave
+   banner) and ambient loops (the wisp) keep their own clocks. One rule at the end
+   turns all of it off for reduce-motion, the OS setting or the in-game toggle. */
+@keyframes screen-in { from { opacity:0; } to { opacity:1; } }
+@keyframes pop-in { from { opacity:0; transform:scale(.97); } to { opacity:1; transform:none; } }
+@keyframes tray-in { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
+@keyframes fold-in { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
+@keyframes hud-tick { 0% { transform:scale(1); } 35% { transform:scale(1.22); filter:brightness(1.6); } 100% { transform:scale(1); } }
+@keyframes board-shake { 0%,100% { transform:translate(0,0); } 20% { transform:translate(-4px,1px); } 45% { transform:translate(4px,-1px); } 70% { transform:translate(-2px,1px); } }
+.screen:not(.hidden) { animation:screen-in .22s ease-out; }
+.lb-card, .settings-card, .cf-card { animation:pop-in .2s ease-out; }
+body.playing.arena.mobile-panel-build .command-panel,
+body.playing.arena.mobile-panel-tower .tower-inspector,
+body.playing.arena.mobile-panel-sends .tactical-dock,
+body.playing.arena.mobile-panel-enemy .tactical-dock { animation:tray-in .22s ease-out; }
+#setup-options:not(.hidden), #mp-panel:not(.hidden), #daily-quests:not(.hidden), .wisp-panel:not(.hidden), .race-detail:not(.hidden) { animation:fold-in .2s ease-out; }
+.hud-tick { display:inline-block; animation:hud-tick .3s ease; }
+.map-viewport.shake { animation:board-shake .25s ease; }
+.mobile-tactical-button, .lb-map-seat, .race-card, .econ-btn, .dock-send-card, .lb-race, .send-dock-tab, .secondary-button, .primary-button, .lb-ready, .td-actions button, .wp-act, .tower-row, .builder-tabs button, .hud-icon-button, .map-toggles button, .lb-size button, .lb-icon, .gear-button, .setup-change { transition:background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease, transform .12s ease; }
+.mobile-tactical-button:active, .lb-map-seat:active, .race-card:active, .econ-btn:active, .dock-send-card:active, .lb-race:active, .secondary-button:active, .primary-button:active, .td-actions button:active, .wp-act:active, .tower-row:active, .builder-tabs button:active, .hud-icon-button:active, .map-toggles button:active, .lb-icon:active, .gear-button:active { transform:scale(.97); }
+.toast.gone { transition-duration:.3s; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration:.001s !important; animation-iteration-count:1 !important; transition-duration:.001s !important; scroll-behavior:auto !important; }
+}
+body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after { animation-duration:.001s !important; animation-iteration-count:1 !important; transition-duration:.001s !important; scroll-behavior:auto !important; }
 body { margin:0; min-width:320px; min-height:100vh; background:radial-gradient(circle at 75% 0%,#1b2b4c 0,#0b1020 42%,#060914 100%); color:var(--ink); font-family:Manrope,system-ui,sans-serif; }
 button { font:inherit; color:inherit; cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
 select { touch-action:manipulation; }
@@ -426,7 +453,7 @@ h2 span { color:#7583a6; }
 .wave-banner { position:absolute; top:46%; left:50%; z-index:14; display:flex; flex-direction:column; align-items:center; gap:1px; max-width:94%; padding:6px 14px; border:1px solid #ffd86b99; border-radius:12px; color:#ffe9a5; background:#0d1424f0; box-shadow:0 4px 16px #000a; font:500 10px 'DM Mono',monospace; letter-spacing:.04em; transform:translate(-50%,-50%); text-align:center; pointer-events:none; }
 .wave-banner b { font-weight:700; color:#fff2c8; }
 .wave-banner small { font-size:8px; opacity:.75; color:#bcd2ff; }
-.wave-banner { opacity:0; transition:opacity .4s; }
+.wave-banner { opacity:0; transition:opacity .3s; }
 .wave-banner.banner-fade { animation:banner-show 5.5s ease forwards; }
 @keyframes banner-show { 0%{opacity:0;} 7%{opacity:1;} 82%{opacity:1;} 100%{opacity:0;} }
 .debug-bar { display:flex; align-items:center; flex-wrap:wrap; gap:14px; margin-top:10px; padding:7px 12px; border:1px solid #233150; border-radius:9px; color:#8e9ab8; background:#0d1424; font:9px 'DM Mono',monospace; letter-spacing:.06em; text-transform:uppercase; }
@@ -4216,7 +4243,10 @@ function makeTower(r, c, raceId, tier, owner) {
 /* Two timestamps the renderer reads for §6's feel moments: when this tower
    appeared, and when it last gained a tier. Both are one number and neither is
    simulation state — a reload loses them and nothing cares. */
-function addTower(tower) { tower.born = simTime; towers.set(tower.key, tower); towersVersion += 1; refreshRouteDebug(); }
+function addTower(tower) {
+  tower.born = simTime; towers.set(tower.key, tower); towersVersion += 1; refreshRouteDebug();
+  if (tower.owner === 'player' && tower.allySeat == null && !tower.remoteSeat) feedbackPulse(tower.c + .5, tower.r + .5, raceColorOf(tower.raceId), 1.1, .3);
+}
 function removeTower(key) { towers.delete(key); towersVersion += 1; if (selectedTowerKey === key) selectedTowerKey = null; selectedGroupKeys = selectedGroupKeys.filter((k) => k !== key); refreshRouteDebug(); }
 
 let routeBlocked = false;
@@ -4744,6 +4774,7 @@ function resolveLeak(creep) {
     mpSyncTeamLives();
   } else owner.lives=Math.max(0,owner.lives-creep.livesCost);
   pushFx({ kind:'leak', x:creep.x, y:creep.y, until:simTime + .6 });
+  if (creep.half === PLAYER_HALF) { shakeBoard(); hudTick('lives-label'); }
   if (creep.half === PLAYER_HALF) { waveBoardRetire(creep, true); SFX.play('leak'); recordLeak(); mpEmit([FX_LEAK, r2(creep.x), r2(creep.y)]); }
   if (creep.half === PLAYER_HALF) log(`${creep.name} reached your ship — that is a leak (−${creep.livesCost} ${creep.livesCost > 1 ? 'lives' : 'life'}).`);
   else if (creep.sent) log(`Your ${creep.name} broke through! Enemy loses ${creep.livesCost} ${creep.livesCost > 1 ? 'lives' : 'life'}.`);
@@ -6636,6 +6667,7 @@ function payIncome() {
   const due = levelPayDue; levelPayDue = 0;   // wave pay rides this tick
   const paid = BASE_INCOME + incomePayout(player.income) + due;
   player.gold += paid;
+  hudTick('gold-label');
   /* LUMBER PAYS ITSELF BACK, SLOWLY. Lumber had exactly one faucet — 500 gold —
      and six sinks now that wards exist, which would make wards unbuyable.
      Attackers are the second faucet, as Gene asked: "sending attackers awards
@@ -8167,6 +8199,23 @@ function pushFx(effect) {
   if (effect && particlesOff() && !FX_ALWAYS.has(effect.kind)) return;
   effects.push(effect);
 }
+/* Feedback motion (redesign phase 5). Pulses on the board for things the player
+   did; a tick on a HUD number that just changed; a shake for a leak. All of it
+   steps aside under reduce-motion. */
+function feedbackPulse(x, y, color, radius = 1.2, life = .35) {
+  if (rmReduced() || !battleRunning) return;
+  pushFx({ kind:'pulse', x, y, radius, color, until:simTime + life, tag:'feedback' });
+}
+function hudTick(id) {
+  const el = $(id); if (!el || rmReduced()) return;
+  el.classList.remove('hud-tick'); void el.offsetWidth; el.classList.add('hud-tick');
+}
+function shakeBoard() {
+  if (rmReduced()) return;
+  const vp = $('map-viewport'); if (!vp) return;
+  vp.classList.remove('shake'); void vp.offsetWidth; vp.classList.add('shake');
+}
+function raceColorOf(raceId) { return (races.find((r) => r.id === raceId) || {}).color || '#bfeaff'; }
 function rmReduced() {
   return (typeof profile !== 'undefined' && profile && profile.reduceMotion)
     || (typeof document !== 'undefined' && document.body && document.body.classList.contains('reduce-motion'));
@@ -10073,6 +10122,7 @@ function towerAction(kind) {
       if (!canLevel(t)) continue;
       if (!boostTowerRank(t)) { remaining.push(t); continue; }
       done++;spent.gold+=cost.gold;spent.lumber+=cost.lumber;logUpgrade(-1);
+      feedbackPulse(t.c + .5, t.r + .5, '#8fe6b8', 1.3, .35);
     }
     if (done) {
       towersVersion++;
@@ -10096,6 +10146,7 @@ function towerAction(kind) {
       { const was = t.blockMaxHp || 1, next = towerMaxHp(towerDef(t.raceId, t.tier), t.tier, t.level || 0);
         t.blockHp = Math.round((t.blockHp / was) * next); t.blockMaxHp = next; }
       done += 1; logUpgrade(t.tier);
+      feedbackPulse(t.c + .5, t.r + .5, '#ffd86b', 1.5, .4);
     }
     const tierWanted = group.filter((t) => towerTierUp(t)).length;
     if (done) {
@@ -10516,6 +10567,8 @@ function buySend(id) {
     spawnSend(send, ENEMY_HALF, 'west');
     spawnSend(send, ENEMY_HALF, 'east');
   }
+  // the send leaves from the far gate; the income chip takes the hit
+  { const gate = SPAWNS[ENEMY_HALF].west; feedbackPulse(gate.c + .5, gate.r + .5, send.attacker ? '#ff9faf' : send.air ? '#c9b6ff' : '#8adcff', 1.6, .45); hudTick('income-label'); hudTick('gold-label'); }
   if (player.income >= 300) award('income_300');
   if (send.air) { profile.dragonsSent += 1; if (profile.dragonsSent >= 10) award('dragon_rider'); saveProfile(); }
   // quote the PAYOUT, not the raw ladder total — the raw number contradicts the HUD above it
@@ -10723,6 +10776,8 @@ function sellTowerAt(cell) {
   recordSell([tower], refund, name);
   player.gold += refund;
   pushFx({ kind:'num', x:cell.c + .5, y:cell.r + .25, text:`+${refund}g`, until:simTime + .9, color:'#ffd86b' });
+  feedbackPulse(cell.c + .5, cell.r + .5, '#ff9faf', 1.0, .3);
+  hudTick('gold-label');
   removeTower(key);
   if (navigator.vibrate) navigator.vibrate(25);
   log(`${name} ${full ? 'build undone' : 'sold'} for ${refund}g${full ? ' (full refund)' : ' (75%)'}. ${cachedRouteText}.`);
