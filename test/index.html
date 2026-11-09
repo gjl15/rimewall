@@ -422,6 +422,13 @@ h2 span { color:#7583a6; }
 /* One finger scrolls the page over an unzoomed map (touch-action pan-y);
    JS switches to none while zoomed so one finger pans the map instead. */
 .map-viewport { position:relative; height:min(78vh, 940px); min-height:300px; overflow:hidden; border-radius:16px; background:#0a1626; border:1px solid #1d2c4a; touch-action:pan-y; }
+/* PARALLAX BACKDROP (redesign phase 6): two soft lights and a faint grid behind
+   the board, moved at a quarter of the board's pan through --par-x/--par-y. */
+.map-viewport::before { content:''; position:absolute; inset:-25%; z-index:0; pointer-events:none;
+  background:radial-gradient(60% 50% at 30% 20%, #1c3a5a66 0, transparent 70%), radial-gradient(50% 45% at 80% 90%, #3a1c5a55 0, transparent 70%),
+    repeating-linear-gradient(0deg, #ffffff06 0 1px, transparent 1px 44px), repeating-linear-gradient(90deg, #ffffff06 0 1px, transparent 1px 44px);
+  transform:translate(var(--par-x, 0px), var(--par-y, 0px)); will-change:transform; }
+.map-viewport > * { position:relative; }
 .map-frame { position:absolute; left:0; top:0; overflow:hidden; border:2px solid #d4f2ef; border-radius:10px; background:#7fc6d5; box-shadow:0 12px 30px #0006; transform-origin:0 0; will-change:transform; }
 #board-canvas,#fx-canvas { position:absolute; inset:0; width:100%; height:100%; display:block; }
 #fx-canvas { z-index:2; touch-action:none; }
@@ -4704,6 +4711,7 @@ function moveAlong(creep, node, dt) {
   const dist = Math.hypot(dx, dy) || 1;
   const step = Math.min(dist, speed * dt);
   creep.x += dx / dist * step; creep.y += dy / dist * step;
+  creep.dirX = dx / dist; creep.dirY = dy / dist;
   /* THE CYCLE IS DRIVEN BY DISTANCE, NOT BY THE CLOCK. Tying it to simTime
      would have everything on the board stepping at one rate — a frozen creep
      would march on the spot, a creep at 85% frost would stride exactly as fast
@@ -7469,6 +7477,21 @@ function drawTerrain(ctx, scale = 1) {
   ctx.scale(scale, scale);
   rwTerrainSurface(ctx, { ROWS, COLS, CELL, BOARD_W, BOARD_H, terrain, idx, T,
     RIVER_TOP, RIVER_BOT, simTime });
+  /* RAISED CLIFFS (redesign phase 6). The same top-left key light the towers
+     use: a lit edge where a cliff faces the light and a shaded edge where it
+     falls away, drawn once onto the static board, so it costs nothing a frame. */
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+    if (terrain[idx(r, c)] !== T.CLIFF) continue;
+    const x = c * CELL, y = r * CELL;
+    const openUp = r > 0 && terrain[idx(r - 1, c)] !== T.CLIFF, openLeft = c > 0 && terrain[idx(r, c - 1)] !== T.CLIFF;
+    const openDown = r < ROWS - 1 && terrain[idx(r + 1, c)] !== T.CLIFF, openRight = c < COLS - 1 && terrain[idx(r, c + 1)] !== T.CLIFF;
+    ctx.fillStyle = 'rgba(255,255,255,.13)';
+    if (openUp) ctx.fillRect(x, y, CELL, 1.5);
+    if (openLeft) ctx.fillRect(x, y, 1.5, CELL);
+    ctx.fillStyle = 'rgba(0,0,0,.32)';
+    if (openDown) ctx.fillRect(x, y + CELL - 2, CELL, 2);
+    if (openRight) ctx.fillRect(x + CELL - 2, y, 2, CELL);
+  }
   /* Checkpoint cells must remain readable after the old flag prop was removed.
      A warm tile fill survives phone-scale zoom and still leaves the floor grid visible. */
   const seenFlags = new Set();
@@ -8005,8 +8028,15 @@ function drawTowerStructure(ctx, tower, stats, building, laneColor) {
      it. One flat ellipse under the base, no blur: shadowBlur is the single most
      expensive thing you can ask a 2D context for and this draws for every tower
      every frame. Slightly wider than tall because the view is three-quarter. */
+  /* MASS WITH TIER (redesign phase 6, from ART-DIRECTION item 1). Measured: a
+     350 g top rung covered 1.0-1.3x the ink of a 10 g first rung, so upgrading
+     was invisible at the board's own cell. The body scales 1.0 -> 1.6 across the
+     six rungs and the top rungs overhang the cell a little, which is the point.
+     The key light sits top-left for everything on the board: the contact shadow
+     falls down-right and grows with the mass. */
+  const mass = 1 + Math.min(5, tier) * .12;
   ctx.fillStyle = 'rgba(0,0,0,.34)';
-  ctx.beginPath(); ctx.ellipse(0, 7.4, 7.6, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(1.1 * mass, 7.4 + .6 * (mass - 1), 7.6 * mass, 2.5 * mass, 0, 0, Math.PI * 2); ctx.fill();
   rwOwnerMark(ctx, laneColor, Math.max(10, slabs[0] ? slabs[0][0] : 0));
   let bottom = 8;
   slabs.forEach(([w, h], i) => {
@@ -8023,12 +8053,23 @@ function drawTowerStructure(ctx, tower, stats, building, laneColor) {
      plinth behind it. A hair above true centre because a top-down three-quarter
      view reads as grounded when its mass sits slightly low. */
   const sid = spriteIdForTower(race, stats.spriteTier ?? tier, stats.spriteName || stats.name);
+  ctx.save(); ctx.scale(mass, mass);
   const drew = race === 'ninja' && stats.weaponKind ? drawNinjaWeaponStructure(ctx, stats)
     : stats.special === 'bola' ? drawTechBolaStructure(ctx) : drawSprite(ctx, 'tower', sid, 0, -1.2, 19);
-  ctx.translate(0, bottom);
-  ctx.fillStyle = hex; ctx.strokeStyle = '#0c122099'; ctx.lineWidth = .9; ctx.lineJoin = 'round';
-  if (building) ctx.globalAlpha = .6;
-  if (!drew) rwBody(ctx, race, 5, bottom + 8.5, simTime + (tower.key % 97) * .61, tier);
+  if (!drew) {
+    ctx.save(); ctx.translate(0, bottom);
+    ctx.fillStyle = hex; ctx.strokeStyle = '#0c122099'; ctx.lineWidth = .9; ctx.lineJoin = 'round';
+    if (building) ctx.globalAlpha = .6;
+    rwBody(ctx, race, 5, bottom + 8.5, simTime + (tower.key % 97) * .61, tier);
+    ctx.restore();
+  }
+  // the key light: a rim on the lit side, a shade on the far side, same for every piece on the board
+  ctx.lineWidth = 1.1; ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(255,255,255,.30)';
+  ctx.beginPath(); ctx.arc(0, -1.5, 6.8, Math.PI * 1.05, Math.PI * 1.6); ctx.stroke();
+  ctx.strokeStyle = 'rgba(0,0,0,.28)';
+  ctx.beginPath(); ctx.arc(0, -1.5, 7.2, Math.PI * .05, Math.PI * .55); ctx.stroke();
+  ctx.restore();
   ctx.restore();
 }
 
@@ -8288,6 +8329,17 @@ function drawCreep(ctx, creep) {
      a Mossback and an Aegis Runner were the same dot in different colours.
      The sprite is drawn here, before every status overlay below, so slows,
      shields, venom and the gravity squash still read on top of it. */
+  /* BANK AND BOB (redesign phase 6). A walker leans a little into its direction
+     of travel and squashes with its stride; a flier hovers. Reduced motion
+     holds the pose, as the walk cycle already does. */
+  if (!reduced) {
+    if (creep.air) ctx.translate(0, Math.sin(simTime * 4.2 + (creep.id || 0) * .9) * 1.2);
+    else {
+      const lean = (creep.dirX || 0) * .16;
+      const bob = Math.sin(((creep.walked || 0) + (creep.id || 0) * .37) * 2.4) * .05;
+      ctx.transform(1, 0, -lean, 1, 0, 0); ctx.scale(1 + bob, 1 - bob);
+    }
+  }
   const csid = spriteIdForCreep(creep);
   /* Half a cell a stride reads as walking at 21px without strobing, and the
      per-creep offset stops a pack marching in step with itself. Reduced motion
@@ -11120,6 +11172,9 @@ function applyMapTransform() {
   if (scaledH <= vh) mapOffsetY = (vh - scaledH) / 2 - frameBase.top;
   else mapOffsetY = Math.max(vh - scaledH - frameBase.top, Math.min(-frameBase.top, mapOffsetY));
   $('map-frame').style.transform = `translate(${mapOffsetX}px, ${mapOffsetY}px) scale(${mapZoomScale})`;
+  // the backdrop behind the board moves at a quarter of the pan: depth for free, on the compositor
+  const vp = $('map-viewport');
+  if (vp) { vp.style.setProperty('--par-x', `${(mapOffsetX * .25).toFixed(1)}px`); vp.style.setProperty('--par-y', `${(mapOffsetY * .25).toFixed(1)}px`); }
   $('board-overlay')?.style.setProperty('--ovz', (1 / mapZoomScale).toFixed(4));
   $('zoom-label').textContent = `${Math.round(mapZoomScale * 100)}%`;
   // arena (touch match): the map owns all gestures. Otherwise: unzoomed maps

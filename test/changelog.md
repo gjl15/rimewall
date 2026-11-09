@@ -2,6 +2,29 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 9, 2026 — Depth on the board (Claude, redesign phase 6)
+
+- Mass with tier (ART-DIRECTION item 1): a tower's body scales 1.0 → 1.6 across its
+  six rungs and the top rungs overhang the cell a little, so an upgrade is visible
+  at the board's own cell. One key light, top-left, for everything on the board: a
+  rim on the lit side and a shade on the far side of every tower, a contact shadow
+  that falls down-right and grows with the mass (`drawTowerStructure`).
+- Raised cliffs: a lit top/left edge and a shaded bottom/right edge on every cliff
+  cell, painted once onto the static board (`drawTerrain`), so it costs nothing a
+  frame.
+- Parallax: two soft lights and a faint grid behind the board move at a quarter of
+  the pan (`--par-x/--par-y` set where the board transform is), on the compositor.
+- Creeps bank into their direction of travel and squash with their stride; fliers
+  hover (`moveAlong` records direction; `drawCreep`). Reduced motion holds the pose.
+- Measured (tools/harness/readability.js at the 21 px cell, speed.js at 390×844):
+  top rung ink over first rung, before → after: Ice 1.0 → 1.4, Fire 1.3 → 1.9,
+  Earth 1.3 → 1.8, Tech 1.0 → 1.5, Crystal 1.3 → 1.7, Poison 1.1 → 1.5, Stone
+  1.2 → 1.6, Electricity 1.0 → 1.4, Gravity 1.3 → 1.8, Beam 1.3 → 1.6, Ninja
+  0.9 → 1.3, Wind 1.9 → 1.7 (its lower rungs were already tall); confusable creep
+  pairs 284 → 283 of 1378, grey creeps 44 of 53 unchanged (the hue system is the
+  next art task, not this one); draw 3.4 ms per frame at minute 6 (budget 8).
+  Arena audit and teamboard.js unchanged.
+
 ## November 9, 2026 — Motion with a purpose (Claude, redesign phase 5)
 
 - Entrances: screens fade in (220 ms), the lobby card, Settings and confirm cards
