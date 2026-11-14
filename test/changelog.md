@@ -2,6 +2,25 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 14, 2026 — Creeps stand on the ground; no more circles (Claude)
+
+- The magenta (send) or role-coloured circle drawn over every creep's body is gone
+  when the creep has art; the colour is a thin ring around its feet, under the body.
+  The vector fallback keeps the old circle. Health bars ride above the head
+  (`drawCreepReadPass`).
+- Feet on the ground: every sprite is anchored so its feet sit on its shadow
+  (generated frames by their measured foot line, the classic sheet at 97 % of the
+  frame); the shadow used to sit at the knees, which read as floating. On the river
+  a creep wades: a ripple instead of a shadow and a waterline over the feet
+  (`drawCreep`).
+- Eight sends drew as plain vector circles because they had no frame under their
+  own name: Pathfinder, Sapper, Glacier Basilisk, Aegis Runner, Undying Shade, Elder
+  Drake and Idol Bearer now use their wave art, and the Breacher uses the
+  Wallbreaker's (`spriteIdForCreep`, `SPRITE_CREEP_ALIAS`). Every send and wave in
+  the roster now has art.
+- Checks: no page errors; arena audit unchanged; teamboard.js PASS; draw time
+  unchanged.
+
 ## November 14, 2026 — New creep art, preview (Claude)
 
 - Six creeps redrawn with an image generator (Canva) in one painted style, colour

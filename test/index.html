@@ -7936,15 +7936,26 @@ function spriteIdForTower(raceId, tier, name) {
    the classic art; a missing file falls back silently. */
 const GEN_CREEP_NAMES = ['miner', 'prowler', 'fangoutrider', 'ironpilgrim', 'hoverbarge', 'drakewhelp'];
 const GEN_CREEPS = { img:new Image(), ready:false };
+const GEN_CREEP_FOOT = [.98, .98, .98, .98, .91, .92];   // where each frame's feet are, as a share of its height
+const SHEET_CREEP_FOOT = .97;
 GEN_CREEPS.img.onload = () => { GEN_CREEPS.ready = true; };
 GEN_CREEPS.img.src = 'creeps-gen.webp';
 function genCreepFrame(creep) {
   if (!GEN_CREEPS.ready || (typeof profile !== 'undefined' && profile && profile.classicArt)) return -1;
   return GEN_CREEP_NAMES.indexOf(String(creep.name || '').toLowerCase().replace(/[^a-z0-9]+/g, ''));
 }
+/* A send and a wave of the same creature share art. Seven sends (Pathfinder,
+   Sapper, Glacier Basilisk, Aegis Runner, Undying Shade, Elder Drake, Idol
+   Bearer) only had wave frames and the Breacher had none, so all eight drew as
+   plain vector circles. Own frame first, then the other list's, then an alias. */
+const SPRITE_CREEP_ALIAS = { breacher:'send-wallbreaker' };
 function spriteIdForCreep(creep) {
   const n = String(creep.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
-  return (creep.sent ? 'send-' : 'wave-') + n;
+  const own = (creep.sent ? 'send-' : 'wave-') + n, index = SPRITE_SHEETS.creep.index;
+  if (index[own] !== undefined) return own;
+  const other = (creep.sent ? 'wave-' : 'send-') + n;
+  if (index[other] !== undefined) return other;
+  return SPRITE_CREEP_ALIAS[n] || own;
 }
 function drawNinjaWeaponMark(ctx, stats) {
   const kind = stats.weaponKind;
@@ -8297,17 +8308,22 @@ function drawCreepReadPass(ctx) {
     const style = roleStyle[creep.role] || roleStyle.standard;
     const size = style.size + (creep.sent ? 1 : 0);
     const x = creep.x * CELL, y = creep.y * CELL - (creep.air ? 4 : 0);
-    ctx.strokeStyle = '#0a1120'; ctx.globalAlpha = .85;      // a dark rim first, so it reads on a pale burst too
-    ctx.beginPath(); ctx.arc(x, y, size + 1.4, 0, Math.PI * 2); ctx.stroke();
-    ctx.strokeStyle = creepColor(creep); ctx.globalAlpha = 1;
-    ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI * 2); ctx.stroke();
+    /* A body drawn from art carries its own ownership ring at its feet; the
+       circle over the body is only for the vector fallback. */
+    if (!creep.spriteDrawn) {
+      ctx.strokeStyle = '#0a1120'; ctx.globalAlpha = .85;      // a dark rim first, so it reads on a pale burst too
+      ctx.beginPath(); ctx.arc(x, y, size + 1.4, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = creepColor(creep); ctx.globalAlpha = 1;
+      ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI * 2); ctx.stroke();
+    }
+    const top = creep.spriteDrawn ? (size * .95 - size * 3.4 * .97) : -size;   // the head, not the centre
     // and the health pip, which is the other thing you actually track
     const frac = Math.max(0, Math.min(1, creep.hp / Math.max(1, creep.maxHp)));
     const w = Math.max(14, size * 2.2);
     ctx.globalAlpha = .9; ctx.fillStyle = '#0a1120';
-    ctx.fillRect(x - w / 2 - 1, y - size - 8, w + 2, 4);
+    ctx.fillRect(x - w / 2 - 1, y + top - 6, w + 2, 4);
     ctx.fillStyle = frac > .5 ? '#8ee89f' : frac > .25 ? '#ffd86b' : '#ff8a9a';
-    ctx.fillRect(x - w / 2, y - size - 7.2, w * frac, 2.4);
+    ctx.fillRect(x - w / 2, y + top - 5.2, w * frac, 2.4);
   });
   ctx.restore();
 }
@@ -8323,6 +8339,7 @@ function drawCreep(ctx, creep) {
   const x = creep.x * CELL, y = creep.y * CELL;
   const size = style.size + (creep.sent ? 1 : 0);
   const reduced = rmReduced();
+  const onWater = !creep.air && terrainAt(Math.floor(creep.y), Math.floor(creep.x)) === T.RIVER;
   ctx.save();
   ctx.translate(x, y);
   if (creep.air) {
@@ -8334,9 +8351,25 @@ function drawCreep(ctx, creep) {
        is what made them read as airborne — and left every ground creep looking
        like it was floating at the same height. Tighter and darker than the
        flier's, sitting right under the feet. */
-    ctx.fillStyle = 'rgba(0,0,0,.30)';
-    ctx.beginPath(); ctx.ellipse(0, size * .95, size * .78, size * .30, 0, 0, Math.PI * 2); ctx.fill();
+    /* STANDING ON SOMETHING (2026-11-14). The sprite's feet are anchored to this
+       line below, so the shadow is under the feet instead of at the knees; on the
+       river the creep wades, with a ripple instead of a shadow. */
+    if (onWater) {
+      const ph = reduced ? .5 : (simTime * 1.6 + (creep.id || 0) * .37) % 1;
+      ctx.strokeStyle = `rgba(190,235,255,${.45 * (1 - ph)})`; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.ellipse(0, size * .95, size * (.8 + ph * .9), size * (.3 + ph * .3), 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = 'rgba(0,20,40,.28)';
+      ctx.beginPath(); ctx.ellipse(0, size * .95, size * .8, size * .3, 0, 0, Math.PI * 2); ctx.fill();
+    } else {
+      ctx.fillStyle = 'rgba(0,0,0,.36)';
+      ctx.beginPath(); ctx.ellipse(1, size * .95, size * .85, size * .32, 0, 0, Math.PI * 2); ctx.fill();
+    }
   }
+  /* the ownership colour (magenta for a send) is a thin ring around the feet,
+     under the body, where it used to be a circle drawn over it */
+  ctx.strokeStyle = color; ctx.lineWidth = 1.2; ctx.globalAlpha = .9;
+  ctx.beginPath(); ctx.ellipse(creep.air ? 2 : 0, creep.air ? 6 : size * .95, size * .95, size * .38, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.globalAlpha = 1;
   if (creep.slowUntil > simTime || creep.windSlows?.some(slow => slow.until > simTime)) { ctx.fillStyle = '#77d6ff33'; ctx.beginPath(); ctx.arc(0, 0, size + 4, 0, Math.PI * 2); ctx.fill(); }
   /* A CREEP THAT LOOKS LIKE ITSELF. 25 named wave creeps resolved to 14
      appearances and the send ladder put 27 more names on the same handful, so
@@ -8361,11 +8394,16 @@ function drawCreep(ctx, creep) {
   const stride = Math.floor(((creep.walked || 0) + (creep.id || 0) * .21) / SPRITE_STRIDE) % 2;
   const pose = (stride && !reduced && SPRITE_SHEETS.creep2.ready) ? 'creep2' : 'creep';
   const genFrame = genCreepFrame(creep);
+  const gs = size * 3.4, footY = size * .95;
   if (genFrame >= 0) {
-    const gs = size * 3.4;
-    ctx.drawImage(GEN_CREEPS.img, genFrame * 96, 0, 96, 96, -gs / 2, -gs / 2, gs, gs);
+    ctx.drawImage(GEN_CREEPS.img, genFrame * 96, 0, 96, 96, -gs / 2, footY - gs * GEN_CREEP_FOOT[genFrame], gs, gs);
     creep.spriteDrawn = true;
-  } else creep.spriteDrawn = drawSprite(ctx, pose, csid, 0, 0, size * 3.4);
+  } else creep.spriteDrawn = drawSprite(ctx, pose, csid, 0, footY - gs * SHEET_CREEP_FOOT + gs / 2, gs);
+  if (creep.spriteDrawn && onWater) {
+    // the waterline: the river closes over the feet
+    ctx.fillStyle = 'rgba(28,92,122,.62)';
+    ctx.beginPath(); ctx.ellipse(0, footY, gs * .3, size * .34, 0, 0, Math.PI * 2); ctx.fill();
+  }
   /* GRAVITY HAS TO MOVE THE BODY, NOT PRINT A GLYPH.
      Measured: impulses fire 65-156 times a wave and land on EVERY creep in it
      (10, 9, 8, 8, 8 ... across ten creeps) — the mechanic was never the problem.
