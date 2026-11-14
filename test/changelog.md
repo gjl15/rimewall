@@ -2,6 +2,28 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 14, 2026 — The cave (Claude)
+
+From Gene's marked-up screenshot: creeps should move up into a cut-out in the hill, with
+the crystal where they enter, and trees should line the hill.
+
+- `buildBaseTerrain`: the board's top and bottom two rows are solid rock (no door).
+  Each massif has a cave `CAVE_HALF` 3 (7 wide) x `CAVE_D` 5 deep cut into the face
+  toward its own band: GATE cells (walkable, never buildable), HARBOR across the door
+  columns of the far wall.
+- `deriveBoard`: `S_GATE_R`/`S_DOOR_R` are the cave's mouth and far wall (north
+  mirrored); `S_MID_R`/`N_MID_R` pinned to their old rows (ROWS-9, 8); `BAND_R1` is
+  ROWS-3; the shrine face moves above the cave. Routes are otherwise unchanged:
+  lane, turn, flag, then up into the cave.
+- Art: `drawCaves` darkens the cave floor with wall shadows; the crystal prop stands
+  at each cave's far wall with a glow; `drawTerrainProps` rings every massif edge
+  with pines and frozen trees (interior props keep their distance). The ship glyphs
+  are gone.
+- Checks: ground and air creeps walk lane -> flag -> cave and leak at the far wall;
+  route length 62 on all four routes (unchanged); cave cells refuse towers; rival
+  builds 45 towers by minute 6 (55 before; it no longer builds in the removed door
+  strip); draw 2.8 ms per frame; arena audit clean; teamboard.js PASS; no errors.
+
 ## November 14, 2026 — Everything moves; Gorilla Bruiser (Claude)
 
 - `drawCreep`: walkers hop each stride (up to 0.24 x size), waddle +/-0.07 rad and

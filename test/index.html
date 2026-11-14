@@ -3244,6 +3244,13 @@ let COLS, HALF_ROWS, ROWS, CELL, RIVER_TOP, RIVER_BOT, RIVER_MID,
   ROUTES, SPAWNS, SHRINE_R0, SHRINE_R1, SHRINE_C0, SHRINE_C1;
 const RIVER_ROWS = 5;                               // the navy band down the middle
 const DOOR_HALF = 1;                                // the door is 3 cells wide
+/* THE CAVE (Gene, 2026-11-14, drawn on a screenshot): "rather than the creeps going down,
+   they move up into a similar cut out", with the crystal where they now enter. The exit is
+   no longer a door in the bottom edge of the board: it is a cave cut into the near face of
+   your massif, CAVE_W wide and CAVE_D deep. Creeps run the outer lanes, cross the band to the
+   flag as before, then turn back UP into the cave and leak at its far end, under the crystal.
+   The rival's massif is cut the same way, facing its own band. */
+const CAVE_HALF = 3, CAVE_D = 5;
 const protectedCells = new Set();
 const T = { FLOOR:0, CLIFF:1, RIVER:2, GATE:3, HARBOR:4 };
 const idx = (r, c) => r * COLS + c;
@@ -3281,13 +3288,17 @@ function buildBaseTerrain() {
      ROWS-1 is the doorway itself (harbour, so it still reads as the berth), the
      row in front of it is the walkable threshold, and everything either side is
      cliff. */
-  for (let c = 0; c < COLS; c += 1) {
-    baseTerrain[idx(S_DOOR_R, c)] = T.CLIFF; baseTerrain[idx(S_GATE_R, c)] = T.CLIFF;
-    baseTerrain[idx(N_DOOR_R, c)] = T.CLIFF; baseTerrain[idx(N_GATE_R, c)] = T.CLIFF;
+  for (let c = 0; c < COLS; c += 1) {   // the board's own edge is rock now: nothing leaves through it
+    baseTerrain[idx(ROWS - 1, c)] = T.CLIFF; baseTerrain[idx(ROWS - 2, c)] = T.CLIFF;
+    baseTerrain[idx(0, c)] = T.CLIFF; baseTerrain[idx(1, c)] = T.CLIFF;
   }
-  for (let c = DOOR_C0; c <= DOOR_C1; c += 1) {
-    baseTerrain[idx(S_DOOR_R, c)] = T.HARBOR; baseTerrain[idx(S_GATE_R, c)] = T.GATE;
-    baseTerrain[idx(N_DOOR_R, c)] = T.HARBOR; baseTerrain[idx(N_GATE_R, c)] = T.GATE;
+  for (let k = 0; k < CAVE_D; k += 1) for (let c = DOOR_C - CAVE_HALF; c <= DOOR_C + CAVE_HALF; c += 1) {
+    baseTerrain[idx(S_PILLAR_R1 - k, c)] = T.GATE;
+    baseTerrain[idx(N_PILLAR_R0 + k, c)] = T.GATE;
+  }
+  for (let c = DOOR_C0; c <= DOOR_C1; c += 1) {   // the far wall of each cave is the doorway
+    baseTerrain[idx(S_DOOR_R, c)] = T.HARBOR;
+    baseTerrain[idx(N_DOOR_R, c)] = T.HARBOR;
   }
   // the river spawn at the centre of the band, walkable but never buildable
   for (let c = DOOR_C0; c <= DOOR_C1; c += 1) {
@@ -3319,8 +3330,9 @@ function deriveBoard(cols, halfRows) {
    column, that the creeps walk straight into. */
   DOOR_C = (COLS - 1) >> 1;
   DOOR_C0 = DOOR_C - DOOR_HALF; DOOR_C1 = DOOR_C + DOOR_HALF;
-  S_DOOR_R = ROWS - 1; S_GATE_R = ROWS - 2;
-  N_DOOR_R = 0; N_GATE_R = 1;
+  // the cave: its mouth is the gate, its far wall the door
+  S_GATE_R = S_PILLAR_R1; S_DOOR_R = S_PILLAR_R1 - (CAVE_D - 1);
+  N_GATE_R = N_PILLAR_R0; N_DOOR_R = N_PILLAR_R0 + (CAVE_D - 1);
   BOARD_W = COLS * CELL; BOARD_H = ROWS * CELL;
   baseTerrain = new Uint8Array(COLS * ROWS);
   terrain = new Uint8Array(COLS * ROWS);
@@ -3334,7 +3346,7 @@ terrain.set(baseTerrain);
    toward the middle), the final gate, and the ship. Flags are nodes 1–3. */
   LANE_W_C = 4; LANE_E_C = COLS - 5;                          // the outer lane each side runs down
   S_TURN_R = S_PILLAR_R1 + 6; N_TURN_R = N_PILLAR_R0 - 6;     // where the lane turns back inward
-  S_MID_R = S_DOOR_R - 8; N_MID_R = N_DOOR_R + 8;             // the shared middle flag, in the open band
+  S_MID_R = ROWS - 9; N_MID_R = 8;                             // the shared middle flag, in the open band
   ROUTES = {
   north:{
     west:[{ r:RIVER_TOP, c:2 }, { r:N_TURN_R, c:LANE_W_C }, { r:N_MID_R, c:DOOR_C }, { r:N_GATE_R, c:DOOR_C }, { r:N_DOOR_R, c:DOOR_C }],
@@ -3404,7 +3416,7 @@ function isEnemyBuildRow(r) { return r >= NORTH_TOP && r <= NORTH_BOT; }
    commands, the way selecting the Shrine building does in the original map. It
    sits at the bottom-centre of your pillar so it is reachable from the open band
    without hunting for it. */
-  SHRINE_R0 = S_PILLAR_R1 - 7; SHRINE_R1 = S_PILLAR_R1;
+  SHRINE_R0 = S_PILLAR_R1 - CAVE_D - 6; SHRINE_R1 = S_PILLAR_R1 - CAVE_D;   // the face above the cave
   SHRINE_C0 = DOOR_C - 6; SHRINE_C1 = DOOR_C + 6;
 function isShrineCell(r, c) { return r >= SHRINE_R0 && r <= SHRINE_R1 && c >= SHRINE_C0 && c <= SHRINE_C1; }
 
@@ -5935,7 +5947,7 @@ function updateProjectile(projectile, dt) {
    one in aiSpots(), which is how a resize would have silently left the rival
    building in the middle of a cliff. */
 const LANE_WEST = [1, PILLAR_C0 - 1], LANE_EAST = [PILLAR_C1 + 1, COLS - 2];
-const BAND_R0 = S_PILLAR_R1 + 1, BAND_R1 = S_GATE_R - 1;   // the open band, 100..122
+const BAND_R0 = S_PILLAR_R1 + 1, BAND_R1 = ROWS - 3;   // the open band, between the massif and the board's edge
 let mazeOrderCache = null;
 /* ---------------- THE MAZE PLAYBOOK ----------------
    Gene: "we also need the AI to actually maze like we do, a spiral around the
@@ -7601,6 +7613,16 @@ function terrainPathOf(test) {
 const TERRAIN_PROPS = { img:new Image(), ready:false, n:4 };
 TERRAIN_PROPS.img.onload = () => { TERRAIN_PROPS.ready = true; if (typeof canvasesReady !== 'undefined' && canvasesReady) redrawBoard(); };
 TERRAIN_PROPS.img.src = 'props.webp';
+function drawCaves(ctx) {
+  [[S_PILLAR_R1 - (CAVE_D - 1), S_PILLAR_R1, 1], [N_PILLAR_R0, N_PILLAR_R0 + (CAVE_D - 1), -1]].forEach(([r0, r1, dir]) => {
+    const x0 = (DOOR_C - CAVE_HALF) * CELL, w = (CAVE_HALF * 2 + 1) * CELL, y0 = r0 * CELL, h = (r1 - r0 + 1) * CELL;
+    const g = ctx.createLinearGradient(0, dir > 0 ? y0 : y0 + h, 0, dir > 0 ? y0 + h : y0);
+    g.addColorStop(0, 'rgba(4,8,16,.82)'); g.addColorStop(1, 'rgba(4,8,16,.25)');
+    ctx.fillStyle = g; ctx.fillRect(x0, y0, w, h);
+    const side = (x) => { const s = ctx.createLinearGradient(x, 0, x + (x === x0 ? CELL : -CELL), 0); s.addColorStop(0, 'rgba(0,0,0,.45)'); s.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = s; ctx.fillRect(Math.min(x, x + (x === x0 ? CELL : -CELL)), y0, CELL, h); };
+    side(x0); side(x0 + w);
+  });
+}
 function drawTerrainProps(ctx) {
   if (!TERRAIN_PROPS.ready || (typeof profile !== 'undefined' && profile && profile.classicArt)) return;
   const rock = (r, c) => r >= 0 && c >= 0 && r < ROWS && c < COLS && terrain[idx(r, c)] === T.CLIFF;
@@ -7612,9 +7634,23 @@ function drawTerrainProps(ctx) {
     if (spots.some((q) => Math.abs(q.r - r) < 3 && Math.abs(q.c - c) < 3)) continue;
     spots.push({ r, c, h });
   }
-  spots.sort((a, b) => a.r - b.r);
-  for (const { r, c, h } of spots) {
-    const kind = (h >>> 5) % TERRAIN_PROPS.n, size = CELL * (1.7 + ((h >>> 9) & 3) * .15);
+  /* A RING OF TREES (2026-11-14). Gene: "make it so the trees fill the border of the hill".
+     Every rock cell of a massif that touches open ground or water carries a pine or a frozen
+     tree, a little smaller than the interior ones, de-phased by a hash so the line is not a
+     fence. The cave mouth is left clear. */
+  const inMassif = (r, c) => c >= PILLAR_C0 && c <= PILLAR_C1 && ((r >= S_PILLAR_R0 && r <= S_PILLAR_R1) || (r >= N_PILLAR_R0 && r <= N_PILLAR_R1));
+  const ring = [];
+  for (let r = 0; r < ROWS; r += 1) for (let c = 0; c < COLS; c += 1) {
+    if (!rock(r, c) || !inMassif(r, c)) continue;
+    if (rock(r - 1, c) && rock(r + 1, c) && rock(r, c - 1) && rock(r, c + 1)) continue;
+    ring.push({ r, c, h:rwb_hash(r * 5 + 3, c * 11 + 1), ring:true });
+  }
+  spots.splice(0, spots.length, ...spots.filter((q) => !ring.some((t) => Math.abs(t.r - q.r) < 2 && Math.abs(t.c - q.c) < 2)));
+  const all = [...spots, ...ring];
+  all.sort((a, b) => a.r - b.r);
+  for (const { r, c, h, ring: onRing } of all) {
+    const kind = onRing ? ((h >>> 5) % 3 ? 0 : 3) : [0, 2, 3][(h >>> 5) % 3];   // the crystal now lives at the cave
+    const size = CELL * (onRing ? 1.25 + ((h >>> 9) & 3) * .08 : 1.7 + ((h >>> 9) & 3) * .15);
     const fx = c * CELL + CELL * (.5 + (((h >>> 12) & 7) - 3.5) * .05), fy = (r + 1) * CELL - CELL * .1;
     ctx.fillStyle = 'rgba(0,0,0,.38)';
     ctx.beginPath(); ctx.ellipse(fx + size * .08, fy, size * .36, size * .12, 0, 0, Math.PI * 2); ctx.fill();
@@ -7623,6 +7659,15 @@ function drawTerrainProps(ctx) {
     ctx.drawImage(TERRAIN_PROPS.img, kind * 96, 0, 96, 96, fx - size / 2, fy - size * .95, size, size);
     ctx.restore();
   }
+  // the crystal stands where the creeps go in: at the far wall of each cave, glowing
+  [[S_DOOR_R, 1], [N_DOOR_R, -1]].forEach(([dr, dir]) => {
+    const cx = (DOOR_C + .5) * CELL, size = CELL * 3.1;
+    const footY = dir > 0 ? dr * CELL + CELL * .55 : (dr + 1) * CELL - CELL * .1;
+    const g = ctx.createRadialGradient(cx, footY - size * .35, 0, cx, footY - size * .35, size * .8);
+    g.addColorStop(0, 'rgba(140,220,255,.45)'); g.addColorStop(1, 'rgba(140,220,255,0)');
+    ctx.fillStyle = g; ctx.fillRect(cx - size, footY - size * 1.2, size * 2, size * 1.6);
+    ctx.drawImage(TERRAIN_PROPS.img, 96, 0, 96, 96, cx - size / 2, footY - size * .95, size, size);
+  });
 }
 function rwTerrainDetail(ctx) {
   if (!(CELL > 0)) return;
@@ -7701,6 +7746,7 @@ function drawTerrain(ctx, scale = 1) {
   rwTerrainSurface(ctx, { ROWS, COLS, CELL, BOARD_W, BOARD_H, terrain, idx, T,
     RIVER_TOP, RIVER_BOT, simTime });
   rwTerrainDetail(ctx);
+  drawCaves(ctx);
   drawTerrainProps(ctx);
   /* RAISED CLIFFS (redesign phase 6). The same top-left key light the towers
      use: a lit edge where a cliff faces the light and a shaded edge where it
@@ -9840,8 +9886,6 @@ function buildOverlay() {
      are already drawn in each lane's own colour, which is what the names were
      repeating. */
   const midC = DOOR_C + .5;
-  html += overlayItem('ov-ship', N_DOOR_R, midC, '⛵');
-  html += overlayItem('ov-ship ov-ship-player', S_DOOR_R, midC, '⛵');
   html += overlayItem('ov-gate', RIVER_MID, midC, '✹');
   html += overlayItem('ov-massif', (ROWS - 1) - (SHRINE_R0 + SHRINE_R1) / 2, midC, '▲');
   html += overlayItem('ov-shrine', (SHRINE_R0 + SHRINE_R1) / 2, midC, '✦');
@@ -14334,8 +14378,12 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    lives in changelog.md, this is the "what changed for me" version.
    Bump RELEASE_TAG whenever you add an entry: the card auto-expands once per
    new tag, then collapses and stays collapsed. */
-const RELEASE_TAG = '2026-11-14-motion';
+const RELEASE_TAG = '2026-11-14-cave';
 const RELEASE_NOTES = [
+  { date:'2026-11-14', title:'The cave', items:[
+    'Creeps no longer leave through the bottom of the board. After the flag they turn back up into a cave cut into your hill and are lost at its far wall, under the crystal. The rival\'s hill has the same cave facing its side. The strip along the bottom edge is now open ground to build on.',
+    'Trees ring both hills, and the cave mouth is left clear.',
+  ] },
   { date:'2026-11-14', title:'Everything moves', items:[
     'Creeps hop and waddle as they walk and are knocked back when hit; fliers beat their wings and bank into turns. Towers breathe while idle and kick back every time they fire.',
     'New send: the Gorilla Bruiser, a club-swinging medium creep at Shrine 2 (1,100g, +122 income). More gorillas are on the way.',
