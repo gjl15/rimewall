@@ -2,6 +2,21 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 14, 2026 — New creep art, preview (Claude)
+
+- Six creeps redrawn with an image generator (Canva) in one painted style, colour
+  tied to armour class: Miner amber (unarmored), Prowler green (light), Fang
+  Outrider blue (medium), Iron Pilgrim crimson (heavy), Hoverbarge violet
+  (fortified), Drake Whelp green (light, flying). Backgrounds keyed out, packed into
+  `creeps-gen.webp` (576×96, 20 KB) beside the page. Matched by name, waves and
+  sends alike (`GEN_CREEPS`, `genCreepFrame`, one branch in `drawCreep`); the other
+  47 creeps keep their art. Settings → "New creep art (preview, 6 creeps)" switches
+  back (`profile.classicArt`).
+- Measured at the 21 px cell on these six, today → generated: mean saturation
+  0.22 → 0.40, effectively grey 4 → 1 of 6, hue families 2 → 4, confusable pairs
+  0 → 0. On the board, 18 of 18 spawned creeps drew the new art; no page errors;
+  arena audit unchanged; teamboard.js PASS.
+
 ## November 9, 2026 — Depth on the board (Claude, redesign phase 6)
 
 - Mass with tier (ART-DIRECTION item 1): a tower's body scales 1.0 → 1.6 across its

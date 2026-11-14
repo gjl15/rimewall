@@ -1834,6 +1834,7 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
         <label class="set-toggle"><input type="checkbox" id="set-sound" checked> <span>Sound effects</span></label>
         <label class="set-toggle"><input type="checkbox" id="set-reduce"> <span>Reduce motion (calmer effects)</span></label>
         <label class="set-toggle"><input type="checkbox" id="set-noparticles"> <span>Turn off particles (helps lag)</span></label>
+        <label class="set-toggle"><input type="checkbox" id="set-genart"> <span>New creep art (preview, 6 creeps)</span></label>
         <div class="settings-sep"></div>
         <button id="set-tutorial" class="ghost-button set-dev"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4zM20 4h-6a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h7z"/></svg> Replay tutorial</button>
         <button id="set-resetmap" class="ghost-button set-dev"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2zM9 4v14M15 6v14"/></svg> Restore default map</button>
@@ -1897,7 +1898,7 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
           <p id="mp-status" class="mp-status" aria-live="polite"></p>
         </div>
 
-        <div class="home-foot"><div class="version-pill">TEST BUILD · TEAM MATCH 14 + FIXES 2026-11-09</div></div>
+        <div class="home-foot"><div class="version-pill">TEST BUILD · TEAM MATCH 14 + FIXES 2026-11-14</div></div>
 
 
       </section>
@@ -7928,6 +7929,19 @@ Object.values(SPRITE_SHEETS).forEach((s) => {
 function spriteIdForTower(raceId, tier, name) {
   return `${raceId}-${tier}-${String(name).toLowerCase().replace(/[^a-z0-9]+/g, '')}`;
 }
+/* GENERATED CREEP ART, PREVIEW (2026-11-14). Six creeps redrawn in one painted
+   style with colour tied to armour class (amber unarmored, green light, blue
+   medium, crimson heavy, violet fortified), so a wave reads by colour at the
+   21 px cell. Matched by name, waves and sends alike. Settings can switch back to
+   the classic art; a missing file falls back silently. */
+const GEN_CREEP_NAMES = ['miner', 'prowler', 'fangoutrider', 'ironpilgrim', 'hoverbarge', 'drakewhelp'];
+const GEN_CREEPS = { img:new Image(), ready:false };
+GEN_CREEPS.img.onload = () => { GEN_CREEPS.ready = true; };
+GEN_CREEPS.img.src = 'creeps-gen.webp';
+function genCreepFrame(creep) {
+  if (!GEN_CREEPS.ready || (typeof profile !== 'undefined' && profile && profile.classicArt)) return -1;
+  return GEN_CREEP_NAMES.indexOf(String(creep.name || '').toLowerCase().replace(/[^a-z0-9]+/g, ''));
+}
 function spriteIdForCreep(creep) {
   const n = String(creep.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
   return (creep.sent ? 'send-' : 'wave-') + n;
@@ -8346,7 +8360,12 @@ function drawCreep(ctx, creep) {
      holds pose one: the animation is decoration, the creature is not. */
   const stride = Math.floor(((creep.walked || 0) + (creep.id || 0) * .21) / SPRITE_STRIDE) % 2;
   const pose = (stride && !reduced && SPRITE_SHEETS.creep2.ready) ? 'creep2' : 'creep';
-  creep.spriteDrawn = drawSprite(ctx, pose, csid, 0, 0, size * 3.4);
+  const genFrame = genCreepFrame(creep);
+  if (genFrame >= 0) {
+    const gs = size * 3.4;
+    ctx.drawImage(GEN_CREEPS.img, genFrame * 96, 0, 96, 96, -gs / 2, -gs / 2, gs, gs);
+    creep.spriteDrawn = true;
+  } else creep.spriteDrawn = drawSprite(ctx, pose, csid, 0, 0, size * 3.4);
   /* GRAVITY HAS TO MOVE THE BODY, NOT PRINT A GLYPH.
      Measured: impulses fire 65-156 times a wave and land on EVERY creep in it
      (10, 9, 8, 8, 8 ... across ten creeps) — the mechanic was never the problem.
@@ -13888,6 +13907,9 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    new tag, then collapses and stays collapsed. */
 const RELEASE_TAG = '2026-10-25-attackers';
 const RELEASE_NOTES = [
+  { date:'2026-11-14', title:'New creep art, preview', items:[
+    'Miner, Prowler, Fang Outrider, Iron Pilgrim, Hoverbarge and Drake Whelp are redrawn in one painted style, coloured by armour class: amber unarmored, green light, blue medium, crimson heavy, violet fortified. At board size they now read by colour instead of as grey shapes. Settings → "New creep art" switches back to the classic art.',
+  ] },
   { date:'2026-11-05', title:'Wind, a new element (from Abdy)', items:[
     'Wind Weaver builds the 10-gold Wind Needle and upgrades it to Gale, Razorwind, Vortex or Tempest. Gusts fan out behind the target in the open; inside a maze corridor they follow five path cells upstream with +20% damage and a stronger slow. Strong against air; weak against heavy and fortified armour.',
   ] },
@@ -14764,6 +14786,7 @@ function openSettings() {
   $('set-ranges').checked = !!debug.ranges;
   $('set-reduce').checked = !!profile.reduceMotion;
   const np = $('set-noparticles'); if (np) np.checked = !!profile.noParticles;
+  const ga = $('set-genart'); if (ga) ga.checked = !profile.classicArt;
   const snd = $('set-sound'); if (snd) snd.checked = !profile.sfxOff;
   const bm = $('set-buildmode'); if (bm) bm.value = buildMode();
   $('set-dev').textContent = 'DEV TEST BUILD — everything unlocked';
@@ -14800,6 +14823,7 @@ $('set-routes')?.addEventListener('change', (e) => { debug.routes = e.target.che
 $('set-ranges')?.addEventListener('change', (e) => { debug.ranges = e.target.checked; syncMapToggles(); barStructKey = ''; renderCommandBar(); });
 $('set-reduce')?.addEventListener('change', (e) => { profile.reduceMotion = e.target.checked; saveProfile(); document.body.classList.toggle('reduce-motion', e.target.checked); });
 $('set-noparticles')?.addEventListener('change', (e) => { profile.noParticles = e.target.checked; saveProfile(); if (e.target.checked) effects.length = 0; });
+$('set-genart')?.addEventListener('change', (e) => { profile.classicArt = !e.target.checked; saveProfile(); });
 $('set-sound')?.addEventListener('change', (e) => { profile.sfxOff = !e.target.checked; saveProfile(); if (!profile.sfxOff) { SFX.unlock(); SFX.play('tap'); } });
 $('set-buildmode')?.addEventListener('change', (e) => { profile.buildMode = e.target.value; saveProfile(); ghost = null; barStructKey = ''; renderCommandBar(); log(e.target.value === 'confirm' ? 'Precision build: tap a cell, then ✓ to confirm.' : 'Quick build: tap a cell to place instantly.'); });
 $('set-tutorial')?.addEventListener('click', () => { profile.onboarded = false; saveProfile(); closeSettings(); if (battleRunning && !mp.active) Coach.start(); else showToast('<b>🎓 Tutorial reset</b><span>It will play on your next match.</span>'); });
