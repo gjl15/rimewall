@@ -1,0 +1,74 @@
+# id|subject|palette   (tier cue added from the id's rung: 0 small simple ... 5 towering grand, 6 imposing)
+ice-0-frostflick|a frost turret with a single pointed ice crystal on top of a squat round stone base|icy pale blue and white with slate stone
+ice-1-snowballlauncher|a catapult tower on a stone base loaded with a big packed snowball|icy pale blue and white with slate stone and dark wood
+ice-2-whiteoutspire|a tall stone spire with a swirling blizzard cloud and snowflakes spinning around its icy top|icy pale blue and white with slate stone
+ice-3-meltjet|a pressurised frost cannon tower with tanks and a nozzle venting freezing mist|icy pale blue and white with slate stone and brass
+ice-4-shatterfrost|a fortified tower crowned with a burst of huge jagged ice shards|icy pale blue and white with slate stone
+ice-5-absolutezero|a grand glacial citadel tower with a glowing frozen core suspended in its crown|icy pale blue and white with slate stone and silver
+ice-6-bulwarkstake|a heavy palisade of sharpened ice stakes bound with iron around a stone post|icy pale blue and white with slate stone and iron
+fire-0-kindler|a brazier on a squat stone pedestal with a small flame|ember orange and red with dark iron
+fire-1-emberwhirl|a stone tower with a spinning ring of embers around a fiery core|ember orange and red with dark iron
+fire-2-skyfallbrazier|a tall mortar brazier tower that launches flaming rocks skyward|ember orange and red with dark iron
+fire-3-slagworks|a squat forge tower pouring molten slag from crucibles|ember orange and red with dark iron
+fire-4-ashmaker|a massive volcanic chimney tower belching ash and flame|ember orange and red with black rock
+fire-5-pyroclastrod|a towering obsidian rod tower crackling with a pillar of lava fire|ember orange and red with black obsidian
+earth-0-verdantspring|a mossy stone well with a sprouting sapling|earthy tan and green with brown wood
+earth-1-rootwarden|a stump tower wrapped in thick living roots|earthy tan and green with brown wood
+earth-2-worldheartcoffer|a carved wooden reliquary tower with a glowing green seed inside|earthy tan and green with brown wood and gold
+earth-3-earthssoul|a mound of earth with a glowing amber soul stone set in roots|earthy tan and amber with brown wood
+earth-4-worldheart|a great living tree tower with a beating green heart in its trunk|earthy tan and green with brown wood
+earth-5-bramblespeck|a giant thorny bramble fortress tower bristling with spikes|earthy tan and green with brown wood
+tech-0-boltturret|a small mechanical crossbow turret on a riveted steel base|steel blue and periwinkle with brass
+tech-1-longbolt|a long-barrelled bolt thrower turret|steel blue and periwinkle with brass
+tech-2-ballista|a heavy ballista turret on a rotating steel platform|steel blue and periwinkle with brass and wood
+tech-3-multishot|a multi-barrel rotary bolt turret|steel blue and periwinkle with brass
+tech-4-siegetank|a squat armoured siege tank turret with a big cannon|steel blue and periwinkle with brass
+tech-5-ionarray|a tall ion cannon array tower with glowing blue coils|steel blue and periwinkle with glowing cyan
+tech-6-doomsdaysilo|a heavy missile silo tower with an open hatch and a warhead|steel blue and periwinkle with hazard stripes
+crystal-0-shardcaster|a small violet crystal shard on a stone pedestal|amethyst violet and lilac with pale stone
+crystal-1-prismcannon|a cannon tower with a large prism lens|amethyst violet and lilac with pale stone
+crystal-2-facetfury|a tower of many faceted violet crystals pointing outward|amethyst violet and lilac with pale stone
+crystal-3-refractionsnare|a crystal tower with floating rings of refracting light|amethyst violet and lilac with pale stone
+crystal-4-geodebreaker|a split open giant geode tower full of glowing crystals|amethyst violet and lilac with dark stone
+crystal-5-latticeannihilator|a towering crystal lattice spire radiating light|amethyst violet and lilac with pale stone and gold
+poison-0-venombarb|a small thorny barb launcher dripping green venom|toxic lime green with dark purple-grey
+poison-1-blightspire|a twisted spire oozing green blight|toxic lime green with dark purple-grey
+poison-2-mirelobber|a bubbling cauldron catapult lobbing toxic sludge|toxic lime green with dark wood
+poison-3-toxincreeper|a vine-covered tower with creeping poisonous tendrils|toxic lime green with dark purple-grey
+poison-4-carriontotem|a grim totem tower of bones and venom flasks|toxic lime green with bone and dark wood
+poison-5-miasmavent|a towering vent chimney billowing thick green miasma|toxic lime green with dark iron
+stone-0-cairn|a small stack of balanced grey stones|pale grey granite with moss
+stone-1-bouldermaw|a stone tower with a gaping maw that spits boulders|pale grey granite
+stone-2-monolith|a tall carved stone monolith with runes|pale grey granite with faint blue runes
+stone-3-runestoneseer|a ring of rune stones around a glowing seer stone|pale grey granite with blue runes
+stone-4-quakebreaker|a massive hammer tower that slams the ground|pale grey granite with iron
+stone-5-petrifier|a towering gorgon statue tower with glowing eyes|pale grey granite with green glow
+electricity-0-staticpost|a small copper post with a sparking tip|electric yellow and copper with dark iron
+electricity-1-stormcrown|a tower crowned with crackling lightning prongs|electric yellow and copper with dark iron
+electricity-2-arcweaver|a tower with two coils weaving arcs of lightning|electric yellow and copper with dark iron
+electricity-3-thunderspike|a tall spike tower struck by lightning|electric yellow and copper with dark iron
+electricity-4-coildynamo|a big dynamo tower with spinning copper coils|electric yellow and copper with dark iron
+electricity-5-capacitorbank|a towering bank of glowing capacitor cylinders|electric yellow and copper with dark iron
+gravity-0-gravitywell|a small dark orb floating above a stone ring|orchid violet and black with silver
+gravity-1-gravityspull|a tower with a dark swirling orb pulling debris|orchid violet and black with silver
+gravity-2-psiemitter|a tower with a glowing psionic dish emitter|orchid violet and black with silver
+gravity-3-collapsar|a tower around a collapsing dark star|orchid violet and black with silver
+gravity-4-singularitymortar|a mortar tower loaded with a black singularity|orchid violet and black with silver
+gravity-5-eventhorizon|a towering ring gate around a black hole with a glowing accretion disc|orchid violet and black with silver
+beam-0-spotlamp|a small lamp post with a bright teal lens|mint teal and white with brass
+beam-1-arclight|a tower with a curved arc lamp|mint teal and white with brass
+beam-2-prismlance|a tall lance tower firing through a prism|mint teal and white with brass
+beam-3-focalarray|a tower with an array of focusing mirrors|mint teal and white with brass
+beam-4-starcutter|a tower with a long glowing star cutter emitter|mint teal and white with silver
+beam-5-auroralance|a towering spire radiating aurora ribbons of light|mint teal and white with silver
+ninja-0-shadowinitiate|a small wooden pagoda watchpost with a paper lantern|charcoal black and white with red accents
+ninja-1-daggeradept|a pagoda tower with racks of throwing daggers|charcoal black and white with red accents
+ninja-2-swordronin|a pagoda tower with a great katana mounted on top|charcoal black and white with red accents
+ninja-3-macebreaker|a fortified pagoda tower with a heavy spiked mace|charcoal black and white with red accents
+ninja-4-spearsentinel|a pagoda tower bristling with long spears|charcoal black and white with red accents
+ninja-5-shadowmaster|a towering multi-tier shadow pagoda with smoke and red banners|charcoal black and white with red accents
+wind-0-windneedle|a slender needle spire with spinning wind vanes|pale mint and white with silver
+wind-1-gale|a windmill tower blasting a gust|pale mint and white with silver
+wind-2-razorwind|a tower with sharp bladed fans|pale mint and white with silver
+wind-3-vortex|a tower with a swirling tornado around it|pale mint and white with silver
+wind-4-tempest|a towering storm spire wrapped in a howling tempest|pale mint and white with silver

@@ -8067,6 +8067,22 @@ Object.values(SPRITE_SHEETS).forEach((s) => {
 /* A tower's sprite id is race, tier and name — the same key the generator used,
    built the same way, so a renamed tower misses its sprite and falls back to
    its vector rather than quietly wearing the wrong art. */
+const GEN_TOWER_IDS = [];
+/* GENERATED TOWER ART (art pass, 2026-11-14). Towers redrawn in the creeps' painted style, each
+   standing on its own base, keyed by the same sprite id as the classic sheet, so a line that has
+   not been redrawn yet falls back to the classic frame and then to the vector. */
+const GEN_TOWERS = { img:new Image(), ready:false, cols:8, index:{} };
+GEN_TOWER_IDS.forEach((id, i) => { GEN_TOWERS.index[id] = i; });
+GEN_TOWERS.img.onload = () => { GEN_TOWERS.ready = true; };
+if (GEN_TOWER_IDS.length) GEN_TOWERS.img.src = 'towers-gen.webp';   // nothing to fetch until a line is done
+function drawGenTower(ctx, sid) {
+  if (!GEN_TOWERS.ready || (typeof profile !== 'undefined' && profile && profile.classicArt)) return false;
+  const i = GEN_TOWERS.index[sid];
+  if (i === undefined) return false;
+  // a little larger than the classic frame, feet on the plinth line, centred on the cell
+  ctx.drawImage(GEN_TOWERS.img, (i % GEN_TOWERS.cols) * 96, Math.floor(i / GEN_TOWERS.cols) * 96, 96, 96, -11, -13.2, 22, 22);
+  return true;
+}
 function spriteIdForTower(raceId, tier, name) {
   return `${raceId}-${tier}-${String(name).toLowerCase().replace(/[^a-z0-9]+/g, '')}`;
 }
@@ -8223,7 +8239,7 @@ function drawTowerStructure(ctx, tower, stats, building, laneColor) {
   const sid = spriteIdForTower(race, stats.spriteTier ?? tier, stats.spriteName || stats.name);
   ctx.save(); ctx.scale(mass, mass);
   const drew = race === 'ninja' && stats.weaponKind ? drawNinjaWeaponStructure(ctx, stats)
-    : stats.special === 'bola' ? drawTechBolaStructure(ctx) : drawSprite(ctx, 'tower', sid, 0, -1.2, 19);
+    : stats.special === 'bola' ? drawTechBolaStructure(ctx) : (drawGenTower(ctx, sid) || drawSprite(ctx, 'tower', sid, 0, -1.2, 19));
   if (!drew) {
     ctx.save(); ctx.translate(0, bottom);
     ctx.fillStyle = hex; ctx.strokeStyle = '#0c122099'; ctx.lineWidth = .9; ctx.lineJoin = 'round';
