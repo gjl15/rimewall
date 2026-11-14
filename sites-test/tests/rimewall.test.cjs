@@ -8,7 +8,7 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const VM_TIMEOUT=Number(process.env.RIMEWALL_TEST_TIMEOUT_MS)||10000;
 const html = fs.readFileSync(path.join(__dirname, '../dist/index.html'), 'utf8');
-const scripts = [...html.matchAll(/<script(\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(m=>{const src=m[1]?.match(/src="([^"]+)"/);return src?fs.readFileSync(path.join(__dirname,'../dist',src[1]),'utf8'):m[2];});
+const scripts = [...html.matchAll(/<script(\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(m=>{const src=m[1]?.match(/src="([^"]+)"/);return src?fs.readFileSync(path.join(__dirname,'../dist',src[1].split('?')[0]),'utf8'):m[2];});
 
 function boot() {
   const elements = new Map();
@@ -1202,11 +1202,11 @@ test('host retries a lost start packet and guest accepts acknowledged Ready befo
   assert.equal(run("testMessages.filter(m=>m.t==='start-ack').length"),2);
 });
 
-async function runningMultiplayerRoom(teamSize=2,team='south',shared=false,opponents=false) {
+async function runningMultiplayerRoom(teamSize=2,team='south',shared=false,opponents=false,mode='classic') {
   const host=boot(),guest=boot();
   for(const [client,name] of [[host,'Abdy'],[guest,'Gene']])client.run(`
     $('team-select').value='${teamSize}';$('mp-name').value=${JSON.stringify(name)};$('mp-code').value='ABCD';
-    $('lives-select').value='100';$('lives-select').options=[{value:'100'}];$('mode-select').value='classic';
+    $('lives-select').value='100';$('lives-select').options=[{value:'100'}];$('mode-select').value=${JSON.stringify(mode)};
     battleRunning=false;lobbyPhase=false;roster=newRoster(1);globalThis.outbox=[];
     mpMakeMqttTransport=async()=>({send:m=>outbox.push(m),close:()=>{}});mpStartHelloLoop=()=>{};mpStatus=()=>{};
     setupCanvasesOnce=()=>{};fitBoardToViewport=()=>{};resetMapZoom=()=>{};redrawBoard=()=>{};frameHomeGround=()=>{};
@@ -1911,4 +1911,85 @@ test('Vortex hits once per pulse, with weaker damage and stronger slow at range'
     return [1e6-near.hp,1e6-far.hp,near.windSlows[0].pct,far.windSlows[0].pct];
   })()`);
   assert.ok(result[0]>100 && result[1]<56 && result[3]>result[2]);
+});
+
+test('Roster Wars deploys every ten seconds and selling ends income without despawning prior sends', () => {
+  const {value} = boot();
+  assert.deepEqual(value(`(() => {
+    $('mode-select').value = 'roster';
+    resetMatchState();
+    player.gold = 2500;
+    const send = SENDS.find(s => s.shrine === 1 && s.cost > 0);
+    const recruit = applyRosterAction(player,'recruit',{slot:0,id:send.id});
+    const unit = player.rosterSlots[0];
+    const upgrade = applyRosterAction(player,'upgrade',{slot:0,unitId:unit.id,id:'health',rank:1});
+    const before = player.gold, payout = goldIncomePerCycle(3);
+    incomeClock = .01;
+    simulate(.02);
+    const deployed = creeps.filter(c=>c.half===ENEMY_HALF).length;
+    const refund = Math.floor((send.cost + 300) / 2);
+    const sold = applyRosterAction(player,'sell',{slot:0,unitId:unit.id});
+    const sellGold = player.gold === before + payout + refund;
+    const oldStillActive = creeps.filter(c=>c.half===ENEMY_HALF).length === deployed;
+    const replacement = applyRosterAction(player,'recruit',{slot:0,id:send.id});
+    const stale = applyRosterAction(player,'sell',{slot:0,unitId:unit.id});
+    return [matchMode,currentIncomePeriod(),wave,recruit.ok,upgrade.ok,deployed,sold.ok,sellGold,
+      oldStillActive,player.income,player.woodIncome,replacement.ok,stale.ok,player.lumber];
+  })()`), ['roster',10,0,true,true,1,true,true,true,0,.125,true,false,2]);
+});
+
+test('all split ranks preserve total parent HP and personal stats, clear auras and split only once', () => {
+  const {value} = boot();
+  assert.deepEqual(value(`(() => {
+    matchMode = 'roster';
+    const send = SENDS.find(s=>s.role==='shieldbearer') || SENDS[0];
+    const ranks = {health:10,armor:10,speed:10,slow:10,shield:10,regen:10,shieldRegen:10,healAura:10,shieldAura:10};
+    return Array.from({length:10},(_,i)=>{
+      creeps.length = 0;
+      const parent = spawnCreep(rosterCombatStats({sendId:send.id,ranks:{...ranks,split:i+1}}),ENEMY_HALF,'west',true);
+      parent.shieldMax += 30;
+      parent.shield += 30;
+      parent.rosterAuraShield = 30;
+      applyDamage(parent,1e8,null,true);
+      const children = creeps.filter(c=>c!==parent);
+      const health = children.reduce((sum,c)=>sum+c.maxHp,0);
+      return children.length === i+1 && Math.abs(health-parent.maxHp) < 1e-7 && children.every(c=>
+        c.hp===c.maxHp && c.armor===parent.armor && c.spd===parent.spd && c.regen===parent.regen &&
+        c.slowResistance===parent.slowResistance && c.shieldMax===parent.rosterPersonalShield &&
+        c.rosterShieldRegen===parent.rosterShieldRegen && !c.healAura && !c.healingAuraRate &&
+        !c.shieldAuraRate && !c.rosterAuraShield && !c.splitCount);
+    });
+  })()`), Array(10).fill(true));
+});
+
+test('split siblings cost one total life upon leaking', () => {
+  const {run} = boot();
+  assert.equal(run(`(() => {
+    matchMode = 'roster';
+    const start = enemy.lives;
+    const parent = spawnCreep(rosterCombatStats({sendId:SENDS[0].id,ranks:{split:10}}),ENEMY_HALF,'east',true);
+    applyDamage(parent,1e8,null,true);
+    creeps.forEach(resolveLeak);
+    return start-enemy.lives;
+  })()`), 1);
+});
+
+test('a shared Roster Wars guest can recruit, upgrade, and deploy from their own purse', async () => {
+  const {host,guest,flush} = await runningMultiplayerRoom(2,'south',true,false,'roster');
+  assert.equal(guest.run('matchMode'), 'roster');
+  const key = JSON.stringify(guest.run('mpMySeatKey()'));
+  host.run(`mp.arenaPlayers[${key}].gold=500;arenaBroadcast(true)`);
+  flush();
+  const id = JSON.stringify(guest.run('SENDS.find(s=>s.shrine===1 && s.cost>0).id'));
+  guest.run(`rosterCommand('recruit',{slot:0,id:${id}})`);
+  flush();
+  const unit = guest.run('player.rosterSlots[0].id');
+  guest.run(`rosterCommand('upgrade',{slot:0,unitId:${unit},id:'health',rank:1})`);
+  flush();
+  assert.equal(guest.run('player.income'),3);
+  assert.equal(host.run('player.income'),0);
+  host.run('incomeClock=.01;simulate(.02);arenaBroadcast(true)');
+  flush();
+  assert.equal(guest.run('creeps.filter(c=>c.sent && c.half===ENEMY_HALF).length'),1);
+  assert.equal(guest.run('wave'),0);
 });

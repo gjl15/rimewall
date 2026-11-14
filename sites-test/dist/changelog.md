@@ -1,3 +1,9 @@
+# Roster Wars · November 14, 2026
+
+- Five reusable slots deploy every 10 seconds. Upgrades add flat income and each has ten ranks. Selling refunds half the gold invested and clears the slot’s ongoing income.
+- Split count follows rank. Children share the parent’s maximum HP, retain its personal combat stats and spawn without auras. Only one life can be lost to a group of siblings.
+- Human players start with 2 lumber. Convert All buys whole lumber at 500 gold each.
+
 # Rimewall test build — changelog
 
 ## October 26, 2026 — NINJA 21 approved test build

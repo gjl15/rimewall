@@ -1,7 +1,7 @@
 /* Shared multiplayer arena. Only the host advances combat. Clients submit
    ordered, acknowledged intents; personal purses and tower ownership stay
    separate while pathfinding, creeps, damage and team lives share one world. */
-const ARENA_PROTOCOL = 'shared-arena-1';
+const ARENA_PROTOCOL = 'shared-arena-1-roster';
 function arenaActive() { return !!(mp.active && mp.started && mp.sharedArena); }
 function arenaRemoteAction() { return arenaActive() && !!mp.arenaActor && mp.arenaActor!==mpMySeatKey(); }
 function arenaActingHalf() {
@@ -25,7 +25,7 @@ function arenaInit() {
     if(s.kind!=='human')continue;
     const key=mpSeatKey(half,s.index),pos=mpSeatsInPlay(half).findIndex(v=>v.index===s.index);
     mp.arenaPlayers[key]=key===mpMySeatKey()?player:{
-      gold:START_GOLD,income:0,lives:startingLives(),kills:0,lumber:0,woodIncome:0,woodBank:0,
+      gold:START_GOLD,income:0,lives:startingLives(),kills:0,lumber:START_LUMBER,woodIncome:0,woodBank:0,
       shrine:1,sendTraining:0,glyphCharges:0,glyphUntil:0,glyphReadyAt:0,
       races:[s.raceId || races[0].id],lumberSpent:0,startLives:startingLives(),
       seat:pos,lane:seatLane(half,pos,mpSeatsInPlay(half).length),zone:seatZone(half,pos,mpSeatsInPlay(half).length)
@@ -92,7 +92,7 @@ function arenaExecute(key,kind,args={}) {
       batchAction(keys.map(k=>towers.get(k)),args.action);result=true;
     } else if(kind==='rank')result=keys.every(k=>boostTowerRank(towers.get(k)));
     else if(kind==='bulwark')result=keys.every(k=>boostBulwark(towers.get(k)));
-    else if(kind==='lumber')result=buyLumber();
+    else if(kind==='lumber')result=buyLumber(args.all === true);
     else if(kind==='shrine')result=upgradeShrine();
     else if(kind==='training')result=buySendTraining();
     else if(kind==='glyph-buy')result=buyGlyph();
@@ -105,7 +105,12 @@ function arenaExecute(key,kind,args={}) {
       applyGlobalPriority(args.next);result=true;
     } else if(kind==='undo'){undoAction();result=true;}
     else if(kind==='undo-sell')result=undoSell();
-    else if(kind==='send')result=arenaPurchaseSend(args.id,key);
+    else if(kind==='roster') {
+      const outcome = isRosterWars() && applyRosterAction(purse,args.action,args);
+      if (outcome) log(outcome.message);
+      result = !!outcome?.ok;
+    }
+    else if(kind==='send' && !isRosterWars())result=arenaPurchaseSend(args.id,key);
     return result;
   } finally {
     mp.arenaUI[key]=arenaUIState();player=savedPlayer;
@@ -250,6 +255,7 @@ function arenaReceive(msg) {
     return true;
   }
   if(msg.t==='send') {
+    if (isRosterWars()) return true;
     if(mp.role==='host') {
       const seats=mpAttackSeats(msg),base=SENDS.find(s=>s.id===msg.id);
       if(seats?.source.kind==='ai'&&base){const half=seats.target.half===mp.team?'south':'north';

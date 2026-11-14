@@ -1,8 +1,8 @@
 /* Rimewall service worker — offline + instant repeat loads without ever serving a stale build.
    Strategy: network-FIRST for navigations (a new deploy always wins online; cache is the offline
    fallback), stale-while-revalidate for static assets (fonts, icons, manifest). */
-const CACHE = 'rimewall-combined-2026-10-26-v21-ninja';
-const SHELL = ['./', './index.html', './shared-arena.js', './changelog.md', './towers.html', './maze-school.html', './manifest.json', './icon-192.png', './icon-512.png'];
+const CACHE = 'rimewall-2026-11-14-roster-wars';
+const SHELL = ['./', './index.html', './shared-arena.js?v=roster-wars', './changelog.md', './towers.html', './maze-school.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL).catch(() => {})).then(() => self.skipWaiting()));
