@@ -2,6 +2,59 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 14, 2026 — A more elemental game (Claude)
+
+Gene: "Build 1, 2 and 3" (effects that grow with rank, reactions, readable armour).
+
+**3 · Readable armour.** `ARMOR_RULES` replaces the 60-number `ATTACK_PROFILE` table (which
+is now derived from it): each element is strong (x1.5) against one class and weak (x0.6)
+against one, full damage otherwise; crystal is still chaos; siege attackers still take full
+damage; per-rung `vs` multipliers are unchanged.
+
+| element | strong vs | weak vs |
+|---|---|---|
+| Fire | unarmored | fortified |
+| Ice | heavy | medium |
+| Wind | light | heavy |
+| Poison | medium | fortified |
+| Gravity | heavy | unarmored |
+| Electricity | light | unarmored |
+| Earth | fortified | light |
+| Stone | fortified | light |
+| Tech | medium | heavy |
+| Beam | unarmored | fortified |
+| Ninja | unarmored | heavy |
+
+Weaknesses sit where each element was already weakest in the old table, except Ice (the blue
+frost-born resist it) and Electricity (the amber spirits). A first draft had Ice and Fire
+both weak to medium, the commonest class, and an Ice+Fire wall measured worse; it was moved.
+The creep card shows "weak to ... · resists ..." in the elements' colours under the armour
+class in its art colour (`armorAdviceHTML`); tower cards read "strong vs X · weak vs Y ·
+reacts: ...".
+
+**2 · Reactions.** Every hit marks the creep with its element for 3 s (`elementHit`, called
+from `applyHitEffects` and wind shots). A marked creep hit by the right second element
+reacts (`REACTIONS`, `runReaction`), at most once a second each, spending the primer:
+Shatter (ice -> fire, 2.5x true damage), Ignite (poison -> fire, venom pool x1.5 at once plus
+splash), Firestorm (wind -> fire, burn spreads to 6 within 2), Storm (wind -> electricity,
+arcs to 3 within 3 at 0.8x), Superconduct (ice -> electricity, 50% armour shred 4 s), Crush
+(earth/stone -> gravity, 1.5x true damage and a slam), Miasma (poison -> wind, venom carried
+to 5 within 2.5). Together they cover all eight Random-pair elements.
+
+**1 · Effects grow with rank.** `effectPower` (1 + 2.5% per rank, x2.25 at rank 50) scales
+venom, fire burn, frostbite and every reaction; `tierPot` gains 1.2% per rank, so stun,
+stasis, crit, gravity shove and poison slow chances rise with it.
+
+Measured (`tools/harness/ceiling.js`, 50 rung-3 towers, waves 6/10/14/18/22, share of each
+wave leaked, summed; old -> new): ice 1.2 -> 1.5, fire 0.6 -> 0.5, earth 1.2 -> 1.3, wind
+2.1 -> 2.2, poison 4.2 -> 4.2, stone 0.9 -> 1.2, electricity 2.8 -> 2.9, beam 0.4 -> 0.4,
+ninja 2.9 -> 3.0, tech/gravity 0 -> 0, crystal 0.2 -> 0.2. Pairs (`ceilpair.js`): earth+gravity
+0.3 -> 0, wind+electricity 2.4 -> 2.3, poison+fire 0 -> 0, ice+fire 0 -> 0.5, wind+fire 0.5
+-> 0.5. `elemtest.js`: all seven reactions fire, none without a primer, the 1 s cooldown
+holds. Draw 0.9 ms/frame at minute 6, crowd 112 ms per simulated second, arena audit clean,
+teamboard.js PASS, no page errors. (The harness used to keep the game's own wave clock
+running underneath; it now stops it, and clears pending spawns between waves.)
+
 ## November 14, 2026 — No more late-game freeze (Claude)
 
 Gene: "the game gets super laggy ... basically freezes after 10 minutes".

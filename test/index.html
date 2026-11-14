@@ -2572,23 +2572,49 @@ function armorReduction(armor) { const k = armor * .06; return k / (1 + k); }
    is a real strategic answer (e.g. pierce shreds light but bounces off heavy
    and fortified; siege cracks fortified; storm is elite anti-air). Crystal
    is chaos: full damage to everything, armor ignored. */
-const ATTACK_PROFILE = {
-  ice:{ label:'Frost', vs:{ light:1.15, heavy:1.25, fortified:.55 } },
-  fire:{ label:'Blast', vs:{ unarmored:1.25, medium:1.25, fortified:.65 } },
-  earth:{ label:'Siege', vs:{ light:.6, heavy:1.15, fortified:1.55 } },
-  wind:{ label:'Pierce', vs:{ unarmored:1.3, light:1.5, medium:1.1, heavy:.6, fortified:.4 } },
-  tech:{ label:'Pierce', vs:{ unarmored:1.3, light:1.5, medium:1.1, heavy:.6, fortified:.4 } },
-  crystal:{ label:'Chaos', chaos:true, vs:{ unarmored:1, light:1, medium:1, heavy:1, fortified:1 } },
-  poison:{ label:'Venom', vs:{ unarmored:1.3, light:1.25, heavy:.75, fortified:.5 } },
-  stone:{ label:'Crush', vs:{ unarmored:.9, light:.65, heavy:1.2, fortified:1.5 } },
-  electricity:{ label:'Storm', vs:{ unarmored:1.1, light:1.4, medium:1.2, heavy:.85, fortified:.5 } },
-  gravity:{ label:'Warp', vs:{ unarmored:.85, light:.9, medium:1.15, heavy:1.2, fortified:.7 } },
-  beam:{ label:'Lumen', vs:{ unarmored:1.2, light:1.15, medium:1.05, heavy:.8, fortified:.6 } },
-  /* An assassin's spread: it opens throats and cannot get through plate. The
-     imbuings are where a ninja answers what it is bad at — a piercing blade
-     ignores this table entirely. */
-  ninja:{ label:'Blade', vs:{ unarmored:1.4, light:1.35, medium:1.1, heavy:.6, fortified:.45 } }
+/* READABLE ARMOUR (Gene, 2026-11-14: "build 1, 2 and 3"). The old table was 60 hand-tuned
+   numbers between 0.4 and 1.55, and the only way to know Pierce bounced off fortified at 0.4 was
+   to read it. Now one rule: every element is STRONG (x1.5) against one armour class and WEAK
+   (x0.6) against one, and full damage against the rest. Each armour class is weak to two or
+   three elements and resists one to three, and the class is the creep's colour: amber
+   unarmored, green light, blue medium, crimson heavy, violet fortified. Siege attackers take
+   full damage from everything, as before. Crystal is still chaos. Individual rungs keep their
+   own extra multipliers (a Ballista is still the tower you buy for fortified). Each weakness
+   was placed where the element was already weakest in the old table, except Ice (now resisted
+   by the blue frost-born) and Electricity (by the amber spirits), so no two elements in the
+   Random-pair pool share a weakness to the commonest armour. */
+const ARMOR_RULES = {
+  unarmored:{ weak:['fire', 'beam', 'ninja'], resist:['electricity', 'gravity'] },
+  light:{ weak:['wind', 'electricity'], resist:['earth', 'stone'] },
+  medium:{ weak:['tech', 'poison'], resist:['ice'] },
+  heavy:{ weak:['ice', 'gravity'], resist:['wind', 'tech', 'ninja'] },
+  fortified:{ weak:['earth', 'stone'], resist:['fire', 'beam', 'poison'] },
 };
+const ARMOR_STRONG = 1.5, ARMOR_WEAK = .6;
+const ARMOR_COLORS = { unarmored:'#ffb15c', light:'#7fe08a', medium:'#6ea8ff', heavy:'#ff6b6b', fortified:'#b98cff', siege:'#ffd84a' };
+const ATTACK_LABELS = { ice:'Frost', fire:'Blast', earth:'Siege', wind:'Gust', tech:'Pierce', crystal:'Chaos', poison:'Venom',
+  stone:'Crush', electricity:'Storm', gravity:'Warp', beam:'Lumen', ninja:'Blade' };
+const ATTACK_PROFILE = (() => {
+  const out = {};
+  Object.keys(ATTACK_LABELS).forEach((id) => { out[id] = { label:ATTACK_LABELS[id], vs:{} }; });
+  out.crystal.chaos = true;
+  Object.entries(ARMOR_RULES).forEach(([cls, rule]) => {
+    rule.weak.forEach((id) => { if (out[id]) out[id].vs[cls] = ARMOR_STRONG; });
+    rule.resist.forEach((id) => { if (out[id]) out[id].vs[cls] = ARMOR_WEAK; });
+  });
+  return out;
+})();
+function elementStrongVs(raceId) { return Object.keys(ARMOR_RULES).filter((cls) => ARMOR_RULES[cls].weak.includes(raceId)); }
+function elementWeakVs(raceId) { return Object.keys(ARMOR_RULES).filter((cls) => ARMOR_RULES[cls].resist.includes(raceId)); }
+function raceName(id) { return (races.find((r) => r.id === id) || {}).name || id; }
+// the creep side, for its card: what to throw at it and what not to
+function armorAdviceHTML(cls) {
+  const rule = ARMOR_RULES[cls];
+  const col = ARMOR_COLORS[cls] || '#cfd6ea';
+  if (!rule) return `<span style="color:${col}">${cls}</span> · full damage from every element`;
+  const chip = (id) => { const r = races.find((x) => x.id === id); return `<b style="color:${r ? r.color : '#fff'}">${r ? r.name : id}</b>`; };
+  return `<span style="color:${col}">${cls}</span> · weak to ${rule.weak.map(chip).join(', ')} · resists ${rule.resist.map(chip).join(', ')}`;
+}
 /* Per-builder identity tunables (the rework). */
 const TRAIT = {
   hpScaleNeutral:2.0, hpScaleSend:1.35, armorBonus:2, hpLateRamp:1.04, hpLateFrom:13,
@@ -2704,7 +2730,14 @@ const TRAIT = {
   shieldRegenDelay:4
 };
 function pointInPoly(x, y, poly) { let hit = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { if ((poly[i].y > y) !== (poly[j].y > y) && x < (poly[j].x - poly[i].x) * (y - poly[i].y) / (poly[j].y - poly[i].y) + poly[i].x) hit = !hit; } return hit; }
-function tierPot(tower) { return Math.min(1, .55 + .09 * (tower.tier || 0)); }
+/* EFFECTS GROW WITH RANK (2026-11-14). A tower's rank now strengthens what its element DOES,
+   not only its damage: every proc chance that tierPot scales (stun, stasis, crit, gravity
+   shove, poison slow) rises 1.2% per rank, and burns, venom, frost and reactions grow 2.5% per
+   rank through effectPower. A tower that has fought all match carries an element about twice
+   as strong as a fresh one, which is the passive growth past wave 30. */
+const EFFECT_RANK_STEP = .025, PROC_RANK_STEP = .012;
+function effectPower(tower) { return tower ? 1 + EFFECT_RANK_STEP * towerTotalRank(tower) : 1; }
+function tierPot(tower) { return Math.min(1, .55 + .09 * (tower.tier || 0)) * (1 + PROC_RANK_STEP * towerTotalRank(tower)); }
 /* Several signature odds are multiplied by tierPot, so the headline figure is
    only true at the TOP of a ladder — Stone's "25% of hits crit" is really 13.75%
    on a Cairn. Cards that quote one of those print the range instead. */
@@ -2725,9 +2758,10 @@ function attackProfileText(raceId, def) {
   }
   const tail = own.length ? ` · this tower: ${own.join(' ')}` : '';
   if (p.chaos) return 'Chaos: 100% damage against every armor class; ignores armor value' + tail;
-  const parts = Object.entries(p.vs).map(([cls, m]) => `${m >= 1.15 ? '+' : m <= .55 ? '−−' : '−'}${cls}`);
-  if (p.air && p.air > 1) parts.push('+air');
-  return `${p.label}: ${parts.join(' ')}${tail}`;
+  const strong = elementStrongVs(raceId), weak = elementWeakVs(raceId);
+  const rx = REACTIONS.filter((x) => x.trigger === raceId || x.primer.includes(raceId))
+    .map((x) => `${x.name[0] + x.name.slice(1).toLowerCase()} (${x.primer.map(raceName).join('/')} then ${raceName(x.trigger)})`);
+  return `${p.label}: strong vs ${strong.join(', ') || '—'} (x${ARMOR_STRONG}) · weak vs ${weak.join(', ') || '—'} (x${ARMOR_WEAK})${rx.length ? ' · reacts: ' + rx.join(', ') : ''}${tail}`;
 }
 /* WHAT A SPECIAL DOES, WITH THE ODDS AND THE RATE SPELLED OUT.
    The old table was a dozen hand-written sentences, and Gene was right that you
@@ -5091,7 +5125,7 @@ function applyDamage(creep, amount, tower, isDot = false, opts) {
   let dmg = raw;
   let resisted = 0;
   if (!isDot && tower) {
-    const stats = towerLiveStats(tower);
+    const stats = towerStatsRO(tower);
     const profile = ATTACK_PROFILE[tower.raceId] || { vs:{} };
     // Chaos deals full damage regardless of armor amount or armor class.
     const chaos = isChaos(tower, stats);
@@ -5214,8 +5248,8 @@ function applyDamage(creep, amount, tower, isDot = false, opts) {
 function applyFrost(creep, tower, stats, extraStack) {
   // extraStack: a repeat application from one hit (deepfreeze). It stacks frost
   // but must NOT re-roll frostbite, or one Meltjet shot would bite three times.
-  if (!extraStack && rng() < TRAIT.frostbiteChance) {
-    const bite = (stats?.dmg || 0) * TRAIT.frostbiteMult;
+  if (!extraStack && rng() < TRAIT.frostbiteChance * Math.min(1.6, effectPower(tower))) {
+    const bite = (stats?.dmg || 0) * TRAIT.frostbiteMult * effectPower(tower);
     if (bite > 0) {
       applyDamage(creep, bite, tower);
       pushFx({ kind:'num', x:creep.x, y:creep.y - .6, text:'❄' + Math.round(bite), until:simTime + .8, color:'#bfeaff', big:true });
@@ -5249,8 +5283,90 @@ function applyFrost(creep, tower, stats, extraStack) {
      and snowball splash carrying the ramp to a whole cluster at once. */
   creep.frostPct = Math.min(TRAIT.frostMax, TRAIT.frostBase + (creep.frostStacks - 1) * TRAIT.frostStep);
 }
+/* ELEMENTAL REACTIONS (2026-11-14). Every element's hit leaves its mark on a creep for three
+   seconds. Hit a marked creep with the right second element and the two react:
+     Ice, then Fire          SHATTER       a burst of true damage; the frost is spent
+     Poison, then Fire       IGNITE        the whole venom pool goes up at once and splashes
+     Wind, then Fire         FIRESTORM     the burn spreads to everything close by
+     Wind, then Electricity  STORM         the bolt arcs to three more creeps
+     Ice, then Electricity   SUPERCONDUCT  half its armour stripped for four seconds
+     Earth or Stone, then Gravity  CRUSH   true damage and a slam to the ground
+     Poison, then Wind       MIASMA        the venom is carried to the creeps around it
+   It is why two elements now beat one: a Random pair is built from exactly the elements that
+   react. A creep reacts at most once a second to each, and reactions grow with the triggering
+   tower's rank like every other effect. */
+const ELEMENT_MARK_DUR = 3, REACTION_CD = 1;
+const REACTIONS = [
+  { id:'shatter', name:'SHATTER', primer:['ice'], trigger:'fire', color:'#bff4ff' },
+  { id:'ignite', name:'IGNITE', primer:['poison'], trigger:'fire', color:'#d6ff6b' },
+  { id:'firestorm', name:'FIRESTORM', primer:['wind'], trigger:'fire', color:'#ffb36b' },
+  { id:'storm', name:'STORM', primer:['wind'], trigger:'electricity', color:'#fff27a' },
+  { id:'superconduct', name:'SUPERCONDUCT', primer:['ice'], trigger:'electricity', color:'#9fe8ff' },
+  { id:'crush', name:'CRUSH', primer:['earth', 'stone'], trigger:'gravity', color:'#e2a7ff' },
+  { id:'miasma', name:'MIASMA', primer:['poison'], trigger:'wind', color:'#9be86b' },
+];
+function nearbyCreeps(creep, reach, max) {
+  const out = [];
+  for (const o of creepsNear(creep.x, creep.y, reach + 1)) {
+    if (o === creep || o.hp <= 0 || o.half !== creep.half || Math.hypot(o.x - creep.x, o.y - creep.y) > reach) continue;
+    out.push(o); if (out.length >= max) break;
+  }
+  return out;
+}
+function runReaction(rx, creep, tower, stats) {
+  const ep = effectPower(tower), base = (stats && stats.dmg) || 0;
+  if (rx.id === 'shatter') {
+    applyDamage(creep, base * 2.5 * ep, tower, true);
+    creep.frostUntil = simTime; creep.frostStacks = 0;
+  } else if (rx.id === 'ignite') {
+    const pool = (creep.venom || 0) * TRAIT.poisonDur;
+    if (pool > 0) {
+      applyDamage(creep, pool * 1.5 * ep, tower, true);
+      nearbyCreeps(creep, 1.6, 5).forEach((o) => applyDamage(o, pool * .4 * ep, tower, true));
+      creep.venom = 0;
+    }
+  } else if (rx.id === 'firestorm') {
+    nearbyCreeps(creep, 2, 6).forEach((o) => { pushDot(o, base * .3 * ep, 3); o.marks = o.marks || {}; o.marks.fire = simTime + ELEMENT_MARK_DUR; });
+  } else if (rx.id === 'storm') {
+    nearbyCreeps(creep, 3, 3).forEach((o) => {
+      applyDamage(o, base * .8 * ep, tower);
+      pushFx({ kind:'bolt', x1:creep.x, y1:creep.y, x2:o.x, y2:o.y, until:simTime + .22 });
+    });
+  } else if (rx.id === 'superconduct') {
+    creep.bulwarkArmorShredPct = Math.max((creep.bulwarkArmorShredUntil || 0) > simTime ? (creep.bulwarkArmorShredPct || 0) : 0, Math.min(.75, .5 * ep));
+    creep.bulwarkArmorShredUntil = simTime + 4;
+  } else if (rx.id === 'crush') {
+    applyDamage(creep, base * 1.5 * ep, tower, true);
+    tryHold(creep, simTime + .4);
+  } else if (rx.id === 'miasma') {
+    const share = (creep.venom || 0) * .6;
+    if (share > 0) nearbyCreeps(creep, 2.5, 5).forEach((o) => { o.venom = (o.venom || 0) + share * ep / 5 * 2; o.venomUntil = simTime + TRAIT.poisonDur; o.marks = o.marks || {}; o.marks.poison = simTime + ELEMENT_MARK_DUR; });
+  }
+  if (matchStats) matchStats.reactions = (matchStats.reactions || 0) + 1;
+  pushFx({ kind:'num', x:creep.x, y:creep.y - .9, text:rx.name, until:simTime + .9, color:rx.color, big:true });
+  pushFx({ kind:'impact', x:creep.x, y:creep.y, color:rx.color, big:true, until:simTime + .35 });
+}
+function elementHit(creep, tower, stats) {
+  const race = tower && tower.raceId;
+  if (!race || !creep || creep.hp <= 0) return;
+  const marks = creep.marks || (creep.marks = {});
+  for (const rx of REACTIONS) {
+    if (rx.trigger !== race) continue;
+    const primed = rx.primer.find((id) => (marks[id] || 0) > simTime);
+    if (!primed) continue;
+    const cdKey = 'rx_' + rx.id;
+    if ((creep[cdKey] || 0) > simTime) continue;
+    creep[cdKey] = simTime + REACTION_CD;
+    marks[primed] = 0;   // a reaction spends the mark that primed it
+    runReaction(rx, creep, tower, stats);
+    if (creep.hp <= 0) return;
+  }
+  marks[race] = simTime + ELEMENT_MARK_DUR;
+}
 function applyHitEffects(creep, tower, stats) {
   const special = stats.special, race = tower ? tower.raceId : null;
+  elementHit(creep, tower, stats);
+  if (creep.hp <= 0) return;
   // FROST — ramping slow that also freezes HP regen, and freezes solid at the top
   if (race === 'ice' && (special === 'slow' || special === 'frostnova' || special === 'snowball' || special === 'shatter' || special === 'deepfreeze')) {
     // deepfreeze drives three stacks a hit: four hits freeze instead of twelve
@@ -5278,7 +5394,7 @@ function applyHitEffects(creep, tower, stats) {
        for a real poison tower while a barb contributes a barb's worth. The cap
        also self-corrects as waves fatten: it binds harder on weak towers and
        not at all on the ones you actually teched into. */
-    const chunk = Math.min(creep.maxHp * share, stats.dmg);
+    const chunk = Math.min(creep.maxHp * share, stats.dmg) * effectPower(tower);
     creep.venom = (creep.venom || 0) + (chunk / TRAIT.poisonDur) * vs;
     creep.venomUntil = simTime + TRAIT.poisonDur;   // every hit refreshes the whole pool
     creep.slowUntil = Math.max(creep.slowUntil, simTime + 1.2); creep.slowPct = Math.max(creep.slowPct || 0, Math.round(TRAIT.poisonSlow * tierPot(tower)));
@@ -5286,7 +5402,7 @@ function applyHitEffects(creep, tower, stats) {
   // FIRE — 1st hit direct (done), 2nd ignites, 3rd erupts in an AoE
   if (race === 'fire') {
     creep.fireCharge = (creep.fireCharge || 0) + 1;
-    if (creep.fireCharge >= 2) pushDot(creep, stats.dmg * TRAIT.fireIgnitePct, 3);
+    if (creep.fireCharge >= 2) pushDot(creep, stats.dmg * TRAIT.fireIgnitePct * effectPower(tower), 3);
     if (creep.fireCharge >= 3) {
       creep.fireCharge = 0;
       pushFx({ kind:'impact', x:creep.x, y:creep.y, color:'#ff875f', big:true, until:simTime + .35 });
@@ -5452,6 +5568,7 @@ function resolveWindShot(projectile) {
   const slow = inTunnel ? WIND.tunnelSlow : 1;
   creditAttack(tower,stats);
   applyDamage(target,damage,tower);
+  if (target.hp > 0) elementHit(target, tower, stats);
   applyWindSlow(target,stats,WIND.slow*slow,true);
   if (crit) pushFx({kind:'num',x:target.x,y:target.y-.6,text:'Crit!',color:stats.color,until:simTime+.55});
   for (const other of creeps) {
@@ -11437,7 +11554,7 @@ function renderSelectedEnemyPanel() {
       <strong>${escapeHTML(creep.name || 'Enemy unit')}</strong>
       <div class="enemy-hpbar"><i style="width:${pct.toFixed(1)}%"></i></div>
       <div class="enemy-hptext"><span>${hp.toLocaleString()} / ${max.toLocaleString()} HP</span><span>${Math.round(pct)}%</span></div>
-      <div class="enemy-meta">${creep.armor || 0} armor · ${creep.aClass || 'medium'}<br>${Number(creep.spd || 0).toFixed(1)} speed · ${tags.join(' · ')}</div>
+      <div class="enemy-meta">${creep.armor || 0} armor · ${armorAdviceHTML(creep.aClass || 'medium')}<br>${Number(creep.spd || 0).toFixed(1)} speed · ${tags.join(' · ')}</div>
     </div></div>`;
     return;
   }
@@ -14589,8 +14706,13 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    lives in changelog.md, this is the "what changed for me" version.
    Bump RELEASE_TAG whenever you add an entry: the card auto-expands once per
    new tag, then collapses and stays collapsed. */
-const RELEASE_TAG = '2026-11-14-perf';
+const RELEASE_TAG = '2026-11-14-elemental';
 const RELEASE_NOTES = [
+  { date:'2026-11-14', title:'A more elemental game', items:[
+    'Armour is one rule now: every element is strong (x1.5) against one armour and weak (x0.6) against one, and the creep\'s colour is its armour — amber unarmored, green light, blue medium, crimson heavy, violet fortified. Tap a creep to see what it is weak to and what it resists.',
+    'Elements react. Hit a creep marked by one element with another: Ice then Fire SHATTERS it, Poison then Fire IGNITES the venom, Wind then Fire spreads a FIRESTORM, Wind then Electricity becomes a STORM that arcs to three more, Ice then Electricity SUPERCONDUCTS away half its armour, Earth or Stone then Gravity CRUSHES it, Poison then Wind carries a MIASMA to its neighbours.',
+    'Effects grow with rank: burns, venom, frost and reactions get 2.5% stronger per rank (up to x2.25), and stun, stasis, crit and shove chances 1.2% per rank. A veteran tower is a stronger element, not only a harder hitter.',
+  ] },
   { date:'2026-11-14', title:'No more late-game freeze', items:[
     'The freeze after about ten minutes is fixed. When a maze was sealed, every creep searched the whole board once per tower to choose one to break through, every frame: with a late-game crowd that was 12.8 seconds of work for each second of play. It is now one search per creep, about 100 times faster, and creeps still pick the same wall to break.',
     'Pathfinding is about twice as fast in every match, the route lines are no longer recalculated on every frame, and towers find targets from a grid instead of checking every creep. Drawing at minute 16 is about 40% cheaper.',
