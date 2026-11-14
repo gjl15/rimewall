@@ -2,6 +2,39 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 14, 2026 — No more late-game freeze (Claude)
+
+Gene: "the game gets super laggy ... basically freezes after 10 minutes".
+
+- Found with `tools/harness/crowd.js` (259 towers, the 270-creep cap, maze sealed as late
+  games often are): **12,792 ms of work per simulated second** — the game falls 12x behind
+  real time and locks up. 95% was `nearestBlockingTower`: every creep without a route
+  ran one full A* per tower, nearest first, until removing one opened a path, every tick.
+- `nearestBlockingTower` -> `blockerOnCheapestCrossing`: one weighted search where towers
+  are passable at 1000 (stakes 900, so they stay preferred); the first tower on the
+  cheapest path is the blocker. Cached per creep per maze version and cell; the old trial
+  method remains as a fallback. `ensurePath` remembers a failed search until the maze
+  changes or the creep moves; the walk to the blocker is found once, not every tick.
+  Crowd: 12,792 -> 103 ms per simulated second. `tools/harness/sealtest.js` (a full
+  wall across the band): same first target on the wall, 2 towers broken, 6 lives, same
+  timing as before.
+- `findPath`: binary heap with lazy deletion and stamped typed arrays (was an array scan
+  plus `includes`). 400 random queries in a 256-tower maze: identical path costs, 2.2x
+  faster.
+- `drawDebug` route lines cached per `towersVersion` (were 4 full path searches a frame:
+  25% of drawing at minute 10).
+- `towerLiveStats` cached per tower (tier, level, rank, bolt, attunement, maze version)
+  and copied out; `towerStatsRO` for read-only per-tick use; `towerDefRaw` for the
+  per-tick "is it a stake" checks; `settleTowerRanks` no longer runs for every tower
+  every tick (hits and purchases settle it).
+- `buildCreepGrid` / `creepsNear`: creeps bucketed by cell twice a tick; `pickTarget`,
+  the ground/air count and `spreadCreep` query only nearby cells, in creep-list order so
+  ties break as before.
+- `hudTick` / `shakeBoard` skip the forced-layout restart while a pulse is playing.
+- 16-minute match (`longmatch.js`): simulation 55-70 -> 35-44 ms per simulated second,
+  drawing 8.5-9.5 -> 5-6 ms a frame. Arena audit clean, motion hooks 8/8, reduce-motion
+  intact, teamboard.js PASS, no page errors.
+
 ## November 14, 2026 — The cave (Claude)
 
 From Gene's marked-up screenshot: creeps should move up into a cut-out in the hill, with
