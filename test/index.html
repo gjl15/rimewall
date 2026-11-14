@@ -7474,11 +7474,151 @@ function rwb_isWet(type, T) {
   return type === T.RIVER || type === T.GATE;
 }
 
+/* TERRAIN DETAIL (art pass, 2026-11-14). The board was flat fills with a seam, and the rock
+   between the lanes read as empty boxes. Painted once onto the static board, never per frame:
+   tileable noise grain on every surface; floor tiles bevelled, varied in tone, a few cracked or
+   pebbled; rock with strata, a frost cap where it faces the sky and a shadow it casts on the
+   ground below and right of it (the same top-left key light as the towers); water with depth
+   streaks and a foam line at the banks. The moving caustics are drawRiverFx's. */
+const TERRAIN_NOISE = new Map();
+function terrainNoise(size, n0, seed, ridged) {
+  const key = size + ':' + n0 + ':' + seed + ':' + (ridged ? 1 : 0);
+  if (TERRAIN_NOISE.has(key)) return TERRAIN_NOISE.get(key);
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const g = c.getContext('2d'), img = g.createImageData(size, size), d = img.data;
+  const lattice = (n, sd) => { const a = new Float32Array(n * n); let h = (sd * 7919 + 104729) % 233280; for (let i = 0; i < a.length; i += 1) { h = (h * 9301 + 49297) % 233280; a[i] = h / 233280; } return a; };
+  const octs = [[n0, 1, lattice(n0, seed)], [n0 * 2, .5, lattice(n0 * 2, seed + 1)], [n0 * 4, .25, lattice(n0 * 4, seed + 2)]];
+  for (let y = 0; y < size; y += 1) for (let x = 0; x < size; x += 1) {
+    let v = 0;
+    for (const [n, amp, L] of octs) {   // wraps at the edge, so the pattern tiles seamlessly
+      const fx = x / size * n, fy = y / size * n, x0 = Math.floor(fx), y0 = Math.floor(fy);
+      const sx = (fx - x0) * (fx - x0) * (3 - 2 * (fx - x0)), sy = (fy - y0) * (fy - y0) * (3 - 2 * (fy - y0));
+      const at = (i, j) => L[(j % n) * n + (i % n)];
+      v += amp * ((at(x0, y0) * (1 - sx) + at(x0 + 1, y0) * sx) * (1 - sy) + (at(x0, y0 + 1) * (1 - sx) + at(x0 + 1, y0 + 1) * sx) * sy);
+    }
+    v /= 1.75;
+    const k = (y * size + x) * 4;
+    if (ridged) { const rdg = Math.pow(1 - Math.abs(2 * v - 1), 7); d[k] = 200; d[k + 1] = 238; d[k + 2] = 255; d[k + 3] = Math.round(rdg * 255); }
+    else { const b = Math.round(v * 255); d[k] = d[k + 1] = d[k + 2] = b; d[k + 3] = 255; }
+  }
+  g.putImageData(img, 0, 0);
+  TERRAIN_NOISE.set(key, c);
+  return c;
+}
+function terrainPathOf(test) {
+  const path = new Path2D();
+  for (let r = 0; r < ROWS; r += 1) for (let c = 0; c < COLS; c += 1) if (test(terrain[idx(r, c)], r, c)) path.rect(c * CELL, r * CELL, CELL, CELL);
+  return path;
+}
+/* PROPS (art pass). Painted pines, frosted boulders, ice crystals and dead trees, generated in
+   the creeps' style, stand on the rock between the lanes. Only on rock cells whose neighbours are
+   all rock, so nothing overhangs a lane or a build tile; placement is a hash of the cell, so every
+   phone draws the same board. Drawn onto the static board; the board is redrawn when the sheet
+   arrives. */
+const TERRAIN_PROPS = { img:new Image(), ready:false, n:4 };
+TERRAIN_PROPS.img.onload = () => { TERRAIN_PROPS.ready = true; if (typeof canvasesReady !== 'undefined' && canvasesReady) redrawBoard(); };
+TERRAIN_PROPS.img.src = 'props.webp';
+function drawTerrainProps(ctx) {
+  if (!TERRAIN_PROPS.ready || (typeof profile !== 'undefined' && profile && profile.classicArt)) return;
+  const rock = (r, c) => r >= 0 && c >= 0 && r < ROWS && c < COLS && terrain[idx(r, c)] === T.CLIFF;
+  const spots = [];
+  for (let r = 1; r < ROWS - 1; r += 1) for (let c = 1; c < COLS - 1; c += 1) {
+    if (!rock(r, c) || !rock(r - 1, c) || !rock(r + 1, c) || !rock(r, c - 1) || !rock(r, c + 1) || !rock(r + 1, c + 1) || !rock(r + 1, c - 1)) continue;
+    const h = rwb_hash(r * 3 + 1, c * 7 + 2);
+    if (h % 5) continue;
+    if (spots.some((q) => Math.abs(q.r - r) < 3 && Math.abs(q.c - c) < 3)) continue;
+    spots.push({ r, c, h });
+  }
+  spots.sort((a, b) => a.r - b.r);
+  for (const { r, c, h } of spots) {
+    const kind = (h >>> 5) % TERRAIN_PROPS.n, size = CELL * (1.7 + ((h >>> 9) & 3) * .15);
+    const fx = c * CELL + CELL * (.5 + (((h >>> 12) & 7) - 3.5) * .05), fy = (r + 1) * CELL - CELL * .1;
+    ctx.fillStyle = 'rgba(0,0,0,.38)';
+    ctx.beginPath(); ctx.ellipse(fx + size * .08, fy, size * .36, size * .12, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.save();
+    if ((h >>> 15) & 1) { ctx.translate(fx * 2, 0); ctx.scale(-1, 1); }
+    ctx.drawImage(TERRAIN_PROPS.img, kind * 96, 0, 96, 96, fx - size / 2, fy - size * .95, size, size);
+    ctx.restore();
+  }
+}
+function rwTerrainDetail(ctx) {
+  if (!(CELL > 0)) return;
+  const wet = (t) => t === T.RIVER || t === T.GATE;
+  const at = (r, c) => (r < 0 || c < 0 || r >= ROWS || c >= COLS) ? -1 : terrain[idx(r, c)];
+  const grain = (path, noise, scaleX, scaleY, mode, alpha) => {
+    const pat = ctx.createPattern(noise, 'repeat');
+    if (pat.setTransform) pat.setTransform(new DOMMatrix().scale(scaleX, scaleY));
+    ctx.save(); ctx.clip(path); ctx.globalCompositeOperation = mode; ctx.globalAlpha = alpha;
+    ctx.fillStyle = pat; ctx.fillRect(0, 0, BOARD_W, BOARD_H); ctx.restore();
+  };
+  const floorPath = terrainPathOf((t) => t === T.FLOOR);
+  const rockPath = terrainPathOf((t) => t === T.CLIFF);
+  const waterPath = terrainPathOf((t) => t === T.RIVER);
+  const u = CELL / 21;   // detail is designed at the 21 px phone cell and scales with it
+  // 1. grain: fine on the ground, coarse on the rock, long streaks in the water
+  grain(floorPath, terrainNoise(128, 16, 3), u * .5, u * .5, 'overlay', .32);
+  grain(rockPath, terrainNoise(128, 8, 11), u, u, 'overlay', .55);
+  grain(rockPath, terrainNoise(128, 32, 17), u * .5, u * .5, 'soft-light', .5);
+  grain(waterPath, terrainNoise(128, 4, 23), u * 3, u * .8, 'overlay', .45);
+  // 2. floor tiles: tone, bevel, the odd crack or pebble; cast shadow from rock above or left
+  for (let r = 0; r < ROWS; r += 1) for (let c = 0; c < COLS; c += 1) {
+    const t = terrain[idx(r, c)], x = c * CELL, y = r * CELL, h = rwb_hash(r, c);
+    if (t === T.FLOOR) {
+      const tone = ((h >>> 4) & 7) - 3.5;
+      ctx.fillStyle = tone > 0 ? `rgba(255,255,255,${tone * .007})` : `rgba(0,0,0,${-tone * .02})`;
+      ctx.fillRect(x, y, CELL, CELL);
+      ctx.fillStyle = 'rgba(255,255,255,.05)'; ctx.fillRect(x + 1, y + 1, CELL - 2, u); ctx.fillRect(x + 1, y + 1, u, CELL - 2);
+      ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.fillRect(x + 1, y + CELL - 1 - u, CELL - 2, u); ctx.fillRect(x + CELL - 1 - u, y + 1, u, CELL - 2);
+      if ((h & 31) === 5) {   // a hairline crack
+        ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = .8 * u; ctx.beginPath();
+        ctx.moveTo(x + CELL * .2, y + CELL * (.3 + ((h >>> 9) & 3) * .1)); ctx.lineTo(x + CELL * .5, y + CELL * .5); ctx.lineTo(x + CELL * .78, y + CELL * (.45 + ((h >>> 11) & 3) * .1)); ctx.stroke();
+      } else if ((h & 31) === 9) {   // two pebbles, lit from the top left
+        [[.32, .62, 1.6], [.6, .4, 1.1]].forEach(([px, py, pr]) => {
+          ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x + CELL * px + .6 * u, y + CELL * py + .8 * u, pr * u, pr * .7 * u, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = 'rgba(190,215,210,.22)'; ctx.beginPath(); ctx.ellipse(x + CELL * px, y + CELL * py, pr * u, pr * .7 * u, 0, 0, Math.PI * 2); ctx.fill();
+        });
+      }
+      const rockN = at(r - 1, c) === T.CLIFF, rockW = at(r, c - 1) === T.CLIFF;
+      if (rockN) { const gr = ctx.createLinearGradient(0, y, 0, y + CELL * .55); gr.addColorStop(0, 'rgba(0,0,0,.42)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = gr; ctx.fillRect(x, y, CELL, CELL * .55); }
+      if (rockW) { const gr = ctx.createLinearGradient(x, 0, x + CELL * .45, 0); gr.addColorStop(0, 'rgba(0,0,0,.34)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = gr; ctx.fillRect(x, y, CELL * .45, CELL); }
+    } else if (t === T.CLIFF) {
+      // strata: a dark seam every half cell that wanders a little, continuous across cells
+      ctx.strokeStyle = 'rgba(0,0,0,.2)'; ctx.lineWidth = .9 * u;
+      for (let k = 0; k < 2; k += 1) { const yy = y + CELL * (.3 + k * .5) + Math.sin((c + r * 3 + k) * 1.7) * 1.5 * u; ctx.beginPath(); ctx.moveTo(x, yy); ctx.lineTo(x + CELL, yy + Math.sin((c + 1 + r * 3 + k) * 1.7) * 1.5 * u - Math.sin((c + r * 3 + k) * 1.7) * 1.5 * u); ctx.stroke(); }
+      // frost cap where the rock faces the sky, a drift of snow lit from the top left
+      if (at(r - 1, c) !== T.CLIFF) {
+        ctx.fillStyle = 'rgba(214,234,244,.32)'; ctx.beginPath(); ctx.moveTo(x, y);
+        for (let k = 0; k <= 6; k += 1) ctx.lineTo(x + CELL * k / 6, y + (2.2 + Math.sin((c * 6 + k) * 1.3) * 1.3) * u);
+        ctx.lineTo(x + CELL, y); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(x, y, CELL, .8 * u);
+      }
+      if (at(r, c - 1) !== T.CLIFF) { ctx.fillStyle = 'rgba(214,234,244,.14)'; ctx.fillRect(x, y, 1.6 * u, CELL); }
+      if ((h & 15) === 3) {   // a frost-rimmed boulder
+        const bx = x + CELL * (.3 + ((h >>> 6) & 3) * .12), by = y + CELL * (.35 + ((h >>> 8) & 3) * .1), br = (2.4 + ((h >>> 10) & 3) * .5) * u;
+        ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(bx + br * .3, by + br * .45, br, br * .7, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#273145'; ctx.beginPath(); ctx.ellipse(bx, by, br, br * .75, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(214,234,244,.45)'; ctx.beginPath(); ctx.ellipse(bx - br * .2, by - br * .35, br * .65, br * .3, 0, 0, Math.PI * 2); ctx.fill();
+      }
+    } else if (t === T.RIVER) {
+      // foam where the water meets land, broken into short wavelets
+      const landN = !wet(at(r - 1, c)) && at(r - 1, c) !== -1, landS = !wet(at(r + 1, c)) && at(r + 1, c) !== -1;
+      ctx.strokeStyle = 'rgba(214,240,250,.4)'; ctx.lineWidth = 1 * u;
+      [[landN, y + 1.6 * u], [landS, y + CELL - 1.6 * u]].forEach(([on, yy]) => {
+        if (!on) return;
+        ctx.beginPath();
+        for (let k = 0; k <= 4; k += 1) { const xx = x + CELL * k / 4, wy = yy + Math.sin((c * 4 + k) * 1.9) * .9 * u; k ? ctx.lineTo(xx, wy) : ctx.moveTo(xx, wy); }
+        ctx.stroke();
+      });
+    }
+  }
+}
 function drawTerrain(ctx, scale = 1) {
   ctx.save();
   ctx.scale(scale, scale);
   rwTerrainSurface(ctx, { ROWS, COLS, CELL, BOARD_W, BOARD_H, terrain, idx, T,
     RIVER_TOP, RIVER_BOT, simTime });
+  rwTerrainDetail(ctx);
+  drawTerrainProps(ctx);
   /* RAISED CLIFFS (redesign phase 6). The same top-left key light the towers
      use: a lit edge where a cliff faces the light and a shaded edge where it
      falls away, drawn once onto the static board, so it costs nothing a frame. */
@@ -9242,13 +9382,29 @@ function drawDebug(ctx) {
   }
 }
 let riverCells = null;
+let riverPath = null, riverPathFor = null;
 function drawRiverFx(ctx) {
+  /* CAUSTICS (art pass). Two layers of ridged light drift across the water in opposite
+     directions at different scales, so it reads as moving water rather than a painted strip.
+     Off with particles; frozen under reduced motion. */
+  if (!particlesOff()) {
+    if (riverPathFor !== riverCells || !riverPath) { riverPath = terrainPathOf((t) => t === T.RIVER); }
+    const cau = terrainNoise(128, 4, 31, true), u = CELL / 21, tm = rmReduced() ? 0 : simTime;
+    const pat = ctx.createPattern(cau, 'repeat');
+    if (pat && pat.setTransform) {
+      ctx.save(); ctx.clip(riverPath); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = pat;
+      pat.setTransform(new DOMMatrix().translate(tm * 7 * u, 0).scale(u * 1.6, u * .9)); ctx.globalAlpha = .16; ctx.fillRect(0, (RIVER_TOP - 1) * CELL, BOARD_W, (RIVER_BOT - RIVER_TOP + 3) * CELL);
+      pat.setTransform(new DOMMatrix().translate(-tm * 4 * u, 37).scale(u * 2.4, u * 1.3)); ctx.globalAlpha = .11; ctx.fillRect(0, (RIVER_TOP - 1) * CELL, BOARD_W, (RIVER_BOT - RIVER_TOP + 3) * CELL);
+      ctx.restore();
+    }
+  }
   if (!riverCells) {
     riverCells = [];
     for (let r = 0; r < ROWS; r += 1) for (let c = 0; c < COLS; c += 1) {
       const t = terrain[idx(r, c)];
       if (t === T.RIVER || (t === T.GATE && r >= RIVER_TOP && r <= RIVER_BOT)) riverCells.push({ r, c });
     }
+    riverPath = terrainPathOf((t) => t === T.RIVER); riverPathFor = riverCells;
   }
   ctx.save();
   ctx.strokeStyle = '#8fc2ff'; ctx.lineWidth = 1.1; ctx.globalAlpha = .35;
@@ -14010,8 +14166,11 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    lives in changelog.md, this is the "what changed for me" version.
    Bump RELEASE_TAG whenever you add an entry: the card auto-expands once per
    new tag, then collapses and stays collapsed. */
-const RELEASE_TAG = '2026-11-14-glow';
+const RELEASE_TAG = '2026-11-14-terrain';
 const RELEASE_NOTES = [
+  { date:'2026-11-14', title:'A board with weather in it', items:[
+    'The river moves: light drifts across the water and foam breaks at both banks. The rock between the lanes is textured stone with frost on its upper edges, casting a shadow on the ground beside it, and it carries painted pines, ice crystals, boulders and frozen trees. Build tiles are bevelled stone, a few cracked or pebbled. None of it is drawn per frame except the water.',
+  ] },
   { date:'2026-11-14', title:'Hits that glow', items:[
     'Bolts, impacts and chain lightning carry a soft glow in their element colour. A creep that is hit flares for a tenth of a second instead of getting a white dot over it, and a creep that dies lifts and burns out in its own art instead of vanishing. "Turn off particles" turns the glow off too.',
   ] },
@@ -14932,7 +15091,7 @@ $('set-routes')?.addEventListener('change', (e) => { debug.routes = e.target.che
 $('set-ranges')?.addEventListener('change', (e) => { debug.ranges = e.target.checked; syncMapToggles(); barStructKey = ''; renderCommandBar(); });
 $('set-reduce')?.addEventListener('change', (e) => { profile.reduceMotion = e.target.checked; saveProfile(); document.body.classList.toggle('reduce-motion', e.target.checked); });
 $('set-noparticles')?.addEventListener('change', (e) => { profile.noParticles = e.target.checked; saveProfile(); if (e.target.checked) effects.length = 0; });
-$('set-genart')?.addEventListener('change', (e) => { profile.classicArt = !e.target.checked; saveProfile(); });
+$('set-genart')?.addEventListener('change', (e) => { profile.classicArt = !e.target.checked; saveProfile(); if (canvasesReady) redrawBoard(); });
 $('set-sound')?.addEventListener('change', (e) => { profile.sfxOff = !e.target.checked; saveProfile(); if (!profile.sfxOff) { SFX.unlock(); SFX.play('tap'); } });
 $('set-buildmode')?.addEventListener('change', (e) => { profile.buildMode = e.target.value; saveProfile(); ghost = null; barStructKey = ''; renderCommandBar(); log(e.target.value === 'confirm' ? 'Precision build: tap a cell, then ✓ to confirm.' : 'Quick build: tap a cell to place instantly.'); });
 $('set-tutorial')?.addEventListener('click', () => { profile.onboarded = false; saveProfile(); closeSettings(); if (battleRunning && !mp.active) Coach.start(); else showToast('<b>🎓 Tutorial reset</b><span>It will play on your next match.</span>'); });

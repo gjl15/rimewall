@@ -2,6 +2,26 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 14, 2026 — A board with weather in it (Claude)
+
+- `rwTerrainDetail`, painted onto the static board after `rwTerrainSurface`: tileable
+  value noise (`terrainNoise`, generated in the page, no asset) as grain on floor,
+  rock and water, each at its own scale; floor tiles bevelled with per-tile tone, a
+  few cracked or pebbled; rock strata, frost caps on sky-facing edges and frosted
+  boulders; a shadow cast by rock onto the ground below and right of it; foam
+  wavelets along both river banks.
+- `drawTerrainProps`: `props.webp` (4 frames, 13 KB: pines, ice crystals, boulders,
+  frozen tree), generated in the creeps' style, placed by a hash of the cell on rock
+  cells surrounded by rock, at least 3 cells apart, never over a lane or build tile.
+  The board is repainted when the sheet loads and when "New creep art" is toggled;
+  classic art hides the props. Sources in `tools/art/props/`.
+- `drawRiverFx`: two layers of ridged caustics drift across the water in opposite
+  directions, clipped to the river (cached `Path2D`). Off with particles, frozen under
+  reduced motion.
+- Measured: draw 3.4 ms per frame at minute 6 (budget 8); stress scene 2.7 ms (was
+  2.35); one-off board repaint about 6 ms. Arena audit clean, teamboard.js PASS, no
+  page errors.
+
 ## November 14, 2026 — Hits that glow (Claude)
 
 - `fxGlow` / `fxGlowSprite`: one radial glow per colour, painted once into a 64 px
