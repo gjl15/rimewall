@@ -1837,7 +1837,7 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
         <label class="set-toggle"><input type="checkbox" id="set-sound" checked> <span>Sound effects</span></label>
         <label class="set-toggle"><input type="checkbox" id="set-reduce"> <span>Reduce motion (calmer effects)</span></label>
         <label class="set-toggle"><input type="checkbox" id="set-noparticles"> <span>Turn off particles (helps lag)</span></label>
-        <label class="set-toggle"><input type="checkbox" id="set-genart"> <span>New creep art (all 53 creeps)</span></label>
+        <label class="set-toggle"><input type="checkbox" id="set-genart"> <span>New creep art (all creeps)</span></label>
         <div class="settings-sep"></div>
         <button id="set-tutorial" class="ghost-button set-dev"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4zM20 4h-6a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h7z"/></svg> Replay tutorial</button>
         <button id="set-resetmap" class="ghost-button set-dev"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2zM9 4v14M15 6v14"/></svg> Restore default map</button>
@@ -3565,6 +3565,9 @@ const SENDS = [
   { id:'spirit', name:'Undying Shade', symbol:'❖', cost:1590, income:180, hp:1300, spd:2.9, armor:14, aClass:'unarmored', shrine:2 },
   { id:'bonecaller', name:'Bonecaller', symbol:'♻', cost:700, income:78, hp:620, spd:2.3, armor:8, aClass:'medium', role:'deathheal', shrine:2 },
   { id:'matureddragon', name:'Elder Drake', symbol:'▲', cost:800, income:90, hp:825, spd:2.9, armor:12, aClass:'light', air:true, shrine:2 },
+  /* GORILLAS (Gene, 2026-11-14: "make a few gorillas with weapons"). A club-swinging
+     medium bruiser between the Bonecaller and the Ram Hulk, priced on the ladder's shape. */
+  { id:'gorillabruiser', name:'Gorilla Bruiser', symbol:'✊', cost:1100, income:122, hp:1050, spd:2.4, armor:10, aClass:'medium', shrine:2 },
   { id:'ramhulk', name:'Ram Hulk', symbol:'⬓', cost:1450, income:165, hp:1500, spd:2.2, armor:13, aClass:'fortified', shrine:2 },
   /* LADDER GAPS, MEASURED AND FILLED. Counting the ladder by armour class and
      shrine level turned up holes a defender could simply ignore: no medium send
@@ -8171,10 +8174,10 @@ function spriteIdForTower(raceId, tier, name) {
    medium, crimson heavy, violet fortified), so a wave reads by colour at the
    21 px cell. Matched by name, waves and sends alike. Settings can switch back to
    the classic art; a missing file falls back silently. */
-const GEN_CREEP_NAMES = ['adamanthulk', 'aegisprime', 'aegisrunner', 'ancientdrake', 'bastion', 'bonecaller', 'breacher', 'bulwark', 'bulwarkjuggernaut', 'colossus', 'drakewhelp', 'dreadknight', 'duskrunner', 'duskstalker', 'elderdrake', 'fangoutrider', 'glacierbasilisk', 'grovetender', 'grovewarden', 'hornetflight', 'hoverbarge', 'idolbearer', 'impfamiliar', 'ironpilgrim', 'marauder', 'miner', 'mirebrute', 'mossbackregenerator', 'pathfinder', 'prowler', 'ramhulk', 'rimebornbrute', 'risenhusk', 'sapper', 'sapperswarm', 'scrapwalker', 'shardhidegolem', 'siegehauler', 'siegehulk', 'siegeruiner', 'skimmercraft', 'skybarge', 'stormdrake', 'stormherald', 'thefrosttyrant', 'thornsprinter', 'tideskimmer', 'undyingshade', 'wallbreaker', 'wardbearer', 'worldtitan', 'wraithlord'];
+const GEN_CREEP_NAMES = ['adamanthulk', 'aegisprime', 'aegisrunner', 'ancientdrake', 'bastion', 'bonecaller', 'breacher', 'bulwark', 'bulwarkjuggernaut', 'colossus', 'drakewhelp', 'dreadknight', 'duskrunner', 'duskstalker', 'elderdrake', 'fangoutrider', 'glacierbasilisk', 'gorillabruiser', 'grovetender', 'grovewarden', 'hornetflight', 'hoverbarge', 'idolbearer', 'impfamiliar', 'ironpilgrim', 'marauder', 'miner', 'mirebrute', 'mossbackregenerator', 'pathfinder', 'prowler', 'ramhulk', 'rimebornbrute', 'risenhusk', 'sapper', 'sapperswarm', 'scrapwalker', 'shardhidegolem', 'siegehauler', 'siegehulk', 'siegeruiner', 'skimmercraft', 'skybarge', 'stormdrake', 'stormherald', 'thefrosttyrant', 'thornsprinter', 'tideskimmer', 'undyingshade', 'wallbreaker', 'wardbearer', 'worldtitan', 'wraithlord'];
 const GEN_CREEPS = { img:new Image(), ready:false, cols:8 };
 const GEN_CREEP_ALIAS = { mossback:'mossbackregenerator' };   // the same beast under its send name
-const GEN_CREEP_FOOT = [.98, .98, .98, .96, .98, .98, .96, .98, .97, .98, .92, .98, .98, .97, .95, .98, .97, .98, .98, .98, .91, .98, .98, .98, .97, .98, .98, .97, .98, .98, .97, .98, .98, .98, .98, .98, .97, .94, .98, .97, .98, .98, .98, .97, .98, .98, .97, .98, .97, .98, .98, .98];   // where each frame's feet are, as a share of its height
+const GEN_CREEP_FOOT = [.98, .98, .98, .96, .98, .98, .96, .98, .97, .98, .92, .98, .98, .97, .95, .98, .97, .97, .98, .98, .98, .91, .98, .98, .98, .97, .98, .98, .97, .98, .98, .97, .98, .98, .98, .98, .98, .97, .94, .98, .97, .98, .98, .98, .97, .98, .98, .97, .98, .97, .98, .98, .98];   // where each frame's feet are, as a share of its height
 const SHEET_CREEP_FOOT = .97;
 GEN_CREEPS.img.onload = () => { GEN_CREEPS.ready = true; };
 GEN_CREEPS.img.src = 'creeps-gen.webp';
@@ -8318,6 +8321,15 @@ function drawTowerStructure(ctx, tower, stats, building, laneColor) {
      view reads as grounded when its mass sits slightly low. */
   const sid = spriteIdForTower(race, stats.spriteTier ?? tier, stats.spriteName || stats.name);
   ctx.save(); ctx.scale(mass, mass);
+  /* BREATHE AND KICK (motion pass 2). Idle, a tower rises and settles a little out of step
+     with its neighbours; when it fires it squashes into its base and springs back over 0.16s.
+     Scaled about the base so it never lifts off its plinth. */
+  if (!rmReduced() && !building) {
+    const breathe = Math.sin(simTime * 1.9 + (tower.key % 97) * .7) * .018;
+    const since = tower.recoilAt != null ? simTime - tower.recoilAt : 9;
+    const kick = since < .16 ? Math.sin(since / .16 * Math.PI) * (1 - since / .16) : 0;
+    ctx.translate(0, 7); ctx.scale(1 + kick * .1, 1 + breathe - kick * .14); ctx.translate(0, -7);
+  }
   const drew = race === 'ninja' && stats.weaponKind ? drawNinjaWeaponStructure(ctx, stats)
     : stats.special === 'bola' ? drawTechBolaStructure(ctx) : (drawGenTower(ctx, sid) || drawSprite(ctx, 'tower', sid, 0, -1.2, 19));
   if (!drew) {
@@ -8388,6 +8400,9 @@ function drawTower(ctx, tower) {
   if(tower.raceId==='crystal') drawCrystalLinks(ctx,tower);
   const shake = tower.underAttack > simTime ? (Math.random() - .5) * 3 : 0;
   const building = underConstruction(tower);
+  // a shot is the cooldown jumping back up; remembered for the recoil in drawTowerStructure
+  if ((tower.cooldown || 0) > (tower.cdSeen ?? 0) + .02) tower.recoilAt = simTime;
+  tower.cdSeen = tower.cooldown || 0;
   ctx.save();
   ctx.translate(x + CELL / 2 + shake, y + CELL / 2);
   if (building) ctx.globalAlpha = .6;
@@ -8618,12 +8633,26 @@ function drawCreep(ctx, creep) {
   /* BANK AND BOB (redesign phase 6). A walker leans a little into its direction
      of travel and squashes with its stride; a flier hovers. Reduced motion
      holds the pose, as the walk cycle already does. */
+  /* ALIVE (motion pass 2, 2026-11-14). Gene: "give all the units some motion". A walker hops
+     off the ground on every stride and waddles with it, landing with a squash; a flier beats
+     its wings and banks into its turns; anything hit is knocked back a step along its path.
+     Drawing only: the simulation never sees any of it. */
   if (!reduced) {
-    if (creep.air) ctx.translate(0, Math.sin(simTime * 4.2 + (creep.id || 0) * .9) * 1.2);
-    else {
+    const since = creep.hitAt ? simTime - creep.hitAt : 1;
+    if (since < .14) { const kb = (1 - since / .14) * size * .28; ctx.translate(-(creep.dirX || 0) * kb, -(creep.dirY || 0) * kb); }
+    if (creep.air) {
+      const beat = Math.sin(simTime * 9 + (creep.id || 0) * 1.3);
+      ctx.translate(0, Math.sin(simTime * 4.2 + (creep.id || 0) * .9) * 1.6);
+      ctx.rotate((creep.dirX || 0) * .14);
+      ctx.scale(1 - beat * .05, 1 + beat * .07);
+    } else {
+      const ph = ((creep.walked || 0) + (creep.id || 0) * .37) * 2.4;
       const lean = (creep.dirX || 0) * .16;
-      const bob = Math.sin(((creep.walked || 0) + (creep.id || 0) * .37) * 2.4) * .05;
-      ctx.transform(1, 0, -lean, 1, 0, 0); ctx.scale(1 + bob, 1 - bob);
+      const step = Math.abs(Math.sin(ph));                 // 0 on the ground, 1 at the top of the stride
+      const land = Math.pow(1 - step, 6);                  // a squash only in the instant of landing
+      ctx.translate(0, -step * size * .24);
+      ctx.rotate(Math.sin(ph) * .07);
+      ctx.transform(1, 0, -lean, 1, 0, 0); ctx.scale(1 + land * .07, 1 - land * .08);
     }
   }
   const csid = spriteIdForCreep(creep);
@@ -14305,8 +14334,12 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    lives in changelog.md, this is the "what changed for me" version.
    Bump RELEASE_TAG whenever you add an entry: the card auto-expands once per
    new tag, then collapses and stays collapsed. */
-const RELEASE_TAG = '2026-11-14-late-game';
+const RELEASE_TAG = '2026-11-14-motion';
 const RELEASE_NOTES = [
+  { date:'2026-11-14', title:'Everything moves', items:[
+    'Creeps hop and waddle as they walk and are knocked back when hit; fliers beat their wings and bank into turns. Towers breathe while idle and kick back every time they fire.',
+    'New send: the Gorilla Bruiser, a club-swinging medium creep at Shrine 2 (1,100g, +122 income). More gorillas are on the way.',
+  ] },
   { date:'2026-11-14', title:'Late waves you can beat, and money you can spend', items:[
     'Past wave 25 the waves no longer jump: they used to restart the ladder at about 170 times the HP, so the strongest wall the game allowed lost every wave from 38 on. Now they keep growing at a steady 8% a wave, so how far you go is up to your wall and your gold.',
     'Hit ranks are real: after levels 1 to 3, a tower earns a rank every 10 x (rank + 1) landed hits, each worth +2% damage. A tower that has fought all match hits about twice as hard as a new one.',

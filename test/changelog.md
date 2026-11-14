@@ -2,6 +2,19 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 14, 2026 — Everything moves; Gorilla Bruiser (Claude)
+
+- `drawCreep`: walkers hop each stride (up to 0.24 x size), waddle +/-0.07 rad and
+  squash on landing; fliers wing-beat (9 Hz squash) and bank with their heading; a hit
+  knocks a creep back along its path for 0.14 s. Drawing only.
+- `drawTower` notes a shot when the cooldown jumps back up (`recoilAt`);
+  `drawTowerStructure` breathes (+/-1.8%, de-phased per tower) and recoils (squash
+  into the base over 0.16 s), scaled about the base. All off under reduced motion.
+- New send `gorillabruiser` (Gorilla Bruiser, medium, Shrine 2, 1100g, +122 income,
+  1050 HP, armour 10) with generated art; atlas now 53 frames.
+- Checks: 8 consecutive fight frames show hops and 4-9 towers recoiling; draw 3.2 ms
+  per frame at minute 6; arena audit clean; reduce-motion intact; teamboard.js PASS.
+
 ## November 14, 2026 — Late waves you can beat, and money you can spend (Claude)
 
 Gene: waves 30-35 became impossible (exponential HP against a low ceiling); late gold

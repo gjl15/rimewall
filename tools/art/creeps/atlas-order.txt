@@ -15,6 +15,7 @@ duskstalker
 elderdrake
 fangoutrider
 glacierbasilisk
+gorillabruiser
 grovetender
 grovewarden
 hornetflight
