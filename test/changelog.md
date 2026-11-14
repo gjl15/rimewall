@@ -2,6 +2,16 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 14, 2026 — Random pair (Claude)
+
+- Lobby chip "Pair" (`data-lb-race="randompair"`): two different elements from
+  `RANDOM_PAIR_POOL` (fire, ice, wind, poison, gravity, electricity, earth, stone),
+  both held from the start. Stored as `profile.randomPair` beside `randomRace`.
+- In a room it travels as 'random', so the host resolves the first element as before
+  and this phone adds the partner after `resetMatchState`; no protocol change.
+- Checked: 30 starts, 22 distinct pairs, never a repeat or an element outside the
+  pool; choosing Random again clears Pair; no page errors.
+
 ## November 14, 2026 — A board with weather in it (Claude)
 
 - `rwTerrainDetail`, painted onto the static board after `rwTerrainSurface`: tileable

@@ -349,6 +349,7 @@ body.reduce-motion .mp-spin { animation:none; border-top-color:#8ee89f55; }
 .lb-races { display:grid; grid-template-columns:repeat(5,1fr); gap:5px; margin-top:10px; }
 .lb-race { display:flex; flex-direction:column; align-items:center; gap:2px; min-height:48px; padding:6px 2px; border:1.5px solid #2e3b5c; border-radius:9px; background:#131b30; color:#9fb0d2; }
 .lb-race span { color:var(--race); font-size:16px; line-height:1; }
+.lb-race span .ic + .ic { margin-left:-7px; }   /* the Pair chip's two dice overlap */
 .lb-race small { font-size:7px; letter-spacing:.02em; }
 .lb-race.on { border-color:var(--race); background:color-mix(in srgb, var(--race) 18%, #131b30); color:#f2f6ff; }
 .lb-race:active { transform:scale(.94); }
@@ -3748,6 +3749,8 @@ function loadProfile() {
   profile.devUnlockAll = SITE_DEV_BUILD || Boolean(profile.devUnlockAll);
   profile.randomRace = Boolean(profile.randomRace);
   randomRace = profile.randomRace;
+  profile.randomPair = Boolean(profile.randomPair) && randomRace;
+  randomPair = profile.randomPair;
 }
 function saveProfile() { try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); } catch (error) { /* per-browser only */ } }
 function raceUnlocked(raceId) {
@@ -3972,12 +3975,23 @@ let selectedRace = races[0];
    resolved to a real element the moment the match starts — on the host in a room,
    so every client is handed the same answer in the start packet.
    `var`, not `let`: loadProfile() runs above this line and restores the flag. */
-var randomRace;
+var randomRace, randomPair;
+/* 🎲🎲 RANDOM PAIR (Gene, 2026-11-14): two different elements drawn from fire, ice, wind,
+   poison, gravity, electricity, earth and stone, and you start the match holding both, with
+   no licence to buy. Rides on Random: the room still sees 'random', the host resolves the first
+   element exactly as it does for Random, and this phone adds the second at the start, so the
+   multiplayer protocol does not change. */
+const RANDOM_PAIR_POOL = ['fire', 'ice', 'wind', 'poison', 'gravity', 'electricity', 'earth', 'stone'];
+function randomPairPool() { return RANDOM_PAIR_POOL.filter((id) => races.some((r) => r.id === id) && raceUnlocked(id)); }
+function pairPartnerFor(firstId) {
+  const pool = randomPairPool().filter((id) => id !== firstId);
+  return pool[Math.floor(Math.random() * pool.length)] || null;
+}
 function resolveRandomRace() {
   const pool = races.filter((r) => raceUnlocked(r.id));
   return pool[Math.floor(Math.random() * pool.length)] || races[0];
 }
-function setRandomRace(on) { randomRace = !!on; try { profile.randomRace = randomRace; saveProfile(); } catch (e) {} }
+function setRandomRace(on, pair = false) { randomRace = !!on; randomPair = !!on && !!pair; try { profile.randomRace = randomRace; profile.randomPair = randomPair; saveProfile(); } catch (e) {} }
 let selectedTowerTier = 0;
 let buildRaceIdx = 0;              // index into player.races — which licensed element the build panel shows
 let panelRaceId = null;           // which race the wisp build panel is currently viewing (may be a preview)
@@ -11920,11 +11934,22 @@ const Coach = {
   finish() { this.active = false; profile.onboarded = true; saveProfile(); document.getElementById('coach-card')?.classList.add('hidden'); },
 };
 function startBattle() {
-  if (randomRace && !mp.active) { const r = resolveRandomRace(); commitRace(r); log(`🎲 Random element: <b>${r.name}</b>.`); }
+  if (randomRace && !mp.active) {
+    const pool = randomPairPool();
+    const r = randomPair && pool.length > 1 ? races.find((x) => x.id === pool[Math.floor(Math.random() * pool.length)]) : resolveRandomRace();
+    commitRace(r); if (!randomPair) log(`🎲 Random element: <b>${r.name}</b>.`);
+  }
   $('match-summary')?.classList.add('hidden');
   try { localStorage.removeItem(SKETCH_KEY); } catch (e) {}   // clear any stuck applied-sketch from older builds
   applySavedSketchToTerrain();
   resetMatchState();
+  if (randomPair && player) {
+    const partner = pairPartnerFor(player.races[0]);
+    if (partner) {
+      player.races = [player.races[0], partner];
+      log(`🎲🎲 Random pair: <b>${races.find((r) => r.id === player.races[0])?.name}</b> and <b>${races.find((r) => r.id === partner)?.name}</b>. Switch build lines with the chips above the tower list.`);
+    }
+  }
   battleRunning = true;
   $('race-screen').classList.add('hidden');
   $('collab-screen').classList.add('hidden');
@@ -12082,8 +12107,8 @@ function lobbySetSize(half, n) {
   renderLobby(true);   // a local edit always redraws: the change event fires while the select still has focus
 }
 function lobbyPickRace(id) {
-  if (id === 'random') {
-    setRandomRace(true);
+  if (id === 'random' || id === 'randompair') {
+    setRandomRace(true, id === 'randompair');
     if (mp.active) {
       if (mp.role === 'host') { const seat = [...roster.south, ...roster.north].find((s) => s.sid === mp.sid); if (seat) seat.raceId = 'random'; mpBroadcastRoster(); }
       else mpSend({ t:'lobby-race', race:'random' });
@@ -12212,12 +12237,14 @@ function renderLobby(force) {
       <p class="lb-hint">${canEdit ? 'Tap a seat to change who sits there. Teammates share lives and build one board together, each in their own lane.' : 'Only the host changes seats. Tap an open seat to sit in it. Teammates share lives and build one board together.'}</p>
       ${solo ? `<label class="lb-solo"><input type="checkbox" id="lb-solo" ${soloRules ? 'checked' : ''}>
         <span><b>Solo rules</b> — sends only, no neutral waves, and a brutal rival that builds the whole far side rather than a corner of it. One player, one very hard opponent.</span></label>` : ''}
-      <div class="lb-elem-head"><span class="lb-map-label">YOUR ELEMENT</span><small>${randomRace ? 'Random' : selectedRace.name}</small></div>
+      <div class="lb-elem-head"><span class="lb-map-label">YOUR ELEMENT</span><small>${randomPair ? 'Random pair' : randomRace ? 'Random' : selectedRace.name}</small></div>
       <div class="lb-races">${races.filter((r) => raceUnlocked(r.id)).map((r) => `
         <button class="lb-race ${!randomRace && r.id === selectedRace.id ? 'on' : ''}" data-lb-race="${r.id}" style="--race:${r.color}" aria-label="${r.name}" aria-pressed="${!randomRace && r.id === selectedRace.id}" title="${r.name} — ${r.trait}">
           <span>${r.symbol}</span><small>${r.name}</small></button>`).join('')}
-        <button class="lb-race ${randomRace ? 'on' : ''}" data-lb-race="random" style="--race:#b9c4e4" aria-label="Random element" aria-pressed="${!!randomRace}" title="Random element — decided when the match starts">
-          <span>${icon('dice')}</span><small>Random</small></button></div>
+        <button class="lb-race ${randomRace && !randomPair ? 'on' : ''}" data-lb-race="random" style="--race:#b9c4e4" aria-label="Random element" aria-pressed="${!!randomRace && !randomPair}" title="Random element — decided when the match starts">
+          <span>${icon('dice')}</span><small>Random</small></button>
+        <button class="lb-race ${randomPair ? 'on' : ''}" data-lb-race="randompair" style="--race:#d6b8ff" aria-label="Random pair of elements" aria-pressed="${!!randomPair}" title="Random pair — two different elements from Fire, Ice, Wind, Poison, Gravity, Electricity, Earth and Stone; you start with both">
+          <span>${icon('dice')}${icon('dice')}</span><small>Pair</small></button></div>
       <div class="lb-foot">
         ${mp.active && lobbyPhase ? `<button id="lb-consent" class="lb-ready lb-ready-primary" aria-pressed="${lobbyLocalReady()}">${lobbyReadyButtonText()}</button>`:''}
         ${mp.active && lobbyPhase && mp.role !== 'host'
@@ -14184,6 +14211,9 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    new tag, then collapses and stays collapsed. */
 const RELEASE_TAG = '2026-11-14-terrain';
 const RELEASE_NOTES = [
+  { date:'2026-11-14', title:'Random pair', items:[
+    'A new Pair chip next to Random in the lobby: you start the match holding two different elements drawn from Fire, Ice, Wind, Poison, Gravity, Electricity, Earth and Stone, with no second licence to buy. Switch between them with the chips above the tower list.',
+  ] },
   { date:'2026-11-14', title:'A board with weather in it', items:[
     'The river moves: light drifts across the water and foam breaks at both banks. The rock between the lanes is textured stone with frost on its upper edges, casting a shadow on the ground beside it, and it carries painted pines, ice crystals, boulders and frozen trees. Build tiles are bevelled stone, a few cracked or pebbled. None of it is drawn per frame except the water.',
   ] },
