@@ -2,6 +2,23 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 14, 2026 — Hits that glow (Claude)
+
+- `fxGlow` / `fxGlowSprite`: one radial glow per colour, painted once into a 64 px
+  canvas and stamped with additive blending. Used on every projectile (meteor and
+  rocket at their body), impacts (plus a white core on big hits), deaths and the
+  chain-lightning strike node. Off with "Turn off particles".
+- Hit flash: the generated sprite itself flares (`lighter`, 0.1 s) where a white dot
+  was painted over the creep; the dot stays for creeps without generated art.
+- Death dissolve: the death effect carries the creep's frame, size and air flag; the
+  frame lingers, lifts 7 px, widens 18 % and burns out over 0.35 s, drawn at board
+  scale outside the FX enlargement. Reduced motion keeps the fade without the lift.
+- A first, stronger tuning washed stacked hits out to white over the creeps; the
+  shipped values keep the creeps readable under a pile of impacts.
+- Measured: draw 3.6 ms per frame at minute 6 (was 2.8; budget 8). Stress, 46 creeps
+  all flashing and 123 effects: 2.35 ms per frame (was 1.95). Arena audit clean,
+  motion hooks 8 of 8 and reduce-motion unchanged, teamboard.js PASS, no page errors.
+
 ## November 14, 2026 — Every creep redrawn (Claude)
 
 - All 53 roster creeps now have generated art (Canva image generation, one prompt

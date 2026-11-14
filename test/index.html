@@ -4916,7 +4916,8 @@ function applyDamage(creep, amount, tower, isDot = false, opts) {
       if (creep.boss && !creep.sent) award('boss_slain');
     }
     if (tower) tower.kills += 1;
-    pushFx({ kind:'death', x:creep.x, y:creep.y, color:roleColors[creep.role] || '#ff9faf', until:simTime + .35 });
+    pushFx({ kind:'death', x:creep.x, y:creep.y, color:roleColors[creep.role] || '#ff9faf', until:simTime + .35,
+      frame:genCreepFrame(creep), size:(roleStyle[creep.role] || roleStyle.standard).size + (creep.sent ? 1 : 0), air:!!creep.air });
     /* DEATH PAYLOADS: killing one of these is not purely good news — it mends or
        armours whatever was walking beside it, so the order you focus a pack in
        starts to matter. The radius is small enough that a strung-out lane defuses it. */
@@ -8397,9 +8398,19 @@ function drawCreep(ctx, creep) {
   const pose = (stride && !reduced && SPRITE_SHEETS.creep2.ready) ? 'creep2' : 'creep';
   const genFrame = genCreepFrame(creep);
   const gs = size * 3.4, footY = size * .95;
+  creep.flashDrawn = false;
   if (genFrame >= 0) {
-    ctx.drawImage(GEN_CREEPS.img, (genFrame % GEN_CREEPS.cols) * 96, Math.floor(genFrame / GEN_CREEPS.cols) * 96, 96, 96, -gs / 2, footY - gs * GEN_CREEP_FOOT[genFrame], gs, gs);
+    const fsx = (genFrame % GEN_CREEPS.cols) * 96, fsy = Math.floor(genFrame / GEN_CREEPS.cols) * 96, fy = footY - gs * GEN_CREEP_FOOT[genFrame];
+    ctx.drawImage(GEN_CREEPS.img, fsx, fsy, 96, 96, -gs / 2, fy, gs, gs);
     creep.spriteDrawn = true;
+    /* HIT FLASH (art pass): the body itself flares for 0.1 s, where a white dot used to be
+       painted over it */
+    const since = creep.hitAt ? simTime - creep.hitAt : 1;
+    if (since < .1 && creep.hp > 0) {
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .7 * (1 - since / .1);
+      ctx.drawImage(GEN_CREEPS.img, fsx, fsy, 96, 96, -gs / 2, fy, gs, gs); ctx.restore();
+      creep.flashDrawn = true;
+    }
   } else creep.spriteDrawn = drawSprite(ctx, pose, csid, 0, footY - gs * SHEET_CREEP_FOOT + gs / 2, gs);
   if (creep.spriteDrawn && onWater) {
     // the waterline: the river closes over the feet
@@ -8862,6 +8873,40 @@ function rwp_disc(ctx, x, y, radius, fill) {
   ctx.fill();
 }
 
+/* GLOW (art pass, 2026-11-14). One soft radial sprite per colour, painted once into a 64 px
+   canvas and stamped with additive blending: bolts, hits and deaths bloom for the price of a
+   drawImage each, where shadowBlur would cost a blur per shape per frame. "Turn off particles"
+   turns the glow off with the rest of the decoration. */
+const FX_GLOW = new Map();
+function fxGlowSprite(color) {
+  let c = FX_GLOW.get(color);
+  if (c) return c;
+  c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d');
+  g.fillStyle = '#ffffff'; g.fillStyle = color;                  // normalises any CSS colour
+  const css = String(g.fillStyle);
+  let rgb = [255, 255, 255];
+  const hex = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(css);
+  const fn = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i.exec(css);
+  if (hex) rgb = hex.slice(1).map((h) => parseInt(h, 16)); else if (fn) rgb = fn.slice(1).map(Number);
+  const [r, gg, b] = rgb, hot = (v) => Math.min(255, v + 80);
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, `rgba(${hot(r)},${hot(gg)},${hot(b)},.85)`);
+  gr.addColorStop(.2, `rgba(${r},${gg},${b},.55)`);
+  gr.addColorStop(.55, `rgba(${r},${gg},${b},.14)`);
+  gr.addColorStop(1, `rgba(${r},${gg},${b},0)`);
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  if (FX_GLOW.size > 96) FX_GLOW.clear();
+  FX_GLOW.set(color, c);
+  return c;
+}
+function fxGlow(ctx, x, y, r, color, alpha) {
+  if (!(r > 0) || !(alpha > .02) || particlesOff()) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = Math.min(1, alpha);
+  ctx.drawImage(fxGlowSprite(color || '#ffffff'), x - r, y - r, r * 2, r * 2);
+  ctx.restore();
+}
 function drawProjectile(ctx, p) {
   const x = p.x * CELL, y = p.y * CELL;
   ctx.save();
@@ -8869,6 +8914,9 @@ function drawProjectile(ctx, p) {
   const k = Math.min(1, p.t / p.dur);
   const race = p.tower ? p.tower.raceId : null;
   const reduced = rmReduced();
+  if (p.style === 'meteor') fxGlow(ctx, x, y - (1 - k) * 100, 12, color, .55);
+  else if (p.style === 'rocket') fxGlow(ctx, x, y - Math.sin(k * Math.PI) * 34, 7, '#ffb86b', .5);
+  else if (p.style !== 'macepulse') fxGlow(ctx, x, y, p.style === 'machinegun' ? 6 : 10, color, .7);
   if (p.style === 'macepulse') {
     ctx.strokeStyle=color;ctx.lineWidth=2.5;ctx.globalAlpha=1-k*.55;
     ctx.beginPath();ctx.arc(x,y,p.stats.range*CELL*k,0,Math.PI*2);ctx.stroke();
@@ -8961,6 +9009,8 @@ function drawEffect(ctx, effect) {
     const el = ELEMENT_BY_COLOR[effect.color];
     const cx = effect.x * CELL, cy = effect.y * CELL;
     const baseR = (effect.big ? 20 : 10) * k + 3;
+    fxGlow(ctx, cx, cy, baseR * 1.25 + 5, effect.color, (1 - k) * .75);
+    if (effect.big) fxGlow(ctx, cx, cy, 6, '#ffffff', (1 - k * 2.5) * .45);
     // base expanding ring (always drawn)
     ctx.strokeStyle = effect.color; ctx.globalAlpha = clamp01(1 - k); ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(cx, cy, Math.max(0, baseR), 0, Math.PI * 2); ctx.stroke();
@@ -9010,6 +9060,20 @@ function drawEffect(ctx, effect) {
     const k = clamp01(1 - remain / .35);
     const reduced = rmReduced();
     const cx = effect.x * CELL, cy = effect.y * CELL;
+    /* DISSOLVE (art pass). The creep's own frame lingers, lifts and burns out white instead
+       of vanishing on the frame it died; drawn in board units, outside the FX enlargement. */
+    if (effect.frame >= 0 && GEN_CREEPS.ready) {
+      const sz = effect.size || 6, gs = sz * 3.4, cols = GEN_CREEPS.cols;
+      const sx = (effect.frame % cols) * 96, sy = Math.floor(effect.frame / cols) * 96;
+      const top = sz * .95 - gs * GEN_CREEP_FOOT[effect.frame] - (effect.air ? 4 : 0) - (reduced ? 0 : k * 7);
+      const w = gs * (1 + (reduced ? 0 : k * .18));
+      ctx.save(); ctx.translate(cx, cy); ctx.scale(1 / FX_SCALE, 1 / FX_SCALE);
+      ctx.globalAlpha = clamp01(1 - k) ** 1.4;
+      ctx.drawImage(GEN_CREEPS.img, sx, sy, 96, 96, -w / 2, top, w, gs);
+      if (!particlesOff()) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = clamp01(1 - k * 1.6) * .6; ctx.drawImage(GEN_CREEPS.img, sx, sy, 96, 96, -w / 2, top, w, gs); }
+      ctx.restore();
+    }
+    fxGlow(ctx, cx, cy - 2, 13, effect.color, (1 - k) * .75);
     ctx.globalAlpha = clamp01(1 - k);
     ctx.fillStyle = effect.color;
     const n = reduced ? 3 : 5;
@@ -9030,6 +9094,7 @@ function drawEffect(ctx, effect) {
     stroke('#ffe89a', 6, a * .25);     // soft outer glow
     stroke('#ffd86b', 2.6, a * .85);   // gold arc
     stroke('#fffdf0', 1, a);           // white-hot core
+    fxGlow(ctx, x2, y2, 9, '#ffd86b', a * .6);
     ctx.fillStyle = '#fffdf0'; ctx.globalAlpha = a;
     ctx.beginPath(); ctx.arc(x2, y2, 2.6 * a + .6, 0, Math.PI * 2); ctx.fill();     // strike node
     ctx.beginPath(); ctx.arc(x1, y1, 1.5 * a + .4, 0, Math.PI * 2); ctx.fill();     // source spark
@@ -9368,7 +9433,7 @@ function renderFrame() {
   towers.forEach((tower) => drawTower(fxCtx, tower));
   creeps.forEach((creep) => {
     drawCreep(fxCtx, creep);
-    if (creep.hitAt && simTime - creep.hitAt < .1 && creep.hp > 0) {
+    if (creep.hitAt && simTime - creep.hitAt < .1 && creep.hp > 0 && !creep.flashDrawn) {
       fxCtx.save(); fxCtx.globalAlpha = .55 * (1 - (simTime - creep.hitAt) / .1);
       fxCtx.fillStyle = '#ffffff';
       fxCtx.beginPath(); fxCtx.arc(creep.x * CELL, creep.y * CELL, creep.boss ? 11 : 7, 0, Math.PI * 2); fxCtx.fill();
@@ -13945,8 +14010,11 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    lives in changelog.md, this is the "what changed for me" version.
    Bump RELEASE_TAG whenever you add an entry: the card auto-expands once per
    new tag, then collapses and stays collapsed. */
-const RELEASE_TAG = '2026-11-14-creep-art';
+const RELEASE_TAG = '2026-11-14-glow';
 const RELEASE_NOTES = [
+  { date:'2026-11-14', title:'Hits that glow', items:[
+    'Bolts, impacts and chain lightning carry a soft glow in their element colour. A creep that is hit flares for a tenth of a second instead of getting a white dot over it, and a creep that dies lifts and burns out in its own art instead of vanishing. "Turn off particles" turns the glow off too.',
+  ] },
   { date:'2026-11-14', title:'Every creep redrawn', items:[
     'All 53 creeps, waves and sends, the boss and the siege attackers, are new painted art in one style. Colour tells you the armour: amber unarmored, green light, blue medium, crimson heavy, violet fortified, hazard yellow for the attackers that hit your towers. At board size 4 of 53 read as grey, down from 44.',
     'Creeps stand on the ground with their feet on their shadow and wade through the river. The ownership colour is a ring at their feet instead of a circle over them. Settings → "New creep art" switches back to the classic art.',
