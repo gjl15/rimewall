@@ -1834,7 +1834,7 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
         <label class="set-toggle"><input type="checkbox" id="set-sound" checked> <span>Sound effects</span></label>
         <label class="set-toggle"><input type="checkbox" id="set-reduce"> <span>Reduce motion (calmer effects)</span></label>
         <label class="set-toggle"><input type="checkbox" id="set-noparticles"> <span>Turn off particles (helps lag)</span></label>
-        <label class="set-toggle"><input type="checkbox" id="set-genart"> <span>New creep art (preview, 6 creeps)</span></label>
+        <label class="set-toggle"><input type="checkbox" id="set-genart"> <span>New creep art (all 53 creeps)</span></label>
         <div class="settings-sep"></div>
         <button id="set-tutorial" class="ghost-button set-dev"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4zM20 4h-6a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h7z"/></svg> Replay tutorial</button>
         <button id="set-resetmap" class="ghost-button set-dev"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2zM9 4v14M15 6v14"/></svg> Restore default map</button>
@@ -7934,15 +7934,17 @@ function spriteIdForTower(raceId, tier, name) {
    medium, crimson heavy, violet fortified), so a wave reads by colour at the
    21 px cell. Matched by name, waves and sends alike. Settings can switch back to
    the classic art; a missing file falls back silently. */
-const GEN_CREEP_NAMES = ['miner', 'prowler', 'fangoutrider', 'ironpilgrim', 'hoverbarge', 'drakewhelp'];
-const GEN_CREEPS = { img:new Image(), ready:false };
-const GEN_CREEP_FOOT = [.98, .98, .98, .98, .91, .92];   // where each frame's feet are, as a share of its height
+const GEN_CREEP_NAMES = ['adamanthulk', 'aegisprime', 'aegisrunner', 'ancientdrake', 'bastion', 'bonecaller', 'breacher', 'bulwark', 'bulwarkjuggernaut', 'colossus', 'drakewhelp', 'dreadknight', 'duskrunner', 'duskstalker', 'elderdrake', 'fangoutrider', 'glacierbasilisk', 'grovetender', 'grovewarden', 'hornetflight', 'hoverbarge', 'idolbearer', 'impfamiliar', 'ironpilgrim', 'marauder', 'miner', 'mirebrute', 'mossbackregenerator', 'pathfinder', 'prowler', 'ramhulk', 'rimebornbrute', 'risenhusk', 'sapper', 'sapperswarm', 'scrapwalker', 'shardhidegolem', 'siegehauler', 'siegehulk', 'siegeruiner', 'skimmercraft', 'skybarge', 'stormdrake', 'stormherald', 'thefrosttyrant', 'thornsprinter', 'tideskimmer', 'undyingshade', 'wallbreaker', 'wardbearer', 'worldtitan', 'wraithlord'];
+const GEN_CREEPS = { img:new Image(), ready:false, cols:8 };
+const GEN_CREEP_ALIAS = { mossback:'mossbackregenerator' };   // the same beast under its send name
+const GEN_CREEP_FOOT = [.98, .98, .98, .96, .98, .98, .96, .98, .97, .98, .92, .98, .98, .97, .95, .98, .97, .98, .98, .98, .91, .98, .98, .98, .97, .98, .98, .97, .98, .98, .97, .98, .98, .98, .98, .98, .97, .94, .98, .97, .98, .98, .98, .97, .98, .98, .97, .98, .97, .98, .98, .98];   // where each frame's feet are, as a share of its height
 const SHEET_CREEP_FOOT = .97;
 GEN_CREEPS.img.onload = () => { GEN_CREEPS.ready = true; };
 GEN_CREEPS.img.src = 'creeps-gen.webp';
 function genCreepFrame(creep) {
   if (!GEN_CREEPS.ready || (typeof profile !== 'undefined' && profile && profile.classicArt)) return -1;
-  return GEN_CREEP_NAMES.indexOf(String(creep.name || '').toLowerCase().replace(/[^a-z0-9]+/g, ''));
+  const n = String(creep.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+  return GEN_CREEP_NAMES.indexOf(GEN_CREEP_ALIAS[n] || n);
 }
 /* A send and a wave of the same creature share art. Seven sends (Pathfinder,
    Sapper, Glacier Basilisk, Aegis Runner, Undying Shade, Elder Drake, Idol
@@ -8396,7 +8398,7 @@ function drawCreep(ctx, creep) {
   const genFrame = genCreepFrame(creep);
   const gs = size * 3.4, footY = size * .95;
   if (genFrame >= 0) {
-    ctx.drawImage(GEN_CREEPS.img, genFrame * 96, 0, 96, 96, -gs / 2, footY - gs * GEN_CREEP_FOOT[genFrame], gs, gs);
+    ctx.drawImage(GEN_CREEPS.img, (genFrame % GEN_CREEPS.cols) * 96, Math.floor(genFrame / GEN_CREEPS.cols) * 96, 96, 96, -gs / 2, footY - gs * GEN_CREEP_FOOT[genFrame], gs, gs);
     creep.spriteDrawn = true;
   } else creep.spriteDrawn = drawSprite(ctx, pose, csid, 0, footY - gs * SHEET_CREEP_FOOT + gs / 2, gs);
   if (creep.spriteDrawn && onWater) {
@@ -13943,10 +13945,11 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    lives in changelog.md, this is the "what changed for me" version.
    Bump RELEASE_TAG whenever you add an entry: the card auto-expands once per
    new tag, then collapses and stays collapsed. */
-const RELEASE_TAG = '2026-10-25-attackers';
+const RELEASE_TAG = '2026-11-14-creep-art';
 const RELEASE_NOTES = [
-  { date:'2026-11-14', title:'New creep art, preview', items:[
-    'Miner, Prowler, Fang Outrider, Iron Pilgrim, Hoverbarge and Drake Whelp are redrawn in one painted style, coloured by armour class: amber unarmored, green light, blue medium, crimson heavy, violet fortified. At board size they now read by colour instead of as grey shapes. Settings → "New creep art" switches back to the classic art.',
+  { date:'2026-11-14', title:'Every creep redrawn', items:[
+    'All 53 creeps, waves and sends, the boss and the siege attackers, are new painted art in one style. Colour tells you the armour: amber unarmored, green light, blue medium, crimson heavy, violet fortified, hazard yellow for the attackers that hit your towers. At board size 4 of 53 read as grey, down from 44.',
+    'Creeps stand on the ground with their feet on their shadow and wade through the river. The ownership colour is a ring at their feet instead of a circle over them. Settings → "New creep art" switches back to the classic art.',
   ] },
   { date:'2026-11-05', title:'Wind, a new element (from Abdy)', items:[
     'Wind Weaver builds the 10-gold Wind Needle and upgrades it to Gale, Razorwind, Vortex or Tempest. Gusts fan out behind the target in the open; inside a maze corridor they follow five path cells upstream with +20% damage and a stronger slow. Strong against air; weak against heavy and fortified armour.',

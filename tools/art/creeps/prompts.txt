@@ -1,0 +1,56 @@
+# Every frame was generated with this template (Canva image generation, square), then keyed with cut.sh.
+# Game sprite of <subject>, seen from a top-down three-quarter view like a tower defense game, single
+# character centered and filling most of the frame, bold chunky readable silhouette, stylized
+# hand-painted look, strong rim light from the top-left, dominant <palette> palette, plain pure white
+# background, no text, no ground, no cast shadow
+# Palette by armour class: unarmored amber/orange, light vivid green, medium royal blue, heavy crimson,
+# fortified violet, siege attackers hazard yellow and black; the boss icy white and cyan with gold.
+# name|subject|palette
+miner|a stout dwarf miner creature carrying a pickaxe and a lantern|warm amber and orange
+prowler|a lean prowling wolf-like beast with leather straps and a hood|vivid green
+pathfinder|a nimble hooded scout holding a tall lantern staff|warm amber and orange
+sapper|a small goblin sapper carrying a lit powder keg strapped to its back|vivid green
+duskstalker|a lean shadowy panther stalker with glowing eyes and a spiked collar|vivid green
+marauder|a burly raider with a big two-handed axe and a horned helmet|royal blue
+sapperswarm|a cluster of three tiny scurrying imps each carrying a round bomb|warm amber and orange
+tideskimmer|a sleek finned lizard creature that skims over water, with long fins and a whip tail|royal blue
+rimebornbrute|a hulking frost brute with huge icy shoulders and a club made of ice|royal blue
+mossbackregenerator|a turtle-shelled creature with a mossy back sprouting glowing green healing runes|royal blue
+skimmercraft|a small armored hover sled with a goggled pilot and a glowing underside|violet and purple
+scrapwalker|a rickety two-legged walker robot built from riveted scrap metal plates with a smokestack|violet and purple
+glacierbasilisk|a long six-legged ice lizard with jagged crystal spines along its back|royal blue
+impfamiliar|a small horned imp with bat wings folded and a mischievous grin, hopping|vivid green
+aegisrunner|a running soldier carrying a large round glowing shield in front|vivid green
+elderdrake|a large flying winged dragon with long swept-back horns and wide spread wings|vivid green
+shardhidegolem|a heavy stone golem studded with sharp jutting crystal shards|crimson red
+undyingshade|a hooded ghostly shade with tattered floating robes and glowing eyes, no legs|warm amber and orange
+siegehauler|a horned beast of burden hauling a heavy iron-plated cart full of siege stones|violet and purple
+grovewarden|a walking tree guardian with a bark shield and a crown of autumn leaves|crimson red
+risenhusk|a shambling skeletal undead husk with blue soul fire in its ribcage|royal blue
+idolbearer|a stocky warrior carrying a large carved stone idol strapped on its back|crimson red
+bulwarkjuggernaut|a massive armored rhino beast with a huge battering plate on its head|crimson red
+thefrosttyrant|a towering ice giant king with a jagged crystal crown, a frost greatsword and gold trimmed armor|icy white and cyan with gold accents
+bonecaller|a hunched necromancer with a bone staff topped by a glowing skull|royal blue
+ramhulk|a heavy beast wearing a huge iron ram helmet with curled horns|violet and purple
+duskrunner|a fast hooded runner with twin daggers caught mid-stride|vivid green
+grovetender|a small dryad gardener carrying a staff sprouting fresh leaves|royal blue
+mirebrute|a squat bog beast made of dripping mud and reeds with a gaping mouth|royal blue
+skybarge|a flying wooden airship barge lifted by a patched balloon and propellers|violet and purple
+stormherald|a winged storm spirit blowing a horn crackling with lightning|royal blue
+thornsprinter|a lean thorny plant creature sprinting on root legs|vivid green
+adamanthulk|a huge brute in thick riveted adamant plate armor with spiked gauntlets|crimson red
+hornetflight|a swarm of three giant hornets with glossy wings|vivid green
+bulwark|a walking fortress tower on stubby legs with shields bolted to its walls|crimson red
+dreadknight|a dark armored knight riding an armored warhorse|crimson red
+ancientdrake|a huge ancient dragon with scarred wings spread wide and a long spiked tail|crimson red
+wardbearer|a robed priest carrying a tall totem with a glowing protective ward|crimson red
+siegehulk|an enormous armored beast with a wooden siege tower strapped on its back|violet and purple
+wraithlord|a crowned spectral lord with flowing robes and a scythe|warm amber and orange
+colossus|a gigantic walking stone colossus statue with a cracked face|crimson red
+stormdrake|a serpentine dragon wreathed in crackling lightning bolts|crimson red
+bastion|a walking stone keep with a portcullis mouth and battlements|violet and purple
+aegisprime|an elite paladin raising a huge tower shield that projects a glowing dome|vivid green
+worldtitan|a colossal titan carrying a giant globe of the world on its shoulders|violet and purple
+breacher|a team of goblins pushing a spiked battering ram on wheels|hazard yellow and black striped
+wallbreaker|a heavy armored ogre swinging a giant wrecking hammer|hazard yellow and black striped
+siegeruiner|a massive siege engine on wheels with a huge spinning drill at the front|hazard yellow and black striped

@@ -2,6 +2,29 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 14, 2026 — Every creep redrawn (Claude)
+
+- All 53 roster creeps now have generated art (Canva image generation, one prompt
+  template, palette by armour class: unarmored amber, light green, medium blue, heavy
+  crimson, fortified violet, siege attackers hazard yellow; the Frost Tyrant icy white
+  with gold). 52 frames: Mossback shares the Mossback Regenerator's
+  (`GEN_CREEP_ALIAS`).
+- `creeps-gen.webp` is now an 8-column grid, 768×672, 181 KB. `GEN_CREEP_NAMES` and
+  `GEN_CREEP_FOOT` list the frames in name order; `drawCreep` reads the cell from the
+  grid. The settings toggle reads "New creep art (all 53 creeps)".
+- Keying fix: background showing through a gap (between an arm and a body, inside a
+  coiled tail) is enclosed, so the border flood fill missed it and it showed as white
+  blotches. Near-white areas of 40 px or more are now keyed too; small highlights stay.
+- The frames, prompts and scripts that rebuild the atlas are in `tools/art/creeps/`.
+- Measured at the 21 px board cell (`tools/art/creeps/measure.js`, same reduction as
+  `tools/harness/readability.js`): grey creeps 44 of 53 with the classic art, now 4 of
+  52 frames (Fang Outrider, Marauder, Frost Tyrant, Wallbreaker); mean saturation 0.43;
+  largest hue bucket 13 (target ≤ 15); confusable pairs 2 (Breacher~Siege Ruiner,
+  Miner~Undying Shade), against 283 across the classic roster.
+- Checks: roster coverage 53 of 53, every creep on a full send board drawn as a sprite;
+  draw 2.8 ms per frame at minute 6 (budget 8); arena audit: no errors, HUD contract
+  clean; teamboard.js PASS.
+
 ## November 14, 2026 — Creeps stand on the ground; no more circles (Claude)
 
 - The magenta (send) or role-coloured circle drawn over every creep's body is gone
