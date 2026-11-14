@@ -2,6 +2,35 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 14, 2026 — Late waves you can beat, and money you can spend (Claude)
+
+Gene: waves 30-35 became impossible (exponential HP against a low ceiling); late gold
+needed millions of taps; Waves vs rival income should be every 10 s and paid like Classic.
+
+- Measured first, `tools/harness/ceiling.js`: the whole maze (259 cells) filled with
+  maxed top-rung Fire held every wave to 35 and lost all of 38+. Per-creep HP: wave 20
+  5.8k, 28 102k, 35 478k, 40 1.3M. Cause: `waveDefFor` multiplied a looped wave by
+  `WAVE_LOOP_MULT` (last/first ladder load, about 170x).
+- `waveDefFor`: a looped wave carries the top-of-ladder load (`WAVE_LADDER_TOP_LOAD`),
+  then `waveHpMult` (4%/wave as before) and `WAVE_LATE_GROWTH` 1.08 per wave past the
+  ladder. Boss rides the same curve. Wave 30 27k, 35 48k, 40 87k, 45 156k a creep.
+- Ranks: levels 1-3 keep their hit price; after them `rankNeed` is 10*(r+1) hits (15
+  for splash), was 100*(r+1)^2 (250,000 for the last). `RANK_DMG` .001 -> .02, the
+  extra 1%/5 ranks dropped. Full rank: 2.24x base damage, was 1.44x.
+- Attunement (`buyAttune`, `attuneMult` in `towerLiveStats`): +8% damage per level to
+  every tower of an element, cost 800 x 1.3^level, uncapped. Strip buttons for the
+  current build element and MAX. Rivals and computer allies buy it at wave 16+ (600 s
+  in Classic) when they hold 3x the price.
+- Tuning result (80 maxed top-rung towers): holds wave 40 alone; wave 45 leaks 90% of
+  the wave at attune 0 and 10% at attune 13 (~80k gold); 1.5M gold is ~24 levels.
+- Waves vs rival: `INCOME_PERIOD` 25 -> 10; level pay removed, so a tick pays exactly
+  BASE_INCOME + income as Classic does. Send kills still pay half (unchanged).
+- Bulk spending: `sendMult` x1/x5/x25/MAX(50) per tap (`buySend` wraps
+  `buySendOne`), `buyLumberAll`.
+- Checks: 10 s ticks of exactly the HUD amount; send bounty 5 of 10 income; x25 sent
+  25; draw 2.9 ms/frame at minute 6; arena audit clean, no targets under 44 px;
+  teamboard.js PASS; no page errors.
+
 ## November 14, 2026 — Random pair (Claude)
 
 - Lobby chip "Pair" (`data-lb-race="randompair"`): two different elements from

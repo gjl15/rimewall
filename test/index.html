@@ -1788,6 +1788,8 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
   body.playing.arena .tower-inspector #td-close { min-width:44px; min-height:44px; }
   body.playing.arena.mobile-panel-sends .tactical-dock { height:min(56dvh,480px); }
   body.playing.arena .econ-strip { flex:0 0 auto; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.5fr); gap:6px; padding:8px 8px 6px; border-bottom:1px solid #2a3550; background:#0d1424; }
+  body.playing.arena .econ-strip .econ-row2 { grid-column:1 / -1; display:grid; grid-template-columns:minmax(0,1.7fr) minmax(0,.8fr) minmax(0,.8fr) minmax(0,1fr); gap:6px; }
+  body.playing.arena .econ-strip .econ-attune b { color:#ffe49a; }
   body.playing.arena .econ-btn { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-height:48px; padding:4px 6px; border:1px solid #2c3959; border-radius:10px; background:#111a30; color:#eafcff; }
   body.playing.arena .econ-btn b { font:700 13px 'DM Mono',monospace; }
   body.playing.arena .econ-btn small { color:#8e98b7; font:600 9px 'DM Mono',monospace; letter-spacing:.04em; }
@@ -2902,11 +2904,20 @@ const LEVEL_DMG_DEFAULT = .10;
 function levelDmgStep(raceId) { return LEVEL_DMG_DEFAULT; }
 /* One landed attack/volley earns one hit, including at rank zero. No purchased
    cap or currency is required. Paid progress is tracked separately from hits. */
-const RANK_DMG = .001, RANK_MAX = 47, RANK_HIT_XP = 1;
+/* RANKS THAT HAPPEN (2026-11-14). A single-target tower needed 100*(r+1)^2 landed hits a rank
+   — 250,000 for the last one — and each rank was worth 0.1% damage, so the whole ladder topped
+   out at 1.44x and nobody reached the middle of it. Gene asked for the Classic Wars hit
+   mechanic to be the way a wall keeps growing past wave 30. Levels 1-3 keep their price; past
+   them a rank needs 10*(r+1) hits
+   (15 for a splash tower, whose one volley hits many) and is worth 2% damage, so a tower that
+   has fought all match carries about twice its base damage, earned by fighting. */
+const RANK_DMG = .02, RANK_MAX = 47, RANK_HIT_XP = 1;
 function rankNeed(rank, tower) {
   const def = tower && towerDef(tower.raceId, tower.tier);
   const splash = def && (def.special.startsWith('wind') || splashSpec(def.special) || ['chain','macepulse','shadowcross','beamline'].includes(def.special));
-  return Math.ceil(splash ? 100 * Math.pow(1.5, rank) : 100 * Math.pow(rank + 1, 2));
+  // levels 1-3 keep their old price in hits (each is +10% damage, range and rate); the ranks after them are the cheap 2% steps
+  if (rank < MAX_LEVEL) return Math.ceil(splash ? 100 * Math.pow(1.5, rank) : 100 * Math.pow(rank + 1, 2));
+  return Math.ceil((splash ? 15 : 10) * (rank + 1));
 }
 function towerRank(tower) { return Math.min(RANK_MAX, tower.rank || 0); }
 function settleTowerRanks(tower) {
@@ -2959,10 +2970,40 @@ function boostTowerRank(tower, purse = player) {
   settleTowerRanks(tower);
   return true;
 }
+/* ATTUNEMENT (2026-11-14). The late-game gold sink, and the answer to "1.5 million gold
+   requires millions of clicks". One tap raises every tower of an element by 8% damage,
+   compounding; each level costs 30% more than the last, so it never caps and never asks for
+   more than a couple of dozen taps (the Max button spends the purse in one). The rival buys it
+   too once it is rich, so the late game stays a race. */
+const ATTUNE_BASE = 800, ATTUNE_STEP = 1.3, ATTUNE_DMG = 1.08;
+function attuneLevel(purse, raceId) { return (purse && purse.attune && purse.attune[raceId]) || 0; }
+function attuneCost(purse, raceId) { return Math.ceil(ATTUNE_BASE * Math.pow(ATTUNE_STEP, attuneLevel(purse, raceId))); }
+function towerPurse(tower) {
+  if (!tower) return null;
+  if (tower.owner === 'player') return tower.allySeat == null ? player : allyPurse(tower);
+  if (tower.owner === 'enemy') return enemy;
+  return null;
+}
+function attuneMult(tower) { const lv = attuneLevel(towerPurse(tower), tower.raceId); return lv ? Math.pow(ATTUNE_DMG, lv) : 1; }
+function buyAttune(purse, raceId, quiet) {
+  if (!purse || !raceId) return false;
+  const cost = attuneCost(purse, raceId);
+  if (purse.gold < cost) { if (!quiet) log(`Attuning costs ${cost.toLocaleString()}g.`); return false; }
+  purse.gold -= cost;
+  purse.attune = purse.attune || {}; purse.attune[raceId] = attuneLevel(purse, raceId) + 1;
+  return true;
+}
+function buyAttuneMax(raceId) {
+  let n = 0; while (n < 200 && buyAttune(player, raceId, true)) n += 1;
+  const name = races.find((r) => r.id === raceId)?.name || raceId;
+  if (n) { log(`${name} attuned ${n === 1 ? 'once' : n + ' times'} — level ${attuneLevel(player, raceId)}, every ${name} tower at ×${attuneMult({ owner:'player', raceId }).toFixed(2)} damage.`); hudTick('gold-label'); }
+  else log(`Attuning ${name} costs ${attuneCost(player, raceId).toLocaleString()}g.`);
+  renderHud(); return n;
+}
 function towerLiveStats(tower) {
   const def = towerDef(tower.raceId, tower.tier);
   const level = Math.min(MAX_LEVEL, tower.level || 0);
-  const stats = { ...def, dmg:Math.round(def.dmg * (1 + levelDmgStep(tower.raceId) * level + RANK_DMG * towerRank(tower) + .01 * Math.floor(towerRank(tower) / 5)) * bannerBonus(tower) * 1000) / 1000, range:def.range + .5 * level, cd:1 / (1 / def.cd + .1 * level) };
+  const stats = { ...def, dmg:Math.round(def.dmg * (1 + levelDmgStep(tower.raceId) * level + RANK_DMG * towerRank(tower)) * bannerBonus(tower) * attuneMult(tower) * 1000) / 1000, range:def.range + .5 * level, cd:1 / (1 / def.cd + .1 * level) };
   if (tower.bolt) {
     stats.bolt = tower.bolt;
     // piercing is the only bolt that touches the tower's own numbers
@@ -3894,7 +3935,11 @@ function deriveEconomy() {
   CREEP_HP_SCALE = ECON_SCALE * WAVE_PRESSURE;
 }
 const FIRST_WAVE_DELAY = 30, LOBBY_SECONDS = 20;
-const INCOME_PERIOD = 25;   // Waves vs rival and Survival
+/* Gene, 2026-11-14: "lower the time to 10 down from 25, and make it award it like it does in
+   classic." Every tick pays base + income, exactly the Classic formula, and the wave-rollover
+   level pay that used to ride the tick is gone, so the HUD's next-income figure is what lands.
+   Send kills still pay half in Waves vs rival (spawnSend). */
+const INCOME_PERIOD = 10;   // Waves vs rival and Survival
 const CLASSIC_INCOME_PERIOD = 15;
 function currentIncomePeriod() { return matchMode === 'classic' ? CLASSIC_INCOME_PERIOD : INCOME_PERIOD; }
 const BOUNTY_MULT = 1;   // was 2 — kill-gold was the fattest early faucet (defense out-damaged threat ~5.7x)
@@ -6564,6 +6609,8 @@ function updateComputer(ai,half,dt) {
   if(!battleRunning || matchOver)return;
   syncAiBudget(ai);
   ai.buildClock-=dt;ai.sendClock-=dt;ai.upgradeClock=(ai.upgradeClock || 0)-dt;
+  ai.attuneClock=(ai.attuneClock || 0)-dt;
+  if(ai.attuneClock<=0){ai.attuneClock=4;if((matchMode==='classic'?simTime>600:wave>=16) && ai.gold>attuneCost(ai,ai.raceId)*3)buyAttune(ai,ai.raceId,true);}
   aiAdvanceShrine(ai);
   // sends start at 10s / wave 1 (was 20s / wave 2) and come 40% more often: 7s/5s in
   // Classic, 12s/8s in wave mode (was 12/8 and 20/12)
@@ -6638,21 +6685,40 @@ function waveStatLine(def, n) {
   const tags = waveTags(def);
   return `WAVE ${String(n).padStart(2,'0')} — ${def.name.toUpperCase()} · ${hp} HP · ${arm} armor · ${cls}${tags.length ? ' · ' + tags.join(' · ') : ''}`;
 }
+/* PAST THE LADDER, THE SAME CURVE (2026-11-14). Gene: "the waves at later stages become
+   impossible ... exponential growth while we have a low ceiling." Measured with
+   speed/ceiling.js — the whole maze filled with maxed top-rung towers, the strongest wall the
+   game allows — held every wave to 35 and lost all of wave 38 onward. The cause was the loop:
+   wave 26 restarted the ladder with every creature multiplied by WAVE_LOOP_MULT, the ratio of
+   the last wave's load to the first's, which is about 170x — wave 28 walked out with 102k HP a
+   creep where wave 20 had 5.8k. Now a looped wave carries the load the top of the ladder
+   carried, whatever creature it is, and keeps compounding by TRAIT.hpLateRamp a wave like every
+   wave before it: one smooth curve, plus WAVE_LATE_GROWTH a wave past the ladder so the
+   game still ends. Tuned with ceiling.js: an 80-tower maxed wall holds wave 40 on its own,
+   needs ~80k gold of Attunement for wave 50 and ~3M for wave 60. The boss rides the same curve. */
+const WAVE_LATE_GROWTH = 1.08;
+const WAVE_LADDER_TOP_LOAD = (() => {
+  const plain = WAVES.filter((w) => !w.boss);
+  const top = plain[plain.length - 1];
+  return top.hp * (top.count || 6) * (top.role === 'juggernaut' ? 2.4 : 1);
+})();
 function waveDefFor(waveNumber) {
   const base = WAVES[(waveNumber - 1) % WAVES.length];
   const loop = Math.floor((waveNumber - 1) / WAVES.length);
   if (!loop) return base;
-  return { ...base, hp:Math.round(base.hp * Math.pow(WAVE_LOOP_MULT, loop)), bounty:base.bounty + loop * 3 };
+  const late = Math.pow(WAVE_LATE_GROWTH, waveNumber - WAVES.length);
+  if (base.boss) return { ...base, hp:Math.round(base.hp * late * waveHpMult(waveNumber) / waveHpMult(WAVES.length)), bounty:base.bounty + loop * 50 };
+  const load = base.hp * (base.count || 6) * (base.role === 'juggernaut' ? 2.4 : 1);
+  return { ...base, hp:Math.round(base.hp * Math.max(1, WAVE_LADDER_TOP_LOAD / load) * late), bounty:base.bounty + loop * 3 };
 }
 function launchNextWave() {
   if (matchMode === 'classic') return;
   wave += 1;
   // the source map's per-level defender payout, alongside the Wars income clock
-  const levelPay = 6 + Math.round(1.5 * Math.min(wave, 30));   // was 10 + 2*wave — level-pay compounded the snowball
+
   /* Banked, not paid here. Two faucets on two different clocks is why the gold
      counter reads as wrong: the HUD promises a payout every 25s and then gold
      also jumps at every wave rollover. Same total, one clock. */
-  levelPayDue += levelPay;
   if (wave >= 15) award('wave_15');
   if (wave === 11 && player.lives === player.startLives) award('perfect_10');
   questEvent('reach_12', wave, true);
@@ -6661,7 +6727,7 @@ function launchNextWave() {
   const def = waveDefFor(wave);
   queueWaveSpawns(def);
   waveClock = WAVE_PERIOD;
-  log(`Wave ${wave} — ${def.name}${def.air ? ' (AIR — flies over the maze!)' : ''} (${def.count} per side) entered the Creep Gate. Level pay +${levelPay} with the next income.`);
+  log(`Wave ${wave} — ${def.name}${def.air ? ' (AIR — flies over the maze!)' : ''} (${def.count} per side) entered the Creep Gate.`);
   renderHud();
 }
 /* RIVAL DIFFICULTY = the rival's income multiplier, because gold is the only
@@ -10903,7 +10969,25 @@ function renderSendPanel() {
   document.querySelectorAll('[data-send]').forEach((button) => button.addEventListener('click', () => buySend(button.dataset.send)));
   refreshSendLocks();
 }
+/* SEND MANY (2026-11-14). Late game a purse of a million gold meant a million taps. The
+   multiplier on the economy strip sends x1, x5, x25 or as many as the purse allows (50 at
+   most a tap, so a lane is not flooded in one frame). */
+const SEND_MULTS = [1, 5, 25, 'max'];
+let sendMult = 1;
 function buySend(id) {
+  const want = sendMult === 'max' ? 50 : sendMult;
+  let n = 0;
+  while (n < want && buySendOne(id)) n += 1;
+  return n > 0;
+}
+function buyLumberAll() {
+  if (!player) return 0;
+  let n = 0; while (n < 500 && player.gold >= LUMBER_PRICE) { player.gold -= LUMBER_PRICE; player.lumber += 1; n += 1; }
+  if (n) log(`Bought ${n} lumber (${player.lumber}${LUMBER_ICON}).`); else log(`Lumber costs ${LUMBER_PRICE}g.`);
+  renderHud(); renderTowerList(); renderSendPanel();
+  return n;
+}
+function buySendOne(id) {
   const send=SENDS.find(s=>s.id===id);if(!send)return false;
   if (!battleRunning) return log('Start a match before sending.');
   if (player.shrine < send.shrine) return log(`${send.name} needs Shrine level ${send.shrine}.`);
@@ -10964,7 +11048,15 @@ function renderEconStrip() {
   const second = player.races[1] ? races.find((r) => r.id === player.races[1]) : null;
   const options = races.filter((race) => race.id !== player.races[0] && raceUnlocked(race.id));
   const pick = box.querySelector('#econ-license')?.value || options[0]?.id || '';
+  const aRace = currentBuildRaceId(), aName = races.find((r) => r.id === aRace)?.name || '', aLv = attuneLevel(player, aRace), aCost = attuneCost(player, aRace);
+  const multText = sendMult === 'max' ? 'MAX' : '×' + sendMult;
   box.innerHTML = `
+    <div class="econ-row2">
+      <button class="econ-btn econ-attune" data-econ="attune" ${player.gold < aCost ? 'disabled' : ''} aria-label="Attune ${aName}: every ${aName} tower +8% damage, ${aCost} gold"><b>${icon('sparkle')} ${aName} ${aLv ? 'A' + aLv : ''}</b><small>+8% all · ${aCost.toLocaleString()}g</small></button>
+      <button class="econ-btn" data-econ="attunemax" ${player.gold < aCost ? 'disabled' : ''} aria-label="Attune ${aName} as many times as the gold allows"><b>MAX</b><small>attune</small></button>
+      <button class="econ-btn" data-econ="mult" aria-label="Sends per tap: ${multText}. Tap to change"><b>${multText}</b><small>per send</small></button>
+      <button class="econ-btn" data-econ="lumberall" ${player.gold < LUMBER_PRICE ? 'disabled' : ''} aria-label="Spend all gold on lumber"><b>${LUMBER_ICON} ALL</b><small>${Math.floor(player.gold / LUMBER_PRICE)} × ${LUMBER_PRICE}g</small></button>
+    </div>
     <button class="econ-btn" data-econ="lumber" ${player.gold < LUMBER_PRICE ? 'disabled' : ''} aria-label="Buy one lumber for ${LUMBER_PRICE} gold"><b>${LUMBER_ICON} ${player.lumber}</b><small>+1 · ${LUMBER_PRICE}g</small></button>
     <button class="econ-btn" data-econ="shrine" ${maxed || player.lumber < 1 ? 'disabled' : ''} aria-label="${maxed ? 'Shrine is at its top level' : `Upgrade the Shrine to level ${player.shrine + 1} for one lumber`}"><b>${icon('shrine')} L${player.shrine}</b><small>${maxed ? 'max' : `→ L${player.shrine + 1} · 1${LUMBER_ICON}`}</small></button>
     ${second
@@ -10976,6 +11068,10 @@ function renderEconStrip() {
       const b = event.target.closest('[data-econ]'); if (!b || b.disabled) return;
       if (b.dataset.econ === 'lumber') buyLumber();
       else if (b.dataset.econ === 'shrine') upgradeShrine();
+      else if (b.dataset.econ === 'attune') { if (buyAttune(player, currentBuildRaceId())) { log(`${races.find((r) => r.id === currentBuildRaceId())?.name} attuned — level ${attuneLevel(player, currentBuildRaceId())}.`); hudTick('gold-label'); renderHud(); } }
+      else if (b.dataset.econ === 'attunemax') buyAttuneMax(currentBuildRaceId());
+      else if (b.dataset.econ === 'mult') { sendMult = SEND_MULTS[(SEND_MULTS.indexOf(sendMult) + 1) % SEND_MULTS.length]; }
+      else if (b.dataset.econ === 'lumberall') buyLumberAll();
       else if (b.dataset.econ === 'license') licenseSecondElement($('econ-license')?.value);
       tacticalDockKey = ''; renderTacticalDock(); renderTowerList();
     });
@@ -11014,7 +11110,7 @@ function renderTacticalDock() {
   }
   const pool = desktopSendPool();
   const key = [desktopSendTab, player.shrine, Math.floor(player.gold), player.lumber,
-    Math.round(player.income), Math.round(sendGrowth() * 100), pool.map((send) => send.id).join(','), player.races.join('+')].join('|');
+    Math.round(player.income), Math.round(sendGrowth() * 100), pool.map((send) => send.id).join(','), player.races.join('+'), sendMult, buildRaceIdx, JSON.stringify(player.attune || {})].join('|');
   if (key !== tacticalDockKey) {
     tacticalDockKey = key;
     renderEconStrip();
@@ -14209,8 +14305,15 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    lives in changelog.md, this is the "what changed for me" version.
    Bump RELEASE_TAG whenever you add an entry: the card auto-expands once per
    new tag, then collapses and stays collapsed. */
-const RELEASE_TAG = '2026-11-14-terrain';
+const RELEASE_TAG = '2026-11-14-late-game';
 const RELEASE_NOTES = [
+  { date:'2026-11-14', title:'Late waves you can beat, and money you can spend', items:[
+    'Past wave 25 the waves no longer jump: they used to restart the ladder at about 170 times the HP, so the strongest wall the game allowed lost every wave from 38 on. Now they keep growing at a steady 8% a wave, so how far you go is up to your wall and your gold.',
+    'Hit ranks are real: after levels 1 to 3, a tower earns a rank every 10 x (rank + 1) landed hits, each worth +2% damage. A tower that has fought all match hits about twice as hard as a new one.',
+    'Attunement: one tap raises every tower of your current element by 8%, and keeps compounding. MAX spends your gold on it in one press. The rival buys it too.',
+    'Waves vs rival pays income every 10 seconds, exactly like Classic: what the HUD says is what lands. Kills of sent creeps still pay half here.',
+    'No more tap spam: sends go x1, x5, x25 or MAX per tap, and ALL turns your gold into lumber in one press.',
+  ] },
   { date:'2026-11-14', title:'Random pair', items:[
     'A new Pair chip next to Random in the lobby: you start the match holding two different elements drawn from Fire, Ice, Wind, Poison, Gravity, Electricity, Earth and Stone, with no second licence to buy. Switch between them with the chips above the tower list.',
   ] },
