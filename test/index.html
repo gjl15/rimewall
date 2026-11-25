@@ -3343,7 +3343,8 @@ const LANE_COLORS = {
 const laneColor = (half, side) => LANE_COLORS[mp.active && half===ENEMY_HALF && mp.viewSeat ? mp.viewSeat.split(':')[0] : rosterHalfFor(half)][side === 'west' ? 0 : 2].color;
 // Node 0 = river edge (creeps still sweep the full river), nodes 1-2 are the only FLAGS —
 // lane-bottom + a SHARED middle-base cell (both lanes cross the same center square, so it
-// renders as a single middle flag). Node 3 = gate, node 4 = ship. Same lane→bottom→middle path.
+// renders as a single middle flag). Node 3 = the exit under the crystal (the cave-mouth node went
+// when the cave became build floor, 2026-11-25). Same lane→bottom→middle path.
 const FLAG_START = 1, FLAG_END = 3;   // ROUTES[..][..].slice(FLAG_START, FLAG_END) are the flags
 function buildBaseTerrain() {
   baseTerrain.fill(T.FLOOR);
@@ -3367,9 +3368,12 @@ function buildBaseTerrain() {
     baseTerrain[idx(ROWS - 1, c)] = T.CLIFF; baseTerrain[idx(ROWS - 2, c)] = T.CLIFF;
     baseTerrain[idx(0, c)] = T.CLIFF; baseTerrain[idx(1, c)] = T.CLIFF;
   }
+  /* BUILD INTO THE CAVE (Gene, 2026-11-25, highlighted on a screenshot: "adjust the map so you
+     can build up until this highlight area"). The cave is open build floor right up to the
+     crystal's wall; only the three cells under the crystal stay the exit. */
   for (let k = 0; k < CAVE_D; k += 1) for (let c = DOOR_C - CAVE_HALF; c <= DOOR_C + CAVE_HALF; c += 1) {
-    baseTerrain[idx(S_PILLAR_R1 - k, c)] = T.GATE;
-    baseTerrain[idx(N_PILLAR_R0 + k, c)] = T.GATE;
+    baseTerrain[idx(S_PILLAR_R1 - k, c)] = T.FLOOR;
+    baseTerrain[idx(N_PILLAR_R0 + k, c)] = T.FLOOR;
   }
   for (let c = DOOR_C0; c <= DOOR_C1; c += 1) {   // the far wall of each cave is the doorway
     baseTerrain[idx(S_DOOR_R, c)] = T.HARBOR;
@@ -3424,12 +3428,12 @@ terrain.set(baseTerrain);
   S_MID_R = ROWS - 9; N_MID_R = 8;                             // the shared middle flag, in the open band
   ROUTES = {
   north:{
-    west:[{ r:RIVER_TOP, c:2 }, { r:N_TURN_R, c:LANE_W_C }, { r:N_MID_R, c:DOOR_C }, { r:N_GATE_R, c:DOOR_C }, { r:N_DOOR_R, c:DOOR_C }],
-    east:[{ r:RIVER_TOP, c:COLS - 3 }, { r:N_TURN_R, c:LANE_E_C }, { r:N_MID_R, c:DOOR_C }, { r:N_GATE_R, c:DOOR_C }, { r:N_DOOR_R, c:DOOR_C }]
+    west:[{ r:RIVER_TOP, c:2 }, { r:N_TURN_R, c:LANE_W_C }, { r:N_MID_R, c:DOOR_C }, { r:N_DOOR_R, c:DOOR_C }],
+    east:[{ r:RIVER_TOP, c:COLS - 3 }, { r:N_TURN_R, c:LANE_E_C }, { r:N_MID_R, c:DOOR_C }, { r:N_DOOR_R, c:DOOR_C }]
   },
   south:{
-    west:[{ r:RIVER_BOT, c:2 }, { r:S_TURN_R, c:LANE_W_C }, { r:S_MID_R, c:DOOR_C }, { r:S_GATE_R, c:DOOR_C }, { r:S_DOOR_R, c:DOOR_C }],
-    east:[{ r:RIVER_BOT, c:COLS - 3 }, { r:S_TURN_R, c:LANE_E_C }, { r:S_MID_R, c:DOOR_C }, { r:S_GATE_R, c:DOOR_C }, { r:S_DOOR_R, c:DOOR_C }]
+    west:[{ r:RIVER_BOT, c:2 }, { r:S_TURN_R, c:LANE_W_C }, { r:S_MID_R, c:DOOR_C }, { r:S_DOOR_R, c:DOOR_C }],
+    east:[{ r:RIVER_BOT, c:COLS - 3 }, { r:S_TURN_R, c:LANE_E_C }, { r:S_MID_R, c:DOOR_C }, { r:S_DOOR_R, c:DOOR_C }]
   }
 };
   SPAWNS = {
@@ -8304,7 +8308,7 @@ function drawCaves(ctx) {
   [[S_PILLAR_R1 - (CAVE_D - 1), S_PILLAR_R1, 1], [N_PILLAR_R0, N_PILLAR_R0 + (CAVE_D - 1), -1]].forEach(([r0, r1, dir]) => {
     const x0 = (DOOR_C - CAVE_HALF) * CELL, w = (CAVE_HALF * 2 + 1) * CELL, y0 = r0 * CELL, h = (r1 - r0 + 1) * CELL;
     const g = ctx.createLinearGradient(0, dir > 0 ? y0 : y0 + h, 0, dir > 0 ? y0 + h : y0);
-    g.addColorStop(0, 'rgba(4,8,16,.82)'); g.addColorStop(1, 'rgba(4,8,16,.25)');
+    g.addColorStop(0, 'rgba(4,8,16,.42)'); g.addColorStop(.45, 'rgba(4,8,16,.12)'); g.addColorStop(1, 'rgba(4,8,16,0)');
     ctx.fillStyle = g; ctx.fillRect(x0, y0, w, h);
     const side = (x) => { const s = ctx.createLinearGradient(x, 0, x + (x === x0 ? CELL : -CELL), 0); s.addColorStop(0, 'rgba(0,0,0,.45)'); s.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = s; ctx.fillRect(Math.min(x, x + (x === x0 ? CELL : -CELL)), y0, CELL, h); };
     side(x0); side(x0 + w);
@@ -15126,6 +15130,9 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    new tag, then collapses and stays collapsed. */
 const RELEASE_TAG = '2026-11-14-elemental';
 const RELEASE_NOTES = [
+  { date:'2026-11-25', title:'Build in the cave', items:[
+    'The cave in your hill is build ground now, right up to the crystal: 32 more cells to maze in. Only the three cells under the crystal stay open as the exit. The rival\'s cave is the same.',
+  ] },
   { date:'2026-11-25', title:'A second gorilla', items:[
     'New send: the Gorilla Warhammer, a silverback in crimson plate swinging an iron hammer. Heavy armour, Shrine 3 (3,800g, +425 income). Ice and Gravity crack it; Wind and Tech glance off. One more gorilla, an axe warlord, is still coming.',
   ] },

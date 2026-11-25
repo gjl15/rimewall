@@ -2,6 +2,20 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 25, 2026 — Build in the cave (Claude)
+
+Gene, on a screenshot with the crystal's wall highlighted: "adjust the map so you can build up until
+this highlight area". The 7 × 5 cave in each massif was `T.GATE` (walkable, never buildable); it is
+`T.FLOOR` now, so 32 of its 35 cells take towers. The three `T.HARBOR` cells under the crystal stay
+the exit. The cave-mouth waypoint (`S_GATE_R`/`N_GATE_R`) left the routes: every route node is a
+protected cell, and it would have been one unbuildable square in the middle of the new floor.
+Routes are river → turn → middle flag → exit. `drawCaves` keeps a soft shadow toward the crystal
+instead of the dark fill, so the floor reads as build ground.
+
+Checked: 28 towers in the cave leaving a one-cell lane, and a send still walks up it and exits under
+the crystal; sealtest unchanged; crowd 114 ms per simulated second with 273 towers; four-mode smoke
+test clean; teamboard and rosterroom PASS.
+
 ## November 25, 2026 — Roster Wars: squads now arrive in rooms (Claude)
 
 Gene: "Creeps aren't spawning in roster mode." In a room no deployment arrived anywhere. They were
