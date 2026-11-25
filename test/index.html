@@ -1812,6 +1812,30 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
   body.playing.arena .dock-send-buy i { text-align:left; }
   body.playing.arena .dock-empty { grid-column:1 / -1; }
 }
+/* ROSTER WARS (from Abdy, test/sites-shared-arena-20 edd9de0). Touch targets raised to 44 px. */
+.roster-panel { display:grid; align-content:start; gap:8px; width:100%; min-width:0; color:#e8edfb; font-size:12px; padding:4px 2px; }
+.roster-head, .roster-unit { display:flex; justify-content:space-between; gap:8px; align-items:center; }
+.roster-panel small { color:#a6b5d2; font-size:11px; line-height:1.3; }
+.roster-head { padding:2px 1px; }
+.roster-slots { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:4px; }
+.roster-panel button, .roster-upgrade, .roster-panel select { min-width:0; min-height:44px; padding:6px; border:1px solid #354463; border-radius:8px; background:#111b30; color:#e8edfb; }
+.roster-panel button:hover:not(:disabled), .roster-slots button[aria-pressed="true"] { border-color:#77d6ff; background:#16334e; }
+.roster-panel button:focus-visible, .roster-panel select:focus-visible { outline:2px solid #9fe8ff; outline-offset:1px; }
+.roster-panel button:disabled { opacity:.48; }
+.roster-slots button { display:grid; gap:2px; align-content:center; min-height:48px; line-height:1.15; padding:6px 3px; }
+.roster-slots button strong { font-size:10.5px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.roster-unit > div, .roster-recruit label { display:grid; gap:3px; min-width:0; }
+.roster-unit .roster-sell { color:#ffd28b; flex:none; }
+.roster-recruit { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:6px; }
+.roster-recruit select { display:block; width:100%; font-size:16px; }
+.roster-hint { color:#a6b5d2; margin:0; line-height:1.4; }
+.roster-upgrades { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,145px),1fr)); gap:5px; }
+.roster-upgrade { display:grid; align-content:start; gap:3px; text-align:left; font-size:12px; }
+.roster-upgrade span { color:#91a6c9; font-size:10px; }
+.roster-upgrade b { color:#92dfbd; font-size:11px; }
+body.playing .desktop-send-list.roster-dock-list, body.playing.arena .desktop-send-list.roster-dock-list { display:block; overflow:auto; scroll-snap-type:none; }
+body.mode-roster .econ-btn[data-econ="mult"] { display:none; }
+body.mode-roster #send-dock-tabs:empty { display:none; }
 </style>
 </head>
 <body>
@@ -1868,7 +1892,7 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
             <span id="race-card-symbol" class="race-symbol">❄</span>
             <span class="race-card-copy"><strong id="selected-name">Ice</strong><span id="setup-summary">Waves vs rival · 1v1 · Brutal · 100 lives</span></span>
           </div>
-          <div id="setup-options" class="selection-actions hidden"><label class="lives-pick" for="mode-select">MODE <select id="mode-select"><option value="skirmish" selected>Waves vs rival</option><option value="survival">Survival • creeps only, no rival</option><option value="classic">Classic Wars • sends only</option></select></label><label class="lives-pick" for="team-select">TEAM <select id="team-select"><option value="1" selected>1v1 • one batch</option><option value="2">2v2 • two batches</option><option value="3">3v3 • three batches</option></select></label><label class="lives-pick" for="ai-select">RIVAL <select id="ai-select"><option value="relaxed">Relaxed • learning the ropes</option><option value="normal">Standard • a poor rival</option><option value="hard">Hard • funded</option><option value="brutal" selected>Brutal • it out-earns you, recommended</option></select></label><label class="lives-pick" for="lives-select">LIFEFORCE <select id="lives-select"><option value="25">25 • classic</option><option value="50">50 • veteran</option><option value="100" selected>100 • easy</option></select></label></div>
+          <div id="setup-options" class="selection-actions hidden"><label class="lives-pick" for="mode-select">MODE <select id="mode-select"><option value="skirmish" selected>Waves vs rival</option><option value="roster">Roster Wars • recruit a squad that deploys itself</option><option value="survival">Survival • creeps only, no rival</option><option value="classic">Classic Wars • sends only</option></select></label><label class="lives-pick" for="team-select">TEAM <select id="team-select"><option value="1" selected>1v1 • one batch</option><option value="2">2v2 • two batches</option><option value="3">3v3 • three batches</option></select></label><label class="lives-pick" for="ai-select">RIVAL <select id="ai-select"><option value="relaxed">Relaxed • learning the ropes</option><option value="normal">Standard • a poor rival</option><option value="hard">Hard • funded</option><option value="brutal" selected>Brutal • it out-earns you, recommended</option></select></label><label class="lives-pick" for="lives-select">LIFEFORCE <select id="lives-select"><option value="25">25 • classic</option><option value="50">50 • veteran</option><option value="100" selected>100 • easy</option></select></label></div>
           <div class="setup-actions-row">
             <button id="start-button" class="primary-button">Play <span>→</span></button>
           </div>
@@ -4084,7 +4108,339 @@ const FIRST_WAVE_DELAY = 30, LOBBY_SECONDS = 20;
    Send kills still pay half in Waves vs rival (spawnSend). */
 const INCOME_PERIOD = 10;   // Waves vs rival and Survival
 const CLASSIC_INCOME_PERIOD = 15;
-function currentIncomePeriod() { return matchMode === 'classic' ? CLASSIC_INCOME_PERIOD : INCOME_PERIOD; }
+/* ---------------- Roster Wars (Abdy, 2026-11-14) ----------------
+   Five reusable slots. A recruit costs its send price once and then deploys itself at the
+   rival every 10 seconds, on alternating lanes; upgrades (ten ranks each) make it tougher and
+   each adds flat gold income; selling refunds half of what the slot cost and ends its income.
+   Every recruit also yields 0.125 lumber a payout. Split on death makes children that share the
+   parent's max HP; a split family can cost at most one life. Ported from
+   test/sites-shared-arena-20 (edd9de0), where it ran on the shared-arena protocol: here every
+   phone deploys its own roster and the units travel as a 'roster' message, as sends do. */
+const ROSTER_PERIOD = 10;
+const ROSTER_SIZE = 5;
+const ROSTER_MAX_RANK = 10;
+const ROSTER_WOOD_PER_SLOT = 0.125;
+const ROSTER_AURA_RANGE = 3;
+const START_LUMBER = 2;   // Abdy: human players start every match with 2 lumber
+function rosterPercent(value) { return `${Math.round(value*10000)/100}%`; }
+const ROSTER_UPGRADES = [
+  {id:'health', name:'Health', price:300, income:3, effect:r=>.15*r, label:v=>`+${rosterPercent(v)} base HP`},
+  {id:'armor', name:'Armor', price:400, income:5, effect:r=>2*r, label:v=>`+${v} armor`},
+  {id:'speed', name:'Movement speed', price:450, income:4, effect:r=>.08+.04*(r-1), label:v=>`+${rosterPercent(v)} speed`},
+  {id:'slow', name:'Slow resistance', price:500, income:5, effect:r=>.25+.05*(r-1), label:v=>`${rosterPercent(v)} weaker movement slows`},
+  {id:'shield', name:'Shield', price:600, income:5, effect:r=>.15+.05*(r-1), label:v=>`+${rosterPercent(v)} of max HP as shield`},
+  {id:'regen', name:'Health regeneration', price:700, income:5, effect:r=>.01+.0025*(r-1), label:v=>`+${rosterPercent(v)} max HP per second`},
+  {id:'shieldRegen', name:'Shield regeneration', price:800, income:6, requires:'shield', effect:r=>.15+.02*(r-1), label:v=>`${rosterPercent(v)} shield per second after 4s without damage`},
+  {id:'healAura', name:'Healing aura', price:1000, income:6, effect:r=>.0075+.0015*(r-1), label:v=>`${rosterPercent(v)} allied max HP per second within 3 tiles`},
+  {id:'shieldAura', name:'Shield aura', price:1100, income:7, effect:r=>.1+.03*(r-1), label:v=>`${rosterPercent(v)} of each ally’s max HP as shield within 3 tiles, once per mob`},
+  {id:'split', name:'Split on death', price:1500, income:8, effect:r=>r, label:v=>`${v} ${v===1?'child shares':'children share'} the parent’s max HP and inherit its personal stats`}
+];
+const rosterUpgradeById = new Map(ROSTER_UPGRADES.map(upgrade=>[upgrade.id,upgrade]));
+function rosterSend(id) { return SENDS.find(send=>send.id===id); }
+let rosterNextLane = 'west';
+let rosterSelectedSlot = 0;
+let rosterRecruitId = '';
+function isRosterWars() { return matchMode === 'roster'; }
+function hasNeutralWaves(mode = matchMode) { return mode !== 'classic' && mode !== 'roster'; }
+function selectedMatchMode(allowSurvival = true) {
+  const mode = document.getElementById('mode-select')?.value;
+  return mode === 'classic' || mode === 'roster' || (allowSurvival && mode === 'survival') ? mode : 'skirmish';
+}
+function matchModeName(mode = matchMode) {
+  return {classic:'Classic Wars', roster:'Roster Wars', survival:'Survival', skirmish:'Waves vs rival'}[mode] || 'Waves vs rival';
+}
+// Roster income is flat: a base scaled to the 10 s clock, plus what the upgrades add
+function goldIncomePerCycle(income, baseMultiplier = 1) {
+  if (isRosterWars()) return Math.round(Math.round(BASE_INCOME * ROSTER_PERIOD / CLASSIC_INCOME_PERIOD) * baseMultiplier) + Math.round(income || 0);
+  return (BASE_INCOME + incomePayout(income)) * baseMultiplier;
+}
+function rosterRanksIncome(unit) { return ROSTER_UPGRADES.reduce((sum, upgrade)=>sum + (unit.ranks[upgrade.id] || 0)*upgrade.income, 0); }
+function rosterUpgradeCost(upgrade, rank) { return Math.round(upgrade.price * 1.5**(rank - 1)); }
+function rosterRefund(unit) { return Math.floor(unit.goldSpent / 2); }
+function rosterSyncIncome(purse) {
+  const units = (purse.rosterSlots || []).filter(Boolean);
+  purse.income = units.reduce((sum, unit)=>sum + rosterRanksIncome(unit), 0);
+  purse.woodIncome = units.length * ROSTER_WOOD_PER_SLOT;
+  purse.rosterRevision = (purse.rosterRevision || 0) + 1;
+}
+function rosterRecruitPrice(send) {
+  return [send.cost ? `${hudNum(send.cost)}g` : '', send.lumber ? `${send.lumber} lumber` : ''].filter(Boolean).join(' + ');
+}
+function applyRosterAction(purse, action, args) {
+  const reject = message=>({ok:false,message});
+  if (!Number.isInteger(args.slot) || args.slot < 0 || args.slot >= ROSTER_SIZE) return reject('Choose one of your five roster slots.');
+  const slots = purse.rosterSlots ||= Array(ROSTER_SIZE).fill(null);
+  const unit = slots[args.slot];
+  let message;
+  if (action === 'recruit') {
+    const send = rosterSend(args.id);
+    if (!send || unit) return reject('Choose an empty roster slot to recruit.');
+    if (purse.shrine < send.shrine) return reject(`${send.name} needs Shrine level ${send.shrine}.`);
+    if (purse.gold < send.cost || (purse.lumber || 0) < (send.lumber || 0)) return reject(`Recruiting ${send.name} costs ${rosterRecruitPrice(send)}.`);
+    purse.gold -= send.cost;
+    purse.lumber = (purse.lumber || 0) - (send.lumber || 0);
+    purse.lumberSpent = (purse.lumberSpent || 0) + (send.lumber || 0);
+    purse.rosterSerial = (purse.rosterSerial || 0) + 1;
+    slots[args.slot] = {id:purse.rosterSerial, sendId:send.id, goldSpent:send.cost, ranks:{}};
+    message = `${send.name} recruited in slot ${args.slot + 1}. It joins the next deployment.`;
+  } else {
+    if (!unit || unit.id !== args.unitId) return reject('That roster slot has changed.');
+    const send = rosterSend(unit.sendId);
+    if (action === 'sell') {
+      const refund = rosterRefund(unit);
+      purse.gold += refund;
+      slots[args.slot] = null;
+      message = `Sold ${send.name} for ${hudNum(refund)}g. The slot’s income ends next payout.`;
+    } else if (action === 'upgrade') {
+      const upgrade = rosterUpgradeById.get(args.id);
+      if (!upgrade) return reject('That roster upgrade is unavailable.');
+      const rank = (unit.ranks[upgrade.id] || 0) + 1;
+      if (rank > ROSTER_MAX_RANK || rank !== args.rank) return reject('That rank is no longer available.');
+      if (upgrade.requires && !unit.ranks[upgrade.requires]) return reject('Buy Shield before Shield regeneration.');
+      const price = rosterUpgradeCost(upgrade, rank);
+      if (purse.gold < price) return reject(`${upgrade.name} Rank ${rank} costs ${hudNum(price)}g.`);
+      purse.gold -= price;
+      unit.goldSpent += price;
+      unit.ranks[upgrade.id] = rank;
+      message = `${send.name} gained ${upgrade.name} Rank ${rank} and +${upgrade.income}g per payout.`;
+    } else return reject('That roster action is unavailable.');
+  }
+  rosterSyncIncome(purse);
+  return {ok:true,message};
+}
+function rosterCommand(action, args) {
+  if (!battleRunning || matchOver || !isRosterWars()) return false;
+  const result = applyRosterAction(player,action,args);
+  log(result.message);
+  if (result.ok) { hudTick('gold-label'); tacticalDockKey = ''; sheetKey = ''; renderHud(); renderTacticalDock(); }
+  return result.ok;
+}
+function rosterEffect(unit, id) { const rank = unit.ranks[id]; return rank ? rosterUpgradeById.get(id).effect(rank) : 0; }
+function rosterCombatStats(unit) {
+  const send = rosterSend(unit.sendId);
+  const upgrades = Object.fromEntries(ROSTER_UPGRADES.map(upgrade=>[upgrade.id,rosterEffect(unit,upgrade.id)]));
+  const def = sendCreepDef({...send, hp:send.hp * (1 + upgrades.health), armor:send.armor + upgrades.armor, spd:send.spd * (1 + upgrades.speed)});
+  return {...def, id:send.id, shrine:send.shrine, rosterUpgrades:upgrades};
+}
+function applyRosterCombatStats(creep, upgrades) {
+  creep.rosterPersonalShield = (creep.shieldMax || 0) + Math.round(creep.maxHp * upgrades.shield);
+  creep.rosterShieldRegen = upgrades.shield ? upgrades.shieldRegen : (creep.shieldMax ? 1 : 0);
+  creep.shieldMax = creep.shield = creep.rosterPersonalShield;
+  creep.shieldHitAt = simTime;
+  creep.regen = (creep.regen || 0) + upgrades.regen;
+  creep.slowResistance = upgrades.slow;
+  creep.healingAuraRate = Math.max(upgrades.healAura, creep.healAura ? .008 : 0);
+  creep.healAura = false;
+  creep.shieldAuraRate = upgrades.shieldAura;
+  creep.splitCount = upgrades.split;
+}
+// a ranks object from the wire: only known upgrades, whole ranks 0..10
+function rosterCleanRanks(ranks) {
+  const out = {};
+  if (ranks && typeof ranks === 'object') for (const u of ROSTER_UPGRADES) { const v = Math.round(Number(ranks[u.id]) || 0); if (v > 0) out[u.id] = Math.min(ROSTER_MAX_RANK, v); }
+  return out;
+}
+function spawnRosterUnits(units, half, lane, defenderSeat) {
+  for (const unit of units) {
+    if (!rosterSend(unit.sendId)) continue;
+    const creep = spawnCreep(rosterCombatStats(unit), half, lane, true);
+    if (defenderSeat) creep.defenderSeat = defenderSeat;
+  }
+}
+/* One deployment from one purse. Solo: straight onto the other half. In a room a person's roster
+   travels as a 'roster' message to the seat their sends would go to; a computer's roster is
+   spawned by whichever phone runs that computer, exactly as its sends are. */
+function deployRoster(purse, fromHalf) {
+  const units = (purse.rosterSlots || []).filter(Boolean).map(u=>({sendId:u.sendId, ranks:u.ranks}));
+  if (!units.length) return;
+  const targetHalf = fromHalf === PLAYER_HALF ? ENEMY_HALF : PLAYER_HALF, lane = rosterNextLane;
+  if (purse === player && matchStats) { units.forEach(u=>logSend(u.sendId)); matchStats.sends += units.length; }
+  if (!mp.active) { spawnRosterUnits(units, targetHalf, lane); return; }
+  if (purse === player) {
+    const target = mpSendTarget();
+    if (!target) return;
+    const message = {t:'roster', sid:mp.sid, units:units.map(u=>({s:u.sendId, r:u.ranks})), lane, target, sourceSeat:mpMySeatKey(), match:mp.matchId};
+    mpSend(message); mpOnMessage(message);
+    return;
+  }
+  const team = fromHalf === PLAYER_HALF ? mpFoeHalf() : mp.team;
+  const targets = mpSeatsInPlay(team).map(seat=>({seat, key:mpSeatKey(team, seat.index)}))
+    .filter(t=>['human','ai'].includes(t.seat.kind) && (mp.seatLives[t.key] ?? 1) > 0);
+  if (!targets.length) return;
+  const target = targets[(purse.rosterTurn || 0) % targets.length]; purse.rosterTurn = (purse.rosterTurn || 0) + 1;
+  if (target.key === mpMySeatKey() || target.seat.kind === 'ai') { spawnRosterUnits(units, targetHalf, lane, target.key); return; }
+  const source = rosterSeats(fromHalf)[purse === enemy ? 0 : purse.seat];
+  mpSend({t:'roster', sid:mp.sid, units:units.map(u=>({s:u.sendId, r:u.ranks})), lane, target:target.key, sourceSeat:mpSeatKey(rosterHalfFor(fromHalf), source?.index ?? 0), match:mp.matchId});
+}
+function deployRosters() {
+  deployRoster(player, PLAYER_HALF);
+  if (!mp.active || mpHostRunsBots()) deployRoster(enemy, ENEMY_HALF);
+  for (const bot of allies) deployRoster(bot, bot.half);
+  rosterNextLane = rosterNextLane === 'west' ? 'east' : 'west';
+}
+function rosterHealingPaused(creep, now = simTime) { return creep.frostUntil > now || creep.stunUntil > now || creep.frozenUntil > now; }
+function applyRosterAuras(dt) {
+  const sources = creeps.filter(c=>c.hp > 0 && (c.healingAuraRate || c.shieldAuraRate));
+  if (!sources.length) return;
+  for (const creep of creeps) {
+    if (creep.hp <= 0 || (creep.hp >= creep.maxHp && creep.rosterAuraShieldGiven)) continue;
+    let healing = 0, shielding = 0;
+    for (const source of sources) {
+      if (source === creep || source.half !== creep.half || Math.hypot(creep.x - source.x,creep.y - source.y) > ROSTER_AURA_RANGE) continue;
+      if (!rosterHealingPaused(source)) healing = Math.max(healing,source.healingAuraRate || 0);
+      if (!creep.rosterAuraShieldGiven) shielding = Math.max(shielding,source.shieldAuraRate || 0);
+    }
+    if (healing) creep.hp = Math.min(creep.maxHp,creep.hp + creep.maxHp * healing * dt);
+    if (shielding) {
+      const amount = Math.max(1,Math.round(creep.maxHp * shielding));
+      creep.rosterAuraShieldGiven = true;
+      creep.rosterAuraShield = amount;
+      creep.shieldMax = (creep.shieldMax || 0) + amount;
+      creep.shield = (creep.shield || 0) + amount;
+    }
+  }
+}
+function trackRosterShieldDamage(creep, absorbed) {
+  if (!creep.rosterAuraShield) return;
+  creep.rosterAuraShield = Math.max(0,creep.rosterAuraShield - absorbed);
+  creep.shieldMax = (creep.rosterPersonalShield || 0) + creep.rosterAuraShield;
+}
+function splitRosterCreep(parent) {
+  const count = parent.splitCount;
+  const group = parent.rosterSplitGroup || {leaked:false};
+  const hp = parent.maxHp / count;
+  const shield = parent.rosterPersonalShield || 0;
+  const type = {name:parent.name,role:parent.role,hp:parent.maxHp,spd:parent.spd,armor:parent.armor,
+    aClass:parent.aClass,air:parent.air,boss:parent.boss,attacker:parent.attacker,breakPower:parent.breakPower};
+  for (let i = 0; i < count; i++) {
+    const child = spawnCreep(type,parent.half,parent.side,true);
+    Object.assign(child,{x:parent.x + (i - (count - 1) / 2) * .25,y:parent.y,cpIndex:parent.cpIndex,hp,maxHp:hp,armor:parent.armor,
+      regen:parent.regen,slowResistance:parent.slowResistance,rosterPersonalShield:shield,
+      shieldMax:shield,shield,shieldHitAt:simTime,rosterShieldRegen:parent.rosterShieldRegen,
+      healAura:false,defenderSeat:parent.defenderSeat,rosterSplitGroup:group,isRosterSplit:true,bounty:0});
+  }
+}
+function updateRosterComputer(ai,half) {
+  const funds = aiBudget(ai,'economy') + aiBudget(ai,'pressure');
+  const slots = ai.rosterSlots || Array(ROSTER_SIZE).fill(null);
+  const defenders = aiVisibleDefenders(half);
+  const weakest = slots.map((unit,slot)=>({unit,slot,score:unit ? aiPressureScore(ai,rosterCombatStats(unit),defenders) : 0}))
+    .sort((a,b)=>a.score-b.score)[0];
+  const ranked = SENDS.filter(send=>send.shrine <= ai.shrine && send.cost <= funds && (send.lumber || 0) <= (ai.lumber || 0))
+    .map(send=>({send,score:aiPressureScore(ai,{...send,bodies:1},defenders)})).sort((a,b)=>b.score-a.score);
+  const candidate = ranked.find(({send,score})=>!weakest.unit || (send.id !== weakest.unit.sendId && score > weakest.score * 1.75));
+  const buy = (action,args)=>{
+    const before = ai.gold;
+    const result = applyRosterAction(ai,action,args);
+    if (!result.ok) return;
+    const spent = before - ai.gold;
+    if (spent < 0) ai.economyGold = (ai.economyGold || 0) - spent;
+    if (spent > 0) {
+      const economy = Math.min(spent,ai.economyGold || 0);
+      ai.economyGold = (ai.economyGold || 0) - economy;
+      ai.pressureGold = (ai.pressureGold || 0) - (spent - economy);
+      ai.goldSpent = (ai.goldSpent || 0) + spent;
+    }
+    ai.budgetGold = ai.gold;
+  };
+  if (candidate) {
+    if (weakest.unit) buy('sell',{slot:weakest.slot,unitId:weakest.unit.id});
+    buy('recruit',{slot:weakest.slot,id:candidate.send.id});
+    return;
+  }
+  const options = slots.flatMap((unit,slot)=>unit ? ROSTER_UPGRADES.flatMap((upgrade)=>{
+    const rank = (unit.ranks[upgrade.id] || 0) + 1;
+    if (rank > ROSTER_MAX_RANK || (upgrade.requires && !unit.ranks[upgrade.requires])) return [];
+    return [{id:upgrade.id, rank, unitId:unit.id, slot, cost:rosterUpgradeCost(upgrade,rank)}];
+  }) : []).filter(option=>option.cost <= funds).sort((a,b)=>a.rank-b.rank || a.cost-b.cost);
+  if (options.length) buy('upgrade',options[0]);
+}
+// ---- the panel (Abdy's) ----
+function rosterPanelKey() {
+  return [player.rosterRevision || 0, rosterSelectedSlot, rosterRecruitId, player.shrine, battleRunning, matchOver].join(':');
+}
+function rosterPanelMarkup() {
+  const slots = player.rosterSlots || Array(ROSTER_SIZE).fill(null);
+  const unit = slots[rosterSelectedSlot];
+  const buttons = slots.map((mob,slot)=>{
+    const name = mob ? rosterSend(mob.sendId).name : 'Empty';
+    return `<button type="button" data-roster-slot="${slot}" aria-pressed="${slot===rosterSelectedSlot}" aria-label="Slot ${slot+1}, ${name}"><small>Slot ${slot+1}</small><strong>${name}</strong></button>`;
+  }).join('');
+  let body;
+  if (unit) {
+    const stats = rosterCombatStats(unit);
+    const hp = Math.round(stats.hp * (stats.attacker ? 1 : TRAIT.hpScaleSend * CREEP_HP_SCALE));
+    const income = rosterRanksIncome(unit);
+    const cards = ROSTER_UPGRADES.map(upgrade=>{
+      const current = unit.ranks[upgrade.id] || 0;
+      const rank = current + 1;
+      const title = `<strong>${upgrade.name}</strong><span>Rank ${current}/${ROSTER_MAX_RANK}</span>`;
+      if (rank > ROSTER_MAX_RANK) return `<div class="roster-upgrade">${title}<small>${upgrade.label(upgrade.effect(current))}</small><b>Max rank</b></div>`;
+      const price = rosterUpgradeCost(upgrade,rank);
+      const ticks = Math.ceil(price/upgrade.income);
+      const minutes = Math.floor(ticks*ROSTER_PERIOD/60);
+      const seconds = String(ticks*ROSTER_PERIOD%60).padStart(2,'0');
+      const needsShield = upgrade.requires && !unit.ranks[upgrade.requires];
+      return `<button type="button" class="roster-upgrade" data-roster-upgrade="${upgrade.id}" data-roster-rank="${rank}" data-roster-unit="${unit.id}" data-roster-gold="${price}" ${needsShield?'data-roster-unavailable disabled':''}>
+        ${title}<small>${needsShield?'Requires Shield':upgrade.label(upgrade.effect(rank))}</small><b>${hudNum(price)}g · +${upgrade.income}g / 10s</b><small>${minutes}:${seconds} payback</small></button>`;
+    }).join('');
+    body = `<div class="roster-unit"><div><strong>${stats.name}</strong><small>${hudNum(hp)} HP · ${stats.armor + (stats.attacker ? 0 : TRAIT.armorBonus)} armor · ${stats.aClass} · ${stats.spd.toFixed(2)} speed · +${income}g / 10s</small></div>
+      <button type="button" class="roster-sell" data-roster-sell="${unit.id}" data-roster-gold="0" title="Selling removes this mob’s income and frees the slot">Sell +${hudNum(rosterRefund(unit))}g</button></div><div class="roster-upgrades">${cards}</div>`;
+  } else {
+    const available = SENDS.filter(send=>send.shrine <= player.shrine);
+    const send = available.find(send=>send.id === rosterRecruitId) || available[0];
+    const options = available.map(mob=>`<option value="${mob.id}" ${mob===send?'selected':''}>${mob.name} · ${rosterRecruitPrice(mob)}</option>`).join('');
+    body = `<div class="roster-recruit"><label>Recruit into slot ${rosterSelectedSlot+1}<select data-roster-pick>${options}</select></label>
+      <button type="button" data-roster-recruit="${send.id}" data-roster-gold="${send.cost}" data-roster-wood="${send.lumber || 0}">Recruit</button></div>
+      <p class="roster-hint">A recruit deploys at the rival every ${ROSTER_PERIOD}s, on alternating lanes, for as long as it stays in the slot. Each one also yields 0.125 lumber a payout; upgrades add gold income.</p>`;
+  }
+  return `<div class="roster-panel"><div class="roster-head"><strong>Roster</strong><small>${slots.filter(Boolean).length}/${ROSTER_SIZE} slots · deploys every ${ROSTER_PERIOD}s · next in ${Math.max(0, Math.ceil(incomeClock))}s</small></div><div class="roster-slots">${buttons}</div>${body}</div>`;
+}
+function refreshRosterButtons(root) {
+  root.querySelectorAll('[data-roster-gold]').forEach(button=>{
+    button.disabled = !battleRunning || matchOver || button.hasAttribute('data-roster-unavailable') ||
+      player.gold < Number(button.dataset.rosterGold) || (player.lumber || 0) < Number(button.dataset.rosterWood || 0);
+  });
+}
+function wireRosterPanel(root, render) {
+  const panel = root.querySelector('.roster-panel');
+  if (!panel || panel._wired) return;
+  panel._wired = true;
+  panel.addEventListener('click',event=>{
+    const button = event.target.closest('button');
+    if (!button || button.disabled) return;
+    const data = button.dataset;
+    if (data.rosterSlot !== undefined) { rosterSelectedSlot = Number(data.rosterSlot); tacticalDockKey = ''; sheetKey = ''; render(); }
+    else if (data.rosterRecruit) rosterCommand('recruit',{slot:rosterSelectedSlot,id:data.rosterRecruit});
+    else if (data.rosterUpgrade) rosterCommand('upgrade',{slot:rosterSelectedSlot,unitId:Number(data.rosterUnit),id:data.rosterUpgrade,rank:Number(data.rosterRank)});
+    else if (data.rosterSell) rosterCommand('sell',{slot:rosterSelectedSlot,unitId:Number(data.rosterSell)});
+  });
+  panel.querySelector('[data-roster-pick]')?.addEventListener('change',event=>{
+    rosterRecruitId = event.target.value;
+    const button = panel.querySelector('[data-roster-recruit]');
+    const send = rosterSend(rosterRecruitId);
+    button.dataset.rosterRecruit = send.id;
+    button.dataset.rosterGold = send.cost;
+    button.dataset.rosterWood = send.lumber || 0;
+    refreshRosterButtons(root);
+  });
+  refreshRosterButtons(root);
+}
+function renderRosterPanel(root) {
+  if (!root) return;
+  const key = rosterPanelKey();
+  if (root.dataset.rosterKey !== key || !root.querySelector('.roster-panel')) {
+    const scroll = root.scrollTop;
+    root.innerHTML = rosterPanelMarkup();
+    root.dataset.rosterKey = key;
+    wireRosterPanel(root, () => { root.dataset.rosterKey = ''; renderRosterPanel(root); });
+    root.scrollTop = scroll;
+  }
+  const head = root.querySelector('.roster-head small');
+  if (head) head.textContent = `${(player.rosterSlots || []).filter(Boolean).length}/${ROSTER_SIZE} slots · deploys every ${ROSTER_PERIOD}s · next in ${Math.max(0, Math.ceil(incomeClock))}s`;
+  refreshRosterButtons(root);
+}
+function currentIncomePeriod() { return isRosterWars() ? ROSTER_PERIOD : matchMode === 'classic' ? CLASSIC_INCOME_PERIOD : INCOME_PERIOD; }
 const BOUNTY_MULT = 1;   // was 2 — kill-gold was the fattest early faucet (defense out-damaged threat ~5.7x)
 /* CREEP HP RIDES THE SAME SCALE AS GOLD.
    ECON_SCALE exists because a wider board needs a longer wall, and it doubled
@@ -4283,7 +4639,7 @@ function resolveWager(accepted) {
   sheetKey = ''; renderCommandSheet();
 }
 function proposeWager() {
-  if (!battleRunning || matchMode === 'classic') return;
+  if (!battleRunning || !hasNeutralWaves()) return;
   if (wager.pending || wager.tokens < 1 || simTime < wager.cooldownUntil) return;
   wager.pending = { at:simTime };
   if (mp.active) {
@@ -4361,12 +4717,14 @@ function resetMatchState() {
   lastSold = null; lastPlaced = null;
   matchStats = newMatchStats(); goldWatch = START_GOLD; statsClock = 0;
   creeps.length = 0; projectiles.length = 0; effects.length = 0; pendingSpawns.length = 0;
-  const pickedMode = document.getElementById('mode-select')?.value;
-  matchMode = pickedMode === 'classic' ? 'classic' : (pickedMode === 'survival' ? 'survival' : 'skirmish');
+  matchMode = selectedMatchMode();
+  rosterNextLane = 'west'; rosterSelectedSlot = 0; rosterRecruitId = '';
+  document.body.classList.toggle('mode-roster', matchMode === 'roster');
+  document.querySelectorAll('[data-mobile-panel="sends"] small').forEach(l => { l.textContent = matchMode === 'roster' ? 'ROSTER' : 'SENDS'; });
   const lives = startingLives();
   // the seat you took in the lobby decides your lane colour and home ground
   const mySeats = seatsOn(PLAYER_HALF), mySeat = humanSeatIndex();
-  player = { gold:START_GOLD, income:0, lives, kills:0, lumber:0, woodIncome:0, woodBank:0, shrine:1, races:[selectedRace.id], lumberSpent:0, startLives:lives,
+  player = { gold:START_GOLD, income:0, lives, kills:0, lumber:START_LUMBER, woodIncome:0, woodBank:0, shrine:1, races:[selectedRace.id], lumberSpent:0, startLives:lives,
     seat:mySeat, lane:localSeatLane(PLAYER_HALF, mySeat, mySeats), zone:seatZone(PLAYER_HALF, mySeat, mySeats) };
   const questGold = mp.active ? 0 : 25 * (ensureDaily().done.length || 0);
   if (questGold) { player.gold += questGold; log(`🗒 Daily quest reward: +${questGold}g starting gold.`); }
@@ -4378,7 +4736,7 @@ function resetMatchState() {
   const plan = pickRivalPlan(rivalRace);
   const shape = rivalSpots(rivalRace, plan, opening);
   enemy = { gold:START_GOLD, income:0, lives, lumber:0, shrine:1, raceId:rivalRace, spotIndex:0, towersBuilt:0,
-    buildClock:2, sendClock:matchMode === 'classic' ? 14 : 24, opening:plan === 'learned' ? opening : plan,
+    buildClock:2, sendClock:!hasNeutralWaves() ? 14 : 24, opening:plan === 'learned' ? opening : plan,
     spots:shape, plan, seat:0, lane:localSeatLane(ENEMY_HALF, 0, seatsOn(ENEMY_HALF)) };
   if (plan === 'learned') {
     const pb = playbookFor(rivalRace);
@@ -4511,6 +4869,7 @@ function spawnCreep(waveDef, half, side, sent = false) {
     const board = waveBoards[spawningWaveIdx] = waveBoards[spawningWaveIdx] || { spawned:0, gone:0, leaked:0 };
     board.spawned += 1;
   }
+  if (waveDef.rosterUpgrades) applyRosterCombatStats(creep,waveDef.rosterUpgrades);
   creeps.push(creep);
   return creep;
 }
@@ -4847,7 +5206,12 @@ function updateCreep(creep, dt) {
   }
   if (creep.hp <= 0) return;
   // shield refills after shieldRegenDelay seconds untouched (any damage, DoT included, resets it)
-  if (creep.shieldMax && creep.shield < creep.shieldMax && now - creep.shieldHitAt >= TRAIT.shieldRegenDelay) creep.shield = creep.shieldMax;
+  if (creep.rosterPersonalShield !== undefined) {
+    if (creep.rosterShieldRegen && now - creep.shieldHitAt >= TRAIT.shieldRegenDelay) {
+      const recovered = creep.rosterShieldRegen === 1 ? creep.rosterPersonalShield : creep.rosterPersonalShield * creep.rosterShieldRegen * dt;
+      creep.shield = Math.min(creep.shieldMax, creep.shield + recovered);
+    }
+  } else if (creep.shieldMax && creep.shield < creep.shieldMax && now - creep.shieldHitAt >= TRAIT.shieldRegenDelay) creep.shield = creep.shieldMax;
   // HP regen — frozen by Frost slow and stuns, but NOT by Electricity stasis
   const regenLocked = creep.frostUntil > now || creep.stunUntil > now || creep.frozenUntil > now;
   if (creep.regen && !regenLocked && creep.hp < creep.maxHp) creep.hp = Math.min(creep.maxHp, creep.hp + creep.maxHp * creep.regen * dt);
@@ -4976,7 +5340,7 @@ function moveAlong(creep, node, dt) {
   if (creep.windSlows) {
     for (const slow of creep.windSlows) if (slow.until > simTime) windPct = Math.max(windPct,slow.pct);
   }
-  const speed = creep.spd * (1 - Math.min(92, Math.max(frostPct, otherPct, windPct)) / 100);
+  const speed = creep.spd * (1 - Math.min(92, Math.max(frostPct, otherPct, windPct)) / 100 * (1 - (creep.slowResistance || 0)));
   const tx = node.c + .5, ty = node.r + .5;
   const dx = tx - creep.x, dy = ty - creep.y;
   const dist = Math.hypot(dx, dy) || 1;
@@ -5068,6 +5432,10 @@ function spreadCreep(creep, dt) {
 function resolveLeak(creep) {
   if(creep.hp<=0 || creep.leaked)return;
   creep.hp = 0; creep.leaked = true;
+  if (creep.rosterSplitGroup) {   // a split family can cost one life, however many children get through
+    if (creep.rosterSplitGroup.leaked) { pushFx({ kind:'leak', x:creep.x, y:creep.y, until:simTime + .6 }); return; }
+    creep.rosterSplitGroup.leaked = true;
+  }
   recordAiSendOutcome(creep,'leaked');
   const owner = creep.half === PLAYER_HALF ? player : enemy;
   /* IN A ROOM, LIFEFORCE IS ONE POOL PER SIDE. Each client counts only the
@@ -5118,6 +5486,7 @@ function applyDamage(creep, amount, tower, isDot = false, opts) {
     creep.shieldHitAt = simTime;
     const sMult = tower && tower.raceId === 'crystal' ? TRAIT.crystalShieldMult : 1;
     const sdmg = raw * sMult;
+    trackRosterShieldDamage(creep, Math.min(creep.shield, sdmg));
     if (sdmg < creep.shield) { creep.shield -= sdmg; creep.hitAt = simTime; return; }
     raw -= creep.shield / sMult; creep.shield = 0;
     if (raw <= 0) { creep.hitAt = simTime; return; }
@@ -5239,6 +5608,7 @@ function applyDamage(creep, amount, tower, isDot = false, opts) {
       if (touched) pushFx({ kind:'pulse', x:creep.x, y:creep.y, radius:rad,
         color:creep.onDeath === 'heal' ? '#8fe6b8' : '#77d6ff', until:simTime + .5 });
     }
+    if (creep.splitCount) splitRosterCreep(creep);
   }
 }
 /* One frost application: the ramp, the freeze, and the frostbite proc.
@@ -5921,6 +6291,7 @@ function firePulse(tower, stats) {
   pushFx({ kind:'pulse', x:cx, y:cy, radius, color:stats.color, until:simTime + .45 });
   eligible.forEach((creep, rank) => {
     if (stats.special === 'thunder') {
+      trackRosterShieldDamage(creep, creep.shield || 0);
       creep.shield = 0; creep.shieldHitAt = simTime;                       // strip shields
       const floor = creep.maxHp * TRAIT.thunderFloor;                       // chip down to 75% max, ≤25% max per pulse
       if (creep.hp > floor) creep.hp -= Math.min(creep.hp - floor, creep.maxHp * TRAIT.thunderCap);
@@ -6609,7 +6980,7 @@ function aiBreadthTarget() {
      half of a 2v2 rival's 107 towers were tier 0, and the friendly computer's 45 were
      all tier 0. Breadth now ends at 24 towers, which is a full first ring; after
      that the build tick buys height. */
-  if (matchMode === 'classic') return Math.min(24, 12 + Math.floor(simTime / 45));
+  if (!hasNeutralWaves()) return Math.min(24, 12 + Math.floor(simTime / 45));
   if (wave >= AI_BREADTH_LAST_WAVE) return 0;
   return Math.min(24, 12 + wave);
 }
@@ -6623,7 +6994,7 @@ function desiredAiShrine() {
      is on Shrine 3 by then. Measured in a 2v2, the computers sat on Shrine 2 for the
      whole first six minutes buying Pathfinders. Shrine 5 now lands at 8 minutes in
      Classic and wave 16 in wave mode. */
-  return 1 + Math.min(SHRINE_MAX - 1, Math.floor(matchMode === 'classic' ? simTime / 120 : wave / 4));
+  return 1 + Math.min(SHRINE_MAX - 1, Math.floor(!hasNeutralWaves() ? simTime / 120 : wave / 4));
 }
 let aiAttackSerial=0;
 const aiRemoteAttacks=new Map();
@@ -6933,17 +7304,20 @@ function updateComputer(ai,half,dt) {
   syncAiBudget(ai);
   ai.buildClock-=dt;ai.sendClock-=dt;ai.upgradeClock=(ai.upgradeClock || 0)-dt;
   ai.attuneClock=(ai.attuneClock || 0)-dt;
-  if(ai.attuneClock<=0){ai.attuneClock=4;if((matchMode==='classic'?simTime>600:wave>=16) && ai.gold>attuneCost(ai,ai.raceId)*3)buyAttune(ai,ai.raceId,true);}
+  if(ai.attuneClock<=0){ai.attuneClock=4;if((!hasNeutralWaves()?simTime>600:wave>=16) && ai.gold>attuneCost(ai,ai.raceId)*3)buyAttune(ai,ai.raceId,true);}
   aiAdvanceShrine(ai);
   // sends start at 10s / wave 1 (was 20s / wave 2) and come 40% more often: 7s/5s in
   // Classic, 12s/8s in wave mode (was 12/8 and 20/12)
-  if((matchMode==='classic'?simTime>10:wave>=1) && ai.sendClock<=0){
+  if (isRosterWars() && ai.sendClock <= 0) {
+    ai.sendClock = 5;
+    updateRosterComputer(ai,half);
+  } else if(!isRosterWars() && (matchMode==='classic'?simTime>10:wave>=1) && ai.sendClock<=0){
     const plan=ai.attackPlan;
     ai.sendClock=(matchMode==='classic'?(plan.mode==='pressure'?7:5):(plan.mode==='pressure'?12:8))+(ai.seat || 0)*.4;
     aiSendPressure(ai,half);aiSendEconomy(ai,half);
   }
   const list=towerListFor(ai.raceId);
-  const clockTier=matchMode==='classic'?Math.floor(simTime/80):Math.floor(wave/3.4);
+  const clockTier=!hasNeutralWaves()?Math.floor(simTime/80):Math.floor(wave/3.4);
   const learned=ai.playbook?.tierByWave?.[Math.min(45,wave)] || 0;
   const maxTier=Math.min(5,list.length-2,Math.max(clockTier,learned));
   if(ai.buildClock<=0){
@@ -7035,7 +7409,7 @@ function waveDefFor(waveNumber) {
   return { ...base, hp:Math.round(base.hp * Math.max(1, WAVE_LADDER_TOP_LOAD / load) * late), bounty:base.bounty + loop * 3 };
 }
 function launchNextWave() {
-  if (matchMode === 'classic') return;
+  if (!hasNeutralWaves()) return;
   wave += 1;
   // the source map's per-level defender payout, alongside the Wars income clock
 
@@ -7078,7 +7452,7 @@ function payWoodIncome(purse) {
 }
 function payIncome() {
   const due = levelPayDue; levelPayDue = 0;   // wave pay rides this tick
-  const paid = BASE_INCOME + incomePayout(player.income) + due;
+  const paid = goldIncomePerCycle(player.income) + due;
   player.gold += paid;
   hudTick('gold-label');
   /* LUMBER PAYS ITSELF BACK, SLOWLY. Lumber had exactly one faucet — 500 gold —
@@ -7090,12 +7464,12 @@ function payIncome() {
      wall; the wood is a consolation. The remainder banks
      rather than rounding away, or a .6 drip would floor to nothing forever. */
   payWoodIncome(player);
-  enemy.gold += (BASE_INCOME + incomePayout(enemy.income)) * rivalGoldMult() + due;
+  enemy.gold += goldIncomePerCycle(enemy.income, rivalGoldMult()) + due;
   payWoodIncome(enemy);
   // allies fund themselves — an ally never spends gold its human teammate earned
   allies.forEach((a) => {
     const mult = a.half === PLAYER_HALF ? 1 : rivalGoldMult();
-    a.gold += (BASE_INCOME + incomePayout(a.income)) * mult + due;
+    a.gold += goldIncomePerCycle(a.income, mult) + due;
     payWoodIncome(a);
   });
   // float it over YOUR door. This was x:15.9,y:25.2 — the middle of the old
@@ -7637,12 +8011,12 @@ function raceAudit(log) {
 function simulate(dt) {
   simTime += dt;
   tickMatchStats(dt);
-  if (matchMode !== 'classic') {
+  if (hasNeutralWaves()) {
     waveClock -= dt;
     if (waveClock <= 0) launchNextWave();
   }
   incomeClock -= dt;
-  if (incomeClock <= 0) { incomeClock = currentIncomePeriod(); payIncome(); }
+  if (incomeClock <= 0) { incomeClock = currentIncomePeriod(); payIncome(); if (isRosterWars()) deployRosters(); }
   waypointFxClock -= dt;
   if (waypointFxClock <= 0) {
     // "places where lightning comes down the sky" — flicker a bolt on a waypoint
@@ -7656,6 +8030,7 @@ function simulate(dt) {
     if (pendingSpawns[i].at <= simTime && creeps.length < 280) { const s = pendingSpawns.splice(i, 1)[0]; spawningWaveIdx = s.waveIdx; spawnCreep(s.waveDef, s.half, s.side, false); spawningWaveIdx = null; }   // defer (don't drop) spawns when the board is saturated — endless perf floor
   }
   buildCreepGrid();   // for the shove between walkers (positions as of the start of the tick)
+  if (isRosterWars()) applyRosterAuras(dt);
   creeps.forEach((creep) => updateCreep(creep, dt));
   for (let i = creeps.length - 1; i >= 0; i -= 1) if (creeps[i].hp <= 0) creeps.splice(i, 1);
   buildCreepGrid();   // for targeting, where the creeps now stand
@@ -10279,7 +10654,7 @@ function renderSquadIncome() {
     const r = races.find((x) => x.id === raceId) || races[0];
     return `<div class="si-row ${foe ? 'si-foe' : ''}" style="--race:${lane?.color || r.color}">
       <span class="si-rune">${r.symbol}</span><span class="si-name">${escapeHTML(name)}${lane ? `<small>${lane.name} · ${zone}</small>` : ''}</span>
-      <span class="si-gold">${raw == null ? '—' : '+'+(BASE_INCOME + incomePayout(raw))}</span></div>`;
+      <span class="si-gold">${raw == null ? '—' : '+'+goldIncomePerCycle(raw)}</span></div>`;
   };
   if (mp.active) {
     const seats=mpViewableSeats();
@@ -10365,7 +10740,9 @@ function renderRails() {
     right.innerHTML = rightHtml;
     railRightHtml = rightHtml;
     if (scrolled) { const s = right.querySelector('.rl-scroll'); if (s) s.scrollTop = scrolled; }
+    if (isRosterWars() && railTab === 'send') wireRosterPanel(right, renderHud);
   }
+  if (isRosterWars() && railTab === 'send') refreshRosterButtons(right);
 }
 /* One delegated listener per rail, bound once for the life of the page. */
 function bindRails(left, right) {
@@ -10432,6 +10809,7 @@ function railBody(tab) {
     }).join('');
   }
   if (tab === 'send') {
+    if (isRosterWars()) return rosterPanelMarkup();
     return `<div class="rl-head">SEND — shrine level, then ROI</div>` + orderedSends().map((s) => {
       const inc = sendIncomeLabel(s);
       const gain = s.attacker ? `+${s.woodIncome || 0} lumber/cycle` : `${inc.text} income`;
@@ -10481,6 +10859,14 @@ function railBody(tab) {
 function renderQuickSend() {
   const bar = $('quick-send');
   if (!bar || !player) return;
+  if (isRosterWars()) {
+    if (quickSendKey !== 'roster') {
+      bar.innerHTML = '<button type="button" class="qs-chip">Roster</button>';
+      bar.querySelector('button')?.addEventListener('click',()=>openCommandSheet('sends'));
+      quickSendKey = 'roster';
+    }
+    return;
+  }
   const usable = orderedSends(SENDS.filter((send) => player.shrine >= send.shrine));
   // income is in the key: the tooltips quote a live payout gain, so they go stale without it
   const key = usable.map((send) => `${send.id}${sendAffordable(send) ? 1 : 0}`).join(',') + '|' + player.income + '|' + player.lumber;
@@ -10607,7 +10993,7 @@ function hudContractReport() {
 }
 function renderHud() {
   $('gold-label').textContent = hudNum(player.gold);
-  $('income-label').textContent = hudSigned(BASE_INCOME + incomePayout(player.income));   // what you are actually paid, after diminishing returns
+  $('income-label').textContent = hudSigned(goldIncomePerCycle(player.income));   // what you are actually paid, after diminishing returns
   /* The countdown to the next payout. Only Classic ever showed it (it borrows
      #timer-label, which Skirmish needs for the wave clock), so in Skirmish gold
      simply jumped by an unexplained amount every 25 seconds and read as laggy.
@@ -10670,14 +11056,14 @@ function renderHud() {
       : people.length > 1 ? `THEM ×${foes.length}`
         : foes.length > 1 ? `BOTS ×${foes.length}` : 'COMPUTER').toUpperCase().slice(0, 10);
   }
-  const rivInc = $('rival-income-label'); if (rivInc) rivInc.textContent = mp.oppIncome != null ? hudSigned(BASE_INCOME + incomePayout(mp.oppIncome)) : '+?';
+  const rivInc = $('rival-income-label'); if (rivInc) rivInc.textContent = mp.oppIncome != null ? hudSigned(goldIncomePerCycle(mp.oppIncome)) : '+?';
   /* was "YOUR SHIP • 100" painted on the board beside the ship. The HUD has
      carried your lifeforce the whole time, so this was the same number twice,
      and the board's copy was the one sitting on the playfield. */
   const shipLabel = $('player-ship-label'); if (shipLabel) shipLabel.textContent = '';
-  if (matchMode === 'classic') {
-    $('wave-label').textContent = 'CLASSIC WARS';
-    if (!matchOver) $('wave-banner').textContent = 'CLASSIC WARS • SENDS ONLY — RACE THE RIVAL’S LIFEFORCE';
+  if (!hasNeutralWaves()) {
+    $('wave-label').textContent = matchModeName().toUpperCase();
+    if (!matchOver) $('wave-banner').textContent = isRosterWars() ? 'ROSTER WARS • YOUR SQUAD DEPLOYS EVERY 10S — UPGRADE IT' : 'CLASSIC WARS • SENDS ONLY — RACE THE RIVAL’S LIFEFORCE';
     $('timer-label').textContent = `+${String(Math.max(0, Math.ceil(incomeClock))).padStart(2, '0')}s`;
   } else {
     const arenaHud = document.body.classList.contains('arena');
@@ -11360,6 +11746,7 @@ function renderSendPanel() {
       ${player.shrine < SHRINE_MAX ? `<button id="shrine-upgrade" class="ghost-button" ${player.lumber < 1 ? 'disabled' : ''}>Upgrade to L${player.shrine + 1} • 1' + LUMBER_ICON + '</button>` : ''}`;
     $('shrine-upgrade')?.addEventListener('click', upgradeShrine);
   }
+  if (isRosterWars()) { renderRosterPanel($('send-list')); return; }
   // Mixed menus retain shrine order across income, flying, and attacker types.
   const card = (send) => `
     <button class="send-card" data-send="${send.id}"><span class="send-icon" title="${sendTypeLabel(send)}">${sendGlyph(send)}</span>
@@ -11376,6 +11763,7 @@ function renderSendPanel() {
 const SEND_MULTS = [1, 5, 25, 'max'];
 let sendMult = 1;
 function buySend(id) {
+  if (isRosterWars()) return false;
   const want = sendMult === 'max' ? 50 : sendMult;
   let n = 0;
   while (n < want && buySendOne(id)) n += 1;
@@ -11394,12 +11782,12 @@ function buySendOne(id) {
   if (player.shrine < send.shrine) return log(`${send.name} needs Shrine level ${send.shrine}.`);
   if (player.gold < send.cost) return log(`Not enough gold — ${send.name} costs ${sendPriceText(send)}.`);
   if (send.lumber && player.lumber < send.lumber) return log(`${send.name} costs ${sendPriceText(send)}${send.income ? '' : ' — and pays no income'}. Buy lumber first.`);
-  const incWas = BASE_INCOME + incomePayout(player.income);
+  const incWas = goldIncomePerCycle(player.income);
   player.gold -= send.cost; player.income += send.income; SFX.play('send'); Coach.notify('send'); track('send', { id: send.id });
   if (send.woodIncome) player.woodIncome = (player.woodIncome || 0) + send.woodIncome;
   if (send.lumber) { player.lumber -= send.lumber; player.lumberSpent += send.lumber; renderTowerList(); }
   logSend(send.id); if (matchStats) matchStats.sends += 1;
-  const incNow = BASE_INCOME + incomePayout(player.income);
+  const incNow = goldIncomePerCycle(player.income);
   // one purchase sends a unit down BOTH rival lanes (over the wire in PvP)
   if (mp.active) {
     // one enemy at a time, cycled, and named in the message — otherwise a
@@ -11509,6 +11897,17 @@ function renderTacticalDock() {
       source?.click();
     });
   }
+  if (isRosterWars()) {
+    const rkey = `roster:${player.shrine}:${player.lumber}:${Math.floor(player.gold)}:${player.races.join('+')}:${JSON.stringify(player.attune || {})}`;
+    if (tacticalDockKey !== rkey) { tacticalDockKey = rkey; renderEconStrip(); tabs.innerHTML = ''; }
+    list.classList.add('roster-dock-list');
+    renderRosterPanel(list);
+    renderSelectedEnemyPanel();
+    renderTacticalMinimap();
+    return;
+  }
+  list.classList.remove('roster-dock-list');
+  if (list.querySelector('.roster-panel')) { list.innerHTML = ''; list.dataset.rosterKey = ''; }
   const pool = desktopSendPool();
   const key = [desktopSendTab, player.shrine, Math.floor(player.gold), player.lumber,
     Math.round(player.income), Math.round(sendGrowth() * 100), pool.map((send) => send.id).join(','), player.races.join('+'), sendMult, buildRaceIdx, JSON.stringify(player.attune || {})].join('|');
@@ -12411,7 +12810,7 @@ const Coach = {
     { on:'waveClear', html:"🌊 <b>Wave 1 is inbound.</b> Defend your ship — watch them wind through your maze." },
     { on:'end',       html:"You've got it. ⚔ Enemies have <b>armor types</b>; your element hits some harder than others. Tap any tower or enemy to inspect. <b>Good luck, commander!</b>" },
   ],
-  start() { if (profile.onboarded || mp.active || matchMode === 'classic') return; this.active = true; this.idx = 0; this.render(); },
+  start() { if (profile.onboarded || mp.active || !hasNeutralWaves()) return; this.active = true; this.idx = 0; this.render(); },
   notify(ev) {
     if (!this.active) return;
     const s = this.steps[this.idx]; if (!s) return;
@@ -12472,7 +12871,8 @@ function startBattle() {
   track('match_start', { race: selectedRace.id, mode: matchMode, daily: matchIsDaily });
   applyUiMode();
   Coach.start();
-  log(matchMode === 'classic'
+  log(isRosterWars() ? 'Roster Wars — recruit up to five mobs in the Roster panel. They deploy at the rival every 10 seconds; upgrade them for toughness and income.'
+    : matchMode === 'classic'
     ? `Classic Wars vs the ${races.find((race) => race.id === enemy.raceId).name} rival: no neutral waves — build a maze, send attackers from the Shrine, and race their lifeforce to zero.`
     : matchMode === 'survival'
       ? `SURVIVAL — no rival, just the waves. First wave in ${Math.ceil(waveClock)}s. See how far you get.`
@@ -12535,7 +12935,7 @@ let soloRules = true;
 function applySoloRules() {
   if (!soloRules) return false;
   const solo = seatsOn(PLAYER_HALF) === 1 && (matchMode === 'survival' || seatsOn(ENEMY_HALF) === 1);
-  if (!solo || matchMode === 'survival') return false;
+  if (!solo || matchMode === 'survival' || isRosterWars()) return false;
   matchMode = 'classic';
   const modeSel = document.getElementById('mode-select'); if (modeSel) modeSel.value = 'classic';
   const aiSel = document.getElementById('ai-select'); if (aiSel) aiSel.value = 'brutal';
@@ -12710,7 +13110,7 @@ function renderLobby(force) {
   if (focused && focused.tagName === 'SELECT' && !force) { lobbyPatchReady(); return; }   // they are choosing right now
   lobbyKey = sig;
   const restore = focused ? (focused.dataset.lbKind || focused.dataset.lbSize || focused.id || '') : '';
-  const modeName = matchMode === 'classic' ? 'Classic Wars' : matchMode === 'survival' ? 'Survival' : 'Waves vs rival';
+  const modeName = matchModeName();
   // in a room I may be sitting on either roster half; "your side" is mine
   const myHalf = mp.active ? mp.team : PLAYER_HALF;
   const foeHalf = myHalf === PLAYER_HALF ? ENEMY_HALF : PLAYER_HALF;
@@ -12793,7 +13193,7 @@ function setupCanvasesOnce() { if (!canvasesReady) { setupCanvases(); canvasesRe
 function pushWaveForTesting() {
   if (!battleRunning) return log('Start a match before pushing a test wave.');
   if (battlePaused) return log('Resume the match before pushing a test wave.');
-  if (matchMode === 'classic') return log('Classic Wars has no neutral waves — send attackers from the Shrine instead.');
+  if (!hasNeutralWaves()) return log(matchModeName() + ' has no neutral waves.');
   launchNextWave();
   log(`TEST: pushed wave ${wave} immediately.`);
 }
@@ -13683,7 +14083,7 @@ function mpPlayerName() {
   return name;
 }
 function mpLobbyRaceId() { return !mp.started && randomRace ? 'random' : selectedRace.id; }
-function mpModeNow() { return document.getElementById('mode-select')?.value === 'classic' ? 'classic' : 'skirmish'; }
+function mpModeNow() { return selectedMatchMode(false); }
 function mpStartHelloLoop() {
   // handshake heartbeat: BOTH sides re-affirm readiness until the match starts, so a single
   // dropped config/ready over the lossy public relay can't strand one player.
@@ -13885,6 +14285,17 @@ function mpOnMessage(msg) {
       ?{id:msg.aiAttack,replyTo:msg.__from||msg.sid}:null;
     spawnSend(send,half,'west',attack,target.key);spawnSend(send,half,'east',attack,target.key);
     if(half===PLAYER_HALF)log(`${mpSeatDisplayName(source)} sent ${send.name} × 2 at your lanes!${send.air?' They fly over your maze!':''}`);
+  } else if (msg.t === 'roster') {
+    // a rival's roster deployment: up to five units, each a known send and its upgrade ranks
+    const seats=mpAttackSeats(msg);
+    if(!battleRunning || !mp.active || !seats || !isRosterWars() || !Array.isArray(msg.units))return;
+    const {source,target}=seats;
+    const localTarget=target.key===mpMySeatKey() || (mp.role==='host'&&target.kind==='ai');
+    if(!localTarget)return;
+    const half=target.half===mp.team?PLAYER_HALF:ENEMY_HALF;
+    const units=msg.units.slice(0,ROSTER_SIZE).filter(u=>u&&rosterSend(u.s)).map(u=>({sendId:u.s,ranks:rosterCleanRanks(u.r)}));
+    spawnRosterUnits(units,half,msg.lane==='east'?'east':'west',target.key);
+    if(half===PLAYER_HALF&&units.length)log(`${mpSeatDisplayName(source)}'s roster deploys: ${units.map(u=>rosterSend(u.sendId).name).join(', ')}.`);
   } else if (msg.t === 'ai-send-result') {
     receiveAiSendResult(msg);
   } else if (msg.t === 'leaks' || msg.t === 'lives') {
@@ -14391,6 +14802,7 @@ function setMobileTacticalPanel(requested, force = false) {
   if (next !== 'map') document.body.classList.add(`mobile-panel-${next}`);
   nav.querySelectorAll('[data-mobile-panel]').forEach((button) => {
     const on = button.dataset.mobilePanel === next;
+    if (button.dataset.mobilePanel === 'sends') { const lab = button.querySelector('small'); if (lab) lab.textContent = isRosterWars() ? 'ROSTER' : 'SENDS'; }
     button.classList.toggle('active', on);
     button.setAttribute('aria-pressed', String(on));
   });
@@ -14448,11 +14860,14 @@ function renderCommandBar() {
     $('bar-undo')?.addEventListener('click', () => { undoAction(); renderCommandBar(); });
   } else buildBody.innerHTML = '';
   // ---- SEND bar ----
-  if (!barSendCollapsed) {
+  if (!barSendCollapsed && isRosterWars()) {
+    sendBody.innerHTML = '<button type="button" class="bar-card"><span>⚔</span><small>ROSTER</small><b>open</b></button>';
+    sendBody.querySelector('button')?.addEventListener('click',()=>openCommandSheet('sends'));
+  } else if (!barSendCollapsed) {
     const wagerReady = wager.tokens > 0 && simTime >= wager.cooldownUntil && !wager.pending;
     sendBody.innerHTML = `
       <button id="bar-auto" class="bar-card ${autoSend.on ? 'toggle-on' : ''}"><span>🔁</span><small>AUTO</small><b>${autoSend.on ? 'ON' : 'off'}</b></button>
-      ${matchMode === 'classic' ? '' : `<button id="bar-wager" class="bar-card ${wagerReady ? '' : 'poor'}"><span>⏩</span><small>Rush</small><b>×${wager.tokens}</b></button>`}
+      ${!hasNeutralWaves() ? '' : `<button id="bar-wager" class="bar-card ${wagerReady ? '' : 'poor'}"><span>⏩</span><small>Rush</small><b>×${wager.tokens}</b></button>`}
       ${orderedSends(SENDS.filter((send) => player.shrine >= send.shrine)).map((send) => `
       <button class="bar-card has-stats ${sendAffordable(send) ? '' : 'poor'}" data-bar-send="${send.id}">
         <span>${sendGlyph(send)}</span><small>${send.name.split(' ')[0]}</small><b>${sendPriceText(send)}${send.income ? ` +${send.income}` : ''}</b><i class="bar-stats">${sendStatLine(send)}</i></button>`).join('')}`;
@@ -14708,6 +15123,12 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    new tag, then collapses and stays collapsed. */
 const RELEASE_TAG = '2026-11-14-elemental';
 const RELEASE_NOTES = [
+  { date:'2026-11-25', title:'Roster Wars (by Abdy)', items:[
+    'A new mode, Roster Wars, designed by Abdy. There are no sends and no neutral waves: recruit up to five mobs into your Roster and every 10 seconds the whole squad marches on the rival by itself, alternating lanes.',
+    'Each mob has ten upgrades with ten ranks each: Health, Armor, Speed, Slow resistance, Shield, Health regeneration, Shield regeneration, Healing aura, Shield aura and Split on death. Every rank adds gold income, and the card shows its payback time.',
+    'Selling a mob refunds half of everything spent on it and frees the slot. Every mob also yields 0.125 lumber a payout. A split family can cost at most one life however many children get through.',
+    'Pick Roster Wars in the lobby. It works solo against the computer and in rooms. Every player now starts with 2 lumber.',
+  ] },
   { date:'2026-11-14', title:'A more elemental game', items:[
     'Armour is one rule now: every element is strong (x1.5) against one armour and weak (x0.6) against one, and the creep\'s colour is its armour — amber unarmored, green light, blue medium, crimson heavy, violet fortified. Tap a creep to see what it is weak to and what it resists.',
     'Elements react. Hit a creep marked by one element with another: Ice then Fire SHATTERS it, Poison then Fire IGNITES the venom, Wind then Fire spreads a FIRESTORM, Wind then Electricity becomes a STORM that arcs to three more, Ice then Electricity SUPERCONDUCTS away half its armour, Earth or Stone then Gravity CRUSHES it, Poison then Wind carries a MIASMA to its neighbours.',
@@ -15026,16 +15447,18 @@ function renderCommandSheet() {
         <span>${towerDef(raceId, tier).symbol}</span><small>${def.name.split(' ')[0]}</small><b>${def.cost}g</b></button>`).join('')}</div>
       <div class="sheet-detail"><strong>${sel.name}</strong> — ${sel.desc} ${specialBlurbs[sel.special] || ''}<br><em>${sel.dmg} dmg • ${sel.range.toFixed(1)} range • ${attackSpeedText(sel)} • ${effectiveDps(sel, raceId).toFixed(0)} dps • ${attackProfileText(raceId, sel)}</em></div>
       <p class="sheet-hint">Tap the board to place. Hold a placed tower to sell; the undo pill refunds fully for 3s.</p>`;
+  } else if (sheetTab === 'sends' && isRosterWars()) {
+    body = rosterPanelMarkup();
   } else if (sheetTab === 'sends') {
     const wagerReady = wager.tokens > 0 && simTime >= wager.cooldownUntil && !wager.pending;
     const wagerLine = wager.pending ? 'waiting for the answer…'
       : wager.tokens < 1 ? 'no proposals left this match'
       : wagerReady ? `both bank +${wagerBonus()}g if accepted` : `ready in ${Math.max(1, Math.ceil(wager.cooldownUntil - simTime))}s`;
-    body = `${matchMode === 'classic' ? '' : `<button id="sheet-wager" class="wager-chip ${wagerReady ? '' : 'cooling'}"><span>⏩</span><b>Rush the wave</b><small>${wagerLine}</small><i>×${wager.tokens}</i></button>`}
+    body = `${!hasNeutralWaves() ? '' : `<button id="sheet-wager" class="wager-chip ${wagerReady ? '' : 'cooling'}"><span>⏩</span><b>Rush the wave</b><small>${wagerLine}</small><i>×${wager.tokens}</i></button>`}
       <div class="sheet-grid">${orderedSends().map((send) => { const inc = sendIncomeLabel(send); const gain = send.attacker ? `+${send.woodIncome || 0}${LUMBER_ICON}` : inc.text; return `
       <button class="sheet-chip ${player.shrine < send.shrine ? 'locked' : ''} ${sendAffordable(send) ? '' : 'poor'}" data-sheet-send="${send.id}" title="${send.name} — Shrine ${send.shrine}, ROI ${sendRoiLabel(send)}, ${sendTypeLabel(send)}, ${sendPriceText(send)}, ${send.attacker ? `${gain} per cycle` : `ladder +${send.income} income${inc.cut ? `, ${inc.text} after diminishing returns` : ''}`}">
         <span>${sendGlyph(send)}</span><small>${send.name.split(' ')[0]}</small><b>${sendPriceText(send)}<i class="${!send.attacker && inc.cut ? 'inc-cut' : ''}">${gain}</i></b></button>`; }).join('')}</div>
-      <p class="sheet-hint"><b>↗ Income</b> sends raise gold income, <b>▲ Flying</b> sends cross the maze, and <b>⚒ Attackers</b> cost lumber to break towers. Shrine tier is first; highest income ROI within that tier is first. ROI is income per cycle divided by its price, using lumber for attackers. You are paid <b>${BASE_INCOME + incomePayout(player.income)}g</b> every ${currentIncomePeriod()}s.${player.shrine < SHRINE_MAX ? 'Higher shrine levels unlock the elite tiers.' : 'Shrine is maxed.'}</p>`;
+      <p class="sheet-hint"><b>↗ Income</b> sends raise gold income, <b>▲ Flying</b> sends cross the maze, and <b>⚒ Attackers</b> cost lumber to break towers. Shrine tier is first; highest income ROI within that tier is first. ROI is income per cycle divided by its price, using lumber for attackers. You are paid <b>${goldIncomePerCycle(player.income)}g</b> every ${currentIncomePeriod()}s.${player.shrine < SHRINE_MAX ? 'Higher shrine levels unlock the elite tiers.' : 'Shrine is maxed.'}</p>`;
   } else if (sheetTab === 'tower') {
     const sel = selectionTowers().filter(isMine);
     if (!sel.length) { body = '<p class="sheet-hint">Tap one of your towers on the board — or use ▭ Box select — to inspect it here.</p>'; }
@@ -15091,6 +15514,7 @@ function renderCommandSheet() {
       <button id="sheet-quit" class="econ-chip econ-quit">⏏ <i>leave match</i></button>
       <label class="sheet-opacity" title="Slide left to see the board through this panel">◐<input id="sheet-opacity" type="range" min="25" max="100" value="${sheetOpacity()}" /></label>
     </div>${body}`;
+  if (isRosterWars() && sheetTab === 'sends') wireRosterPanel(sheet, () => { sheetKey = ''; renderCommandSheet(); });
   sheet.style.opacity = sheetOpacity() / 100;
   sheet.querySelectorAll('[data-sheet-tab]').forEach((b) => b.addEventListener('click', () => { sheetTab = b.dataset.sheetTab; sheetKey = ''; renderCommandSheet(); }));
   $('sheet-close').addEventListener('click', closeCommandSheet);
@@ -15423,8 +15847,7 @@ document.querySelectorAll('[data-tab]').forEach((tab) => tab.addEventListener('c
 /* Start opens the LOBBY; the lobby's own button commits the match. The slots
    have to be settable before anything is built, and they were not. */
 $('start-button').addEventListener('click', () => {
-  const picked = document.getElementById('mode-select')?.value;
-  matchMode = picked === 'classic' ? 'classic' : (picked === 'survival' ? 'survival' : 'skirmish');
+  matchMode = selectedMatchMode();
   ensureRoster();
   $('race-screen').classList.add('hidden');
   $('battle-screen').classList.remove('hidden');

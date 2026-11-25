@@ -2,6 +2,37 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 25, 2026 — Roster Wars, from Abdy's branch (Claude)
+
+Gene: "add in the roster modes from Abdy's latest branch". Ported from `test/sites-shared-arena-20`
+(`edd9de0`, Abdy). The rules, numbers, upgrade list, AI and panel are his; what changed is how it
+reaches the other phone.
+
+**The mode.** `matchMode === 'roster'`: no neutral waves, no sends (`buySend` refuses). Five slots;
+a recruit costs its send price once and from then on deploys at the rival every `ROSTER_PERIOD`
+(10 s) on alternating lanes. Ten upgrades × ten ranks; rank *n* costs `price × 1.5^(n−1)` and adds
+flat gold income. Selling refunds half of `goldSpent`. Each recruit yields 0.125 lumber a payout.
+Gold per payout is `round(35 × 10/15) = 23` plus the upgrades' income. Split children share the
+parent's max HP and inherit its personal stats; a split family can cost one life. Human players start
+with `START_LUMBER = 2` in every mode (Abdy's change).
+
+**Multiplayer.** Abdy's branch ran one shared arena on the host. Main runs a simulation per phone,
+so a roster deployment travels like a send: a `{t:'roster', units:[{s, r}], lane, target,
+sourceSeat}` message to the seat your sends go to. The receiver validates it (at most 5 units, known
+send ids, ranks clamped 0–10) and spawns locally. A computer's roster is spawned by whichever phone
+runs that computer, cycling its targets like `aiDeliverSend`.
+
+**UI.** The Roster panel replaces the send list in the tactical dock, the rail, the command sheet and
+quick-send; the mobile tab reads ROSTER. Touch targets were raised to 44 px, and slot names truncate
+instead of breaking mid-word. The ×5/×25 send multiplier is hidden in Roster.
+
+Checked: `tools/harness/rostertest.js` (recruit, upgrade cost, Shield-regen prerequisite, half
+refund, payout, deployment, lane alternation, shields, shield aura, slow resistance, split, one life
+per family, AI recruiting, the panel at 390 px with no target under 44 px). A four-mode smoke test
+showed no errors and the right pay in each mode, crowd 104 ms per simulated second (unchanged),
+sealtest and elemtest unchanged, teamboard PASS. Cross-phone delivery cannot be exercised from the
+cloud sandbox (the broker is blocked); it needs two real phones.
+
 ## November 14, 2026 — A more elemental game (Claude)
 
 Gene: "Build 1, 2 and 3" (effects that grow with rank, reactions, readable armour).
