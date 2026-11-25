@@ -38,7 +38,7 @@ const r=await p.evaluate(()=>{document.querySelectorAll('.coach-card').forEach(c
   // lane alternates
   incomeClock=0.001;const n0=creeps.length;simulate(1/30);o.secondLane=creeps.slice(n0).find(c=>c.sent&&c.half===ENEMY_HALF)?.side;
   // AI roster over 3 minutes
-  enemy.gold=20000;for(let i=0;i<30*180;i++){simulate(1/30);if(creeps.length>200)creeps.length=0;}
+  player.lives=1e6;enemy.gold=20000;for(let i=0;i<30*180;i++){simulate(1/30);if(creeps.length>200)creeps.length=0;}
   o.aiSlots=(enemy.rosterSlots||[]).filter(Boolean).map(u=>u.sendId+':'+Object.values(u.ranks).reduce((a,b)=>a+b,0));
   o.aiIncome=enemy.income;o.enemyRosterOnMyHalf=creeps.filter(c=>c.half===PLAYER_HALF&&c.sent).length;
   battlePaused=true;return o;});

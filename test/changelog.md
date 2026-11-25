@@ -2,6 +2,26 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 25, 2026 — Roster Wars: waves, and income that grows (Claude)
+
+Gene: "I'm not seeing roster income upgrading. There also no waves in the roster mode."
+
+**Income.** It was upgrading, by too little to notice: Abdy's ranks paid a flat +3 to +8 gold a
+payout, so a 300g Health rank took 16:40 to pay back where a send of that price pays back in about
+90 s. Each rank now adds `round(rank cost × 0.11)` income (`ROSTER_INCOME_RATE`, a send's own
+ratio), and Roster pays through the Waves formula, `(BASE_INCOME + incomePayout(income)) × mult`,
+so the base is 35 and the same diminishing-returns curve applies. The cards quote what the next rank
+adds after that curve (`rosterRankGain`) and its payback. Measured through the panel: +35 → +68 →
++112 → +162 after Health, Armor and Speed rank 1 (before: +23 → +26 → +31 → +35).
+
+**Waves.** `hasNeutralWaves()` is false only in Classic Wars now; Roster runs the Waves ladder
+(wave 12 at minute 6, as in Waves vs rival) beside the squad. The onboarding coach stays off in
+Roster, since its steps teach sends.
+
+Checked: rostertest (the 3-minute AI stretch now gives the undefended test player spare lives, since
+waves would end the match), rosterroom and teamboard PASS, four-mode smoke clean; over 10 minutes the
+computer recruits, upgrades and reaches 253 income by minute 6.
+
 ## November 25, 2026 — Every element reacts; the Elements chart in the game (Claude)
 
 Gene: "Add the elements chart into the game, and I think all elements should react".

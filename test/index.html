@@ -4173,16 +4173,16 @@ const ROSTER_AURA_RANGE = 3;
 const START_LUMBER = 2;   // Abdy: human players start every match with 2 lumber
 function rosterPercent(value) { return `${Math.round(value*10000)/100}%`; }
 const ROSTER_UPGRADES = [
-  {id:'health', name:'Health', price:300, income:3, effect:r=>.15*r, label:v=>`+${rosterPercent(v)} base HP`},
-  {id:'armor', name:'Armor', price:400, income:5, effect:r=>2*r, label:v=>`+${v} armor`},
-  {id:'speed', name:'Movement speed', price:450, income:4, effect:r=>.08+.04*(r-1), label:v=>`+${rosterPercent(v)} speed`},
-  {id:'slow', name:'Slow resistance', price:500, income:5, effect:r=>.25+.05*(r-1), label:v=>`${rosterPercent(v)} weaker movement slows`},
-  {id:'shield', name:'Shield', price:600, income:5, effect:r=>.15+.05*(r-1), label:v=>`+${rosterPercent(v)} of max HP as shield`},
-  {id:'regen', name:'Health regeneration', price:700, income:5, effect:r=>.01+.0025*(r-1), label:v=>`+${rosterPercent(v)} max HP per second`},
-  {id:'shieldRegen', name:'Shield regeneration', price:800, income:6, requires:'shield', effect:r=>.15+.02*(r-1), label:v=>`${rosterPercent(v)} shield per second after 4s without damage`},
-  {id:'healAura', name:'Healing aura', price:1000, income:6, effect:r=>.0075+.0015*(r-1), label:v=>`${rosterPercent(v)} allied max HP per second within 3 tiles`},
-  {id:'shieldAura', name:'Shield aura', price:1100, income:7, effect:r=>.1+.03*(r-1), label:v=>`${rosterPercent(v)} of each ally’s max HP as shield within 3 tiles, once per mob`},
-  {id:'split', name:'Split on death', price:1500, income:8, effect:r=>r, label:v=>`${v} ${v===1?'child shares':'children share'} the parent’s max HP and inherit its personal stats`}
+  {id:'health', name:'Health', price:300, effect:r=>.15*r, label:v=>`+${rosterPercent(v)} base HP`},
+  {id:'armor', name:'Armor', price:400, effect:r=>2*r, label:v=>`+${v} armor`},
+  {id:'speed', name:'Movement speed', price:450, effect:r=>.08+.04*(r-1), label:v=>`+${rosterPercent(v)} speed`},
+  {id:'slow', name:'Slow resistance', price:500, effect:r=>.25+.05*(r-1), label:v=>`${rosterPercent(v)} weaker movement slows`},
+  {id:'shield', name:'Shield', price:600, effect:r=>.15+.05*(r-1), label:v=>`+${rosterPercent(v)} of max HP as shield`},
+  {id:'regen', name:'Health regeneration', price:700, effect:r=>.01+.0025*(r-1), label:v=>`+${rosterPercent(v)} max HP per second`},
+  {id:'shieldRegen', name:'Shield regeneration', price:800, requires:'shield', effect:r=>.15+.02*(r-1), label:v=>`${rosterPercent(v)} shield per second after 4s without damage`},
+  {id:'healAura', name:'Healing aura', price:1000, effect:r=>.0075+.0015*(r-1), label:v=>`${rosterPercent(v)} allied max HP per second within 3 tiles`},
+  {id:'shieldAura', name:'Shield aura', price:1100, effect:r=>.1+.03*(r-1), label:v=>`${rosterPercent(v)} of each ally’s max HP as shield within 3 tiles, once per mob`},
+  {id:'split', name:'Split on death', price:1500, effect:r=>r, label:v=>`${v} ${v===1?'child shares':'children share'} the parent’s max HP and inherit its personal stats`}
 ];
 const rosterUpgradeById = new Map(ROSTER_UPGRADES.map(upgrade=>[upgrade.id,upgrade]));
 function rosterSend(id) { return SENDS.find(send=>send.id===id); }
@@ -4190,7 +4190,9 @@ let rosterNextLane = 'west';
 let rosterSelectedSlot = 0;
 let rosterRecruitId = '';
 function isRosterWars() { return matchMode === 'roster'; }
-function hasNeutralWaves(mode = matchMode) { return mode !== 'classic' && mode !== 'roster'; }
+/* Roster Wars has neutral waves too (Gene, 2026-11-25: "there also no waves in the roster mode").
+   Abdy's branch ran it without; only Classic Wars is sends-only now. */
+function hasNeutralWaves(mode = matchMode) { return mode !== 'classic'; }
 function selectedMatchMode(allowSurvival = true) {
   const mode = document.getElementById('mode-select')?.value;
   return mode === 'classic' || mode === 'roster' || (allowSurvival && mode === 'survival') ? mode : 'skirmish';
@@ -4199,11 +4201,26 @@ function matchModeName(mode = matchMode) {
   return {classic:'Classic Wars', roster:'Roster Wars', survival:'Survival', skirmish:'Waves vs rival'}[mode] || 'Waves vs rival';
 }
 // Roster income is flat: a base scaled to the 10 s clock, plus what the upgrades add
+/* ROSTER INCOME THAT YOU CAN SEE (Gene, 2026-11-25: "I'm not seeing roster income upgrading").
+   Abdy's ranks paid a flat +3..+8 gold a payout: a 300g Health rank took 16:40 to pay back, where a
+   send of that price pays back in about a minute and a half, so upgrades never moved the economy.
+   Every rank now adds 11% of what it cost (a send's own ratio), and Roster pays through the same
+   base and diminishing-returns curve as Waves vs rival. */
+const ROSTER_INCOME_RATE = 0.11;
 function goldIncomePerCycle(income, baseMultiplier = 1) {
-  if (isRosterWars()) return Math.round(Math.round(BASE_INCOME * ROSTER_PERIOD / CLASSIC_INCOME_PERIOD) * baseMultiplier) + Math.round(income || 0);
   return (BASE_INCOME + incomePayout(income)) * baseMultiplier;
 }
-function rosterRanksIncome(unit) { return ROSTER_UPGRADES.reduce((sum, upgrade)=>sum + (unit.ranks[upgrade.id] || 0)*upgrade.income, 0); }
+function rosterRankIncome(upgrade, rank) { return Math.round(rosterUpgradeCost(upgrade, rank) * ROSTER_INCOME_RATE); }
+function rosterRanksIncome(unit) {
+  let sum = 0;
+  for (const upgrade of ROSTER_UPGRADES) for (let r = 1; r <= (unit.ranks[upgrade.id] || 0); r += 1) sum += rosterRankIncome(upgrade, r);
+  return sum;
+}
+// what a rank actually adds to the payout right now, after diminishing returns, like a send card
+function rosterRankGain(purse, upgrade, rank) {
+  const add = rosterRankIncome(upgrade, rank);
+  return incomePayoutExact((purse.income || 0) + add) - incomePayoutExact(purse.income || 0);
+}
 function rosterUpgradeCost(upgrade, rank) { return Math.round(upgrade.price * 1.5**(rank - 1)); }
 function rosterRefund(unit) { return Math.floor(unit.goldSpent / 2); }
 function rosterSyncIncome(purse) {
@@ -4251,7 +4268,7 @@ function applyRosterAction(purse, action, args) {
       purse.gold -= price;
       unit.goldSpent += price;
       unit.ranks[upgrade.id] = rank;
-      message = `${send.name} gained ${upgrade.name} Rank ${rank} and +${upgrade.income}g per payout.`;
+      message = `${send.name} gained ${upgrade.name} Rank ${rank}: +${rosterRankIncome(upgrade, rank)} income.`;
     } else return reject('That roster action is unavailable.');
   }
   rosterSyncIncome(purse);
@@ -4426,12 +4443,13 @@ function rosterPanelMarkup() {
       const title = `<strong>${upgrade.name}</strong><span>Rank ${current}/${ROSTER_MAX_RANK}</span>`;
       if (rank > ROSTER_MAX_RANK) return `<div class="roster-upgrade">${title}<small>${upgrade.label(upgrade.effect(current))}</small><b>Max rank</b></div>`;
       const price = rosterUpgradeCost(upgrade,rank);
-      const ticks = Math.ceil(price/upgrade.income);
+      const gain = rosterRankGain(player, upgrade, rank);
+      const ticks = Math.ceil(price/Math.max(.1, gain));
       const minutes = Math.floor(ticks*ROSTER_PERIOD/60);
       const seconds = String(ticks*ROSTER_PERIOD%60).padStart(2,'0');
       const needsShield = upgrade.requires && !unit.ranks[upgrade.requires];
       return `<button type="button" class="roster-upgrade" data-roster-upgrade="${upgrade.id}" data-roster-rank="${rank}" data-roster-unit="${unit.id}" data-roster-gold="${price}" ${needsShield?'data-roster-unavailable disabled':''}>
-        ${title}<small>${needsShield?'Requires Shield':upgrade.label(upgrade.effect(rank))}</small><b>${hudNum(price)}g · +${upgrade.income}g / 10s</b><small>${minutes}:${seconds} payback</small></button>`;
+        ${title}<small>${needsShield?'Requires Shield':upgrade.label(upgrade.effect(rank))}</small><b>${hudNum(price)}g · +${incomeGainText(gain)}g / 10s</b><small>${minutes}:${seconds} payback</small></button>`;
     }).join('');
     body = `<div class="roster-unit"><div><strong>${stats.name}</strong><small>${hudNum(hp)} HP · ${stats.armor + (stats.attacker ? 0 : TRAIT.armorBonus)} armor · ${stats.aClass} · ${stats.spd.toFixed(2)} speed · +${income}g / 10s</small></div>
       <button type="button" class="roster-sell" data-roster-sell="${unit.id}" data-roster-gold="0" title="Selling removes this mob’s income and frees the slot">Sell +${hudNum(rosterRefund(unit))}g</button></div><div class="roster-upgrades">${cards}</div>`;
@@ -12898,7 +12916,7 @@ const Coach = {
     { on:'waveClear', html:"🌊 <b>Wave 1 is inbound.</b> Defend your ship — watch them wind through your maze." },
     { on:'end',       html:"You've got it. ⚔ Enemies have <b>armor types</b>; your element hits some harder than others. Tap any tower or enemy to inspect. <b>Good luck, commander!</b>" },
   ],
-  start() { if (profile.onboarded || mp.active || !hasNeutralWaves()) return; this.active = true; this.idx = 0; this.render(); },
+  start() { if (profile.onboarded || mp.active || !hasNeutralWaves() || isRosterWars()) return; this.active = true; this.idx = 0; this.render(); },
   notify(ev) {
     if (!this.active) return;
     const s = this.steps[this.idx]; if (!s) return;
@@ -15212,6 +15230,10 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    new tag, then collapses and stays collapsed. */
 const RELEASE_TAG = '2026-11-14-elemental';
 const RELEASE_NOTES = [
+  { date:'2026-11-25', title:'Roster Wars: waves, and income you can feel', items:[
+    'Roster Wars has neutral waves now, the same ladder as Waves vs rival, alongside your squad.',
+    'Every upgrade rank adds income worth 11% of what it cost, the same ratio as a send, and Roster pays the same base income as Waves. A 300g Health rank used to add 3 gold a payout; it adds 33 now. Each card shows what the next rank adds and how long it takes to pay for itself.',
+  ] },
   { date:'2026-11-25', title:'Every element reacts, and the chart is in the game', items:[
     'Eight new reactions bring in every element, so each one now starts a reaction and finishes one: Fire then Ice STEAM, Electricity then Poison TOXIC SHOCK, Gravity then Earth QUAKE, Tech then Stone WEAK POINT, Beam then Tech LOCK-ON, Crystal then Beam PRISM, Ninja then Crystal RESONANCE, Gravity then Ninja EXECUTE.',
     'The Elements chart is in the game: armour strengths and weaknesses for every element and all fifteen reactions, with yours on top. Open it from ◈ Chart beside the element picker, or from the menu during a match.',
