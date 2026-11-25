@@ -1862,6 +1862,13 @@ body.mode-roster #send-dock-tabs:empty { display:none; }
 .el-table td.s { color:#5fe0a0; background:rgba(95,224,160,.14); }
 .el-table td.w { color:#ff7a7a; background:rgba(255,122,122,.12); }
 .el-table td.c { color:#cf9dff; }
+.el-picker { display:grid; grid-template-columns:repeat(6, minmax(0, 1fr)); gap:4px; margin-bottom:6px; }
+.el-pick { display:grid; justify-items:center; gap:1px; min-height:44px; padding:4px 2px; border:1px solid #233150; border-radius:9px; background:#111a30; color:#c7d3ee; cursor:pointer; }
+.el-pick span { font-size:15px; line-height:1.1; }
+.el-pick small { font-size:9px; letter-spacing:.02em; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.el-pick[aria-pressed="true"] { border-color:#9fe8ff; background:#16334e; color:#fff; }
+.el-pick:focus-visible { outline:2px solid #9fe8ff; outline-offset:1px; }
+.el-h2 { margin-top:10px; color:#c7d3ee; }
 .el-rx { display:grid; gap:8px; }
 .el-rx article { display:grid; gap:4px; padding:10px 12px; border-radius:10px; background:#111a30; border:1px solid #1f2c4a; }
 .el-rx article.mine { border-color:#4a6aa8; background:#132140; }
@@ -5734,24 +5741,110 @@ function applyFrost(creep, tower, stats, extraStack) {
    A creep reacts at most once a second to each, a reaction spends the mark that primed it, and
    reactions grow with the triggering tower's rank like every other effect. `desc` is the line
    the in-game Elements chart shows. */
+/* EVERY PAIR REACTS, IN EITHER ORDER (Gene, 2026-11-25: "what do we think about the order matters
+   aspect, does it make it too complicated? Does every element have an interaction with one another?
+   If not I think it should"). Order is gone: a creep marked by one element and hit by the other
+   reacts, whichever landed first, because a player cannot choose which tower fires first and a
+   rule nobody can act on is only something to memorise. Where both orders had a reaction they are
+   one now (Shatter takes Steam's cloud; Earth + Gravity is Quake, Stone + Gravity is Crush).
+   All 66 pairs of the twelve elements react. The fourteen hand-built ones keep their own code in
+   runReaction; the other 52 are made from shared parts in `fx` (runReactionParts), so they stay
+   consistent and can be tuned from this table. primer/trigger are kept only as the pair's two ends. */
 const ELEMENT_MARK_DUR = 3, REACTION_CD = 1;
 const REACTIONS = [
-  { id:'shatter', name:'SHATTER', primer:['ice'], trigger:'fire', color:'#bff4ff', desc:'2.5× the Fire hit as bonus damage. Spends the frost.' },
+  { id:'shatter', name:'SHATTER', primer:['ice'], trigger:'fire', color:'#bff4ff', desc:'2.5× the hit as bonus damage, and a scalding steam cloud slows up to 5 creeps nearby 35% for 2 s. Spends the frost.' },
   { id:'ignite', name:'IGNITE', primer:['poison'], trigger:'fire', color:'#d6ff6b', desc:'The whole venom pool burns at once for 1.5×, and 40% splashes onto up to 5 creeps nearby.' },
   { id:'firestorm', name:'FIRESTORM', primer:['wind'], trigger:'fire', color:'#ffb36b', desc:'Up to 6 creeps within 2 tiles catch a 3 s burn (30% of the hit) and are marked by Fire.' },
   { id:'storm', name:'STORM', primer:['wind'], trigger:'electricity', color:'#fff27a', desc:'The bolt arcs to 3 more creeps within 3 tiles for 80% of the hit each.' },
   { id:'superconduct', name:'SUPERCONDUCT', primer:['ice'], trigger:'electricity', color:'#9fe8ff', desc:'Strips half its armour for 4 s (up to 75% from a high-rank tower).' },
-  { id:'crush', name:'CRUSH', primer:['earth', 'stone'], trigger:'gravity', color:'#e2a7ff', desc:'1.5× the Gravity hit as bonus damage, and pins it for 0.4 s.' },
+  { id:'crush', name:'CRUSH', primer:['stone'], trigger:'gravity', color:'#e2a7ff', desc:'1.5× the hit as bonus damage, and pins it for 0.4 s.' },
   { id:'miasma', name:'MIASMA', primer:['poison'], trigger:'wind', color:'#9be86b', desc:'60% of its venom spreads to up to 5 creeps within 2.5 tiles and marks them with Poison, ready to IGNITE.' },
-  { id:'steam', name:'STEAM', primer:['fire'], trigger:'ice', color:'#e8f4ff', desc:'A scalding cloud: up to 6 creeps within 1.5 tiles take 60% of the hit and are slowed 35% for 2 s.' },
-  { id:'toxicshock', name:'TOXIC SHOCK', primer:['electricity'], trigger:'poison', color:'#c8ff5a', desc:'Doubles the venom on it and adds 40% of the hit as more venom.' },
+  { id:'toxicshock', name:'TOXIC SHOCK', primer:['electricity'], trigger:'poison', color:'#c8ff5a', desc:'Doubles the venom on it (by at most 1.5× the hit) and adds 40% of the hit as more venom.' },
   { id:'quake', name:'QUAKE', primer:['gravity'], trigger:'earth', color:'#e6c27a', desc:'The ground heaves: every ground creep within 2 tiles (up to 8) takes the full hit and is stunned 0.3 s.' },
   { id:'weakpoint', name:'WEAK POINT', primer:['tech'], trigger:'stone', color:'#c7d2ff', desc:'The stone lands on the painted spot: 2× the hit as bonus damage.' },
   { id:'lockon', name:'LOCK-ON', primer:['beam'], trigger:'tech', color:'#9fd7ff', desc:'The beam guides the shell: 1.5× the hit as bonus damage, and 50% to up to 4 creeps within 1.2 tiles.' },
   { id:'prism', name:'PRISM', primer:['crystal'], trigger:'beam', color:'#d6c2ff', desc:'The beam splits through the crystal: 3 rays hit creeps within 3 tiles for 1.5× the hit each.' },
   { id:'resonance', name:'RESONANCE', primer:['ninja'], trigger:'crystal', color:'#f0d7ff', desc:'The cut rings: it takes 20% more damage from everything for 3 s (up to 40% from a high-rank tower).' },
   { id:'execute', name:'EXECUTE', primer:['gravity'], trigger:'ninja', color:'#ffffff', desc:'2× the hit as bonus damage, and a non-boss creep under 12% health is cut down outright.' },
+  // ---- built from parts (fx). m = multiple of the triggering hit; r = tiles; n = creeps incl. the target ----
+  { id:'overload', name:'OVERLOAD', primer:['fire'], trigger:'electricity', color:'#ffcf5a', vis:'tburst', fx:{ splash:{ m:1.2, r:1.5, n:5 }, stun:{ dur:.3 } }, desc:'The charge detonates: up to 4 creeps within 1.5 tiles take 1.2× the hit, and it is stunned 0.3 s.' },
+  { id:'meteor', name:'METEOR', primer:['fire'], trigger:'gravity', color:'#ff8a5c', vis:'tring', fx:{ burst:2, splash:{ m:.6, r:1.5, n:5 } }, desc:'Pulled down burning: 2× the hit as bonus damage, and 60% to up to 4 creeps within 1.5 tiles.' },
+  { id:'magma', name:'MAGMA', primer:['fire'], trigger:'earth', color:'#ff7a3c', vis:'tcloud', fx:{ burn:{ m:.4, dur:3, r:1.5, n:5 }, slow:{ pct:20, dur:3, r:1.5, n:5 } }, desc:'A pool of magma: up to 5 creeps within 1.5 tiles burn for 40% of the hit a second for 3 s and are slowed 20%.' },
+  { id:'slag', name:'SLAG', primer:['fire'], trigger:'stone', color:'#ff9f5a', vis:'tshards', fx:{ burst:1.2, shred:{ pct:.3, dur:4 } }, desc:'Molten stone: 1.2× the hit as bonus damage, and 30% of its armour melts away for 4 s.' },
+  { id:'thermite', name:'THERMITE', primer:['fire'], trigger:'tech', color:'#ffb347', vis:'tburst', fx:{ burn:{ m:.6, dur:3 } }, desc:'A thermite charge: it burns for 60% of the hit a second for 3 s, through armour.' },
+  { id:'solarflare', name:'SOLAR FLARE', primer:['fire'], trigger:'beam', color:'#ffe27a', vis:'tburst', fx:{ splash:{ m:1, r:2, n:6, through:true }, slow:{ pct:25, dur:1.5, r:2, n:6 } }, desc:'A blinding flash: up to 5 creeps within 2 tiles take the full hit and are slowed 25% for 1.5 s.' },
+  { id:'blazingcut', name:'BLAZING CUT', primer:['fire'], trigger:'ninja', color:'#ff6b4a', vis:'tslash', fx:{ burst:1.8, burn:{ m:.3, dur:3 } }, desc:'A burning blade: 1.8× the hit as bonus damage, and it burns for 30% of the hit a second for 3 s.' },
+  { id:'supernova', name:'SUPERNOVA', primer:['fire'], trigger:'crystal', color:'#ffb0e0', vis:'tring', fx:{ splash:{ m:1.2, r:2, n:6, true:true } }, desc:'The crystal flares: up to 5 creeps within 2 tiles take 1.2× the hit, ignoring armour.' },
+  { id:'blizzard', name:'BLIZZARD', primer:['ice'], trigger:'wind', color:'#dff6ff', vis:'tcloud', fx:{ splash:{ m:.3, r:2, n:8 }, slow:{ pct:40, dur:2.5, r:2, n:8 } }, desc:'A whiteout: up to 8 creeps within 2 tiles are slowed 40% for 2.5 s and take 30% of the hit.' },
+  { id:'cryotoxin', name:'CRYOTOXIN', primer:['ice'], trigger:'poison', color:'#a8f0d8', vis:'tcloud', fx:{ venom:{ m:.6 }, slow:{ pct:30, dur:3 } }, desc:'Frozen venom: adds 60% of the hit as venom and slows it 30% for 3 s.' },
+  { id:'flashfreeze', name:'FLASH FREEZE', primer:['ice'], trigger:'gravity', color:'#b8d4ff', vis:'tshards', fx:{ burst:1, freeze:.8 }, desc:'Crushed into ice: the full hit as bonus damage, and it freezes solid for 0.8 s (bosses are slowed instead).' },
+  { id:'permafrost', name:'PERMAFROST', primer:['ice'], trigger:'earth', color:'#c9e6f0', vis:'tring', fx:{ slow:{ pct:45, dur:2, r:1.5, n:6 }, stun:{ dur:.2, r:1.5, n:6 } }, desc:'The ground freezes: up to 6 creeps within 1.5 tiles are slowed 45% for 2 s.' },
+  { id:'glacier', name:'GLACIER', primer:['ice'], trigger:'stone', color:'#cfe8ff', vis:'tshards', fx:{ burst:2, stun:{ dur:.4 } }, desc:'A slab of ice and stone: 2× the hit as bonus damage, and it is stunned 0.4 s.' },
+  { id:'cryoround', name:'CRYO ROUND', primer:['ice'], trigger:'tech', color:'#a9dcff', vis:'tring', fx:{ shred:{ pct:.3, dur:4 }, slow:{ pct:30, dur:2 } }, desc:'A cryo shell: 30% of its armour shatters for 4 s, and it is slowed 30% for 2 s.' },
+  { id:'frostlens', name:'FROST LENS', primer:['ice'], trigger:'beam', color:'#bfe9ff', vis:'tarcs', fx:{ chain:{ m:1.2, r:3, n:2 }, slow:{ pct:25, dur:2 } }, desc:'The beam focuses through the ice: two rays hit creeps within 3 tiles for 1.2× the hit, and it is slowed 25%.' },
+  { id:'coldsteel', name:'COLD STEEL', primer:['ice'], trigger:'ninja', color:'#e6f6ff', vis:'tslash', fx:{ burst:1.6, freeze:.5 }, desc:'A frozen blade: 1.6× the hit as bonus damage, and it freezes solid for 0.5 s.' },
+  { id:'diamonddust', name:'DIAMOND DUST', primer:['ice'], trigger:'crystal', color:'#f2e8ff', vis:'tcloud', fx:{ splash:{ m:.7, r:2, n:6, true:true }, slow:{ pct:25, dur:2, r:2, n:6 } }, desc:'Glittering frost: up to 5 creeps within 2 tiles take 70% of the hit through armour and are slowed 25%.' },
+  { id:'cyclone', name:'CYCLONE', primer:['wind'], trigger:'gravity', color:'#c9b8ff', vis:'tring', fx:{ splash:{ m:.6, r:2, n:6 }, stun:{ dur:.3, r:2, n:6 } }, desc:'Lifted off the ground: up to 6 creeps within 2 tiles take 60% of the hit and are stunned 0.3 s.' },
+  { id:'sandstorm', name:'SANDSTORM', primer:['wind'], trigger:'earth', color:'#e8d29a', vis:'tcloud', fx:{ splash:{ m:.3, r:2.5, n:8 }, slow:{ pct:30, dur:3, r:2.5, n:8 } }, desc:'A wall of sand: up to 8 creeps within 2.5 tiles are slowed 30% for 3 s and take 30% of the hit.' },
+  { id:'shrapnel', name:'SHRAPNEL', primer:['wind'], trigger:'stone', color:'#d0d8e6', vis:'tshards', fx:{ chain:{ m:1, r:2.5, n:3 } }, desc:'The wind hurls the fragments: 3 more creeps within 2.5 tiles take the full hit.' },
+  { id:'slipstream', name:'SLIPSTREAM', primer:['wind'], trigger:'tech', color:'#a6e0ff', vis:'tring', fx:{ burst:1, push:1.2 }, desc:'Caught in the jet: the full hit as bonus damage, and it is blown 1.2 tiles back along its route.' },
+  { id:'mirage', name:'MIRAGE', primer:['wind'], trigger:'beam', color:'#b8fff0', vis:'tcloud', fx:{ splash:{ m:.4, r:1.5, n:4 }, push:.8 }, desc:'A shimmer of false light: up to 4 creeps within 1.5 tiles take 40% of the hit, and it stumbles 0.8 tiles back.' },
+  { id:'windslash', name:'WIND SLASH', primer:['wind'], trigger:'ninja', color:'#c8fff2', vis:'tslash', fx:{ splash:{ m:1.2, r:2, n:4 } }, desc:'A cutting gust: up to 3 creeps within 2 tiles take 1.2× the hit.' },
+  { id:'shardstorm', name:'SHARD STORM', primer:['wind'], trigger:'crystal', color:'#d9c8ff', vis:'tshards', fx:{ splash:{ m:.8, r:2, n:6, true:true } }, desc:'Crystal shards on the wind: up to 5 creeps within 2 tiles take 80% of the hit through armour.' },
+  { id:'toxicwell', name:'TOXIC WELL', primer:['poison'], trigger:'gravity', color:'#b8e070', vis:'tring', fx:{ venom:{ m:.8 }, stun:{ dur:.25, r:1.5, n:5 } }, desc:'Gravity pools the poison: adds 80% of the hit as venom, and creeps within 1.5 tiles are stunned 0.25 s.' },
+  { id:'rot', name:'ROT', primer:['poison'], trigger:'earth', color:'#9fb85a', vis:'tcloud', fx:{ venom:{ m:.5, r:1.5, n:5 }, shred:{ pct:.15, dur:3 } }, desc:'The ground rots: up to 5 creeps within 1.5 tiles take 50% of the hit as venom, and its armour weakens 15%.' },
+  { id:'corrode', name:'CORRODE', primer:['poison'], trigger:'stone', color:'#b0d080', vis:'tshards', fx:{ shred:{ pct:.4, dur:4 } }, desc:'Acid eats the armour: 40% of it is gone for 4 s.' },
+  { id:'neurotoxin', name:'NEUROTOXIN', primer:['poison'], trigger:'tech', color:'#c0ff9a', vis:'tarcs', fx:{ venom:{ m:.5 }, expose:{ pct:.15, dur:3 } }, desc:'A delivered toxin: adds 50% of the hit as venom, and it takes 15% more damage from everything for 3 s.' },
+  { id:'radiation', name:'RADIATION', primer:['poison'], trigger:'beam', color:'#d8ff6a', vis:'tcloud', fx:{ burn:{ m:.35, dur:3, r:2, n:4 } }, desc:'A poisoned glow: up to 4 creeps within 2 tiles burn for 35% of the hit a second for 3 s.' },
+  { id:'venomblade', name:'VENOM BLADE', primer:['poison'], trigger:'ninja', color:'#a8f070', vis:'tslash', fx:{ burst:1.5, venom:{ m:.6 } }, desc:'A poisoned cut: 1.5× the hit as bonus damage, and 60% of the hit as venom.' },
+  { id:'toxicbloom', name:'TOXIC BLOOM', primer:['poison'], trigger:'crystal', color:'#d2a8ff', vis:'tcloud', fx:{ venom:{ m:.4, r:2, n:5 }, mark:{ el:'poison', r:2, n:5 } }, desc:'Poison crystallises and spreads: up to 5 creeps within 2 tiles take 40% of the hit as venom and are marked by Poison.' },
+  { id:'railgun', name:'RAILGUN', primer:['electricity'], trigger:'gravity', color:'#ffe9a0', vis:'tring', fx:{ burst:2.5, true:true }, desc:'A magnetic slug: 2.5× the hit as bonus damage.' },
+  { id:'earthing', name:'EARTHING', primer:['electricity'], trigger:'earth', color:'#f0d27a', vis:'tarcs', fx:{ stun:{ dur:.5 }, splash:{ m:.7, r:1.5, n:5 } }, desc:'The charge runs to ground: it is stunned 0.5 s, and up to 4 creeps within 1.5 tiles take 70% of the hit.' },
+  { id:'piezo', name:'PIEZO', primer:['electricity'], trigger:'stone', color:'#fff0a8', vis:'tarcs', fx:{ burst:1.5, chain:{ m:.6, r:2, n:2 } }, desc:'Struck stone sparks: 1.5× the hit as bonus damage, and arcs to 2 creeps within 2 tiles for 60%.' },
+  { id:'emp', name:'EMP', primer:['electricity'], trigger:'tech', color:'#b8e4ff', vis:'tring', fx:{ shred:{ pct:.35, dur:3 }, stun:{ dur:.3, r:1.5, n:5 } }, desc:'A pulse: 35% of its armour fails for 3 s, and up to 5 creeps within 1.5 tiles are stunned 0.3 s.' },
+  { id:'plasma', name:'PLASMA', primer:['electricity'], trigger:'beam', color:'#e8c8ff', vis:'tburst', fx:{ burst:2, burn:{ m:.25, dur:2 } }, desc:'The beam ionises: 2× the hit as bonus damage, and it burns for 25% of the hit a second for 2 s.' },
+  { id:'thundercut', name:'THUNDERCUT', primer:['electricity'], trigger:'ninja', color:'#fff27a', vis:'tarcs', fx:{ chain:{ m:1, r:3, n:3 } }, desc:'A charged draw: the cut arcs to 3 more creeps within 3 tiles for the full hit.' },
+  { id:'amplify', name:'AMPLIFY', primer:['electricity'], trigger:'crystal', color:'#ffd8a8', vis:'tring', fx:{ burst:1, expose:{ pct:.25, dur:3 } }, desc:'The crystal stores the charge: the full hit as bonus damage, and it takes 25% more damage from everything for 3 s.' },
+  { id:'tractor', name:'TRACTOR', primer:['gravity'], trigger:'tech', color:'#c8b0ff', vis:'tring', fx:{ stun:{ dur:.8 }, expose:{ pct:.1, dur:3 } }, desc:'Locked in a field: held for 0.8 s, and it takes 10% more damage for 3 s.' },
+  { id:'lensing', name:'LENSING', primer:['gravity'], trigger:'beam', color:'#c9a8ff', vis:'tarcs', fx:{ chain:{ m:1.3, r:3, n:3 } }, desc:'Gravity bends the beam: 3 rays hit creeps within 3 tiles for 1.3× the hit each.' },
+  { id:'collapse', name:'COLLAPSE', primer:['gravity'], trigger:'crystal', color:'#b890ff', vis:'tring', fx:{ burst:2, true:true, splash:{ m:.7, r:1.5, n:5 } }, desc:'The lattice caves in: 2× the hit as bonus damage, and 70% to up to 4 creeps within 1.5 tiles.' },
+  { id:'avalanche', name:'AVALANCHE', primer:['earth'], trigger:'stone', color:'#d8c4a0', vis:'tring', fx:{ splash:{ m:1, r:2, n:6 }, stun:{ dur:.3, r:2, n:6 } }, desc:'Rock comes down: up to 6 ground creeps within 2 tiles take the full hit and are stunned 0.3 s.' },
+  { id:'demolition', name:'DEMOLITION', primer:['earth'], trigger:'tech', color:'#e8b878', vis:'tburst', fx:{ burst:1.8, shred:{ pct:.25, dur:3 } }, desc:'A shaped charge: 1.8× the hit as bonus damage, and 25% of its armour breaks for 3 s.' },
+  { id:'glassing', name:'GLASSING', primer:['earth'], trigger:'beam', color:'#e8f0d0', vis:'tshards', fx:{ expose:{ pct:.2, dur:3 }, slow:{ pct:25, dur:2 } }, desc:'The ground turns to glass under it: it takes 20% more damage for 3 s and is slowed 25%.' },
+  { id:'rootcut', name:'ROOTCUT', primer:['earth'], trigger:'ninja', color:'#c8e08a', vis:'tslash', fx:{ burst:1.3, stun:{ dur:.6 } }, desc:'Roots hold it for the blade: held 0.6 s and 1.3× the hit as bonus damage.' },
+  { id:'geode', name:'GEODE', primer:['earth'], trigger:'crystal', color:'#d8b8ff', vis:'tshards', fx:{ burst:1.6, chain:{ m:.6, r:2, n:3 } }, desc:'It cracks open: 1.6× the hit as bonus damage, and shards hit 3 creeps within 2 tiles for 60%.' },
+  { id:'petrify', name:'PETRIFY', primer:['stone'], trigger:'beam', color:'#d8dce6', vis:'tring', fx:{ stun:{ dur:.6 }, shred:{ pct:.2, dur:3 } }, desc:'Turned to stone: held 0.6 s, and 20% of its armour cracks for 3 s.' },
+  { id:'bonebreak', name:'BONEBREAK', primer:['stone'], trigger:'ninja', color:'#f0f0f0', vis:'tslash', fx:{ burst:2.2 }, desc:'A blow behind the stone: 2.2× the hit as bonus damage.' },
+  { id:'crystallize', name:'CRYSTALLIZE', primer:['stone'], trigger:'crystal', color:'#e0c8ff', vis:'tshards', fx:{ burst:1, expose:{ pct:.2, dur:3 } }, desc:'Its shell turns to crystal: the full hit as bonus damage, and it takes 20% more damage for 3 s.' },
+  { id:'marked', name:'MARKED', primer:['tech'], trigger:'ninja', color:'#ffd0d8', vis:'tarcs', fx:{ expose:{ pct:.25, dur:3 } }, desc:'Painted for the kill: it takes 25% more damage from everything for 3 s.' },
+  { id:'overclock', name:'OVERCLOCK', primer:['tech'], trigger:'crystal', color:'#c8d0ff', vis:'tarcs', fx:{ burst:1.6, chain:{ m:.7, r:2.5, n:2 } }, desc:'The crystal overdrives the round: 1.6× the hit as bonus damage, and arcs to 2 creeps within 2.5 tiles for 70%.' },
+  { id:'sunder', name:'SUNDER', primer:['beam'], trigger:'ninja', color:'#d8fff4', vis:'tslash', fx:{ burst:2, true:true }, desc:'A cut along the light: 2× the hit as bonus damage.' },
 ];
+const reactionPairKey = (a, b) => a < b ? a + '|' + b : b + '|' + a;
+const REACTION_BY_PAIR = new Map();
+for (const rx of REACTIONS) for (const pr of rx.primer) REACTION_BY_PAIR.set(reactionPairKey(pr, rx.trigger), rx);
+// the 52 built from parts: each part is one line of the effect, applied in this order
+function runReactionParts(rx, creep, tower, base, ep, rxTargets) {
+  const f = rx.fx, around = (o) => [creep, ...nearbyCreeps(creep, o.r, Math.max(0, (o.n || 1) - 1))];
+  if (f.burst) applyDamage(creep, base * f.burst * ep, tower, true);
+  if (f.splash) nearbyCreeps(creep, f.splash.r, Math.max(1, (f.splash.n || 2) - 1)).forEach((o) => { applyDamage(o, base * f.splash.m * ep, tower, !!f.splash.true); rxTargets.push({ x:o.x, y:o.y }); });
+  if (f.chain) nearbyCreeps(creep, f.chain.r, f.chain.n).forEach((o) => { applyDamage(o, base * f.chain.m * ep, tower); rxTargets.push({ x:o.x, y:o.y }); });
+  if (f.slow) (f.slow.r ? around(f.slow) : [creep]).forEach((o) => { if (o.hp <= 0) return; o.slowPct = Math.max(o.slowUntil > simTime ? (o.slowPct || 0) : 0, f.slow.pct); o.slowUntil = Math.max(o.slowUntil || 0, simTime + f.slow.dur); });
+  if (f.stun) (f.stun.r ? around(f.stun).filter((o) => !o.air) : [creep]).forEach((o) => { if (o.hp > 0) tryHold(o, simTime + f.stun.dur); });
+  if (f.burn) (f.burn.r ? around(f.burn) : [creep]).forEach((o) => { if (o.hp > 0) pushDot(o, base * f.burn.m * ep, f.burn.dur); });
+  if (f.venom) (f.venom.r ? around(f.venom) : [creep]).forEach((o) => { if (o.hp <= 0) return; o.venom = (o.venom || 0) + base * f.venom.m * ep; o.venomUntil = simTime + TRAIT.poisonDur; });
+  if (f.mark) (f.mark.r ? around(f.mark) : [creep]).forEach((o) => { o.marks = o.marks || {}; o.marks[f.mark.el] = simTime + ELEMENT_MARK_DUR; });
+  if (f.shred && creep.hp > 0) {
+    creep.bulwarkArmorShredPct = Math.max((creep.bulwarkArmorShredUntil || 0) > simTime ? (creep.bulwarkArmorShredPct || 0) : 0, Math.min(.75, f.shred.pct * ep));
+    creep.bulwarkArmorShredUntil = Math.max(creep.bulwarkArmorShredUntil || 0, simTime + f.shred.dur);
+  }
+  if (f.expose && creep.hp > 0) { creep.exposedPct = Math.max((creep.exposedUntil || 0) > simTime ? (creep.exposedPct || 0) : 0, Math.min(.4, f.expose.pct * ep)); creep.exposedUntil = simTime + f.expose.dur; }
+  if (f.freeze && creep.hp > 0) {
+    if (creep.boss) { creep.slowPct = Math.max(creep.slowPct || 0, 50); creep.slowUntil = Math.max(creep.slowUntil || 0, simTime + f.freeze * 2); }
+    else creep.frozenUntil = Math.max(creep.frozenUntil || 0, simTime + f.freeze);
+  }
+  if (f.push && creep.hp > 0 && !creep.boss) { const goals = creepGoals(creep); shoveCreep(creep, goals[Math.max(0, creep.cpIndex - 1)], f.push); }
+}
 function nearbyCreeps(creep, reach, max) {
   const out = [];
   for (const o of creepsNear(creep.x, creep.y, reach + 1)) {
@@ -5763,9 +5856,11 @@ function nearbyCreeps(creep, reach, max) {
 function runReaction(rx, creep, tower, stats) {
   const ep = effectPower(tower), base = (stats && stats.dmg) || 0;
   const rxTargets = [], rx0 = { x:creep.x, y:creep.y };
-  if (rx.id === 'shatter') {
+  if (rx.fx) runReactionParts(rx, creep, tower, base, ep, rxTargets);
+  else if (rx.id === 'shatter') {
     applyDamage(creep, base * 2.5 * ep, tower, true);
     creep.frostUntil = simTime; creep.frostStacks = 0;
+    nearbyCreeps(creep, 1.5, 5).forEach((o) => { o.slowUntil = Math.max(o.slowUntil || 0, simTime + 2); o.slowPct = Math.max((o.slowUntil > simTime ? o.slowPct : 0) || 0, 35); });
   } else if (rx.id === 'ignite') {
     const pool = (creep.venom || 0) * TRAIT.poisonDur;
     if (pool > 0) {
@@ -5791,13 +5886,10 @@ function runReaction(rx, creep, tower, stats) {
     const share = (creep.venom || 0) * .6;
     if (share > 0) nearbyCreeps(creep, 2.5, 5).forEach((o) => { o.venom = (o.venom || 0) + share * ep / 5 * 2; o.venomUntil = simTime + TRAIT.poisonDur; o.marks = o.marks || {}; o.marks.poison = simTime + ELEMENT_MARK_DUR; });
   }
-  else if (rx.id === 'steam') {
-    [creep, ...nearbyCreeps(creep, 1.5, 5)].forEach((o) => {
-      applyDamage(o, base * .6 * ep, tower, true);
-      o.slowUntil = Math.max(o.slowUntil || 0, simTime + 2); o.slowPct = Math.max((o.slowUntil > simTime ? o.slowPct : 0) || 0, 35);
-    });
-  } else if (rx.id === 'toxicshock') {
-    creep.venom = (creep.venom || 0) * 2 + base * .4 * ep;
+  else if (rx.id === 'toxicshock') {
+    // doubled, but by at most 1.5× the hit: the tier list measured an uncapped doubling compounding
+    // every second into the strongest pair by far (it held to wave 70; the next pair, 65)
+    creep.venom = (creep.venom || 0) + Math.min(creep.venom || 0, base * 1.5 * ep) + base * .4 * ep;
     creep.venomUntil = simTime + TRAIT.poisonDur;
   } else if (rx.id === 'quake') {
     [creep, ...nearbyCreeps(creep, 2, 7)].filter((o) => !o.air).forEach((o) => { applyDamage(o, base * ep, tower); if (o.hp > 0) tryHold(o, simTime + .3); });
@@ -5827,11 +5919,13 @@ function runReaction(rx, creep, tower, stats) {
   const stack = (creep._rxLabelAt || -9) > simTime - .6 ? (creep._rxStack || 0) + 1 : 0;
   creep._rxStack = stack; creep._rxLabelAt = simTime;
   pushFx({ kind:'num', x:rx0.x, y:rx0.y - 1.5 - stack * .55, text:rx.name, until:simTime + 1, color:rx.color, big:true, rx:true });
-  const life = RX_FX_LIFE[rx.id] || .6;
-  pushFx({ kind:'rx', id:rx.id, x:rx0.x, y:rx0.y, color:rx.color, life, until:simTime + life, targets:rxTargets });
+  const life = RX_FX_LIFE[rx.vis || rx.id] || .6;
+  const ends = [rx.primer[0], rx.trigger];
+  pushFx({ kind:'rx', id:rx.vis || rx.id, x:rx0.x, y:rx0.y, color:rx.color, c1:elementColor(ends[0]), c2:elementColor(ends[1]), life, until:simTime + life, targets:rxTargets });
 }
 const RX_FX_LIFE = { shatter:.6, steam:1, ignite:.7, firestorm:.8, storm:.5, superconduct:.7, crush:.6, miasma:1.1,
-  toxicshock:.6, quake:.8, weakpoint:.6, lockon:.6, prism:.45, resonance:.9, execute:.5 };
+  toxicshock:.6, quake:.8, weakpoint:.6, lockon:.6, prism:.45, resonance:.9, execute:.5,
+  tburst:.6, tring:.7, tcloud:1, tarcs:.5, tshards:.6, tslash:.45 };
 let _elementColor = null;
 function elementColor(id) {
   if (!_elementColor) _elementColor = Object.fromEntries(races.map((r) => [r.id, r.color]));
@@ -5989,6 +6083,41 @@ function drawReactionFx(ctx, e, remain) {
       }
       break;
     }
+    /* The parts-built reactions: six styles, each tinted with the reaction's colour (P) and the two
+       elements' own (A, B), so two reactions that share a style still read as different pairs. */
+    case 'tburst': { const P = e.color, A = e.c1, B = e.c2;
+      fxGlow(ctx, cx, cy, C * (.6 + 1.1 * out), P, fade * .85); disc(cx, cy, C * (.3 + .45 * out), P, fade); disc(cx, cy, C * .2 * fade, '#ffffff', fade);
+      for (let i = 0; i < (reduced ? 5 : 10); i += 1) { const a = i / 10 * Math.PI * 2 + seed, d = C * (.35 + 1.3 * out); disc(cx + Math.cos(a) * d, cy + Math.sin(a) * d, 2.2 * fade + .6, i % 2 ? A : B, fade); }
+      ring(C * 1.5 * out, P, 2.5 * fade + .5, fade); break; }
+    case 'tring': { const P = e.color, A = e.c1, B = e.c2;
+      ring(C * 2 * out, A, 4 * fade + 1, fade); if (k > .15) ring(C * 2 * ((k - .15) / .85), B, 3, fade * .85);
+      fxGlow(ctx, cx, cy, C * (.6 + .6 * out), P, fade * .8); disc(cx, cy, C * .35 * fade, P, fade);
+      for (const t of e.targets || []) fxGlow(ctx, t.x * C, t.y * C, C * .55, P, fade * .7);
+      break; }
+    case 'tcloud': { const P = e.color, A = e.c1, B = e.c2;
+      for (let i = 0; i < (reduced ? 5 : 9); i += 1) { const a = i / 9 * Math.PI * 2 + seed + k * .5, d = C * (.3 + 1.3 * out) * (.5 + .5 * ((i * 37) % 10) / 10); disc(cx + Math.cos(a) * d, cy + Math.sin(a) * d * .75 - k * C * .3, C * (.4 + .4 * k), i % 3 === 0 ? P : i % 2 ? A : B, .34 * fade); }
+      ring(C * 1.6 * out, P, 1.5, fade * .5); break; }
+    case 'tarcs': { const P = e.color, A = e.c1, B = e.c2;
+      fxGlow(ctx, cx, cy, C * (.6 + .5 * out), P, fade);
+      ctx.lineWidth = 2; ctx.globalAlpha = clamp01(fade * 1.3);
+      for (const t of e.targets || []) { ctx.strokeStyle = A; jag(cx, cy, t.x * C, t.y * C); ctx.strokeStyle = B; ctx.lineWidth = 1; jag(cx, cy, t.x * C, t.y * C); ctx.lineWidth = 2; fxGlow(ctx, t.x * C, t.y * C, C * .55, P, fade * .8); }
+      if (!(e.targets || []).length) for (let i = 0; i < 4; i += 1) { const a = i / 4 * Math.PI * 2 + seed; ctx.strokeStyle = i % 2 ? A : B; jag(cx, cy, cx + Math.cos(a) * C * 1.1 * out, cy + Math.sin(a) * C * 1.1 * out); }
+      break; }
+    case 'tshards': { const P = e.color, A = e.c1, B = e.c2;
+      fxGlow(ctx, cx, cy, C * (.5 + out), P, fade * .8); disc(cx, cy, C * .4 * fade, '#ffffff', fade);
+      for (let i = 0; i < (reduced ? 5 : 8); i += 1) { const a = i / 8 * Math.PI * 2 + seed, d = C * (.25 + 1.4 * out), s2 = C * .28 * (1 - k * .5);
+        ctx.save(); ctx.translate(cx + Math.cos(a) * d, cy + Math.sin(a) * d); ctx.rotate(a + k * 3); ctx.globalAlpha = clamp01(fade * 1.2); ctx.fillStyle = i % 2 ? A : B; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = .8;
+        ctx.beginPath(); ctx.moveTo(s2, 0); ctx.lineTo(-s2 * .5, s2 * .45); ctx.lineTo(-s2 * .5, -s2 * .45); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore(); }
+      for (const t of e.targets || []) fxGlow(ctx, t.x * C, t.y * C, C * .5, P, fade * .7);
+      break; }
+    case 'tslash': { const P = e.color, A = e.c1, B = e.c2, grow = clamp01(k / .3), L = C * .95;
+      ctx.lineCap = 'round';
+      [[-1, -1, A], [1, -1, B]].forEach(([s1, s2, col]) => { const x0 = cx + s1 * L, y0 = cy + s2 * L, xe = x0 + (-2 * s1 * L) * grow, ye = y0 + (-2 * s2 * L) * grow;
+        ctx.strokeStyle = col; ctx.lineWidth = 6; ctx.globalAlpha = clamp01(fade * .5); ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(xe, ye); ctx.stroke();
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.globalAlpha = clamp01(fade * 1.4); ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(xe, ye); ctx.stroke(); });
+      fxGlow(ctx, cx, cy, C * .8, P, fade * .6);
+      for (const t of e.targets || []) fxGlow(ctx, t.x * C, t.y * C, C * .55, P, fade * .7);
+      break; }
     default: ring(C * out, e.color || '#fff', 2, fade);
   }
 }
@@ -5996,10 +6125,10 @@ function elementHit(creep, tower, stats) {
   const race = tower && tower.raceId;
   if (!race || !creep || creep.hp <= 0) return;
   const marks = creep.marks || (creep.marks = {});
-  for (const rx of REACTIONS) {
-    if (rx.trigger !== race) continue;
-    const primed = rx.primer.find((id) => (marks[id] || 0) > simTime);
-    if (!primed) continue;
+  for (const primed in marks) {   // any other element that has marked it reacts with this one, in either order
+    if (primed === race || !((marks[primed] || 0) > simTime)) continue;
+    const rx = REACTION_BY_PAIR.get(reactionPairKey(primed, race));
+    if (!rx) continue;
     const cdKey = 'rx_' + rx.id;
     if ((creep[cdKey] || 0) > simTime) continue;
     creep[cdKey] = simTime + REACTION_CD;
@@ -15430,6 +15559,13 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    new tag, then collapses and stays collapsed. */
 const RELEASE_TAG = '2026-11-14-elemental';
 const RELEASE_NOTES = [
+  { date:'2026-11-25', title:'Every pair of elements reacts, in either order', items:[
+    'Order no longer matters: hit a creep with one element and then the other, either way round, and they react.',
+    'All 66 pairs of elements react now, up from 14. Every element has a reaction with each of the other eleven.',
+    'Ice + Fire is one reaction, SHATTER, and it brings the steam cloud with it. Earth + Gravity is QUAKE; Stone + Gravity is CRUSH.',
+    'TOXIC SHOCK no longer snowballs: it still doubles the venom, but by at most 1.5× the hit each time.',
+    'The Elements chart has an element picker: choose one to see its eleven reactions.',
+  ] },
   { date:'2026-11-25', title:'Reactions you can see', items:[
     'Every reaction has its own effect now: ice shards for Shatter, a white cloud for Steam, a fireball for Ignite, a ring of fire for Firestorm, a splitting armour plate for Superconduct, an implosion for Crush, a ground shockwave for Quake, a reticle for Weak Point and Lock-On, rainbow rays for Prism, violet ripples for Resonance and an X-slash for Execute.',
     'Reaction names float above the health bars with an outline, and two on the same creep stack instead of overlapping.',
@@ -16380,6 +16516,7 @@ function openSettings() {
   m.classList.remove('hidden');
 }
 function closeSettings() { $('settings-modal')?.classList.add('hidden'); }
+let elementsChartFocus = null;
 function elementsChartMine() {
   const ids = (typeof player !== 'undefined' && player && battleRunning && player.races) ? player.races : [selectedRace && selectedRace.id];
   return new Set(ids.filter(Boolean));
@@ -16400,15 +16537,21 @@ function elementsChartHTML() {
     return `<tr class="${mine.has(id) ? 'mine' : ''}"><th scope="row"><span style="color:${r.color}">${r.symbol}</span>${r.name}</th>${cells}</tr>`;
   }).join('');
   const pill = (id) => { const r = race(id); return `<span class="pill"><span style="color:${r.color}">${r.symbol}</span>${r.name}</span>`; };
-  const involves = (rx) => mine.has(rx.trigger) || rx.primer.some((p) => mine.has(p));
-  const list = [...REACTIONS].sort((a, b) => involves(b) - involves(a));
-  const cards = list.map((rx) => `<article class="${involves(rx) ? 'mine' : ''}"><header><strong style="color:${rx.color}">${rx.name}</strong>${rx.primer.map(pill).join('<span class="arr">or</span>')}<span class="arr">→</span>${pill(rx.trigger)}${involves(rx) ? '<span class="yours">YOURS</span>' : ''}</header><p>${rx.desc}</p></article>`).join('');
+  // 66 reactions are too many to list: pick an element and see the eleven it makes
+  if (!elementsChartFocus || !order.includes(elementsChartFocus)) elementsChartFocus = [...mine].find((id) => order.includes(id)) || order[0];
+  const focus = elementsChartFocus;
+  const picker = order.map((id) => { const r = race(id); return `<button type="button" class="el-pick" data-el-focus="${id}" aria-pressed="${id === focus}" title="${r.name}"><span style="color:${r.color}">${r.symbol}</span><small>${r.name}</small></button>`; }).join('');
+  const partner = (rx) => rx.trigger === focus ? rx.primer.find((p) => p !== focus) : rx.trigger;
+  const list = REACTIONS.filter((rx) => rx.trigger === focus || rx.primer.includes(focus)).sort((a, b) => order.indexOf(partner(a)) - order.indexOf(partner(b)));
+  const cards = list.map((rx) => { const other = partner(rx); return `<article class="${mine.has(other) ? 'mine' : ''}"><header><strong style="color:${rx.color}">${rx.name}</strong>${pill(focus)}<span class="arr">+</span>${pill(other)}${mine.has(other) ? '<span class="yours">YOURS</span>' : ''}</header><p>${rx.desc}</p></article>`; }).join('');
   return `<p class="el-intro">Every element hits one armour hard and glances off another; a creep's colour is its armour. Hit a creep with one element, then another within ${ELEMENT_MARK_DUR} seconds, and the two react.</p>
     <div class="el-rule"><span><b style="color:#5fe0a0">×${ARMOR_STRONG}</b> strong</span><span><b>×1</b> otherwise</span><span><b style="color:#ff7a7a">×${ARMOR_WEAK}</b> weak</span><span><b style="color:#cf9dff">Crystal</b> full damage to all</span></div>
     <div class="el-scroll"><table class="el-table"><thead><tr><th scope="col" style="text-align:left;padding-left:8px">Element</th>${armors.map((a) => `<th scope="col"><i style="background:${ARMOR_COLORS[a]}"></i>${short[a]}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>
-    <div class="el-h">${REACTIONS.length} reactions · first element → second</div>
+    <div class="el-h">${REACTIONS.length} reactions · every pair of elements reacts</div>
+    <div class="el-picker" role="group" aria-label="Show the reactions of">${picker}</div>
+    <div class="el-h el-h2">${race(focus).name} + each other element</div>
     <div class="el-rx">${cards}</div>
-    <p class="el-fine">Order matters: the first element marks the creep for ${ELEMENT_MARK_DUR} s, the second sets it off and spends the mark. A creep reacts to the same pair at most once a second. Reactions, burns, venom and frost grow 2.5% stronger per tower rank, up to ×2.25. Siege attackers take full damage from every element.</p>`;
+    <p class="el-fine">Order does not matter: either element marks the creep for ${ELEMENT_MARK_DUR} s, and the other sets it off and spends the mark. A creep reacts to the same pair at most once a second. Reactions, burns, venom and frost grow 2.5% stronger per tower rank, up to ×2.25. Siege attackers take full damage from every element.</p>`;
 }
 function openElementsChart() {
   const m = $('elements-modal'); if (!m) return;
@@ -16419,6 +16562,13 @@ function openElementsChart() {
 }
 function closeElementsChart() { $('elements-modal')?.classList.add('hidden'); }
 $('el-close')?.addEventListener('click', closeElementsChart);
+$('el-body')?.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-el-focus]'); if (!b) return;
+  elementsChartFocus = b.dataset.elFocus;
+  const body = $('el-body'), keep = body.closest('.settings-card')?.scrollTop;
+  body.innerHTML = elementsChartHTML();
+  if (keep != null) body.closest('.settings-card').scrollTop = keep;
+});
 $('elements-modal')?.addEventListener('click', (e) => { if (e.target.id === 'elements-modal') closeElementsChart(); });
 $('set-elements')?.addEventListener('click', openElementsChart);
 $('home-elements')?.addEventListener('click', openElementsChart);

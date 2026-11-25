@@ -2,6 +2,35 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 25, 2026 — Every pair reacts, in either order (Claude)
+
+Gene: "What do we think about the order matters aspect, does it make it too complicated? Does every
+element have an interaction with one another? If not I think it should."
+
+**Order is gone.** A player cannot choose which tower fires first, so first-then-second was a rule to
+memorise that nobody could act on. `elementHit` now looks up `REACTION_BY_PAIR` for every other
+element that has marked the creep: either order reacts, the triggering hit sets the size, and the
+other element's mark is spent. Where both orders had reactions they merged: Ice + Fire is SHATTER
+(which now brings Steam's slowing cloud), Earth + Gravity is QUAKE, Stone + Gravity is CRUSH.
+
+**All 66 pairs react** (14 before). The 14 hand-built ones keep their code; 52 new ones are built
+from shared parts in an `fx` spec run by `runReactionParts` (burst, splash, chain, slow, stun, burn,
+venom, mark, armour shred, expose, freeze, push), sized like the originals (bonus bursts 1–2.5× the
+hit, area hits 0.3–1.2×, holds 0.2–0.8 s). They draw in six tinted styles (`tburst`, `tring`,
+`tcloud`, `tarcs`, `tshards`, `tslash`) coloured with the reaction and both elements' colours.
+
+**Toxic Shock capped.** The tier list measured Electricity + Poison holding to wave 70 against 65
+for the next pair: an uncapped doubling of venom every second compounds. It still doubles, by at
+most 1.5× the hit per shock (six shocks in a row: about 1,100 venom from a 100-damage tower).
+
+**The chart** got an element picker: choose one and see its eleven reactions, partners that are
+also yours tagged YOURS.
+
+Checked: allreact.js rewritten for this (66 reactions, every pair exactly once, each fires in both
+orders and never without the other's mark, chart picker shows 11) PASS; spot-check clips of six new
+reactions; crowd 95 ms per simulated second; sealtest unchanged; teamboard, rosterroom PASS;
+four-mode smoke clean. The tier list's pair section predates this and needs re-measuring.
+
 ## November 25, 2026 — Reaction effects pass, from a GIF audit (Claude)
 
 Gene: "make animated gifs of each interaction against creeps gameplay and audit the effects".

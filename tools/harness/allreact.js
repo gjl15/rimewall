@@ -1,5 +1,5 @@
-// node tools/harness/allreact.js test/index.html — every one of the 15 reactions fires, does what it says,
-// needs its primer, and every element both starts one and finishes one. Also opens the Elements chart.
+// node tools/harness/allreact.js test/index.html — every pair of the 12 elements has exactly one reaction (66),
+// each fires in BOTH orders and never without the other element's mark. Also opens the Elements chart.
 const fs=require('fs');const {chromium}=require('playwright');const HTML=fs.readFileSync(process.argv[2],'utf8');
 (async()=>{const b=await chromium.launch({headless:true,args:['--no-sandbox']});
 const p=await (await b.newContext({viewport:{width:390,height:844},deviceScaleFactor:2,isMobile:true,hasTouch:true})).newPage();const errs=[];p.on('pageerror',e=>errs.push(String(e).slice(0,200)));
@@ -22,25 +22,27 @@ const r=await p.evaluate(()=>{battlePaused=true;document.querySelectorAll('.coac
   const label=fx0=>effects.slice(fx0).filter(e=>e.kind==='num'&&e.big).map(e=>e.text).find(t=>REACTIONS.some(r=>r.name===t));
   const out={};
   for(const rx of REACTIONS){
-    const cs=fresh();const c=cs[0];const primer=rx.primer[0];
-    hit(c,primer);if(primer==='poison'){hit(c,primer);hit(c,primer);}
-    const hp0=cs.map(o=>o.hp),venom0=c.venom||0,fx0=effects.length;
-    hit(c,rx.trigger);
-    const res={fired:label(fx0)===rx.name,targetDmg:Math.round(hp0[0]-c.hp),neighboursHit:cs.slice(1).filter((o,i)=>o.hp<hp0[i+1]).length};
-    if(rx.id==='steam')res.slowed=cs.filter(o=>o.slowUntil>simTime&&o.slowPct>=35).length;
-    if(rx.id==='toxicshock')res.venomUp=+((c.venom||0)/Math.max(1e-9,venom0)).toFixed(2);
-    if(rx.id==='quake')res.stunned=cs.filter(o=>o.stunUntil>simTime).length;
-    if(rx.id==='resonance'){res.exposed=c.exposedPct;const before=c.hp;applyDamage(c,100,null,true);res.next100=Math.round(before-c.hp);}
-    if(rx.id==='execute'){const cs2=fresh();const k=cs2[0];k.maxHp=1000;hit(k,'gravity');k.hp=150;hit(k,'ninja');res.lowHpKilled=k.hp<=0;}
-    // no reaction without the primer
+    const res={};
+    for(const [first,second] of [[rx.primer[0],rx.trigger],[rx.trigger,rx.primer[0]]]){
+      const cs=fresh();const c=cs[0];hit(c,first);if(first==='poison'){hit(c,first);hit(c,first);}
+      const hp0=cs.map(o=>o.hp),fx0=effects.length;hit(c,second);
+      res[first+'>'+second]={fired:label(fx0)===rx.name,dmg:Math.round(hp0[0]-c.hp),others:cs.slice(1).filter((o,i)=>o.hp<hp0[i+1]).length};
+    }
     const cs3=fresh();const fx1=effects.length;hit(cs3[0],rx.trigger);res.noPrimerNoFire=label(fx1)!==rx.name;
+    res.fired=Object.values(res).filter(v=>v&&v.fired).length===2;
     out[rx.id]=res;
   }
+  { const cs=fresh();const c=cs[0];hit(c,'ninja');hit(c,'crystal');const before=c.hp;applyDamage(c,100,null,true);out.resonanceNext100=Math.round(before-c.hp); }
+  { const cs=fresh();const k=cs[0];k.maxHp=1000;hit(k,'gravity');k.hp=150;hit(k,'ninja');out.executeKills=k.hp<=0; }
+  { const cs=fresh();const c=cs[0];for(let i=0;i<6;i++){hit(c,'electricity');c.rx_toxicshock=0;hit(c,'poison');}out.toxicVenomAfter6=Math.round(c.venom); }
   const els=['ice','fire','poison','wind','electricity','earth','stone','gravity','tech','beam','ninja','crystal'];
-  const coverage={startsNone:els.filter(e=>!REACTIONS.some(r=>r.primer.includes(e))),finishesNone:els.filter(e=>!REACTIONS.some(r=>r.trigger===e))};
+  const pairs=new Map();for(const r of REACTIONS)for(const p of r.primer){const k=[p,r.trigger].sort().join('|');pairs.set(k,(pairs.get(k)||0)+1);}
+  const missing=[];for(let i=0;i<els.length;i++)for(let j=i+1;j<els.length;j++){const k=[els[i],els[j]].sort().join('|');if(!pairs.has(k))missing.push(k);}
+  const coverage={pairs:pairs.size,missing,dupes:[...pairs].filter(([k,v])=>v>1).map(([k])=>k)};
   return {count:REACTIONS.length,coverage,out};});
 // the chart in a match, from the menu
 await p.evaluate(()=>{battlePaused=true;});await p.click('#hud-menu-button');await p.waitForTimeout(250);await p.click('#set-elements');await p.waitForTimeout(250);
 const inMatch=await p.evaluate(()=>{const m=document.getElementById('elements-modal');return {open:!m.classList.contains('hidden'),settingsClosed:document.getElementById('settings-modal').classList.contains('hidden'),mine:[...m.querySelectorAll('.el-table tr.mine th')].map(e=>e.textContent),yours:m.querySelectorAll('.yours').length};});
-const all=Object.values(r.out);const pass=r.count===15&&!r.coverage.startsNone.length&&!r.coverage.finishesNone.length&&all.every(x=>x.fired&&x.noPrimerNoFire)&&home.open&&inMatch.open&&!home.overflow&&!errs.length;
+const all=Object.entries(r.out).filter(([k,v])=>v&&typeof v==='object');const bad=all.filter(([k,x])=>!x.fired||!x.noPrimerNoFire).map(([k])=>k);r.bad=bad;
+const pass=r.count===66&&r.coverage.pairs===66&&!r.coverage.missing.length&&!r.coverage.dupes.length&&!bad.length&&home.open&&home.reactions===11&&inMatch.open&&!home.overflow&&!errs.length;
 console.log(JSON.stringify({home,inMatch,...r,errs},null,1));console.log('RESULT',pass?'PASS':'FAIL');await b.close();})();
