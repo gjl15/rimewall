@@ -1836,6 +1836,42 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
 body.playing .desktop-send-list.roster-dock-list, body.playing.arena .desktop-send-list.roster-dock-list { display:block; overflow:auto; scroll-snap-type:none; }
 body.mode-roster .econ-btn[data-econ="mult"] { display:none; }
 body.mode-roster #send-dock-tabs:empty { display:none; }
+/* THE ELEMENTS CHART (Gene, 2026-11-25: "add the elements chart into the game"). Built from
+   ARMOR_RULES and REACTIONS at open time, so it can never drift from the rules. */
+.el-card { width:min(96vw, 560px); padding:16px 14px; }
+.el-open-btn { width:100%; min-height:44px; margin-bottom:8px; }
+.el-chip-btn { min-height:32px; padding:4px 10px; margin-left:8px; border:1px solid #2c4a7a; border-radius:999px; background:#111a30; color:#bcd2ff; font-size:12px; cursor:pointer; flex:none; }
+.el-chip-btn:focus-visible, #el-close:focus-visible { outline:2px solid #9fe8ff; outline-offset:2px; }
+.el-intro { margin:0 0 12px; color:#a6b5d2; font-size:13px; line-height:1.45; }
+.el-rule { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+.el-rule span { padding:4px 10px; border-radius:999px; background:#111a30; border:1px solid #233150; font-size:12px; color:#c7d3ee; }
+.el-rule b { font-weight:700; }
+.el-h { margin:18px 0 8px; font-size:12px; letter-spacing:.12em; color:#9fe8ff; text-transform:uppercase; }
+.el-scroll { overflow-x:auto; border:1px solid #233150; border-radius:12px; }
+.el-table { border-collapse:collapse; width:100%; min-width:300px; font-size:12px; font-variant-numeric:tabular-nums; }
+.el-table th, .el-table td { padding:6px 2px; text-align:center; border-bottom:1px solid #1b2742; }
+.el-table td { width:15%; }
+.el-table tr:last-child th, .el-table tr:last-child td { border-bottom:0; }
+.el-table thead th { color:#93a2c4; font-size:10px; letter-spacing:.04em; text-transform:uppercase; font-weight:600; }
+.el-table thead i { display:block; width:10px; height:10px; border-radius:50%; margin:0 auto 4px; }
+.el-table tbody th { text-align:left; white-space:nowrap; font-weight:600; font-size:11.5px; color:#e8edfb; padding-left:6px; }
+.el-table tbody th span { display:inline-block; width:15px; text-align:center; margin-right:3px; }
+.el-table tr.mine th { color:#fff; }
+.el-table tr.mine { background:#16233d; }
+.el-table td { color:#5f6f93; font-weight:700; }
+.el-table td.s { color:#5fe0a0; background:rgba(95,224,160,.14); }
+.el-table td.w { color:#ff7a7a; background:rgba(255,122,122,.12); }
+.el-table td.c { color:#cf9dff; }
+.el-rx { display:grid; gap:8px; }
+.el-rx article { display:grid; gap:4px; padding:10px 12px; border-radius:10px; background:#111a30; border:1px solid #1f2c4a; }
+.el-rx article.mine { border-color:#4a6aa8; background:#132140; }
+.el-rx header { display:flex; flex-wrap:wrap; align-items:center; gap:6px; font-size:12px; }
+.el-rx strong { font-size:13px; letter-spacing:.06em; margin-right:4px; }
+.el-rx .pill { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:999px; background:#0b1120; color:#dfe6f7; }
+.el-rx .arr { color:#5f6f93; }
+.el-rx .yours { margin-left:auto; font-size:10px; letter-spacing:.08em; color:#9fe8ff; }
+.el-rx p { margin:0; font-size:12.5px; line-height:1.4; color:#a6b5d2; }
+.el-fine { margin:14px 0 0; font-size:12px; line-height:1.5; color:#8494b6; }
 </style>
 </head>
 <body>
@@ -1843,6 +1879,12 @@ body.mode-roster #send-dock-tabs:empty { display:none; }
       <div id="toast-layer" class="toast-layer" aria-live="polite"></div>
       <div id="match-summary" class="match-summary hidden"></div>
       
+    <div id="elements-modal" class="settings-modal hidden" role="dialog" aria-modal="true" aria-labelledby="el-title">
+      <div class="settings-card el-card">
+        <div class="settings-head"><h3 id="el-title">Elements</h3><button id="el-close" type="button" aria-label="Close the elements chart">✕</button></div>
+        <div id="el-body"></div>
+      </div>
+    </div>
     <div id="settings-modal" class="settings-modal hidden" role="dialog" aria-label="Settings">
       <div class="settings-card">
         <div class="settings-head"><h3 id="settings-title" title="Tap five times for developer tools"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg> Settings</h3><button id="settings-close" aria-label="Close"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
@@ -1863,6 +1905,7 @@ body.mode-roster #send-dock-tabs:empty { display:none; }
         <label class="set-toggle"><input type="checkbox" id="set-noparticles"> <span>Turn off particles (helps lag)</span></label>
         <label class="set-toggle"><input type="checkbox" id="set-genart"> <span>New creep art (all creeps)</span></label>
         <div class="settings-sep"></div>
+        <button id="set-elements" class="ghost-button el-open-btn" type="button">◈ Elements chart — armour and reactions</button>
         <button id="set-tutorial" class="ghost-button set-dev"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4zM20 4h-6a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h7z"/></svg> Replay tutorial</button>
         <button id="set-resetmap" class="ghost-button set-dev"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2zM9 4v14M15 6v14"/></svg> Restore default map</button>
         <button id="set-dev" class="ghost-button set-dev">DEV: unlock all elements</button>
@@ -1903,7 +1946,7 @@ body.mode-roster #send-dock-tabs:empty { display:none; }
         </div>
 
         <div id="race-grid-wrap" class="race-grid-wrap">
-          <div class="rule-line"><span>ELEMENT</span><i></i><small id="race-count">— UNLOCKED</small></div>
+          <div class="rule-line"><span>ELEMENT</span><i></i><small id="race-count">— UNLOCKED</small><button id="home-elements" class="el-chip-btn" type="button" aria-label="Open the elements chart">◈ Chart</button></div>
           <div id="race-grid" class="race-grid" aria-label="Element roster"></div>
           <p id="selected-desc" class="element-blurb">Slows enemies and buys your maze time.</p>
           <div id="race-detail" class="race-detail hidden"></div>
@@ -5487,6 +5530,7 @@ function applyDamage(creep, amount, tower, isDot = false, opts) {
     const count = Object.values(weapons).filter(t => simTime - t < 2.5).length;
     raw *= 1 + Math.min(.15, count * .03);
   }
+  if ((creep.exposedUntil || 0) > simTime) raw *= 1 + (creep.exposedPct || 0);   // RESONANCE
   // shields absorb first at raw value — armor and the matrix do NOT apply to the shield layer
   if (creep.shield > 0 && !(opts && opts.bypassShield)) {
     creep.shieldHitAt = simTime;
@@ -5659,27 +5703,36 @@ function applyFrost(creep, tower, stats, extraStack) {
      and snowball splash carrying the ramp to a whole cluster at once. */
   creep.frostPct = Math.min(TRAIT.frostMax, TRAIT.frostBase + (creep.frostStacks - 1) * TRAIT.frostStep);
 }
-/* ELEMENTAL REACTIONS (2026-11-14). Every element's hit leaves its mark on a creep for three
-   seconds. Hit a marked creep with the right second element and the two react:
-     Ice, then Fire          SHATTER       a burst of true damage; the frost is spent
-     Poison, then Fire       IGNITE        the whole venom pool goes up at once and splashes
-     Wind, then Fire         FIRESTORM     the burn spreads to everything close by
-     Wind, then Electricity  STORM         the bolt arcs to three more creeps
-     Ice, then Electricity   SUPERCONDUCT  half its armour stripped for four seconds
-     Earth or Stone, then Gravity  CRUSH   true damage and a slam to the ground
-     Poison, then Wind       MIASMA        the venom is carried to the creeps around it
-   It is why two elements now beat one: a Random pair is built from exactly the elements that
-   react. A creep reacts at most once a second to each, and reactions grow with the triggering
-   tower's rank like every other effect. */
+/* ELEMENTAL REACTIONS (2026-11-14; every element since 2026-11-25). Every element's hit leaves its
+   mark on a creep for three seconds. Hit a marked creep with the right second element and the two
+   react. Gene, 2026-11-25: "I think all elements should react". The first seven used eight
+   elements; eight more bring in Tech, Beam, Ninja and Crystal, and give every element at least
+   one reaction it starts (its mark) and one it finishes (its hit):
+     Ice → Fire SHATTER · Poison → Fire IGNITE · Wind → Fire FIRESTORM · Wind → Electricity STORM
+     Ice → Electricity SUPERCONDUCT · Earth/Stone → Gravity CRUSH · Poison → Wind MIASMA
+     Fire → Ice STEAM · Electricity → Poison TOXIC SHOCK · Gravity → Earth QUAKE
+     Tech → Stone WEAK POINT · Beam → Tech LOCK-ON · Crystal → Beam PRISM
+     Ninja → Crystal RESONANCE · Gravity → Ninja EXECUTE
+   A creep reacts at most once a second to each, a reaction spends the mark that primed it, and
+   reactions grow with the triggering tower's rank like every other effect. `desc` is the line
+   the in-game Elements chart shows. */
 const ELEMENT_MARK_DUR = 3, REACTION_CD = 1;
 const REACTIONS = [
-  { id:'shatter', name:'SHATTER', primer:['ice'], trigger:'fire', color:'#bff4ff' },
-  { id:'ignite', name:'IGNITE', primer:['poison'], trigger:'fire', color:'#d6ff6b' },
-  { id:'firestorm', name:'FIRESTORM', primer:['wind'], trigger:'fire', color:'#ffb36b' },
-  { id:'storm', name:'STORM', primer:['wind'], trigger:'electricity', color:'#fff27a' },
-  { id:'superconduct', name:'SUPERCONDUCT', primer:['ice'], trigger:'electricity', color:'#9fe8ff' },
-  { id:'crush', name:'CRUSH', primer:['earth', 'stone'], trigger:'gravity', color:'#e2a7ff' },
-  { id:'miasma', name:'MIASMA', primer:['poison'], trigger:'wind', color:'#9be86b' },
+  { id:'shatter', name:'SHATTER', primer:['ice'], trigger:'fire', color:'#bff4ff', desc:'2.5× the Fire hit as bonus damage. Spends the frost.' },
+  { id:'ignite', name:'IGNITE', primer:['poison'], trigger:'fire', color:'#d6ff6b', desc:'The whole venom pool burns at once for 1.5×, and 40% splashes onto up to 5 creeps nearby.' },
+  { id:'firestorm', name:'FIRESTORM', primer:['wind'], trigger:'fire', color:'#ffb36b', desc:'Up to 6 creeps within 2 tiles catch a 3 s burn (30% of the hit) and are marked by Fire.' },
+  { id:'storm', name:'STORM', primer:['wind'], trigger:'electricity', color:'#fff27a', desc:'The bolt arcs to 3 more creeps within 3 tiles for 80% of the hit each.' },
+  { id:'superconduct', name:'SUPERCONDUCT', primer:['ice'], trigger:'electricity', color:'#9fe8ff', desc:'Strips half its armour for 4 s (up to 75% from a high-rank tower).' },
+  { id:'crush', name:'CRUSH', primer:['earth', 'stone'], trigger:'gravity', color:'#e2a7ff', desc:'1.5× the Gravity hit as bonus damage, and pins it for 0.4 s.' },
+  { id:'miasma', name:'MIASMA', primer:['poison'], trigger:'wind', color:'#9be86b', desc:'60% of its venom spreads to up to 5 creeps within 2.5 tiles and marks them with Poison, ready to IGNITE.' },
+  { id:'steam', name:'STEAM', primer:['fire'], trigger:'ice', color:'#e8f4ff', desc:'A scalding cloud: up to 6 creeps within 1.5 tiles take 60% of the hit and are slowed 35% for 2 s.' },
+  { id:'toxicshock', name:'TOXIC SHOCK', primer:['electricity'], trigger:'poison', color:'#c8ff5a', desc:'Doubles the venom on it and adds 40% of the hit as more venom.' },
+  { id:'quake', name:'QUAKE', primer:['gravity'], trigger:'earth', color:'#e6c27a', desc:'The ground heaves: every ground creep within 2 tiles (up to 8) takes the full hit and is stunned 0.3 s.' },
+  { id:'weakpoint', name:'WEAK POINT', primer:['tech'], trigger:'stone', color:'#c7d2ff', desc:'The stone lands on the painted spot: 2× the hit as bonus damage.' },
+  { id:'lockon', name:'LOCK-ON', primer:['beam'], trigger:'tech', color:'#9fd7ff', desc:'The beam guides the shell: 1.5× the hit as bonus damage, and 50% to up to 4 creeps within 1.2 tiles.' },
+  { id:'prism', name:'PRISM', primer:['crystal'], trigger:'beam', color:'#d6c2ff', desc:'The beam splits through the crystal: 3 rays hit creeps within 3 tiles for 1.5× the hit each.' },
+  { id:'resonance', name:'RESONANCE', primer:['ninja'], trigger:'crystal', color:'#f0d7ff', desc:'The cut rings: it takes 20% more damage from everything for 3 s (up to 40% from a high-rank tower).' },
+  { id:'execute', name:'EXECUTE', primer:['gravity'], trigger:'ninja', color:'#ffffff', desc:'2× the hit as bonus damage, and a non-boss creep under 12% health is cut down outright.' },
 ];
 function nearbyCreeps(creep, reach, max) {
   const out = [];
@@ -5717,6 +5770,32 @@ function runReaction(rx, creep, tower, stats) {
   } else if (rx.id === 'miasma') {
     const share = (creep.venom || 0) * .6;
     if (share > 0) nearbyCreeps(creep, 2.5, 5).forEach((o) => { o.venom = (o.venom || 0) + share * ep / 5 * 2; o.venomUntil = simTime + TRAIT.poisonDur; o.marks = o.marks || {}; o.marks.poison = simTime + ELEMENT_MARK_DUR; });
+  }
+  else if (rx.id === 'steam') {
+    [creep, ...nearbyCreeps(creep, 1.5, 5)].forEach((o) => {
+      applyDamage(o, base * .6 * ep, tower, true);
+      o.slowUntil = Math.max(o.slowUntil || 0, simTime + 2); o.slowPct = Math.max((o.slowUntil > simTime ? o.slowPct : 0) || 0, 35);
+    });
+  } else if (rx.id === 'toxicshock') {
+    creep.venom = (creep.venom || 0) * 2 + base * .4 * ep;
+    creep.venomUntil = simTime + TRAIT.poisonDur;
+  } else if (rx.id === 'quake') {
+    [creep, ...nearbyCreeps(creep, 2, 7)].filter((o) => !o.air).forEach((o) => { applyDamage(o, base * ep, tower); if (o.hp > 0) tryHold(o, simTime + .3); });
+  } else if (rx.id === 'weakpoint') {
+    applyDamage(creep, base * 2 * ep, tower, true);
+  } else if (rx.id === 'lockon') {
+    applyDamage(creep, base * 1.5 * ep, tower, true);
+    nearbyCreeps(creep, 1.2, 4).forEach((o) => applyDamage(o, base * .5 * ep, tower));
+  } else if (rx.id === 'prism') {
+    nearbyCreeps(creep, 3, 3).forEach((o) => {
+      applyDamage(o, base * 1.5 * ep, tower);
+      pushFx({ kind:'bolt', x1:creep.x, y1:creep.y, x2:o.x, y2:o.y, until:simTime + .22, color:rx.color });
+    });
+  } else if (rx.id === 'resonance') {
+    creep.exposedPct = Math.min(.4, .2 * ep); creep.exposedUntil = simTime + 3;
+  } else if (rx.id === 'execute') {
+    applyDamage(creep, base * 2 * ep, tower, true);
+    if (creep.hp > 0 && !creep.boss && creep.hp < creep.maxHp * .12) applyDamage(creep, creep.hp + (creep.shield || 0) + 1, tower, true, { bypassShield:true });
   }
   if (matchStats) matchStats.reactions = (matchStats.reactions || 0) + 1;
   pushFx({ kind:'num', x:creep.x, y:creep.y - .9, text:rx.name, until:simTime + .9, color:rx.color, big:true });
@@ -15133,6 +15212,10 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    new tag, then collapses and stays collapsed. */
 const RELEASE_TAG = '2026-11-14-elemental';
 const RELEASE_NOTES = [
+  { date:'2026-11-25', title:'Every element reacts, and the chart is in the game', items:[
+    'Eight new reactions bring in every element, so each one now starts a reaction and finishes one: Fire then Ice STEAM, Electricity then Poison TOXIC SHOCK, Gravity then Earth QUAKE, Tech then Stone WEAK POINT, Beam then Tech LOCK-ON, Crystal then Beam PRISM, Ninja then Crystal RESONANCE, Gravity then Ninja EXECUTE.',
+    'The Elements chart is in the game: armour strengths and weaknesses for every element and all fifteen reactions, with yours on top. Open it from ◈ Chart beside the element picker, or from the menu during a match.',
+  ] },
   { date:'2026-11-25', title:'Computers no longer send attackers', items:[
     'Computer rivals and computer teammates no longer buy siege attackers, in any mode. The turn that used to buy one now buys an income or flying send. Attackers are yours alone.',
   ] },
@@ -16070,6 +16153,49 @@ function openSettings() {
   m.classList.remove('hidden');
 }
 function closeSettings() { $('settings-modal')?.classList.add('hidden'); }
+function elementsChartMine() {
+  const ids = (typeof player !== 'undefined' && player && battleRunning && player.races) ? player.races : [selectedRace && selectedRace.id];
+  return new Set(ids.filter(Boolean));
+}
+function elementsChartHTML() {
+  const mine = elementsChartMine();
+  const armors = Object.keys(ARMOR_RULES);
+  const short = { unarmored:'Unarm', light:'Light', medium:'Med', heavy:'Heavy', fortified:'Fort' };
+  const race = (id) => races.find((r) => r.id === id) || { id, name:id, symbol:'·', color:'#ccd' };
+  const order = ['fire', 'ice', 'wind', 'poison', 'electricity', 'gravity', 'earth', 'stone', 'tech', 'beam', 'ninja', 'crystal'].filter((id) => races.some((r) => r.id === id));
+  const rows = order.map((id) => {
+    const r = race(id);
+    const cells = armors.map((a) => {
+      if (id === 'crystal') return '<td class="c">1</td>';
+      const rule = ARMOR_RULES[a];
+      return rule.weak.includes(id) ? `<td class="s">${ARMOR_STRONG}</td>` : rule.resist.includes(id) ? `<td class="w">${ARMOR_WEAK}</td>` : '<td>1</td>';
+    }).join('');
+    return `<tr class="${mine.has(id) ? 'mine' : ''}"><th scope="row"><span style="color:${r.color}">${r.symbol}</span>${r.name}</th>${cells}</tr>`;
+  }).join('');
+  const pill = (id) => { const r = race(id); return `<span class="pill"><span style="color:${r.color}">${r.symbol}</span>${r.name}</span>`; };
+  const involves = (rx) => mine.has(rx.trigger) || rx.primer.some((p) => mine.has(p));
+  const list = [...REACTIONS].sort((a, b) => involves(b) - involves(a));
+  const cards = list.map((rx) => `<article class="${involves(rx) ? 'mine' : ''}"><header><strong style="color:${rx.color}">${rx.name}</strong>${rx.primer.map(pill).join('<span class="arr">or</span>')}<span class="arr">→</span>${pill(rx.trigger)}${involves(rx) ? '<span class="yours">YOURS</span>' : ''}</header><p>${rx.desc}</p></article>`).join('');
+  return `<p class="el-intro">Every element hits one armour hard and glances off another; a creep's colour is its armour. Hit a creep with one element, then another within ${ELEMENT_MARK_DUR} seconds, and the two react.</p>
+    <div class="el-rule"><span><b style="color:#5fe0a0">×${ARMOR_STRONG}</b> strong</span><span><b>×1</b> otherwise</span><span><b style="color:#ff7a7a">×${ARMOR_WEAK}</b> weak</span><span><b style="color:#cf9dff">Crystal</b> full damage to all</span></div>
+    <div class="el-scroll"><table class="el-table"><thead><tr><th scope="col" style="text-align:left;padding-left:8px">Element</th>${armors.map((a) => `<th scope="col"><i style="background:${ARMOR_COLORS[a]}"></i>${short[a]}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="el-h">${REACTIONS.length} reactions · first element → second</div>
+    <div class="el-rx">${cards}</div>
+    <p class="el-fine">Order matters: the first element marks the creep for ${ELEMENT_MARK_DUR} s, the second sets it off and spends the mark. A creep reacts to the same pair at most once a second. Reactions, burns, venom and frost grow 2.5% stronger per tower rank, up to ×2.25. Siege attackers take full damage from every element.</p>`;
+}
+function openElementsChart() {
+  const m = $('elements-modal'); if (!m) return;
+  $('el-body').innerHTML = elementsChartHTML();
+  closeSettings();
+  m.classList.remove('hidden');
+  $('el-close')?.focus();
+}
+function closeElementsChart() { $('elements-modal')?.classList.add('hidden'); }
+$('el-close')?.addEventListener('click', closeElementsChart);
+$('elements-modal')?.addEventListener('click', (e) => { if (e.target.id === 'elements-modal') closeElementsChart(); });
+$('set-elements')?.addEventListener('click', openElementsChart);
+$('home-elements')?.addEventListener('click', openElementsChart);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('elements-modal')?.classList.contains('hidden')) closeElementsChart(); });
 $('settings-open')?.addEventListener('click', openSettings);
 $('settings-open-hud')?.addEventListener('click', openSettings);
 $('hud-menu-button')?.addEventListener('click', openSettings);

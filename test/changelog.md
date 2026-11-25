@@ -2,6 +2,37 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 25, 2026 — Every element reacts; the Elements chart in the game (Claude)
+
+Gene: "Add the elements chart into the game, and I think all elements should react".
+
+**Eight new reactions** (first element marks, second triggers; 1 s per-pair cooldown, effects scale
+with the trigger's rank as before). Every element now starts at least one reaction and finishes one:
+
+| first → second | reaction | effect |
+|---|---|---|
+| Fire → Ice | STEAM | up to 6 creeps within 1.5 tiles take 60% of the hit, slowed 35% for 2 s |
+| Electricity → Poison | TOXIC SHOCK | venom doubled, plus 40% of the hit as venom |
+| Gravity → Earth | QUAKE | ground creeps within 2 tiles (up to 8) take the full hit, stunned 0.3 s |
+| Tech → Stone | WEAK POINT | 2× the hit as bonus damage |
+| Beam → Tech | LOCK-ON | 1.5× bonus, 50% to up to 4 creeps within 1.2 tiles |
+| Crystal → Beam | PRISM | 3 rays to creeps within 3 tiles for 1.5× the hit |
+| Ninja → Crystal | RESONANCE | takes +20% damage from everything for 3 s (up to +40% with rank) |
+| Gravity → Ninja | EXECUTE | 2× bonus; a non-boss under 12% health dies |
+
+RESONANCE adds an `exposedUntil/exposedPct` multiplier at the top of `applyDamage`. `REACTIONS`
+entries carry a `desc` line now.
+
+**The chart.** `#elements-modal`, built from `ARMOR_RULES`, `ARMOR_COLORS`, `races` and `REACTIONS`
+when it opens, so it cannot drift from the rules. Opens from ◈ Chart beside the element picker and
+from the game menu (☰ → Elements chart). Your element's row is highlighted, and reactions involving
+your elements are listed first and tagged YOURS. Fits 390 px without sideways scroll.
+
+Checked: `tools/harness/allreact.js` (each of the 15 fires with its primer and not without, every
+element starts and finishes one, steam slows, quake stuns, resonance makes 100 damage 120, execute
+kills a low-health creep, chart opens from home and in a match) PASS; sealtest unchanged; crowd 100 ms
+per simulated second; four-mode smoke clean; teamboard and rosterroom PASS.
+
 ## November 25, 2026 — Computers don't send attackers (Claude)
 
 Gene: "make it so the computers don't send attackers". `aiSendPressure` drew from a pool that
