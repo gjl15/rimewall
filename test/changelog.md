@@ -2,6 +2,15 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 25, 2026 — Computers don't send attackers (Claude)
+
+Gene: "make it so the computers don't send attackers". `aiSendPressure` drew from a pool that
+included siege attackers and spent one turn in six on one; the pool now excludes them and that turn
+buys income or flying. `updateRosterComputer` no longer recruits them, and `aiBuySend` refuses an
+attacker outright so no later path can bring one back. Measured over 15 minutes, 2v2 against brutal
+computers: Classic went from 25 attacker sends to 0 (1,088 → 1,120 sends in all), Waves from 35 to 0
+(859 → 868), Roster Wars from 15 recruited attackers to 0. Teamboard and rosterroom PASS.
+
 ## November 25, 2026 — Build in the cave (Claude)
 
 Gene, on a screenshot with the crystal's wall highlighted: "adjust the map so you can build up until

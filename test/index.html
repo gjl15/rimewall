@@ -4332,7 +4332,7 @@ function updateRosterComputer(ai,half) {
   const defenders = aiVisibleDefenders(half);
   const weakest = slots.map((unit,slot)=>({unit,slot,score:unit ? aiPressureScore(ai,rosterCombatStats(unit),defenders) : 0}))
     .sort((a,b)=>a.score-b.score)[0];
-  const ranked = SENDS.filter(send=>send.shrine <= ai.shrine && send.cost <= funds && (send.lumber || 0) <= (ai.lumber || 0))
+  const ranked = SENDS.filter(send=>!send.attacker && send.shrine <= ai.shrine && send.cost <= funds && (send.lumber || 0) <= (ai.lumber || 0))
     .map(send=>({send,score:aiPressureScore(ai,{...send,bodies:1},defenders)})).sort((a,b)=>b.score-a.score);
   const candidate = ranked.find(({send,score})=>!weakest.unit || (send.id !== weakest.unit.sendId && score > weakest.score * 1.75));
   const buy = (action,args)=>{
@@ -7121,6 +7121,7 @@ function aiDeliverSend(ai,half,send) {
   }
 }
 function aiBuySend(ai,half,send,fund) {
+  if(send && send.attacker)return false;   // computers never send siege attackers
   if(!send || send.shrine>ai.shrine)return false;
   const wood=send.lumber || 0,missingWood=Math.max(0,wood-(ai.lumber || 0));
   const cost=(send.cost || 0)+missingWood*LUMBER_PRICE;
@@ -7189,16 +7190,18 @@ function aiBurstCost(ai,send,packs) {
 function aiSendPressure(ai,half) {
   const plan=ai.attackPlan || aiAttackPlan(ai,half);
   if(ai.shrine<plan.shrine)return;
-  const pool=SENDS.filter(s=>s.shrine<=ai.shrine);
+  /* NO ATTACKERS FROM COMPUTERS (Gene, 2026-11-25: "make it so the computers don't send attackers").
+     Siege attackers are a player's tool only; the turn that used to buy one buys income instead. */
+  const pool=SENDS.filter(s=>s.shrine<=ai.shrine && !s.attacker);
   const defenders=aiVisibleDefenders(half);
   let remaining=3;
   while(remaining>=plan.burst){
-    const turn=(ai.pressureTurn || 0)%6;   // one six-turn cycle: 1 and 3 flying, 5 attacker, the rest income
+    const turn=(ai.pressureTurn || 0)%6;   // one six-turn cycle: 1 and 3 flying, the rest income
     /* ATTACKERS ARE THE ONE SEND A WALL CANNOT OUT-EARN. They pay no bounty and a
        Wallbreaker is 5,200 HP at armour 18; two a lane in a Brutal burst at minute
        five is a wall nobody can keep. One in six turns, one body a lane, and at
        least 45 s between attacker purchases per computer. */
-    const attackerTurn=turn===5 && ai.shrine>1 && simTime-(ai.lastAttackerAt ?? -1e9)>=45;
+    const attackerTurn=false;   // computers never buy attackers (2026-11-25)
     const family=(turn===1 || turn===3)?'flying':attackerTurn?'attacker':'income';
     const choices=pool.filter(s=>((plan.blocked || plan.finish) && family!=='attacker'?!s.attacker:sendType(s)===family)
       && (!plan.blocked || s.attacker || s.air || s.hp>=200));
@@ -15130,6 +15133,9 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    new tag, then collapses and stays collapsed. */
 const RELEASE_TAG = '2026-11-14-elemental';
 const RELEASE_NOTES = [
+  { date:'2026-11-25', title:'Computers no longer send attackers', items:[
+    'Computer rivals and computer teammates no longer buy siege attackers, in any mode. The turn that used to buy one now buys an income or flying send. Attackers are yours alone.',
+  ] },
   { date:'2026-11-25', title:'Build in the cave', items:[
     'The cave in your hill is build ground now, right up to the crystal: 32 more cells to maze in. Only the three cells under the crystal stay open as the exit. The rival\'s cave is the same.',
   ] },
