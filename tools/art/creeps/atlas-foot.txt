@@ -16,6 +16,7 @@ elderdrake 91
 fangoutrider 94
 glacierbasilisk 93
 gorillabruiser 93
+gorillawarhammer 93
 grovetender 94
 grovewarden 94
 hornetflight 94

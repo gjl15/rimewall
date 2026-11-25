@@ -3732,6 +3732,8 @@ const SENDS = [
   /* GORILLAS (Gene, 2026-11-14: "make a few gorillas with weapons"). A club-swinging
      medium bruiser between the Bonecaller and the Ram Hulk, priced on the ladder's shape. */
   { id:'gorillabruiser', name:'Gorilla Bruiser', symbol:'✊', cost:1100, income:122, hp:1050, spd:2.4, armor:10, aClass:'medium', shrine:2 },
+  // a war-hammer silverback in crimson plate: heavy, slow, sits between Siege Hulk and Idol Bearer
+  { id:'gorillawarhammer', name:'Gorilla Warhammer', symbol:'🔨', cost:3800, income:425, hp:3000, spd:2.5, armor:15, aClass:'heavy', shrine:3 },
   { id:'ramhulk', name:'Ram Hulk', symbol:'⬓', cost:1450, income:165, hp:1500, spd:2.2, armor:13, aClass:'fortified', shrine:2 },
   /* LADDER GAPS, MEASURED AND FILLED. Counting the ladder by armour class and
      shrine level turned up holes a defender could simply ignore: no medium send
@@ -8906,10 +8908,10 @@ function spriteIdForTower(raceId, tier, name) {
    medium, crimson heavy, violet fortified), so a wave reads by colour at the
    21 px cell. Matched by name, waves and sends alike. Settings can switch back to
    the classic art; a missing file falls back silently. */
-const GEN_CREEP_NAMES = ['adamanthulk', 'aegisprime', 'aegisrunner', 'ancientdrake', 'bastion', 'bonecaller', 'breacher', 'bulwark', 'bulwarkjuggernaut', 'colossus', 'drakewhelp', 'dreadknight', 'duskrunner', 'duskstalker', 'elderdrake', 'fangoutrider', 'glacierbasilisk', 'gorillabruiser', 'grovetender', 'grovewarden', 'hornetflight', 'hoverbarge', 'idolbearer', 'impfamiliar', 'ironpilgrim', 'marauder', 'miner', 'mirebrute', 'mossbackregenerator', 'pathfinder', 'prowler', 'ramhulk', 'rimebornbrute', 'risenhusk', 'sapper', 'sapperswarm', 'scrapwalker', 'shardhidegolem', 'siegehauler', 'siegehulk', 'siegeruiner', 'skimmercraft', 'skybarge', 'stormdrake', 'stormherald', 'thefrosttyrant', 'thornsprinter', 'tideskimmer', 'undyingshade', 'wallbreaker', 'wardbearer', 'worldtitan', 'wraithlord'];
+const GEN_CREEP_NAMES = ['adamanthulk', 'aegisprime', 'aegisrunner', 'ancientdrake', 'bastion', 'bonecaller', 'breacher', 'bulwark', 'bulwarkjuggernaut', 'colossus', 'drakewhelp', 'dreadknight', 'duskrunner', 'duskstalker', 'elderdrake', 'fangoutrider', 'glacierbasilisk', 'gorillabruiser', 'gorillawarhammer', 'grovetender', 'grovewarden', 'hornetflight', 'hoverbarge', 'idolbearer', 'impfamiliar', 'ironpilgrim', 'marauder', 'miner', 'mirebrute', 'mossbackregenerator', 'pathfinder', 'prowler', 'ramhulk', 'rimebornbrute', 'risenhusk', 'sapper', 'sapperswarm', 'scrapwalker', 'shardhidegolem', 'siegehauler', 'siegehulk', 'siegeruiner', 'skimmercraft', 'skybarge', 'stormdrake', 'stormherald', 'thefrosttyrant', 'thornsprinter', 'tideskimmer', 'undyingshade', 'wallbreaker', 'wardbearer', 'worldtitan', 'wraithlord'];
 const GEN_CREEPS = { img:new Image(), ready:false, cols:8 };
 const GEN_CREEP_ALIAS = { mossback:'mossbackregenerator' };   // the same beast under its send name
-const GEN_CREEP_FOOT = [.98, .98, .98, .96, .98, .98, .96, .98, .97, .98, .92, .98, .98, .97, .95, .98, .97, .97, .98, .98, .98, .91, .98, .98, .98, .97, .98, .98, .97, .98, .98, .97, .98, .98, .98, .98, .98, .97, .94, .98, .97, .98, .98, .98, .97, .98, .98, .97, .98, .97, .98, .98, .98];   // where each frame's feet are, as a share of its height
+const GEN_CREEP_FOOT = [.98, .98, .98, .96, .98, .98, .96, .98, .97, .98, .92, .98, .98, .97, .95, .98, .97, .97, .97, .98, .98, .98, .91, .98, .98, .98, .97, .98, .98, .97, .98, .98, .97, .98, .98, .98, .98, .98, .97, .94, .98, .97, .98, .98, .98, .97, .98, .98, .97, .98, .97, .98, .98, .98];   // where each frame's feet are, as a share of its height
 const SHEET_CREEP_FOOT = .97;
 GEN_CREEPS.img.onload = () => { GEN_CREEPS.ready = true; };
 GEN_CREEPS.img.src = 'creeps-gen.webp';
@@ -15123,6 +15125,9 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    new tag, then collapses and stays collapsed. */
 const RELEASE_TAG = '2026-11-14-elemental';
 const RELEASE_NOTES = [
+  { date:'2026-11-25', title:'A second gorilla', items:[
+    'New send: the Gorilla Warhammer, a silverback in crimson plate swinging an iron hammer. Heavy armour, Shrine 3 (3,800g, +425 income). Ice and Gravity crack it; Wind and Tech glance off. One more gorilla, an axe warlord, is still coming.',
+  ] },
   { date:'2026-11-25', title:'Roster Wars (by Abdy)', items:[
     'A new mode, Roster Wars, designed by Abdy. There are no sends and no neutral waves: recruit up to five mobs into your Roster and every 10 seconds the whole squad marches on the rival by itself, alternating lanes.',
     'Each mob has ten upgrades with ten ranks each: Health, Armor, Speed, Slow resistance, Shield, Health regeneration, Shield regeneration, Healing aura, Shield aura and Split on death. Every rank adds gold income, and the card shows its payback time.',

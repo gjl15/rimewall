@@ -16,6 +16,7 @@ elderdrake
 fangoutrider
 glacierbasilisk
 gorillabruiser
+gorillawarhammer
 grovetender
 grovewarden
 hornetflight

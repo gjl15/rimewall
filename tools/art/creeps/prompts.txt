@@ -54,3 +54,4 @@ worldtitan|a colossal titan carrying a giant globe of the world on its shoulders
 breacher|a team of goblins pushing a spiked battering ram on wheels|hazard yellow and black striped
 wallbreaker|a heavy armored ogre swinging a giant wrecking hammer|hazard yellow and black striped
 siegeruiner|a massive siege engine on wheels with a huge spinning drill at the front|hazard yellow and black striped
+gorillawarhammer|a massive silverback gorilla warrior swinging a huge iron war hammer, wearing spiked crimson shoulder armor|deep crimson and dark red
