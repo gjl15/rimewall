@@ -4261,7 +4261,7 @@ function deployRoster(purse, fromHalf) {
   if (purse === player) {
     const target = mpSendTarget();
     if (!target) return;
-    const message = {t:'roster', sid:mp.sid, units:units.map(u=>({s:u.sendId, r:u.ranks})), lane, target, sourceSeat:mpMySeatKey(), match:mp.matchId};
+    const message = {t:'squad', sid:mp.sid, units:units.map(u=>({s:u.sendId, r:u.ranks})), lane, target, sourceSeat:mpMySeatKey(), match:mp.matchId};
     mpSend(message); mpOnMessage(message);
     return;
   }
@@ -4272,7 +4272,7 @@ function deployRoster(purse, fromHalf) {
   const target = targets[(purse.rosterTurn || 0) % targets.length]; purse.rosterTurn = (purse.rosterTurn || 0) + 1;
   if (target.key === mpMySeatKey() || target.seat.kind === 'ai') { spawnRosterUnits(units, targetHalf, lane, target.key); return; }
   const source = rosterSeats(fromHalf)[purse === enemy ? 0 : purse.seat];
-  mpSend({t:'roster', sid:mp.sid, units:units.map(u=>({s:u.sendId, r:u.ranks})), lane, target:target.key, sourceSeat:mpSeatKey(rosterHalfFor(fromHalf), source?.index ?? 0), match:mp.matchId});
+  mpSend({t:'squad', sid:mp.sid, units:units.map(u=>({s:u.sendId, r:u.ranks})), lane, target:target.key, sourceSeat:mpSeatKey(rosterHalfFor(fromHalf), source?.index ?? 0), match:mp.matchId});
 }
 function deployRosters() {
   deployRoster(player, PLAYER_HALF);
@@ -14287,8 +14287,9 @@ function mpOnMessage(msg) {
       ?{id:msg.aiAttack,replyTo:msg.__from||msg.sid}:null;
     spawnSend(send,half,'west',attack,target.key);spawnSend(send,half,'east',attack,target.key);
     if(half===PLAYER_HALF)log(`${mpSeatDisplayName(source)} sent ${send.name} × 2 at your lanes!${send.air?' They fly over your maze!':''}`);
-  } else if (msg.t === 'roster') {
-    // a rival's roster deployment: up to five units, each a known send and its upgrade ranks
+  } else if (msg.t === 'squad') {
+    // a rival's Roster Wars deployment. Not 't:roster': that name is the lobby's seat list,
+    // and its handler, earlier in this chain, swallowed every deployment.: up to five units, each a known send and its upgrade ranks
     const seats=mpAttackSeats(msg);
     if(!battleRunning || !mp.active || !seats || !isRosterWars() || !Array.isArray(msg.units))return;
     const {source,target}=seats;

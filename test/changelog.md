@@ -2,6 +2,15 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 25, 2026 — Roster Wars: squads now arrive in rooms (Claude)
+
+Gene: "Creeps aren't spawning in roster mode." In a room no deployment arrived anywhere. They were
+sent as `t:'roster'`, which is already the lobby's seat-list message; its handler sits earlier in
+`mpOnMessage`, returns once the match has started, and so swallowed every squad. Deployments are now
+`t:'squad'`. Solo was unaffected. `tools/harness/rosterroom.js` drives a real two-client room (local
+channel): 1v1, each phone receives the other's squad every 10 s (PASS); 2v1 against a computer, the
+host's computer receives both players' squads and the computer's squads reach both players.
+
 ## November 25, 2026 — Roster Wars, from Abdy's branch (Claude)
 
 Gene: "add in the roster modes from Abdy's latest branch". Ported from `test/sites-shared-arena-20`
