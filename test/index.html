@@ -5762,6 +5762,7 @@ function nearbyCreeps(creep, reach, max) {
 }
 function runReaction(rx, creep, tower, stats) {
   const ep = effectPower(tower), base = (stats && stats.dmg) || 0;
+  const rxTargets = [], rx0 = { x:creep.x, y:creep.y };
   if (rx.id === 'shatter') {
     applyDamage(creep, base * 2.5 * ep, tower, true);
     creep.frostUntil = simTime; creep.frostStacks = 0;
@@ -5778,6 +5779,7 @@ function runReaction(rx, creep, tower, stats) {
     nearbyCreeps(creep, 3, 3).forEach((o) => {
       applyDamage(o, base * .8 * ep, tower);
       pushFx({ kind:'bolt', x1:creep.x, y1:creep.y, x2:o.x, y2:o.y, until:simTime + .22 });
+      rxTargets.push({ x:o.x, y:o.y });
     });
   } else if (rx.id === 'superconduct') {
     creep.bulwarkArmorShredPct = Math.max((creep.bulwarkArmorShredUntil || 0) > simTime ? (creep.bulwarkArmorShredPct || 0) : 0, Math.min(.75, .5 * ep));
@@ -5807,7 +5809,7 @@ function runReaction(rx, creep, tower, stats) {
   } else if (rx.id === 'prism') {
     nearbyCreeps(creep, 3, 3).forEach((o) => {
       applyDamage(o, base * 1.5 * ep, tower);
-      pushFx({ kind:'bolt', x1:creep.x, y1:creep.y, x2:o.x, y2:o.y, until:simTime + .22, color:rx.color });
+      rxTargets.push({ x:o.x, y:o.y });
     });
   } else if (rx.id === 'resonance') {
     creep.exposedPct = Math.min(.4, .2 * ep); creep.exposedUntil = simTime + 3;
@@ -5816,8 +5818,179 @@ function runReaction(rx, creep, tower, stats) {
     if (creep.hp > 0 && !creep.boss && creep.hp < creep.maxHp * .12) applyDamage(creep, creep.hp + (creep.shield || 0) + 1, tower, true, { bypassShield:true });
   }
   if (matchStats) matchStats.reactions = (matchStats.reactions || 0) + 1;
-  pushFx({ kind:'num', x:creep.x, y:creep.y - .9, text:rx.name, until:simTime + .9, color:rx.color, big:true });
-  pushFx({ kind:'impact', x:creep.x, y:creep.y, color:rx.color, big:true, until:simTime + .35 });
+  /* THE REACTION EFFECTS PASS (2026-11-25, from the GIF audit). Every reaction used to be its name
+     plus the same tinted impact ring, and seven of the fifteen were tinted near-white, so without
+     the text they could not be told apart; the name sat on the health bars, and Ice+Fire printed
+     SHATTER and STEAM on top of each other. Each one now has its own signature (drawReactionFx),
+     the name rides above the bars with an outline, and a second name on the same creep within
+     0.6 s stacks above the first. */
+  const stack = (creep._rxLabelAt || -9) > simTime - .6 ? (creep._rxStack || 0) + 1 : 0;
+  creep._rxStack = stack; creep._rxLabelAt = simTime;
+  pushFx({ kind:'num', x:rx0.x, y:rx0.y - 1.5 - stack * .55, text:rx.name, until:simTime + 1, color:rx.color, big:true, rx:true });
+  const life = RX_FX_LIFE[rx.id] || .6;
+  pushFx({ kind:'rx', id:rx.id, x:rx0.x, y:rx0.y, color:rx.color, life, until:simTime + life, targets:rxTargets });
+}
+const RX_FX_LIFE = { shatter:.6, steam:1, ignite:.7, firestorm:.8, storm:.5, superconduct:.7, crush:.6, miasma:1.1,
+  toxicshock:.6, quake:.8, weakpoint:.6, lockon:.6, prism:.45, resonance:.9, execute:.5 };
+let _elementColor = null;
+function elementColor(id) {
+  if (!_elementColor) _elementColor = Object.fromEntries(races.map((r) => [r.id, r.color]));
+  return _elementColor[id] || '#ffffff';
+}
+/* One signature per reaction, drawn in board pixels from the reaction point. k runs 0 → 1 over
+   the effect's life. No Math.random: angles come from the index and the creep's position, so
+   the same reaction draws the same way on every phone and never strobes. */
+function drawReactionFx(ctx, e, remain) {
+  const life = e.life || .6, k = clamp01(1 - remain / life), C = CELL, fade = 1 - k;
+  const cx = e.x * C, cy = e.y * C, reduced = rmReduced(), seed = (e.x * 7 + e.y * 13) % 6.283;
+  const out = 1 - Math.pow(1 - k, 3);                      // ease-out
+  let jn = 0;   // a steady jagged line: cracks and arcs keep their shape for the whole effect
+  const jag = (x1, y1, x2, y2) => { jn += 1; ctx.beginPath(); ctx.moveTo(x1, y1); for (let i = 1; i < 5; i += 1) { const t = i / 5, w = Math.sin(seed * 3 + jn * 2.1 + i * 1.7) * 4.5; const dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1; ctx.lineTo(x1 + dx * t - dy / L * w, y1 + dy * t + dx / L * w); } ctx.lineTo(x2, y2); ctx.stroke(); };
+  const ring = (r, col, w, a) => { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.globalAlpha = clamp01(a); ctx.beginPath(); ctx.arc(cx, cy, Math.max(0, r), 0, Math.PI * 2); ctx.stroke(); };
+  const disc = (x, y, r, col, a) => { ctx.fillStyle = col; ctx.globalAlpha = clamp01(a); ctx.beginPath(); ctx.arc(x, y, Math.max(0, r), 0, Math.PI * 2); ctx.fill(); };
+  const reticle = (col, r) => {
+    ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.globalAlpha = clamp01(fade * 1.4);
+    for (let i = 0; i < 4; i += 1) {
+      const a = i * Math.PI / 2 + Math.PI / 4, bx = cx + Math.cos(a) * r, by = cy + Math.sin(a) * r, sx = Math.cos(a) > 0 ? -1 : 1, sy = Math.sin(a) > 0 ? -1 : 1, L = C * .28;
+      ctx.beginPath(); ctx.moveTo(bx + sx * L, by); ctx.lineTo(bx, by); ctx.lineTo(bx, by + sy * L); ctx.stroke();
+    }
+    ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(cx - r * .55, cy); ctx.lineTo(cx + r * .55, cy); ctx.moveTo(cx, cy - r * .55); ctx.lineTo(cx, cy + r * .55); ctx.stroke();
+  };
+  switch (e.id) {
+    case 'shatter': {        // ice blown apart: eight shards fly out of a white flash
+      fxGlow(ctx, cx, cy, C * (.5 + out), '#bff4ff', fade * .8);
+      disc(cx, cy, C * .45 * fade, '#ffffff', fade);
+      const n = reduced ? 5 : 8;
+      for (let i = 0; i < n; i += 1) {
+        const a = i / n * Math.PI * 2 + seed, d = C * (.25 + 1.5 * out), s2 = C * .3 * (1 - k * .5);
+        ctx.save(); ctx.translate(cx + Math.cos(a) * d, cy + Math.sin(a) * d); ctx.rotate(a + k * 3);
+        ctx.globalAlpha = clamp01(fade * 1.2); ctx.fillStyle = '#dff8ff'; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(s2, 0); ctx.lineTo(-s2 * .5, s2 * .45); ctx.lineTo(-s2 * .5, -s2 * .45); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
+      }
+      break;
+    }
+    case 'steam': {          // a scalding white cloud that billows and rises
+      const n = reduced ? 4 : 7;
+      for (let i = 0; i < n; i += 1) {
+        const a = i / n * Math.PI * 2 + seed, d = C * (.3 + 1.1 * out);
+        disc(cx + Math.cos(a) * d, cy + Math.sin(a) * d * .7 - k * C * .7, C * (.35 + .45 * k), i % 2 ? '#f4f8ff' : '#d9e6f2', .5 * fade);
+      }
+      disc(cx, cy - k * C * .4, C * (.5 + .6 * k), '#ffffff', .35 * fade);
+      break;
+    }
+    case 'ignite': {         // the venom pool goes up: a lime-to-orange fireball and its splash
+      fxGlow(ctx, cx, cy, C * (.7 + 1.2 * out), '#c8ff5a', fade * .8);
+      disc(cx, cy, C * (.35 + .5 * out), '#ffb347', fade);
+      disc(cx, cy, C * (.2 + .3 * out), '#fff1a8', fade);
+      for (let i = 0; i < (reduced ? 4 : 7); i += 1) {
+        const a = i / 7 * Math.PI * 2 + seed, d = C * (.4 + 1.1 * out);
+        disc(cx + Math.cos(a) * d, cy + Math.sin(a) * d - k * C * .3, C * .16 * fade + 1, i % 2 ? '#d6ff6b' : '#ff8a3d', fade);
+      }
+      ring(C * 1.6 * out, '#d6ff6b', 3 * fade + .5, fade);
+      break;
+    }
+    case 'firestorm': {      // a ring of fire runs out two tiles, throwing embers
+      ring(C * 2 * out, '#ffb36b', 4 * fade + 1, fade);
+      ring(C * 2 * out - 4, '#ff6b3c', 2, fade * .7);
+      fxGlow(ctx, cx, cy, C * 1.2, '#ff8a3d', fade * .5);
+      for (let i = 0; i < (reduced ? 6 : 12); i += 1) {
+        const a = i / 12 * Math.PI * 2 + seed, d = C * (.4 + 1.9 * out);
+        disc(cx + Math.cos(a) * d, cy + Math.sin(a) * d - Math.sin(k * Math.PI) * C * .4, 2.2 * fade + .6, i % 3 ? '#ffd27a' : '#ff6b3c', fade);
+      }
+      break;
+    }
+    case 'storm': {          // the bolts are their own effect; the storm adds a charged burst and a wide ring
+      fxGlow(ctx, cx, cy, C * (.6 + .8 * out), '#fff27a', fade * .9);
+      ring(C * 3 * out, '#fff27a', 2, fade * .45);
+      for (const t of e.targets || []) fxGlow(ctx, t.x * C, t.y * C, C * .7, '#fff27a', fade * .8);
+      break;
+    }
+    case 'superconduct': {   // the armour plate splits in two and falls away, sparking
+      const r = C * .8, gap = C * .55 * out;
+      ctx.strokeStyle = '#9fe8ff'; ctx.lineWidth = 2.2; ctx.globalAlpha = clamp01(fade * 1.3);
+      for (const dir of [-1, 1]) {
+        ctx.beginPath();
+        for (let i = 0; i <= 3; i += 1) { const a = (dir < 0 ? Math.PI : 0) + i * Math.PI / 3; const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r * .9 + dir * gap; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+        ctx.stroke();
+      }
+      ctx.lineWidth = 1.2; ctx.strokeStyle = '#eafcff';
+      for (let i = 0; i < (reduced ? 2 : 4); i += 1) { const a = i / 4 * Math.PI * 2 + seed; jag(cx, cy, cx + Math.cos(a) * C * 1.1 * out, cy + Math.sin(a) * C * 1.1 * out); }
+      fxGlow(ctx, cx, cy, C * .9, '#9fe8ff', fade * .6);
+      break;
+    }
+    case 'crush': {          // gravity folds in on the creep, then slams it into the ground
+      if (k < .55) { const t = k / .55; ring(C * 1.7 * (1 - t) + 2, '#e2a7ff', 3, 1); ring(C * 1.2 * (1 - t) + 2, '#b06bff', 2, .7); }
+      else { const t = (k - .55) / .45; fxGlow(ctx, cx, cy, C * (.6 + t), '#e2a7ff', 1 - t); ring(C * (.3 + 1.1 * t), '#c58fd8', 3 * (1 - t) + .5, 1 - t); disc(cx, cy + C * .25, C * .55 * (1 - t), '#2a1838', .5 * (1 - t)); }
+      break;
+    }
+    case 'miasma': {         // a wide green cloud carries the venom to its neighbours
+      const R = C * 2.5 * (.45 + .55 * out);
+      for (let i = 0; i < (reduced ? 5 : 9); i += 1) {
+        const a = i / 9 * Math.PI * 2 + seed + k * .6, d = R * (.35 + .55 * ((i * 37) % 10) / 10);
+        disc(cx + Math.cos(a) * d, cy + Math.sin(a) * d * .75, C * (.45 + .35 * k), i % 2 ? '#9be86b' : '#6fcf55', .32 * fade);
+      }
+      ring(R, '#9be86b', 1.5, fade * .5);
+      break;
+    }
+    case 'toxicshock': {     // lightning runs through the venom: green arcs crawl over the creep
+      fxGlow(ctx, cx, cy, C * (.7 + .5 * out), '#c8ff5a', fade);
+      ctx.strokeStyle = '#e9ff9e'; ctx.lineWidth = 1.6; ctx.globalAlpha = clamp01(fade * 1.3);
+      for (let i = 0; i < (reduced ? 3 : 6); i += 1) { const a = i / 6 * Math.PI * 2 + seed + k * 2; jag(cx + Math.cos(a) * C * .2, cy + Math.sin(a) * C * .2, cx + Math.cos(a) * C * (.6 + .5 * out), cy + Math.sin(a) * C * (.6 + .5 * out)); }
+      disc(cx, cy, C * .3 * fade, '#f4ffc9', fade);
+      break;
+    }
+    case 'quake': {          // the ground heaves: two shock rings, cracks and thrown rock
+      ring(C * 2 * out, '#e6c27a', 5 * fade + 1, fade);
+      if (k > .2) ring(C * 2 * ((k - .2) / .8), '#a8834a', 3, fade * .8);
+      ctx.strokeStyle = '#3a2a14'; ctx.lineWidth = 2; ctx.globalAlpha = clamp01(fade);
+      for (let i = 0; i < 5; i += 1) { const a = i / 5 * Math.PI * 2 + seed; jag(cx, cy, cx + Math.cos(a) * C * 1.4 * out, cy + Math.sin(a) * C * 1.1 * out); }
+      for (let i = 0; i < (reduced ? 4 : 9); i += 1) {
+        const a = i / 9 * Math.PI * 2 + seed * 2, d = C * (.3 + 1.6 * out), lift = Math.sin(k * Math.PI) * C * .8;
+        ctx.fillStyle = i % 2 ? '#8a6b43' : '#c9a46a'; ctx.globalAlpha = clamp01(fade * 1.2);
+        ctx.fillRect(cx + Math.cos(a) * d - 2, cy + Math.sin(a) * d * .7 - lift - 2, 4, 4);
+      }
+      break;
+    }
+    case 'weakpoint': {      // the painter's reticle snaps shut on the spot, then the stone lands
+      const r = C * (1.2 - .75 * clamp01(k / .4));
+      reticle('#c7d2ff', r);
+      if (k > .35) { const t = (k - .35) / .65; fxGlow(ctx, cx, cy, C * (.5 + .8 * t), '#c7d2ff', 1 - t); disc(cx, cy, C * .35 * (1 - t), '#ffffff', 1 - t); }
+      break;
+    }
+    case 'lockon': {         // a blue lock, then the guided shell bursts across its neighbours
+      reticle('#9fd7ff', C * (1 - .5 * clamp01(k / .3)));
+      if (k > .25) { const t = (k - .25) / .75; ring(C * 1.2 * t + 2, '#9fd7ff', 3 * (1 - t) + .5, 1 - t); fxGlow(ctx, cx, cy, C * .9, '#9fd7ff', 1 - t); }
+      break;
+    }
+    case 'prism': {          // the beam splits through the crystal into three rainbow rays
+      const cols = ['#ff5d8f', '#ffe45d', '#5dd6ff'];
+      for (const t of e.targets || []) {
+        const tx = t.x * C, ty = t.y * C, dx = tx - cx, dy = ty - cy, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+        cols.forEach((col, i) => { ctx.strokeStyle = col; ctx.lineWidth = 2.4; ctx.globalAlpha = clamp01(fade * 1.2); const o = (i - 1) * 2.2; ctx.beginPath(); ctx.moveTo(cx + nx * o, cy + ny * o); ctx.lineTo(tx + nx * o, ty + ny * o); ctx.stroke(); });
+        fxGlow(ctx, tx, ty, C * .6, '#ffffff', fade * .8);
+      }
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(k * 4); ctx.globalAlpha = clamp01(fade * 1.3); ctx.fillStyle = '#efe4ff'; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.2;
+      const d = C * .42; ctx.beginPath(); ctx.moveTo(0, -d); ctx.lineTo(d * .7, 0); ctx.lineTo(0, d); ctx.lineTo(-d * .7, 0); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
+      break;
+    }
+    case 'resonance': {      // the cut rings like a bell: violet ripples run out from it
+      for (let i = 0; i < 3; i += 1) { const t = clamp01(k * 1.4 - i * .2); if (t > 0 && t < 1) ring(C * (.35 + 1.1 * t), i ? '#c9a4ff' : '#f0d7ff', 2.4 * (1 - t) + .4, 1 - t); }
+      fxGlow(ctx, cx, cy, C * .8, '#d6b0ff', fade * .7);
+      break;
+    }
+    case 'execute': {        // two blade strokes cross the creep in an X
+      const grow = clamp01(k / .3), L = C * .95;
+      ctx.lineCap = 'round';
+      for (const [s1, s2] of [[-1, -1], [1, -1]]) {
+        const x0 = cx + s1 * L, y0 = cy + s2 * L, x1 = cx - s1 * L, y1 = cy - s2 * L;
+        const xe = x0 + (x1 - x0) * grow, ye = y0 + (y1 - y0) * grow;
+        ctx.strokeStyle = '#ff4d6d'; ctx.lineWidth = 6; ctx.globalAlpha = clamp01(fade * .45); ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(xe, ye); ctx.stroke();
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.2; ctx.globalAlpha = clamp01(fade * 1.4); ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(xe, ye); ctx.stroke();
+      }
+      break;
+    }
+    default: ring(C * out, e.color || '#fff', 2, fade);
+  }
 }
 function elementHit(creep, tower, stats) {
   const race = tower && tower.raceId;
@@ -9698,6 +9871,29 @@ function drawCreep(ctx, creep) {
     ctx.font = '8px "DM Mono", monospace'; ctx.textAlign = 'center';
     ctx.fillText(knocked === 'up' ? '▲' : knocked === 'down' ? '▼' : knocked === 'root' ? '⩗' : '✦', 0, -size - 6);
   }
+  /* REACTION STATE ON THE CREEP (2026-11-25, from the GIF audit): what has primed it, and what a
+     reaction left on it, used to be invisible once the flash was over. */
+  if (creep.marks) {   // a pip per element that has marked it, under the feet: these are what react
+    let i = 0;
+    for (const id in creep.marks) {
+      if (!(creep.marks[id] > simTime) || i >= 3) continue;
+      const left = clamp01((creep.marks[id] - simTime) / ELEMENT_MARK_DUR);
+      ctx.globalAlpha = .45 + .55 * left; ctx.fillStyle = elementColor(id); ctx.strokeStyle = '#06101c'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc((i - 1) * 4.6, size + 4.5, 2.1, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      i += 1;
+    }
+    ctx.globalAlpha = 1;
+  }
+  if (creep.exposedUntil > simTime) {   // RESONANCE: a ringing violet halo while it takes more damage
+    const ph = reduced ? .5 : (Math.sin(simTime * 9 + creep.id) + 1) / 2;
+    ctx.strokeStyle = '#d6b0ff'; ctx.globalAlpha = .45 + .4 * ph; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.arc(0, 0, size + 3 + ph * 2, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
+  }
+  if (creep.bulwarkArmorShredUntil > simTime && creep.bulwarkArmorShredPct > 0) {   // armour stripped: a broken cyan ring
+    ctx.strokeStyle = '#9fe8ff'; ctx.globalAlpha = .85; ctx.lineWidth = 1.5;
+    for (let i = 0; i < 4; i += 1) { const a0 = i * Math.PI / 2 + .25; ctx.beginPath(); ctx.arc(0, 0, size + 2, a0, a0 + Math.PI / 2 - .55); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+  }
   const width = Math.max(16, size * 2.4);
   // shield bar (cyan) sits just above the HP bar when present
   if (creep.shieldMax) {
@@ -10160,6 +10356,8 @@ function drawEffect(ctx, effect) {
       ctx.strokeStyle = '#eaf1ff'; ctx.globalAlpha = clamp01((1 - k) * .9); ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(cx, cy, Math.max(0, baseR * .6), 0, Math.PI * 2); ctx.stroke();
     }
+  } else if (effect.kind === 'rx') {
+    drawReactionFx(ctx, effect, remain);
   } else if (effect.kind === 'venomcloud') {
     const life = effect.life || 1.1;
     const k = clamp01(1 - remain / life);
@@ -10216,11 +10414,13 @@ function drawEffect(ctx, effect) {
     /* §6: damage numerals are set in the serif at max(9, cell * .62) so they
        stay readable as the board zooms, and rise 14px as they fade. Everything
        else here (gold, venom, the frost bite) keeps the mono it had. */
-    if (effect.serif) ctx.font = `700 ${Math.max(9, Math.round(CELL * .62))}px "Playfair Display", Georgia, serif`;
+    if (effect.rx) ctx.font = `800 ${Math.max(12, Math.round(CELL * .62))}px "DM Mono", monospace`;
+    else if (effect.serif) ctx.font = `700 ${Math.max(9, Math.round(CELL * .62))}px "Playfair Display", Georgia, serif`;
     else ctx.font = `700 ${effect.big ? 14 : 10}px "DM Mono", monospace`;
     ctx.textAlign = 'center';
     const nx = effect.x * CELL, ny = effect.y * CELL - (0.7 - remain) * 14;
-    if (effect.big) {   // crits carry a dark outline so the gold reads over any tile
+    if (effect.rx) { ctx.lineJoin = 'round'; ctx.lineWidth = 4; ctx.strokeStyle = '#06101c'; ctx.strokeText(effect.text, nx, ny); }
+    else if (effect.big) {   // crits carry a dark outline so the gold reads over any tile
       ctx.lineWidth = 3; ctx.strokeStyle = '#2a1c00'; ctx.strokeText(effect.text, nx, ny);
     }
     ctx.fillStyle = effect.color || '#fff';
@@ -15230,6 +15430,11 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    new tag, then collapses and stays collapsed. */
 const RELEASE_TAG = '2026-11-14-elemental';
 const RELEASE_NOTES = [
+  { date:'2026-11-25', title:'Reactions you can see', items:[
+    'Every reaction has its own effect now: ice shards for Shatter, a white cloud for Steam, a fireball for Ignite, a ring of fire for Firestorm, a splitting armour plate for Superconduct, an implosion for Crush, a ground shockwave for Quake, a reticle for Weak Point and Lock-On, rainbow rays for Prism, violet ripples for Resonance and an X-slash for Execute.',
+    'Reaction names float above the health bars with an outline, and two on the same creep stack instead of overlapping.',
+    'Creeps show what has primed them: a coloured pip per element under their feet. A creep under Resonance wears a violet halo; one stripped by Superconduct wears a broken cyan ring.',
+  ] },
   { date:'2026-11-25', title:'Roster Wars: waves, and income you can feel', items:[
     'Roster Wars has neutral waves now, the same ladder as Waves vs rival, alongside your squad.',
     'Every upgrade rank adds income worth 11% of what it cost, the same ratio as a send, and Roster pays the same base income as Waves. A 300g Health rank used to add 3 gold a payout; it adds 33 now. Each card shows what the next rank adds and how long it takes to pay for itself.',

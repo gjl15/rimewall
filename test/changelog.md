@@ -2,6 +2,25 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 25, 2026 — Reaction effects pass, from a GIF audit (Claude)
+
+Gene: "make animated gifs of each interaction against creeps gameplay and audit the effects".
+`tools/harness/reactgif.js` records every reaction in live play (the primer's and trigger's top
+towers beside the west band, a slowed pack walked past them, the board and fx canvases read back
+every other 1/30 s step) and logs the frame each reaction fires on.
+
+What the audit found: every reaction was its name plus the same tinted impact ring, and seven of the
+fifteen were tinted near-white, so they could not be told apart without the text; the name sat on
+the health bars; Ice+Fire printed SHATTER and STEAM on top of each other; area reactions (Steam,
+Quake, Lock-On's splash) showed no area; Prism borrowed the yellow lightning bolt; Resonance,
+Superconduct and Toxic Shock left nothing on the creep; and nothing showed what had primed a creep.
+
+Fixed: a `kind:'rx'` effect drawn by `drawReactionFx` with one signature per reaction (no
+Math.random, so phones agree and nothing strobes); reaction names above the bars with an outline,
+stacking when two land within 0.6 s; element-mark pips under each creep; a violet halo while
+exposed (Resonance) and a broken cyan ring while armour is stripped (Superconduct). allreact,
+teamboard PASS; crowd 90 ms per simulated second, 6.2 ms a frame; four-mode smoke clean.
+
 ## November 25, 2026 — Roster Wars: waves, and income that grows (Claude)
 
 Gene: "I'm not seeing roster income upgrading. There also no waves in the roster mode."
