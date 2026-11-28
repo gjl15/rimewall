@@ -1833,6 +1833,8 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
 .roster-panel button:focus-visible, .roster-panel select:focus-visible { outline:2px solid #9fe8ff; outline-offset:1px; }
 .roster-panel button:disabled { opacity:.48; }
 .roster-slots button { display:grid; gap:2px; align-content:center; min-height:48px; line-height:1.15; padding:6px 3px; }
+.roster-slots .roster-lock { border-style:dashed; color:#ffd28b; }
+.roster-slots .roster-lock small { color:#c9a96a; }
 .roster-slots button strong { font-size:10.5px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .roster-unit > div, .roster-recruit label { display:grid; gap:3px; min-width:0; }
 .roster-unit .roster-sell { color:#ffd28b; flex:none; }
@@ -1845,6 +1847,18 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
 .roster-upgrade b { color:#92dfbd; font-size:11px; }
 body.playing .desktop-send-list.roster-dock-list, body.playing.arena .desktop-send-list.roster-dock-list { display:block; overflow:auto; scroll-snap-type:none; }
 body.mode-roster .econ-btn[data-econ="mult"] { display:none; }
+/* send upgrades */
+.sendup-panel { display:grid; gap:6px; padding:6px 2px; grid-column:1 / -1; width:100%; }
+body.playing.arena .desktop-send-list .sendup-panel { grid-column:1 / -1; }
+.sendup-intro { margin:0 0 2px; color:#a6b5d2; font-size:11.5px; line-height:1.4; }
+.sendup-row { display:grid; grid-template-columns:minmax(0,1fr) 84px 56px; gap:6px; align-items:center; padding:6px 8px; border:1px solid #233150; border-radius:10px; background:#111a30; }
+.sendup-info { display:grid; gap:2px; min-width:0; }
+.sendup-info strong { color:#e8edfb; font-size:13px; } .sendup-info small { color:#9fe8ff; font-weight:600; }
+.sendup-info span { color:#a6b5d2; font-size:11px; line-height:1.3; }
+.sendup-buy { display:grid; justify-items:center; gap:1px; min-height:44px; border:1px solid #354463; border-radius:8px; background:#16233d; color:#ffe49a; cursor:pointer; }
+.sendup-buy small { color:#8e98b7; font-size:9.5px; }
+.sendup-buy:disabled { opacity:.45; }
+.send-dock-tab { font-size:10px; }
 body.mode-roster #send-dock-tabs:empty { display:none; }
 /* THE ELEMENTS CHART (Gene, 2026-11-25: "add the elements chart into the game"). Built from
    ARMOR_RULES and REACTIONS at open time, so it can never drift from the rules. */
@@ -3876,9 +3890,60 @@ const SENDS = [
   { id:'breaker', name:'Wallbreaker', symbol:'🜛', cost:0, income:0, lumber:2, woodIncome:.6, attacker:true, breakPower:3,
     hp:5200, spd:2.2, armor:18, aClass:'siege', shrine:4 },
   { id:'ruiner', name:'Siege Ruiner', symbol:'⛏', cost:0, income:0, lumber:4, woodIncome:1.6, attacker:true, breakPower:8,
-    hp:13500, spd:2.0, armor:24, aClass:'siege', role:'juggernaut', shrine:5 }
+    hp:13500, spd:2.0, armor:24, aClass:'siege', role:'juggernaut', shrine:5 },
+  /* AURA CREEPS (Gene, 2026-11-28: "aura units where we can send things like aura creeps that have
+     certain auras and boost the wave considerably, that are worth lumber and give eco as lumber").
+     Priced in lumber, paying lumber income like the attackers, they walk with the wave and lift every
+     creep within 3 tiles of them: neutral waves, your sends, anyone's sends on that half. */
+  { id:'wardrum', name:'War Drum', symbol:'🥁', cost:0, income:0, lumber:2, woodIncome:.35, aura:'haste', auraPower:.3,
+    hp:1100, spd:2.4, armor:8, aClass:'medium', shrine:2 },
+  { id:'mendingtotem', name:'Mending Totem', symbol:'✚', cost:0, income:0, lumber:3, woodIncome:.55, aura:'heal', auraPower:.025,
+    hp:1900, spd:2.2, armor:10, aClass:'light', shrine:3 },
+  { id:'aegisbanner', name:'Aegis Banner', symbol:'⛨', cost:0, income:0, lumber:4, woodIncome:.8, aura:'shield', auraPower:.3,
+    hp:3000, spd:2.2, armor:12, aClass:'fortified', shrine:4 },
+  { id:'ironstandard', name:'Iron Standard', symbol:'⚑', cost:0, income:0, lumber:4, woodIncome:.8, aura:'armor', auraPower:10,
+    hp:3200, spd:2.1, armor:16, aClass:'heavy', shrine:4 },
+  { id:'battlehymn', name:'Battle Hymn', symbol:'♫', cost:0, income:0, lumber:6, woodIncome:1.4, aura:'hymn', auraPower:1,
+    hp:6500, spd:2.2, armor:14, aClass:'unarmored', shrine:5 }
 ];
+const AURA_INFO = {
+  haste:{ color:'#ffd27a', text:(p) => `+${Math.round(p * 100)}% speed` },
+  heal:{ color:'#8fe6b8', text:(p) => `heals ${(p * 100).toFixed(1)}% HP a second` },
+  shield:{ color:'#77d6ff', text:(p) => `a shield worth ${Math.round(p * 100)}% of HP, once` },
+  armor:{ color:'#c9b6ff', text:(p) => `+${p} armour` },
+  hymn:{ color:'#ff9fd0', text:() => '+15% speed, heals 1.2% a second, +5 armour' },
+};
+function applyAuraSend(creep, send) {
+  creep.auraKind = send.aura; creep.auraPower = send.auraPower;
+  if (send.aura === 'heal') creep.healingAuraRate = send.auraPower;
+  if (send.aura === 'shield') creep.shieldAuraRate = send.auraPower;
+  if (send.aura === 'hymn') creep.healingAuraRate = .012;
+}
 const SHRINE_MAX = 5, LUMBER_PRICE = 500;
+/* LUMBER COSTS WHAT YOUR INCOME IS WORTH (Gene, 2026-11-28: "don't you think we need to address the
+   problem that the gold is too much, like when it gets to 1 million? ... with the lumber, let's
+   increase how much gold is one lumber"). A flat 500 gold made lumber free once a payout was worth
+   tens of thousands, so gold piled up with nothing to become. One lumber now costs two payouts of
+   your income, or 500 gold, whichever is more: the same 500 at the start, about 10,000 at a
+   5,000-gold payout, about 200,000 at a 100,000 payout. Lumber is what the late game spends
+   (Shrine, send upgrades, auras, Roster ranks, Roster slots), so this is where gold goes. */
+const LUMBER_PAYOUTS = 2;
+function lumberPrice(purse = player) {
+  if (!purse) return LUMBER_PRICE;
+  const raw = goldIncomePerCycle(purse.income || 0) * LUMBER_PAYOUTS;
+  if (raw <= LUMBER_PRICE) return LUMBER_PRICE;
+  const mag = Math.pow(10, Math.max(0, Math.floor(Math.log10(raw)) - 1));
+  return Math.ceil(raw / mag) * mag;   // two significant figures, so the number reads cleanly
+}
+// spend lumber, buying whatever is missing at the purse's price; false (and nothing spent) if short
+function lumberGoldNeed(purse, lumber, gold = 0) { return gold + Math.max(0, lumber - (purse.lumber || 0)) * lumberPrice(purse); }
+function payWithLumber(purse, lumber, gold = 0) {
+  const missing = Math.max(0, lumber - (purse.lumber || 0)), need = gold + missing * lumberPrice(purse);
+  if (purse.gold < need) return false;
+  purse.gold -= need; purse.lumber = (purse.lumber || 0) + missing - lumber;
+  purse.lumberSpent = (purse.lumberSpent || 0) + lumber;
+  return true;
+}
 
 /* THE LADDER IS PRICED THE WAY IT ALWAYS WAS, AND THAT WAS THE POINT.
 
@@ -3922,21 +3987,22 @@ SENDS.forEach((send) => {
    permanent-income payback. Attackers use lumber / wood income for the same
    comparison. The three top-level families always carry the same glyph. */
 const SEND_TYPE_META = {
+  aura:{ glyph:'✺', label:'Aura' },
   income:{ glyph:icon('income'), label:'INCOME' },
   flying:{ glyph:icon('flying'), label:'FLYING' },
   attacker:{ glyph:icon('hammer'), label:'ATTACKER' },
 };
-function sendType(send) { return send.attacker ? 'attacker' : (send.air ? 'flying' : 'income'); }
+function sendType(send) { return send.aura ? 'aura' : send.attacker ? 'attacker' : (send.air ? 'flying' : 'income'); }
 function sendTypeMeta(send) { return SEND_TYPE_META[sendType(send)]; }
 function sendGlyph(send) { return sendTypeMeta(send).glyph; }
 function sendTypeLabel(send) { return sendTypeMeta(send).label; }
 function sendRoi(send) {
-  if (send.attacker) return send.woodIncome > 0 ? (send.lumber || 0) / send.woodIncome : Infinity;
+  if (send.attacker || send.aura) return send.woodIncome > 0 ? (send.lumber || 0) / send.woodIncome : Infinity;
   return send.income > 0 ? (send.cost || 0) / send.income : Infinity;
 }
 function sendIncomeRoi(send) {
-  const cost=send.attacker?send.lumber:send.cost;
-  const income=send.attacker?send.woodIncome:send.income;
+  const cost=(send.attacker||send.aura)?send.lumber:send.cost;
+  const income=(send.attacker||send.aura)?send.woodIncome:send.income;
   return cost>0 && income>0 ? income/cost : 0;
 }
 function sendRoiLabel(send) { return `${(100*sendIncomeRoi(send)).toFixed(2)}% / cycle`; }
@@ -4159,10 +4225,52 @@ function sendGrowth() { return 1; }
    had a swarm role since the wave table was written and no send ever carried
    it, because a send spawns exactly once per lane. This is the whole difference:
    a swarm puts `bodies` down each lane instead of one. */
-function spawnSend(send, half, side, attack = null, defenderSeat = null) {
+/* SEND UPGRADES (Gene, 2026-11-28: "it's almost impossible to end the game because the creeps are so
+   weak and the effects are so strong. We need ... a way to upgrade all units like Roster Wars where we
+   can upgrade everything, the health or hit points"). Five upgrades that every send you make carries,
+   Roster units included, bought with lumber and with no top rank. They earn nothing: they are where
+   a late game's gold goes to end the match. A rank's lumber price grows 18% a rank. */
+const SEND_UPGRADES = [
+  { id:'vigor', name:'Vigor', base:1, effect:(r) => .25 * r, label:(v) => `+${Math.round(v * 100)}% HP` },
+  { id:'plating', name:'Plating', base:1, effect:(r) => 2 * r, label:(v) => `+${v} armour` },
+  { id:'haste', name:'Haste', base:2, effect:(r) => .6 * (1 - Math.pow(.88, r)), label:(v) => `+${Math.round(v * 100)}% speed` },
+  { id:'warding', name:'Warding', base:2, effect:(r) => .08 * r, label:(v) => `shield worth ${Math.round(v * 100)}% of HP` },
+  { id:'resolve', name:'Resolve', base:3, effect:(r) => .8 * (1 - Math.pow(.85, r)), label:(v) => `${Math.round(v * 100)}% weaker slows` },
+];
+const SEND_UP_BY_ID = new Map(SEND_UPGRADES.map((u) => [u.id, u]));
+/* 18% more lumber a rank. Measured against a 120-tower maxed and attuned Fire + Ice wall: 16 World Titans
+   need about Vigor 20 / Plating 15 / Haste 10 / Warding 10 with auras to break it, and at 35% a rank that
+   was over a thousand lumber, out of any match's reach. */
+function sendUpCost(u, rank) { return Math.ceil(u.base * Math.pow(1.18, rank)); }   // rank = ranks already owned
+function sendUpRank(purse, id) { return (purse && purse.sendUps && purse.sendUps[id]) || 0; }
+function cleanSendUps(ups) {
+  const out = {};
+  if (ups && typeof ups === 'object') for (const u of SEND_UPGRADES) { const v = Math.round(Number(ups[u.id]) || 0); if (v > 0) out[u.id] = Math.min(999, v); }
+  return out;
+}
+function buySendUpgrade(purse, id, quiet) {
+  const u = SEND_UP_BY_ID.get(id); if (!u || !purse) return false;
+  const rank = sendUpRank(purse, id), cost = sendUpCost(u, rank);
+  if (!payWithLumber(purse, cost)) { if (!quiet) log(`${u.name} rank ${rank + 1} costs ${cost}${LUMBER_ICON} (about ${hudNum(lumberGoldNeed(purse, cost))}g with the lumber you would need to buy).`); return false; }
+  purse.sendUps = purse.sendUps || {}; purse.sendUps[id] = rank + 1;
+  if (!quiet) { log(`${u.name} rank ${rank + 1}: every send now has ${u.label(u.effect(rank + 1))}.`); SFX.play('build'); }
+  return true;
+}
+function applySendUps(creep, ups) {
+  if (!creep || !ups) return;
+  const r = (id) => ups[id] || 0;
+  if (r('vigor')) { const k = 1 + SEND_UP_BY_ID.get('vigor').effect(r('vigor')); creep.maxHp = Math.round(creep.maxHp * k); creep.hp = creep.maxHp; }
+  if (r('plating')) creep.armor = (creep.armor || 0) + SEND_UP_BY_ID.get('plating').effect(r('plating'));
+  if (r('haste')) creep.spd *= 1 + SEND_UP_BY_ID.get('haste').effect(r('haste'));
+  if (r('warding')) { const add = Math.round(creep.maxHp * SEND_UP_BY_ID.get('warding').effect(r('warding'))); creep.shieldMax = (creep.shieldMax || 0) + add; creep.shield = (creep.shield || 0) + add; if (creep.rosterPersonalShield !== undefined) creep.rosterPersonalShield += add; creep.shieldHitAt = simTime; }
+  if (r('resolve')) creep.slowResistance = Math.max(creep.slowResistance || 0, SEND_UP_BY_ID.get('resolve').effect(r('resolve')));
+}
+function spawnSend(send, half, side, attack = null, defenderSeat = null, ups = null) {
   const bodies = Math.max(1, send.bodies || 1);
   for (let i = 0; i < bodies; i += 1) {
     const creep=spawnCreep(sendCreepDef(send), half, side, true);
+    if (ups) applySendUps(creep, ups);
+    if (send.aura) applyAuraSend(creep, send);
     if(attack)creep.aiAttack=attack;
     if(defenderSeat)creep.defenderSeat=defenderSeat;
   }
@@ -4226,22 +4334,25 @@ const CLASSIC_INCOME_PERIOD = 15;
    phone deploys its own roster and the units travel as a 'roster' message, as sends do. */
 const ROSTER_PERIOD = 10;
 const ROSTER_SIZE = 5;
-const ROSTER_MAX_RANK = 10;
+const ROSTER_MAX_RANK = Infinity;   // Gene, 2026-11-28: "have higher ranks than 10, have it go to infinity"
 const ROSTER_WOOD_PER_SLOT = 0.125;
 const ROSTER_AURA_RANGE = 3;
 const START_LUMBER = 2;   // Abdy: human players start every match with 2 lumber
 function rosterPercent(value) { return `${Math.round(value*10000)/100}%`; }
+/* Ranks have no top now, so every effect that would break past 10 levels off instead: speed, slow
+   resistance, regeneration, shield regeneration and the healing aura approach a ceiling; health,
+   armour and shields keep growing. Split stops adding children at four and makes them sturdier. */
 const ROSTER_UPGRADES = [
-  {id:'health', name:'Health', price:300, effect:r=>.15*r, label:v=>`+${rosterPercent(v)} base HP`},
-  {id:'armor', name:'Armor', price:400, effect:r=>2*r, label:v=>`+${v} armor`},
-  {id:'speed', name:'Movement speed', price:450, effect:r=>.08+.04*(r-1), label:v=>`+${rosterPercent(v)} speed`},
-  {id:'slow', name:'Slow resistance', price:500, effect:r=>.25+.05*(r-1), label:v=>`${rosterPercent(v)} weaker movement slows`},
-  {id:'shield', name:'Shield', price:600, effect:r=>.15+.05*(r-1), label:v=>`+${rosterPercent(v)} of max HP as shield`},
-  {id:'regen', name:'Health regeneration', price:700, effect:r=>.01+.0025*(r-1), label:v=>`+${rosterPercent(v)} max HP per second`},
-  {id:'shieldRegen', name:'Shield regeneration', price:800, requires:'shield', effect:r=>.15+.02*(r-1), label:v=>`${rosterPercent(v)} shield per second after 4s without damage`},
-  {id:'healAura', name:'Healing aura', price:1000, effect:r=>.0075+.0015*(r-1), label:v=>`${rosterPercent(v)} allied max HP per second within 3 tiles`},
-  {id:'shieldAura', name:'Shield aura', price:1100, effect:r=>.1+.03*(r-1), label:v=>`${rosterPercent(v)} of each ally’s max HP as shield within 3 tiles, once per mob`},
-  {id:'split', name:'Split on death', price:1500, effect:r=>r, label:v=>`${v} ${v===1?'child shares':'children share'} the parent’s max HP and inherit its personal stats`}
+  {id:'health', name:'Health', base:1, effect:r=>.15*r, label:v=>`+${rosterPercent(v)} base HP`},
+  {id:'armor', name:'Armor', base:1, effect:r=>2*r, label:v=>`+${v} armor`},
+  {id:'speed', name:'Movement speed', base:1, effect:r=>r ? .9*(1-Math.pow(.9,r)) : 0, label:v=>`+${rosterPercent(v)} speed`},
+  {id:'slow', name:'Slow resistance', base:1, effect:r=>r ? .9*(1-Math.pow(.75,r)) : 0, label:v=>`${rosterPercent(v)} weaker movement slows`},
+  {id:'shield', name:'Shield', base:2, effect:r=>r ? .15+.05*(r-1) : 0, label:v=>`+${rosterPercent(v)} of max HP as shield`},
+  {id:'regen', name:'Health regeneration', base:2, effect:r=>r ? .08*(1-Math.pow(.88,r)) : 0, label:v=>`+${rosterPercent(v)} max HP per second`},
+  {id:'shieldRegen', name:'Shield regeneration', base:2, requires:'shield', effect:r=>r ? Math.min(1,.15+.02*(r-1)) : 0, label:v=>`${rosterPercent(v)} shield per second after 4s without damage`},
+  {id:'healAura', name:'Healing aura', base:3, effect:r=>r ? .05*(1-Math.pow(.85,r)) : 0, label:v=>`${rosterPercent(v)} allied max HP per second within 3 tiles`},
+  {id:'shieldAura', name:'Shield aura', base:3, effect:r=>r ? .1+.03*(r-1) : 0, label:v=>`${rosterPercent(v)} of each ally’s max HP as shield within 3 tiles, once per mob`},
+  {id:'split', name:'Split on death', base:4, effect:r=>r, label:v=>`${Math.min(4,v)} ${Math.min(4,v)===1?'child shares':'children share'} ${v>4?`${100+25*(v-4)}% of `:''}the parent’s max HP`}
 ];
 const rosterUpgradeById = new Map(ROSTER_UPGRADES.map(upgrade=>[upgrade.id,upgrade]));
 function rosterSend(id) { return SENDS.find(send=>send.id===id); }
@@ -4269,23 +4380,33 @@ const ROSTER_INCOME_RATE = 0.11;
 function goldIncomePerCycle(income, baseMultiplier = 1) {
   return (BASE_INCOME + incomePayout(income)) * baseMultiplier;
 }
-function rosterRankIncome(upgrade, rank) { return Math.round(rosterUpgradeCost(upgrade, rank) * ROSTER_INCOME_RATE); }
-function rosterRanksIncome(unit) {
-  let sum = 0;
-  for (const upgrade of ROSTER_UPGRADES) for (let r = 1; r <= (unit.ranks[upgrade.id] || 0); r += 1) sum += rosterRankIncome(upgrade, r);
-  return sum;
-}
+function rosterRankIncome(upgrade, rank, purse = player) { return Math.round(rosterUpgradeCost(upgrade, rank) * lumberPrice(purse) * ROSTER_INCOME_RATE); }
+function rosterRanksIncome(unit) { return unit.rankIncome || 0; }   // fixed at the price each rank was bought for
 // what a rank actually adds to the payout right now, after diminishing returns, like a send card
 function rosterRankGain(purse, upgrade, rank) {
-  const add = rosterRankIncome(upgrade, rank);
+  const add = rosterRankIncome(upgrade, rank, purse);
   return incomePayoutExact((purse.income || 0) + add) - incomePayoutExact(purse.income || 0);
 }
-function rosterUpgradeCost(upgrade, rank) { return Math.round(upgrade.price * 1.5**(rank - 1)); }
+/* ROSTER RANKS COST LUMBER (Gene, 2026-11-28: "they want the sends from roster to be upgraded with
+   lumber instead of gold"). base lumber, 25% more a rank, for ever. Each rank still adds gold income
+   worth 11% of what it cost, valued at the lumber price you paid. */
+function rosterUpgradeCost(upgrade, rank) { return Math.ceil(upgrade.base * Math.pow(1.25, rank - 1)); }
+/* ONE SLOT TO START (Gene: "one roster slot available at the start ... 1 million gold, 500,000 lumber
+   to get a second slot, and then increase that for a third, fourth and fifth"). Lumber now costs two
+   income payouts, so 500,000 lumber could never be reached, and any lumber price is really a number of
+   payouts: 10 lumber is about 20 payouts (3-4 minutes of income) at any stage of a match. Slot 2 is
+   1,000,000 gold + 10 lumber; slots 3-5 are 2.5x the gold and twice the lumber of the one before.
+   One table, so it is easy to retune. */
+const ROSTER_SLOT_COSTS = [null, { gold:1e6, lumber:10 }, { gold:2.5e6, lumber:20 }, { gold:6.25e6, lumber:40 }, { gold:1.5625e7, lumber:80 }];
+function rosterUnlocked(purse) { return Math.max(1, Math.min(ROSTER_SIZE, purse.rosterUnlocked || 1)); }
 function rosterRefund(unit) { return Math.floor(unit.goldSpent / 2); }
+function rosterRefundLumber(unit) { return Math.floor((unit.lumberSpent || 0) / 2); }
 function rosterSyncIncome(purse) {
+  // sends are allowed beside the roster now, so the roster's share is added to income, not written over it
   const units = (purse.rosterSlots || []).filter(Boolean);
-  purse.income = units.reduce((sum, unit)=>sum + rosterRanksIncome(unit), 0);
-  purse.woodIncome = units.length * ROSTER_WOOD_PER_SLOT;
+  const inc = units.reduce((sum, unit)=>sum + rosterRanksIncome(unit), 0), wood = units.length * ROSTER_WOOD_PER_SLOT;
+  purse.income = (purse.income || 0) + inc - (purse.rosterIncome || 0); purse.rosterIncome = inc;
+  purse.woodIncome = (purse.woodIncome || 0) + wood - (purse.rosterWood || 0); purse.rosterWood = wood;
   purse.rosterRevision = (purse.rosterRevision || 0) + 1;
 }
 function rosterRecruitPrice(send) {
@@ -4293,7 +4414,14 @@ function rosterRecruitPrice(send) {
 }
 function applyRosterAction(purse, action, args) {
   const reject = message=>({ok:false,message});
-  if (!Number.isInteger(args.slot) || args.slot < 0 || args.slot >= ROSTER_SIZE) return reject('Choose one of your five roster slots.');
+  if (action === 'unlock') {
+    const n = rosterUnlocked(purse), cost = ROSTER_SLOT_COSTS[n];
+    if (!cost) return reject('Every roster slot is open.');
+    if (!payWithLumber(purse, cost.lumber, cost.gold)) return reject(`Slot ${n + 1} costs ${hudNum(cost.gold)}g + ${cost.lumber}${LUMBER_ICON} (about ${hudNum(lumberGoldNeed(purse, cost.lumber, cost.gold))}g in all).`);
+    purse.rosterUnlocked = n + 1; purse.rosterRevision = (purse.rosterRevision || 0) + 1;
+    return {ok:true, message:`Roster slot ${n + 1} opened.`};
+  }
+  if (!Number.isInteger(args.slot) || args.slot < 0 || args.slot >= rosterUnlocked(purse)) return reject('That roster slot is still locked.');
   const slots = purse.rosterSlots ||= Array(ROSTER_SIZE).fill(null);
   const unit = slots[args.slot];
   let message;
@@ -4312,22 +4440,22 @@ function applyRosterAction(purse, action, args) {
     if (!unit || unit.id !== args.unitId) return reject('That roster slot has changed.');
     const send = rosterSend(unit.sendId);
     if (action === 'sell') {
-      const refund = rosterRefund(unit);
-      purse.gold += refund;
+      const refund = rosterRefund(unit), wood = rosterRefundLumber(unit);
+      purse.gold += refund; purse.lumber = (purse.lumber || 0) + wood;
       slots[args.slot] = null;
-      message = `Sold ${send.name} for ${hudNum(refund)}g. The slot’s income ends next payout.`;
+      message = `Sold ${send.name} for ${hudNum(refund)}g${wood ? ` + ${wood}${LUMBER_ICON}` : ''}. The slot’s income ends next payout.`;
     } else if (action === 'upgrade') {
       const upgrade = rosterUpgradeById.get(args.id);
       if (!upgrade) return reject('That roster upgrade is unavailable.');
       const rank = (unit.ranks[upgrade.id] || 0) + 1;
       if (rank > ROSTER_MAX_RANK || rank !== args.rank) return reject('That rank is no longer available.');
       if (upgrade.requires && !unit.ranks[upgrade.requires]) return reject('Buy Shield before Shield regeneration.');
-      const price = rosterUpgradeCost(upgrade, rank);
-      if (purse.gold < price) return reject(`${upgrade.name} Rank ${rank} costs ${hudNum(price)}g.`);
-      purse.gold -= price;
-      unit.goldSpent += price;
+      const price = rosterUpgradeCost(upgrade, rank), inc = rosterRankIncome(upgrade, rank, purse);
+      if (!payWithLumber(purse, price)) return reject(`${upgrade.name} Rank ${rank} costs ${price}${LUMBER_ICON} (about ${hudNum(lumberGoldNeed(purse, price))}g with the lumber to buy).`);
+      unit.lumberSpent = (unit.lumberSpent || 0) + price;
+      unit.rankIncome = (unit.rankIncome || 0) + inc;
       unit.ranks[upgrade.id] = rank;
-      message = `${send.name} gained ${upgrade.name} Rank ${rank}: +${rosterRankIncome(upgrade, rank)} income.`;
+      message = `${send.name} gained ${upgrade.name} Rank ${rank}: +${inc} income.`;
     } else return reject('That roster action is unavailable.');
   }
   rosterSyncIncome(purse);
@@ -4362,14 +4490,19 @@ function applyRosterCombatStats(creep, upgrades) {
 // a ranks object from the wire: only known upgrades, whole ranks 0..10
 function rosterCleanRanks(ranks) {
   const out = {};
-  if (ranks && typeof ranks === 'object') for (const u of ROSTER_UPGRADES) { const v = Math.round(Number(ranks[u.id]) || 0); if (v > 0) out[u.id] = Math.min(ROSTER_MAX_RANK, v); }
+  if (ranks && typeof ranks === 'object') for (const u of ROSTER_UPGRADES) { const v = Math.round(Number(ranks[u.id]) || 0); if (v > 0) out[u.id] = Math.min(999, v); }
   return out;
 }
-function spawnRosterUnits(units, half, lane, defenderSeat) {
+/* BOTH LANES (Gene, 2026-11-28: "the roster sends should come on both sides, not just one side
+   alternating"). A deployment puts the whole squad down both lanes at once, as a send does. */
+function spawnRosterUnits(units, half, lane, defenderSeat, ups = null) {
   for (const unit of units) {
     if (!rosterSend(unit.sendId)) continue;
-    const creep = spawnCreep(rosterCombatStats(unit), half, lane, true);
-    if (defenderSeat) creep.defenderSeat = defenderSeat;
+    for (const side of ['west', 'east']) {
+      const creep = spawnCreep(rosterCombatStats(unit), half, side, true);
+      if (ups) applySendUps(creep, ups);
+      if (defenderSeat) creep.defenderSeat = defenderSeat;
+    }
   }
 }
 /* One deployment from one purse. Solo: straight onto the other half. In a room a person's roster
@@ -4380,11 +4513,11 @@ function deployRoster(purse, fromHalf) {
   if (!units.length) return;
   const targetHalf = fromHalf === PLAYER_HALF ? ENEMY_HALF : PLAYER_HALF, lane = rosterNextLane;
   if (purse === player && matchStats) { units.forEach(u=>logSend(u.sendId)); matchStats.sends += units.length; }
-  if (!mp.active) { spawnRosterUnits(units, targetHalf, lane); return; }
+  if (!mp.active) { spawnRosterUnits(units, targetHalf, lane, null, purse.sendUps); return; }
   if (purse === player) {
     const target = mpSendTarget();
     if (!target) return;
-    const message = {t:'squad', sid:mp.sid, units:units.map(u=>({s:u.sendId, r:u.ranks})), lane, target, sourceSeat:mpMySeatKey(), match:mp.matchId};
+    const message = {t:'squad', sid:mp.sid, units:units.map(u=>({s:u.sendId, r:u.ranks})), lane, target, sourceSeat:mpMySeatKey(), match:mp.matchId, u:purse.sendUps||{}};
     mpSend(message); mpOnMessage(message);
     return;
   }
@@ -4393,9 +4526,9 @@ function deployRoster(purse, fromHalf) {
     .filter(t=>['human','ai'].includes(t.seat.kind) && (mp.seatLives[t.key] ?? 1) > 0);
   if (!targets.length) return;
   const target = targets[(purse.rosterTurn || 0) % targets.length]; purse.rosterTurn = (purse.rosterTurn || 0) + 1;
-  if (target.key === mpMySeatKey() || target.seat.kind === 'ai') { spawnRosterUnits(units, targetHalf, lane, target.key); return; }
+  if (target.key === mpMySeatKey() || target.seat.kind === 'ai') { spawnRosterUnits(units, targetHalf, lane, target.key, purse.sendUps); return; }
   const source = rosterSeats(fromHalf)[purse === enemy ? 0 : purse.seat];
-  mpSend({t:'squad', sid:mp.sid, units:units.map(u=>({s:u.sendId, r:u.ranks})), lane, target:target.key, sourceSeat:mpSeatKey(rosterHalfFor(fromHalf), source?.index ?? 0), match:mp.matchId});
+  mpSend({t:'squad', sid:mp.sid, units:units.map(u=>({s:u.sendId, r:u.ranks})), lane, target:target.key, sourceSeat:mpSeatKey(rosterHalfFor(fromHalf), source?.index ?? 0), match:mp.matchId, u:purse.sendUps||{}});
 }
 function deployRosters() {
   deployRoster(player, PLAYER_HALF);
@@ -4405,16 +4538,21 @@ function deployRosters() {
 }
 function rosterHealingPaused(creep, now = simTime) { return creep.frostUntil > now || creep.stunUntil > now || creep.frozenUntil > now; }
 function applyRosterAuras(dt) {
-  const sources = creeps.filter(c=>c.hp > 0 && (c.healingAuraRate || c.shieldAuraRate));
+  const sources = creeps.filter(c=>c.hp > 0 && (c.healingAuraRate || c.shieldAuraRate || c.auraKind));
   if (!sources.length) return;
   for (const creep of creeps) {
-    if (creep.hp <= 0 || (creep.hp >= creep.maxHp && creep.rosterAuraShieldGiven)) continue;
-    let healing = 0, shielding = 0;
+    if (creep.hp <= 0) continue;
+    let healing = 0, shielding = 0, haste = 0, armor = 0;
     for (const source of sources) {
       if (source === creep || source.half !== creep.half || Math.hypot(creep.x - source.x,creep.y - source.y) > ROSTER_AURA_RANGE) continue;
       if (!rosterHealingPaused(source)) healing = Math.max(healing,source.healingAuraRate || 0);
       if (!creep.rosterAuraShieldGiven) shielding = Math.max(shielding,source.shieldAuraRate || 0);
+      if (source.auraKind === 'haste') haste = Math.max(haste, source.auraPower);
+      if (source.auraKind === 'armor') armor = Math.max(armor, source.auraPower);
+      if (source.auraKind === 'hymn') { haste = Math.max(haste, .15); armor = Math.max(armor, 5); }
     }
+    if (haste) { creep.auraHaste = haste; creep.auraHasteUntil = simTime + .3; }
+    if (armor) { creep.auraArmor = armor; creep.auraArmorUntil = simTime + .3; }
     if (healing) creep.hp = Math.min(creep.maxHp,creep.hp + creep.maxHp * healing * dt);
     if (shielding) {
       const amount = Math.max(1,Math.round(creep.maxHp * shielding));
@@ -4431,9 +4569,9 @@ function trackRosterShieldDamage(creep, absorbed) {
   creep.shieldMax = (creep.rosterPersonalShield || 0) + creep.rosterAuraShield;
 }
 function splitRosterCreep(parent) {
-  const count = parent.splitCount;
+  const count = Math.min(4, parent.splitCount);
   const group = parent.rosterSplitGroup || {leaked:false};
-  const hp = parent.maxHp / count;
+  const hp = parent.maxHp * (1 + .25 * Math.max(0, parent.splitCount - 4)) / count;
   const shield = parent.rosterPersonalShield || 0;
   const type = {name:parent.name,role:parent.role,hp:parent.maxHp,spd:parent.spd,armor:parent.armor,
     aClass:parent.aClass,air:parent.air,boss:parent.boss,attacker:parent.attacker,breakPower:parent.breakPower};
@@ -4445,15 +4583,29 @@ function splitRosterCreep(parent) {
       healAura:false,defenderSeat:parent.defenderSeat,rosterSplitGroup:group,isRosterSplit:true,bounty:0});
   }
 }
+/* A computer late in a match turns spare gold into send upgrades, so its pressure keeps up with the
+   walls it faces: from wave 12 (or 7 minutes in Classic), every 15 s (8 s after 20 minutes), the cheapest
+   rank it can pay for out of its pressure fund, lumber bought as needed. */
+function aiBuySendUpgrades(ai) {
+  if ((hasNeutralWaves() ? wave < 12 : simTime < 420) || simTime < (ai.sendUpAt || 0)) return;
+  ai.sendUpAt = simTime + (simTime > 1200 ? 8 : 15);   // twice as keen after 20 minutes
+  const pick = SEND_UPGRADES.map((u) => ({ u, need:lumberGoldNeed(ai, sendUpCost(u, sendUpRank(ai, u.id))) })).sort((a, b) => a.need - b.need)[0];
+  if (!pick || aiBudget(ai, 'pressure') < pick.need) return;
+  const before = ai.gold;
+  if (buySendUpgrade(ai, pick.u.id, true)) { const spent = before - ai.gold; ai.pressureGold = (ai.pressureGold || 0) - spent; ai.goldSpent = (ai.goldSpent || 0) + spent; ai.budgetGold = ai.gold; }
+}
 function updateRosterComputer(ai,half) {
   const funds = aiBudget(ai,'economy') + aiBudget(ai,'pressure');
   const slots = ai.rosterSlots || Array(ROSTER_SIZE).fill(null);
   const defenders = aiVisibleDefenders(half);
-  const weakest = slots.map((unit,slot)=>({unit,slot,score:unit ? aiPressureScore(ai,rosterCombatStats(unit),defenders) : 0}))
+  const weakest = slots.slice(0, rosterUnlocked(ai)).map((unit,slot)=>({unit,slot,score:unit ? aiPressureScore(ai,rosterCombatStats(unit),defenders) : 0}))
     .sort((a,b)=>a.score-b.score)[0];
   const ranked = SENDS.filter(send=>!send.attacker && send.shrine <= ai.shrine && send.cost <= funds && (send.lumber || 0) <= (ai.lumber || 0))
     .map(send=>({send,score:aiPressureScore(ai,{...send,bodies:1},defenders)})).sort((a,b)=>b.score-a.score);
   const candidate = ranked.find(({send,score})=>!weakest.unit || (send.id !== weakest.unit.sendId && score > weakest.score * 1.75));
+  if (ROSTER_SLOT_COSTS[rosterUnlocked(ai)] && funds > lumberGoldNeed(ai, ROSTER_SLOT_COSTS[rosterUnlocked(ai)].lumber, ROSTER_SLOT_COSTS[rosterUnlocked(ai)].gold) * 1.2) {
+    const before = ai.gold; if (applyRosterAction(ai, 'unlock', {}).ok) { const spent = before - ai.gold; ai.pressureGold = (ai.pressureGold || 0) - spent; ai.goldSpent = (ai.goldSpent || 0) + spent; ai.budgetGold = ai.gold; }
+  }
   const buy = (action,args)=>{
     const before = ai.gold;
     const result = applyRosterAction(ai,action,args);
@@ -4473,21 +4625,28 @@ function updateRosterComputer(ai,half) {
     buy('recruit',{slot:weakest.slot,id:candidate.send.id});
     return;
   }
-  const options = slots.flatMap((unit,slot)=>unit ? ROSTER_UPGRADES.flatMap((upgrade)=>{
+  const options = slots.flatMap((unit,slot)=>unit && slot < rosterUnlocked(ai) ? ROSTER_UPGRADES.flatMap((upgrade)=>{
     const rank = (unit.ranks[upgrade.id] || 0) + 1;
-    if (rank > ROSTER_MAX_RANK || (upgrade.requires && !unit.ranks[upgrade.requires])) return [];
-    return [{id:upgrade.id, rank, unitId:unit.id, slot, cost:rosterUpgradeCost(upgrade,rank)}];
+    if (upgrade.requires && !unit.ranks[upgrade.requires]) return [];
+    return [{id:upgrade.id, rank, unitId:unit.id, slot, cost:lumberGoldNeed(ai, rosterUpgradeCost(upgrade,rank))}];
   }) : []).filter(option=>option.cost <= funds).sort((a,b)=>a.rank-b.rank || a.cost-b.cost);
   if (options.length) buy('upgrade',options[0]);
 }
 // ---- the panel (Abdy's) ----
 function rosterPanelKey() {
-  return [player.rosterRevision || 0, rosterSelectedSlot, rosterRecruitId, player.shrine, battleRunning, matchOver].join(':');
+  return [player.rosterRevision || 0, rosterSelectedSlot, rosterRecruitId, player.shrine, battleRunning, matchOver, lumberPrice(), player.lumber, Math.floor(player.income || 0)].join(':');
 }
 function rosterPanelMarkup() {
   const slots = player.rosterSlots || Array(ROSTER_SIZE).fill(null);
+  const open = rosterUnlocked(player);
+  if (rosterSelectedSlot >= open) rosterSelectedSlot = 0;
   const unit = slots[rosterSelectedSlot];
   const buttons = slots.map((mob,slot)=>{
+    if (slot >= open) {
+      const cost = ROSTER_SLOT_COSTS[slot];
+      if (slot === open) return `<button type="button" class="roster-lock" data-roster-unlock="1" data-roster-gold="${lumberGoldNeed(player, cost.lumber, cost.gold)}" aria-label="Open slot ${slot+1} for ${hudNum(cost.gold)} gold and ${cost.lumber} lumber"><small>🔒 Slot ${slot+1}</small><strong>${hudNum(cost.gold)}g+${cost.lumber}${LUMBER_ICON}</strong></button>`;
+      return `<button type="button" class="roster-lock" disabled aria-label="Slot ${slot+1} is locked"><small>🔒 Slot ${slot+1}</small><strong>locked</strong></button>`;
+    }
     const name = mob ? rosterSend(mob.sendId).name : 'Empty';
     return `<button type="button" data-roster-slot="${slot}" aria-pressed="${slot===rosterSelectedSlot}" aria-label="Slot ${slot+1}, ${name}"><small>Slot ${slot+1}</small><strong>${name}</strong></button>`;
   }).join('');
@@ -4499,28 +4658,27 @@ function rosterPanelMarkup() {
     const cards = ROSTER_UPGRADES.map(upgrade=>{
       const current = unit.ranks[upgrade.id] || 0;
       const rank = current + 1;
-      const title = `<strong>${upgrade.name}</strong><span>Rank ${current}/${ROSTER_MAX_RANK}</span>`;
-      if (rank > ROSTER_MAX_RANK) return `<div class="roster-upgrade">${title}<small>${upgrade.label(upgrade.effect(current))}</small><b>Max rank</b></div>`;
-      const price = rosterUpgradeCost(upgrade,rank);
+      const title = `<strong>${upgrade.name}</strong><span>Rank ${current}</span>`;
+      const price = rosterUpgradeCost(upgrade,rank), need = lumberGoldNeed(player, price);
       const gain = rosterRankGain(player, upgrade, rank);
-      const ticks = Math.ceil(price/Math.max(.1, gain));
+      const ticks = Math.ceil(price * lumberPrice() / Math.max(.1, gain));
       const minutes = Math.floor(ticks*ROSTER_PERIOD/60);
       const seconds = String(ticks*ROSTER_PERIOD%60).padStart(2,'0');
       const needsShield = upgrade.requires && !unit.ranks[upgrade.requires];
-      return `<button type="button" class="roster-upgrade" data-roster-upgrade="${upgrade.id}" data-roster-rank="${rank}" data-roster-unit="${unit.id}" data-roster-gold="${price}" ${needsShield?'data-roster-unavailable disabled':''}>
-        ${title}<small>${needsShield?'Requires Shield':upgrade.label(upgrade.effect(rank))}</small><b>${hudNum(price)}g · +${incomeGainText(gain)}g / 10s</b><small>${minutes}:${seconds} payback</small></button>`;
+      return `<button type="button" class="roster-upgrade" data-roster-upgrade="${upgrade.id}" data-roster-rank="${rank}" data-roster-unit="${unit.id}" data-roster-gold="${need}" ${needsShield?'data-roster-unavailable disabled':''}>
+        ${title}<small>${needsShield?'Requires Shield':upgrade.label(upgrade.effect(rank))}</small><b>${price}${LUMBER_ICON} · +${incomeGainText(gain)}g / 10s</b><small>${(player.lumber || 0) >= price ? 'from your lumber' : '≈' + hudNum(need) + 'g with lumber'} · ${minutes}:${seconds} payback</small></button>`;
     }).join('');
     body = `<div class="roster-unit"><div><strong>${stats.name}</strong><small>${hudNum(hp)} HP · ${stats.armor + (stats.attacker ? 0 : TRAIT.armorBonus)} armor · ${stats.aClass} · ${stats.spd.toFixed(2)} speed · +${income}g / 10s</small></div>
-      <button type="button" class="roster-sell" data-roster-sell="${unit.id}" data-roster-gold="0" title="Selling removes this mob’s income and frees the slot">Sell +${hudNum(rosterRefund(unit))}g</button></div><div class="roster-upgrades">${cards}</div>`;
+      <button type="button" class="roster-sell" data-roster-sell="${unit.id}" data-roster-gold="0" title="Selling removes this mob’s income and frees the slot">Sell +${hudNum(rosterRefund(unit))}g${rosterRefundLumber(unit) ? ` +${rosterRefundLumber(unit)}${LUMBER_ICON}` : ''}</button></div><div class="roster-upgrades">${cards}</div>`;
   } else {
     const available = SENDS.filter(send=>send.shrine <= player.shrine);
     const send = available.find(send=>send.id === rosterRecruitId) || available[0];
     const options = available.map(mob=>`<option value="${mob.id}" ${mob===send?'selected':''}>${mob.name} · ${rosterRecruitPrice(mob)}</option>`).join('');
     body = `<div class="roster-recruit"><label>Recruit into slot ${rosterSelectedSlot+1}<select data-roster-pick>${options}</select></label>
       <button type="button" data-roster-recruit="${send.id}" data-roster-gold="${send.cost}" data-roster-wood="${send.lumber || 0}">Recruit</button></div>
-      <p class="roster-hint">A recruit deploys at the rival every ${ROSTER_PERIOD}s, on alternating lanes, for as long as it stays in the slot. Each one also yields 0.125 lumber a payout; upgrades add gold income.</p>`;
+      <p class="roster-hint">A recruit deploys at the rival every ${ROSTER_PERIOD}s, down both lanes, for as long as it stays in the slot. Each one also yields 0.125 lumber a payout. Its upgrades cost lumber, have no top rank and each adds gold income. Your send upgrades apply to it too.</p>`;
   }
-  return `<div class="roster-panel"><div class="roster-head"><strong>Roster</strong><small>${slots.filter(Boolean).length}/${ROSTER_SIZE} slots · deploys every ${ROSTER_PERIOD}s · next in ${Math.max(0, Math.ceil(incomeClock))}s</small></div><div class="roster-slots">${buttons}</div>${body}</div>`;
+  return `<div class="roster-panel"><div class="roster-head"><strong>Roster</strong><small>${slots.filter(Boolean).length}/${rosterUnlocked(player)} slots · deploys every ${ROSTER_PERIOD}s · next in ${Math.max(0, Math.ceil(incomeClock))}s</small></div><div class="roster-slots">${buttons}</div>${body}</div>`;
 }
 function refreshRosterButtons(root) {
   root.querySelectorAll('[data-roster-gold]').forEach(button=>{
@@ -4536,7 +4694,8 @@ function wireRosterPanel(root, render) {
     const button = event.target.closest('button');
     if (!button || button.disabled) return;
     const data = button.dataset;
-    if (data.rosterSlot !== undefined) { rosterSelectedSlot = Number(data.rosterSlot); tacticalDockKey = ''; sheetKey = ''; render(); }
+    if (data.rosterUnlock) { if (rosterCommand('unlock',{})) { rosterSelectedSlot = rosterUnlocked(player) - 1; render(); } }
+    else if (data.rosterSlot !== undefined) { rosterSelectedSlot = Number(data.rosterSlot); tacticalDockKey = ''; sheetKey = ''; render(); }
     else if (data.rosterRecruit) rosterCommand('recruit',{slot:rosterSelectedSlot,id:data.rosterRecruit});
     else if (data.rosterUpgrade) rosterCommand('upgrade',{slot:rosterSelectedSlot,unitId:Number(data.rosterUnit),id:data.rosterUpgrade,rank:Number(data.rosterRank)});
     else if (data.rosterSell) rosterCommand('sell',{slot:rosterSelectedSlot,unitId:Number(data.rosterSell)});
@@ -4563,7 +4722,7 @@ function renderRosterPanel(root) {
     root.scrollTop = scroll;
   }
   const head = root.querySelector('.roster-head small');
-  if (head) head.textContent = `${(player.rosterSlots || []).filter(Boolean).length}/${ROSTER_SIZE} slots · deploys every ${ROSTER_PERIOD}s · next in ${Math.max(0, Math.ceil(incomeClock))}s`;
+  if (head) head.textContent = `${(player.rosterSlots || []).filter(Boolean).length}/${rosterUnlocked(player)} slots · deploys every ${ROSTER_PERIOD}s · next in ${Math.max(0, Math.ceil(incomeClock))}s`;
   refreshRosterButtons(root);
 }
 function currentIncomePeriod() { return isRosterWars() ? ROSTER_PERIOD : matchMode === 'classic' ? CLASSIC_INCOME_PERIOD : INCOME_PERIOD; }
@@ -4846,7 +5005,7 @@ function resetMatchState() {
   matchMode = selectedMatchMode();
   rosterNextLane = 'west'; rosterSelectedSlot = 0; rosterRecruitId = '';
   document.body.classList.toggle('mode-roster', matchMode === 'roster');
-  document.querySelectorAll('[data-mobile-panel="sends"] small').forEach(l => { l.textContent = matchMode === 'roster' ? 'ROSTER' : 'SENDS'; });
+  desktopSendTab = matchMode === 'roster' ? 'roster' : 'sends';
   const lives = startingLives();
   // the seat you took in the lobby decides your lane colour and home ground
   const mySeats = seatsOn(PLAYER_HALF), mySeat = humanSeatIndex();
@@ -5466,7 +5625,7 @@ function moveAlong(creep, node, dt) {
   if (creep.windSlows) {
     for (const slow of creep.windSlows) if (slow.until > simTime) windPct = Math.max(windPct,slow.pct);
   }
-  const speed = creep.spd * (1 - Math.min(92, Math.max(frostPct, otherPct, windPct)) / 100 * (1 - (creep.slowResistance || 0)));
+  const speed = creep.spd * (1 + ((creep.auraHasteUntil || 0) > simTime ? creep.auraHaste : 0)) * (1 - Math.min(92, Math.max(frostPct, otherPct, windPct)) / 100 * (1 - (creep.slowResistance || 0)));
   const tx = node.c + .5, ty = node.r + .5;
   const dx = tx - creep.x, dy = ty - creep.y;
   const dist = Math.hypot(dx, dy) || 1;
@@ -5638,7 +5797,7 @@ function applyDamage(creep, amount, tower, isDot = false, opts) {
       const pierce = (stats.armorPierce || 0) + (painter && painter.painterMode !== 'focus' ? 6 : 0) + (tower.raceId === 'gravity' ? TRAIT.gravArmorPierce : 0);
       const bulwarkShred = (creep.bulwarkArmorShredUntil || 0) > simTime ? (creep.bulwarkArmorShredPct || 0) : 0;
       const maceShred = (creep.maceArmorShredUntil || 0) > simTime ? (creep.maceArmorShred || 0) : 0;
-      const effectiveArmor = Math.max(0, creep.armor * (1 - bulwarkShred) - (creep.armorShred || 0) - maceShred - pierce);
+      const effectiveArmor = Math.max(0, (creep.armor + ((creep.auraArmorUntil || 0) > simTime ? creep.auraArmor : 0)) * (1 - bulwarkShred) - (creep.armorShred || 0) - maceShred - pierce);
       dmg *= 1 - armorReduction(effectiveArmor);
     }
     /* WHY THE COMPLAINT WAS ALWAYS "IT DOES NO DAMAGE".
@@ -7554,28 +7713,28 @@ function aiOwnsTower(ai,half,t) {
 function aiDeliverSend(ai,half,send) {
   const targetHalf=half===PLAYER_HALF?ENEMY_HALF:PLAYER_HALF;
   const attack={ai,send};
-  if(!mp.active){spawnSend(send,targetHalf,'west',attack);spawnSend(send,targetHalf,'east',attack);return;}
+  if(!mp.active){spawnSend(send,targetHalf,'west',attack,null,ai.sendUps);spawnSend(send,targetHalf,'east',attack,null,ai.sendUps);return;}
   const team=half===PLAYER_HALF?mpFoeHalf():mp.team;
   const targets=mpSeatsInPlay(team).map((seat,i)=>({seat,key:mpSeatKey(team,seat.index)}))
     .filter(t=>['human','ai'].includes(t.seat.kind) && (mp.seatLives[t.key] ?? 1)>0);
   if(!targets.length)return;
   const target=targets[(ai.targetTurn || 0)%targets.length];ai.targetTurn=(ai.targetTurn || 0)+1;
   if(target.key===mpMySeatKey() || target.seat.kind==='ai'){
-    spawnSend(send,targetHalf,'west',attack,target.key);spawnSend(send,targetHalf,'east',attack,target.key);
+    spawnSend(send,targetHalf,'west',attack,target.key,ai.sendUps);spawnSend(send,targetHalf,'east',attack,target.key,ai.sendUps);
   } else {
     const id=mp.sid+':'+(++aiAttackSerial);
     for(const [key,pending] of aiRemoteAttacks)if(simTime-pending.at>600)aiRemoteAttacks.delete(key);
     if(aiRemoteAttacks.size>=256)aiRemoteAttacks.delete(aiRemoteAttacks.keys().next().value);
     aiRemoteAttacks.set(id,{ai,send,sid:target.seat.sid,seen:new Set(),expected:2*(send.bodies || 1),at:simTime});
     const source=rosterSeats(half)[ai===enemy?0:ai.seat];
-    mpSend({t:'send',sid:mp.sid,id:send.id,target:target.key,sourceSeat:mpSeatKey(rosterHalfFor(half),source?.index ?? 0),match:mp.matchId,aiAttack:id});
+    mpSend({t:'send',sid:mp.sid,id:send.id,target:target.key,sourceSeat:mpSeatKey(rosterHalfFor(half),source?.index ?? 0),match:mp.matchId,aiAttack:id,u:ai.sendUps||{}});
   }
 }
 function aiBuySend(ai,half,send,fund) {
   if(send && send.attacker)return false;   // computers never send siege attackers
   if(!send || send.shrine>ai.shrine)return false;
   const wood=send.lumber || 0,missingWood=Math.max(0,wood-(ai.lumber || 0));
-  const cost=(send.cost || 0)+missingWood*LUMBER_PRICE;
+  const cost=(send.cost || 0)+missingWood*lumberPrice(ai);
   if(!aiSpend(ai,cost,fund))return false;
   ai.lumber=(ai.lumber || 0)+missingWood-wood;ai.income+=send.income || 0;
   ai.woodIncome=(ai.woodIncome || 0)+(send.woodIncome || 0);
@@ -7591,7 +7750,7 @@ function aiBuySend(ai,half,send,fund) {
 function aiAdvanceShrine(ai) {
   if(ai.shrine>=(ai.attackPlan || aiAttackPlan(ai)).shrine)return;
   if((ai.lumber || 0)<1){
-    if(!aiSpend(ai,LUMBER_PRICE,'pressure'))return;
+    if(!aiSpend(ai,lumberPrice(ai),'pressure'))return;
     ai.lumber=(ai.lumber || 0)+1;
   }
   ai.lumber--;ai.shrine++;
@@ -7636,7 +7795,7 @@ function aiPressureScore(ai,send,defenders) {
   return score;
 }
 function aiBurstCost(ai,send,packs) {
-  return (send.cost || 0)*packs+Math.max(0,(send.lumber || 0)*packs-(ai.lumber || 0))*LUMBER_PRICE;
+  return (send.cost || 0)*packs+Math.max(0,(send.lumber || 0)*packs-(ai.lumber || 0))*lumberPrice(ai);
 }
 function aiSendPressure(ai,half) {
   const plan=ai.attackPlan || aiAttackPlan(ai,half);
@@ -7653,7 +7812,9 @@ function aiSendPressure(ai,half) {
        five is a wall nobody can keep. One in six turns, one body a lane, and at
        least 45 s between attacker purchases per computer. */
     const attackerTurn=false;   // computers never buy attackers (2026-11-25)
-    const family=(turn===1 || turn===3)?'flying':attackerTurn?'attacker':'income';
+    // the turn that used to buy an attacker buys an aura creep, at most one each 30 s (2026-11-28)
+    const auraTurn=turn===5 && ai.shrine>=2 && simTime-(ai.lastAuraAt ?? -1e9)>=30;
+    const family=(turn===1 || turn===3)?'flying':auraTurn?'aura':attackerTurn?'attacker':'income';
     const choices=pool.filter(s=>((plan.blocked || plan.finish) && family!=='attacker'?!s.attacker:sendType(s)===family)
       && (!plan.blocked || s.attacker || s.air || s.hp>=200));
     if(!choices.length)break;
@@ -7663,7 +7824,7 @@ function aiSendPressure(ai,half) {
     const candidates=attainable.length?attainable:choices.slice().sort((a,b)=>aiBurstCost(ai,a,plan.burst)-aiBurstCost(ai,b,plan.burst)).slice(0,1);
     candidates.sort((a,b)=>aiPressureScore(ai,b,defenders)-aiPressureScore(ai,a,defenders));
     const pick=candidates[0];
-    const packs=pick.attacker?1:plan.burst;
+    const packs=(pick.attacker||pick.aura)?1:plan.burst;
     const cost=aiBurstCost(ai,pick,packs);
     if(!ai.preparingAttack)ai.preparingSince=simTime;   // the clock runs from the first save, whatever it later picks
     ai.preparingAttack={id:pick.id,packs,cost,shrine:pick.shrine};
@@ -7686,6 +7847,7 @@ function aiSendPressure(ai,half) {
     }
     for(let n=0;n<packs;n++)if(!aiBuySend(ai,half,pick,'pressure'))return;
     if(pick.attacker)ai.lastAttackerAt=simTime;
+    if(pick.aura)ai.lastAuraAt=simTime;
     ai.preparingAttack=null;remaining-=plan.burst;
     ai.pressureTurn=(ai.pressureTurn || 0)+1;
   }
@@ -7752,8 +7914,8 @@ function aiUpgradeTower(ai,half,maxTier) {
   const rank=mine.filter(canLevel).sort((a,b)=>towerTotalRank(a)-towerTotalRank(b))[0];
   if(rank){
     const cost=towerRankCost(rank),missing=Math.max(0,cost.lumber-(ai.lumber || 0));
-    if(aiBudget(ai)>=cost.gold+missing*LUMBER_PRICE){
-      if(missing){aiSpend(ai,missing*LUMBER_PRICE);ai.lumber=(ai.lumber || 0)+missing;}
+    if(aiBudget(ai)>=cost.gold+missing*lumberPrice(ai)){
+      if(missing){aiSpend(ai,missing*lumberPrice(ai));ai.lumber=(ai.lumber || 0)+missing;}
       if(boostTowerRank(rank,ai)){ai.budgetGold=ai.gold;ai.goldSpent=(ai.goldSpent || 0)+cost.gold;towersVersion++;return true;}
     }
   }
@@ -7768,10 +7930,12 @@ function updateComputer(ai,half,dt) {
   aiAdvanceShrine(ai);
   // sends start at 10s / wave 1 (was 20s / wave 2) and come 40% more often: 7s/5s in
   // Classic, 12s/8s in wave mode (was 12/8 and 20/12)
+  if (matchMode !== 'survival') aiBuySendUpgrades(ai);
   if (isRosterWars() && ai.sendClock <= 0) {
     ai.sendClock = 5;
     updateRosterComputer(ai,half);
-  } else if(!isRosterWars() && (matchMode==='classic'?simTime>10:wave>=1) && ai.sendClock<=0){
+  }
+  if((matchMode==='classic'?simTime>10:wave>=1) && ai.sendClock<=0){
     const plan=ai.attackPlan;
     ai.sendClock=(matchMode==='classic'?(plan.mode==='pressure'?7:5):(plan.mode==='pressure'?12:8))+(ai.seat || 0)*.4;
     aiSendPressure(ai,half);aiSendEconomy(ai,half);
@@ -8490,7 +8654,7 @@ function simulate(dt) {
     if (pendingSpawns[i].at <= simTime && creeps.length < 280) { const s = pendingSpawns.splice(i, 1)[0]; spawningWaveIdx = s.waveIdx; spawnCreep(s.waveDef, s.half, s.side, false); spawningWaveIdx = null; }   // defer (don't drop) spawns when the board is saturated — endless perf floor
   }
   buildCreepGrid();   // for the shove between walkers (positions as of the start of the tick)
-  if (isRosterWars()) applyRosterAuras(dt);
+  applyRosterAuras(dt);
   creeps.forEach((creep) => updateCreep(creep, dt));
   for (let i = creeps.length - 1; i >= 0; i -= 1) if (creeps[i].hp <= 0) creeps.splice(i, 1);
   buildCreepGrid();   // for targeting, where the creeps now stand
@@ -10065,6 +10229,16 @@ function drawCreep(ctx, creep) {
     }
     ctx.globalAlpha = 1;
   }
+  if (creep.auraKind) {   // an aura creep: its reach, faintly, in its colour
+    const col = (AURA_INFO[creep.auraKind] || {}).color || '#ffffff';
+    const ph = reduced ? .5 : (Math.sin(simTime * 3 + creep.id) + 1) / 2;
+    ctx.strokeStyle = col; ctx.globalAlpha = .18 + .14 * ph; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(0, 0, ROSTER_AURA_RANGE * CELL, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = .7; ctx.beginPath(); ctx.arc(0, 0, size + 4, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
+  } else if ((creep.auraHasteUntil || 0) > simTime || (creep.auraArmorUntil || 0) > simTime) {   // lifted by one
+    ctx.fillStyle = (creep.auraArmorUntil || 0) > simTime ? '#c9b6ff' : '#ffd27a'; ctx.globalAlpha = .8;
+    ctx.beginPath(); ctx.arc(-size, -size, 2, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+  }
   if (creep.exposedUntil > simTime) {   // RESONANCE: a ringing violet halo while it takes more damage
     const ph = reduced ? .5 : (Math.sin(simTime * 9 + creep.id) + 1) / 2;
     ctx.strokeStyle = '#d6b0ff'; ctx.globalAlpha = .45 + .4 * ph; ctx.lineWidth = 1.6;
@@ -11298,8 +11472,7 @@ function railBody(tab) {
     }).join('');
   }
   if (tab === 'send') {
-    if (isRosterWars()) return rosterPanelMarkup();
-    return `<div class="rl-head">SEND — shrine level, then ROI</div>` + orderedSends().map((s) => {
+    if (isRosterWars()) return rosterPanelMarkup() + `<div class="rl-head">SEND — shrine level, then ROI</div>` + orderedSends().map((s) => {
       const inc = sendIncomeLabel(s);
       const gain = s.attacker ? `+${s.woodIncome || 0} lumber/cycle` : `${inc.text} income`;
       return card(`data-rail-send="${s.id}"`, '#ff8a9a', `${sendGlyph(s)} ${s.name}`,
@@ -11333,7 +11506,7 @@ function railBody(tab) {
     + card('data-rail-tool="routes"', '#8fe6b8', '🧭 Routes', debug.routes ? 'showing' : 'hidden', '', debug.routes, false)
     + card('data-rail-tool="box"', '#bcd2ff', '▭ Box select', selectMode === 'box' ? 'armed' : '', '', selectMode === 'box', false)
     + card('data-rail-tool="lasso"', '#bcd2ff', '➰ Lasso', selectMode === 'lasso' ? 'armed' : '', '', selectMode === 'lasso', false)
-    + card('data-rail-tool="lumber"', '#c9a06a', '' + LUMBER_ICON + ' Lumber', `you have ${player.lumber}`, `${LUMBER_PRICE}g`, false, player.gold < LUMBER_PRICE)
+    + card('data-rail-tool="lumber"', '#c9a06a', '' + LUMBER_ICON + ' Lumber', `you have ${player.lumber}`, `${hudNum(lumberPrice())}g`, false, player.gold < lumberPrice())
     /* THE SECOND ELEMENT WAS DESKTOP-ONLY. Licensing lives in the side panel,
        which the arena hides — so on a phone there was no way to buy one at all,
        and no way to find out that you could. */
@@ -11348,14 +11521,7 @@ function railBody(tab) {
 function renderQuickSend() {
   const bar = $('quick-send');
   if (!bar || !player) return;
-  if (isRosterWars()) {
-    if (quickSendKey !== 'roster') {
-      bar.innerHTML = '<button type="button" class="qs-chip">Roster</button>';
-      bar.querySelector('button')?.addEventListener('click',()=>openCommandSheet('sends'));
-      quickSendKey = 'roster';
-    }
-    return;
-  }
+
   const usable = orderedSends(SENDS.filter((send) => player.shrine >= send.shrine));
   // income is in the key: the tooltips quote a live payout gain, so they go stale without it
   const key = usable.map((send) => `${send.id}${sendAffordable(send) ? 1 : 0}`).join(',') + '|' + player.income + '|' + player.lumber;
@@ -11506,7 +11672,7 @@ function renderHud() {
   if (playerCountLabel) playerCountLabel.textContent = `${seatsOn(PLAYER_HALF)}/${seatsOn(PLAYER_HALF) + seatsOn(ENEMY_HALF)}`;
   // keep economy buttons in step with live gold/lumber
   const buyLumber = $('buy-lumber');
-  if (buyLumber) { buyLumber.disabled = player.gold < LUMBER_PRICE; buyLumber.textContent = `Buy 1 lumber — ${LUMBER_PRICE}g (you have ${player.lumber}${LUMBER_ICON})`; }
+  if (buyLumber) { buyLumber.disabled = player.gold < lumberPrice(); buyLumber.textContent = `Buy 1 lumber — ${hudNum(lumberPrice())}g (you have ${player.lumber}${LUMBER_ICON})`; }
   const licenseButton = $('license-button');
   if (licenseButton) licenseButton.disabled = player.lumber < 2;
   const shrineUpgrade = $('shrine-upgrade');
@@ -11659,8 +11825,8 @@ function renderTowerList() {
   }));
 }
 function buyLumber() {
-  if (!player || player.gold < LUMBER_PRICE) { log(`Lumber costs ${LUMBER_PRICE}g.`); return false; }
-  player.gold -= LUMBER_PRICE; player.lumber += 1;
+  const price = lumberPrice(); if (!player || player.gold < price) { log(`Lumber costs ${hudNum(price)}g.`); return false; }
+  player.gold -= price; player.lumber += 1;
   log(`Bought 1 lumber (${player.lumber}${LUMBER_ICON}). Spend it on a shrine upgrade, a second element, a tower ward, or an attacker send.`);
   renderHud(); renderTowerList(); renderSendPanel();
   return true;
@@ -11687,7 +11853,7 @@ function renderBuildExtras() {
     const options = races.filter((race) => race.id !== player.races[0] && raceUnlocked(race.id)).map((race) => `<option value="${race.id}">${race.name}</option>`).join('');
     html += `<div class="license-row"><select id="license-select" aria-label="Second element">${options}</select><button id="license-button" class="ghost-button" ${player.lumber < 2 ? 'disabled' : ''}>License 2nd element • 2' + LUMBER_ICON + '</button></div>`;
   }
-  html += `<button id="buy-lumber" class="ghost-button lumber-button" ${player.gold < LUMBER_PRICE ? 'disabled' : ''}>Buy 1 lumber — ${LUMBER_PRICE}g (you have ${player.lumber}' + LUMBER_ICON + ')</button>`;
+  html += `<button id="buy-lumber" class="ghost-button lumber-button" ${player.gold < lumberPrice() ? 'disabled' : ''}>Buy 1 lumber — ${hudNum(lumberPrice())}g (you have ${player.lumber}' + LUMBER_ICON + ')</button>`;
   /* Abdy: "Intergrate the shrine into the menu."
      The phone tray already carried a Shrine chip next to Lumber. The desktop
      panel did not: the shrine lived under the SEND tab while the lumber that
@@ -11723,7 +11889,7 @@ function renderBuildExtras() {
 function licenseSecondElement(id) {
   if (!player) return false;
   if (player.races.length >= 2) { log('You already hold a second element.'); return false; }
-  if (player.lumber < 2) { log(`A second element costs 2 lumber (${LUMBER_PRICE}g each). You have ${player.lumber}.`); return false; }
+  if (player.lumber < 2) { log(`A second element costs 2 lumber (${hudNum(lumberPrice())}g each). You have ${player.lumber}.`); return false; }
   const pick = id || races.filter((r) => !player.races.includes(r.id) && raceUnlocked(r.id))[0]?.id;
   if (!pick) { log('No other element is unlocked yet.'); return false; }
   player.lumber -= 2; player.lumberSpent += 2; if (player.lumberSpent >= 3) award('lumberjack');
@@ -12241,7 +12407,6 @@ function renderSendPanel() {
       ${player.shrine < SHRINE_MAX ? `<button id="shrine-upgrade" class="ghost-button" ${player.lumber < 1 ? 'disabled' : ''}>Upgrade to L${player.shrine + 1} • 1' + LUMBER_ICON + '</button>` : ''}`;
     $('shrine-upgrade')?.addEventListener('click', upgradeShrine);
   }
-  if (isRosterWars()) { renderRosterPanel($('send-list')); return; }
   // Mixed menus retain shrine order across income, flying, and attacker types.
   const card = (send) => `
     <button class="send-card" data-send="${send.id}"><span class="send-icon" title="${sendTypeLabel(send)}">${sendGlyph(send)}</span>
@@ -12258,7 +12423,6 @@ function renderSendPanel() {
 const SEND_MULTS = [1, 5, 25, 'max'];
 let sendMult = 1;
 function buySend(id) {
-  if (isRosterWars()) return false;
   const want = sendMult === 'max' ? 50 : sendMult;
   let n = 0;
   while (n < want && buySendOne(id)) n += 1;
@@ -12266,8 +12430,8 @@ function buySend(id) {
 }
 function buyLumberAll() {
   if (!player) return 0;
-  let n = 0; while (n < 500 && player.gold >= LUMBER_PRICE) { player.gold -= LUMBER_PRICE; player.lumber += 1; n += 1; }
-  if (n) log(`Bought ${n} lumber (${player.lumber}${LUMBER_ICON}).`); else log(`Lumber costs ${LUMBER_PRICE}g.`);
+  const price = lumberPrice(); let n = Math.min(100000, Math.floor(player.gold / price)); player.gold -= n * price; player.lumber += n;
+  if (n) log(`Bought ${n} lumber at ${hudNum(price)}g (${player.lumber}${LUMBER_ICON}).`); else log(`Lumber costs ${hudNum(price)}g.`);
   renderHud(); renderTowerList(); renderSendPanel();
   return n;
 }
@@ -12288,14 +12452,14 @@ function buySendOne(id) {
     // one enemy at a time, cycled, and named in the message — otherwise a
     // send bought once would land on every board on the other side
     const target = mpSendTarget();
-    const message={t:'send',sid:mp.sid,id:send.id,target,sourceSeat:mpMySeatKey(),match:mp.matchId};
+    const message={t:'send',sid:mp.sid,id:send.id,target,sourceSeat:mpMySeatKey(),match:mp.matchId,u:player.sendUps||{}};
     mpSend(message);
     mpOnMessage(message);
     log(`${send.name} × 2 away at ${mpSeatName(target)}.`);
 
   } else {
-    spawnSend(send, ENEMY_HALF, 'west');
-    spawnSend(send, ENEMY_HALF, 'east');
+    spawnSend(send, ENEMY_HALF, 'west', null, null, player.sendUps);
+    spawnSend(send, ENEMY_HALF, 'east', null, null, player.sendUps);
   }
   // the send leaves from the far gate; the income chip takes the hit
   { const gate = SPAWNS[ENEMY_HALF].west; feedbackPulse(gate.c + .5, gate.r + .5, send.attacker ? '#ff9faf' : send.air ? '#c9b6ff' : '#8adcff', 1.6, .45); hudTick('income-label'); hudTick('gold-label'); }
@@ -12316,10 +12480,20 @@ function buySendOne(id) {
 let desktopSendTab = 'sends';
 let tacticalDockKey = '';
 let tacticalDockBound = false;
+function sendUpgradesMarkup() {
+  const price = lumberPrice();
+  return `<div class="sendup-panel"><p class="sendup-intro">Every send you make carries these, Roster units too. Paid in lumber${LUMBER_ICON}; what you lack is bought for you at ${hudNum(price)}g each.</p>${SEND_UPGRADES.map((u) => {
+    const rank = sendUpRank(player, u.id), cost = sendUpCost(u, rank), need = lumberGoldNeed(player, cost), can = player.gold >= need;
+    return `<div class="sendup-row"><div class="sendup-info"><strong>${u.name} <small>rank ${rank}</small></strong><span>${rank ? u.label(u.effect(rank)) + ' now · ' : ''}next: ${u.label(u.effect(rank + 1))}</span></div>
+      <button type="button" class="sendup-buy" data-send-up="${u.id}" ${can ? '' : 'disabled'}><b>${cost}${LUMBER_ICON}</b><small>${(player.lumber || 0) >= cost ? 'from stock' : '≈' + hudNum(need) + 'g'}</small></button>
+      <button type="button" class="sendup-buy sendup-max" data-send-up="${u.id}" data-max="1" ${can ? '' : 'disabled'}><b>MAX</b><small>ranks</small></button></div>`;
+  }).join('')}</div>`;
+}
 function desktopSendPool() {
   if (desktopSendTab === 'attackers') return orderedSends(SENDS.filter((send) => send.attacker));
   if (desktopSendTab === 'flying') return orderedSends(SENDS.filter((send) => send.air));
-  return orderedSends(SENDS.filter((send) => !send.attacker && !send.air));
+  if (desktopSendTab === 'auras') return orderedSends(SENDS.filter((send) => send.aura));
+  return orderedSends(SENDS.filter((send) => !send.attacker && !send.air && !send.aura));
 }
 /* THE ECONOMY STRIP. Lumber, the Shrine and the second element are the three
    things gold and lumber convert into, and they sat under BUILD behind the tower
@@ -12351,9 +12525,9 @@ function renderEconStrip() {
     <div class="econ-elems">${elRows}</div>
     <div class="econ-row2">
       <button class="econ-btn" data-econ="mult" aria-label="Sends per tap: ${multText}. Tap to change"><b>${multText}</b><small>per send</small></button>
-      <button class="econ-btn" data-econ="lumberall" ${player.gold < LUMBER_PRICE ? 'disabled' : ''} aria-label="Spend all gold on lumber"><b>${LUMBER_ICON} ALL</b><small>${Math.floor(player.gold / LUMBER_PRICE)} × ${hudNum(LUMBER_PRICE)}g</small></button>
+      <button class="econ-btn" data-econ="lumberall" ${player.gold < lumberPrice() ? 'disabled' : ''} aria-label="Spend all gold on lumber"><b>${LUMBER_ICON} ALL</b><small>${Math.floor(player.gold / lumberPrice())} × ${hudNum(lumberPrice())}g</small></button>
     </div>
-    <button class="econ-btn" data-econ="lumber" ${player.gold < LUMBER_PRICE ? 'disabled' : ''} aria-label="Buy one lumber for ${LUMBER_PRICE} gold"><b>${LUMBER_ICON} ${player.lumber}</b><small>+1 · ${LUMBER_PRICE}g</small></button>
+    <button class="econ-btn" data-econ="lumber" ${player.gold < lumberPrice() ? 'disabled' : ''} aria-label="Buy one lumber for ${hudNum(lumberPrice())} gold"><b>${LUMBER_ICON} ${player.lumber}</b><small>+1 · ${hudNum(lumberPrice())}g</small></button>
     <button class="econ-btn" data-econ="shrine" ${maxed || player.lumber < 1 ? 'disabled' : ''} aria-label="${maxed ? 'Shrine is at its top level' : `Upgrade the Shrine to level ${player.shrine + 1} for one lumber`}"><b>${icon('shrine')} L${player.shrine}</b><small>${maxed ? 'max' : `→ L${player.shrine + 1} · 1${LUMBER_ICON}`}</small></button>
     ${second
       ? `<div class="econ-btn econ-done" aria-label="Second element licensed"><b style="color:${second.color}">${second.symbol} ${second.name}</b><small>2nd element</small></div>`
@@ -12398,6 +12572,13 @@ function renderTacticalDock() {
       renderTacticalDock();
     });
     list.addEventListener('click', (event) => {
+      const up = event.target.closest('[data-send-up]');
+      if (up && !up.disabled) {
+        const id = up.dataset.sendUp;
+        if (up.dataset.max) { let n = 0; while (n < 200 && buySendUpgrade(player, id, true)) n += 1; const u = SEND_UP_BY_ID.get(id); if (n) log(`${u.name} up ${n} rank${n > 1 ? 's' : ''} to ${sendUpRank(player, id)}: every send has ${u.label(u.effect(sendUpRank(player, id)))}.`); else buySendUpgrade(player, id); }
+        else buySendUpgrade(player, id);
+        tacticalDockKey = ''; renderHud(); renderTacticalDock(); return;
+      }
       const button = event.target.closest('[data-dock-send]');
       if (!button) return;
       let source = document.querySelector(`[data-send="${button.dataset.dockSend}"]`);
@@ -12405,9 +12586,10 @@ function renderTacticalDock() {
       source?.click();
     });
   }
-  if (isRosterWars()) {
-    const rkey = `roster:${towersVersion}:${player.shrine}:${player.lumber}:${Math.floor(player.gold)}:${player.races.join('+')}:${JSON.stringify(player.attune || {})}`;
-    if (tacticalDockKey !== rkey) { tacticalDockKey = rkey; renderEconStrip(); tabs.innerHTML = ''; }
+  if (isRosterWars() && desktopSendTab === 'roster') {
+    const rkey = `roster:${towersVersion}:${player.shrine}:${player.lumber}:${Math.floor(player.gold)}:${player.races.join('+')}:${JSON.stringify(player.attune || {})}:${lumberPrice()}`;
+    if (tacticalDockKey !== rkey) { tacticalDockKey = rkey; renderEconStrip();
+      tabs.innerHTML = `<button class="send-dock-tab roster active" data-dock-tab="roster">ROSTER</button><button class="send-dock-tab" data-dock-tab="sends">SENDS</button><button class="send-dock-tab attackers" data-dock-tab="attackers">ATTACK</button><button class="send-dock-tab flying" data-dock-tab="flying">FLYING</button><button class="send-dock-tab auras" data-dock-tab="auras">AURAS</button><button class="send-dock-tab upgrades" data-dock-tab="upgrades">⬆ UPGRADE</button>`; }
     list.classList.add('roster-dock-list');
     renderRosterPanel(list);
     renderSelectedEnemyPanel();
@@ -12418,23 +12600,27 @@ function renderTacticalDock() {
   if (list.querySelector('.roster-panel')) { list.innerHTML = ''; list.dataset.rosterKey = ''; }
   const pool = desktopSendPool();
   const key = [desktopSendTab, player.shrine, Math.floor(player.gold), player.lumber, towersVersion,
-    Math.round(player.income), Math.round(sendGrowth() * 100), pool.map((send) => send.id).join(','), player.races.join('+'), sendMult, buildRaceIdx, JSON.stringify(player.attune || {})].join('|');
+    Math.round(player.income), Math.round(sendGrowth() * 100), pool.map((send) => send.id).join(','), player.races.join('+'), sendMult, buildRaceIdx, JSON.stringify(player.attune || {}), JSON.stringify(player.sendUps || {}), lumberPrice(), isRosterWars() ? player.rosterRevision : ''].join('|');
   if (key !== tacticalDockKey) {
     tacticalDockKey = key;
     renderEconStrip();
     const shrineMaxed = player.shrine >= SHRINE_MAX;
-    tabs.innerHTML = `
+    tabs.innerHTML = `${isRosterWars() ? `<button class="send-dock-tab roster ${desktopSendTab === 'roster' ? 'active' : ''}" data-dock-tab="roster">ROSTER</button>` : ''}
       <button class="send-dock-tab ${desktopSendTab === 'sends' ? 'active' : ''}" data-dock-tab="sends">SENDS</button>
-      <button class="send-dock-tab attackers ${desktopSendTab === 'attackers' ? 'active' : ''}" data-dock-tab="attackers">ATTACKERS</button>
+      <button class="send-dock-tab attackers ${desktopSendTab === 'attackers' ? 'active' : ''}" data-dock-tab="attackers">ATTACK</button>
       <button class="send-dock-tab flying ${desktopSendTab === 'flying' ? 'active' : ''}" data-dock-tab="flying">FLYING</button>
-      <button class="send-dock-tab shrine" data-dock-shrine="1" ${shrineMaxed || player.lumber < 1 ? 'disabled' : ''} title="${shrineMaxed ? 'Shrine is fully upgraded' : `Upgrade Shrine to level ${player.shrine + 1} for 1 lumber`}">
+      <button class="send-dock-tab auras ${desktopSendTab === 'auras' ? 'active' : ''}" data-dock-tab="auras">AURAS</button>
+      <button class="send-dock-tab upgrades ${desktopSendTab === 'upgrades' ? 'active' : ''}" data-dock-tab="upgrades">⬆ UPGRADE</button>
+      <button class="send-dock-tab shrine" hidden data-dock-shrine="1" ${shrineMaxed || player.lumber < 1 ? 'disabled' : ''} title="${shrineMaxed ? 'Shrine is fully upgraded' : `Upgrade Shrine to level ${player.shrine + 1} for 1 lumber`}">
         ♠ UPGRADE SHRINE · ${shrineMaxed ? 'MAX' : `L${player.shrine}→${player.shrine + 1}`}
       </button>`;
-    list.innerHTML = pool.length ? sendTierMarkup(pool, (send) => {
+    if (desktopSendTab === 'upgrades') { list.innerHTML = sendUpgradesMarkup(); }
+    else list.innerHTML = pool.length ? sendTierMarkup(pool, (send) => {
       const locked = player.shrine < send.shrine;
       const poor = !sendAffordable(send);
       const inc = sendIncomeLabel(send);
-      const gain = send.attacker
+      const gain = send.aura ? `${AURA_INFO[send.aura].text(send.auraPower)} · +${send.woodIncome.toFixed(2)}${LUMBER_ICON}/payout`
+        : send.attacker
         ? (send.woodIncome ? `+${send.woodIncome.toFixed(1)} lumber income` : 'wall breaker · no gold income')
         : `${inc.text} income`;
       return `<button class="dock-send-card ${locked ? 'locked' : ''} ${poor ? 'poor' : ''}" data-dock-send="${send.id}" title="${locked ? `Requires Shrine level ${send.shrine}` : `Send ${send.name}`}">
@@ -14816,7 +15002,7 @@ function mpOnMessage(msg) {
     const half=target.half===mp.team?PLAYER_HALF:ENEMY_HALF;
     const attack=source.kind==='ai'&&typeof msg.aiAttack==='string'&&msg.aiAttack.length<=100
       ?{id:msg.aiAttack,replyTo:msg.__from||msg.sid}:null;
-    spawnSend(send,half,'west',attack,target.key);spawnSend(send,half,'east',attack,target.key);
+    const ups=cleanSendUps(msg.u);spawnSend(send,half,'west',attack,target.key,ups);spawnSend(send,half,'east',attack,target.key,ups);
     if(half===PLAYER_HALF)log(`${mpSeatDisplayName(source)} sent ${send.name} × 2 at your lanes!${send.air?' They fly over your maze!':''}`);
   } else if (msg.t === 'squad') {
     // a rival's Roster Wars deployment. Not 't:roster': that name is the lobby's seat list,
@@ -14828,7 +15014,7 @@ function mpOnMessage(msg) {
     if(!localTarget)return;
     const half=target.half===mp.team?PLAYER_HALF:ENEMY_HALF;
     const units=msg.units.slice(0,ROSTER_SIZE).filter(u=>u&&rosterSend(u.s)).map(u=>({sendId:u.s,ranks:rosterCleanRanks(u.r)}));
-    spawnRosterUnits(units,half,msg.lane==='east'?'east':'west',target.key);
+    spawnRosterUnits(units,half,msg.lane==='east'?'east':'west',target.key,cleanSendUps(msg.u));
     if(half===PLAYER_HALF&&units.length)log(`${mpSeatDisplayName(source)}'s roster deploys: ${units.map(u=>rosterSend(u.sendId).name).join(', ')}.`);
   } else if (msg.t === 'ai-send-result') {
     receiveAiSendResult(msg);
@@ -15340,7 +15526,7 @@ function setMobileTacticalPanel(requested, force = false) {
   if (next !== 'map') document.body.classList.add(`mobile-panel-${next}`);
   nav.querySelectorAll('[data-mobile-panel]').forEach((button) => {
     const on = button.dataset.mobilePanel === next;
-    if (button.dataset.mobilePanel === 'sends') { const lab = button.querySelector('small'); if (lab) lab.textContent = isRosterWars() ? 'ROSTER' : 'SENDS'; }
+    
     button.classList.toggle('active', on);
     button.setAttribute('aria-pressed', String(on));
   });
@@ -15388,7 +15574,7 @@ function renderCommandBar() {
     const undoChip = (lastT && fullRefund(lastT))
       ? `<button id="bar-undo" class="bar-card toggle-on"><span>${icon('undo')}</span><small>UNDO</small><b>+${lastT.invested}g</b></button>`
       : sellUndoLive() ? `<button id="bar-undo" class="bar-card toggle-on"><span>${icon('undo')}</span><small>UNSELL</small><b>−${lastSold.refund}g</b></button>` : '';
-    const econ = `<button id="cb-lumber" class="bar-card ${player.gold < LUMBER_PRICE ? 'poor' : ''}"><span>" + LUMBER_ICON + "</span><small>Lumber</small><b>${LUMBER_PRICE}g</b></button>${player.shrine < SHRINE_MAX ? `<button id="cb-shrine" class="bar-card ${player.lumber < 1 ? 'poor' : ''}"><span>⛩</span><small>Shrine L${player.shrine}</small><b>1" + LUMBER_ICON + "</b></button>` : `<span class="bar-card locked"><span>⛩</span><small>Shrine</small><b>MAX</b></span>`}`;
+    const econ = `<button id="cb-lumber" class="bar-card ${player.gold < lumberPrice() ? 'poor' : ''}"><span>" + LUMBER_ICON + "</span><small>Lumber</small><b>${hudNum(lumberPrice())}g</b></button>${player.shrine < SHRINE_MAX ? `<button id="cb-shrine" class="bar-card ${player.lumber < 1 ? 'poor' : ''}"><span>⛩</span><small>Shrine L${player.shrine}</small><b>1" + LUMBER_ICON + "</b></button>` : `<span class="bar-card locked"><span>⛩</span><small>Shrine</small><b>MAX</b></span>`}`;
     buildBody.innerHTML = undoChip + econ + buildableListFor(raceId).map(({ def, tier }) => `
       <button class="bar-card ${tier === selectedTowerTier ? 'on' : ''} ${player.gold < def.cost ? 'poor' : ''}" data-bar-tower="${tier}">
         <span>${towerDef(raceId, tier).symbol}</span><small>${def.name.split(' ')[0]}</small><b>${def.cost}g</b><i class="bar-stats">${towerStatLine(towerDef(raceId, tier))}</i></button>`).join('');
@@ -15398,10 +15584,7 @@ function renderCommandBar() {
     $('bar-undo')?.addEventListener('click', () => { undoAction(); renderCommandBar(); });
   } else buildBody.innerHTML = '';
   // ---- SEND bar ----
-  if (!barSendCollapsed && isRosterWars()) {
-    sendBody.innerHTML = '<button type="button" class="bar-card"><span>⚔</span><small>ROSTER</small><b>open</b></button>';
-    sendBody.querySelector('button')?.addEventListener('click',()=>openCommandSheet('sends'));
-  } else if (!barSendCollapsed) {
+  if (!barSendCollapsed) {
     const wagerReady = wager.tokens > 0 && simTime >= wager.cooldownUntil && !wager.pending;
     sendBody.innerHTML = `
       <button id="bar-auto" class="bar-card ${autoSend.on ? 'toggle-on' : ''}"><span>🔁</span><small>AUTO</small><b>${autoSend.on ? 'ON' : 'off'}</b></button>
@@ -15661,6 +15844,12 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    new tag, then collapses and stays collapsed. */
 const RELEASE_TAG = '2026-11-14-elemental';
 const RELEASE_NOTES = [
+  { date:'2026-11-28', title:'Matches that can end: send upgrades, aura creeps, dearer lumber', items:[
+    'Send upgrades (Sends → ⬆ UPGRADE): Vigor, Plating, Haste, Warding and Resolve make every send you make tougher, Roster units included. They cost lumber, have no top rank, and computers buy them too. A strong late wall now holds for about 20 minutes before an upgraded rival breaks it.',
+    'Aura creeps (Sends → AURAS): War Drum, Mending Totem, Aegis Banner, Iron Standard and Battle Hymn walk with the wave and lift every creep within 3 tiles: speed, healing, a shield, armour. They cost lumber and pay lumber income.',
+    'Lumber costs two of your income payouts, or 500 gold, whichever is more, so a big gold pile always has somewhere to go. Missing lumber is bought for you when you buy an upgrade.',
+    'Roster Wars: regular sends work alongside the Roster tab; the squad deploys down both lanes every 10 s; ranks cost lumber and have no top; you start with one slot (slot 2: 1,000,000 gold + 10 lumber, each slot after 2.5× the gold and twice the lumber).',
+  ] },
   { date:'2026-11-28', title:'Every phone sees every opponent', items:[
     'In a room, the top half now shows all your opponents at once on every phone. Before, only the phone running the computers saw them all; the other phone showed one board, or a blank one. Tap a name in the WATCHING row to see one opponent on their own, or All to see everyone again.',
     'Fixed a computer team-mate being drawn twice on the other side\'s phone.',
@@ -16026,7 +16215,7 @@ function renderCommandSheet() {
         <span>${towerDef(raceId, tier).symbol}</span><small>${def.name.split(' ')[0]}</small><b>${def.cost}g</b></button>`).join('')}</div>
       <div class="sheet-detail"><strong>${sel.name}</strong> — ${sel.desc} ${specialBlurbs[sel.special] || ''}<br><em>${sel.dmg} dmg • ${sel.range.toFixed(1)} range • ${attackSpeedText(sel)} • ${effectiveDps(sel, raceId).toFixed(0)} dps • ${attackProfileText(raceId, sel)}</em></div>
       <p class="sheet-hint">Tap the board to place. Hold a placed tower to sell; the undo pill refunds fully for 3s.</p>`;
-  } else if (sheetTab === 'sends' && isRosterWars()) {
+  } else if (sheetTab === 'roster' && isRosterWars()) {
     body = rosterPanelMarkup();
   } else if (sheetTab === 'sends') {
     const wagerReady = wager.tokens > 0 && simTime >= wager.cooldownUntil && !wager.pending;
@@ -16077,6 +16266,7 @@ function renderCommandSheet() {
     <div class="sheet-res"><span>💰 ${Math.floor(player.gold)}g</span><span>" + LUMBER_ICON + " ×${player.lumber}</span><span>↗ +${player.income}</span><span>🌊 ${Math.min(wave + 1, WAVES.length)}/${WAVES.length}</span></div>
     <div class="sheet-bar">
       <button class="sheet-tab tab-build ${sheetTab === 'towers' ? 'on' : ''}" data-sheet-tab="towers"><span class="ti">⛫</span><span class="tl">Build</span></button>
+      ${isRosterWars() ? `<button class="sheet-tab tab-send ${sheetTab === 'roster' ? 'on' : ''}" data-sheet-tab="roster"><span class="ti">⚑</span><span class="tl">Roster</span></button>` : ''}
       <button class="sheet-tab tab-send ${sheetTab === 'sends' ? 'on' : ''}" data-sheet-tab="sends"><span class="ti">⚔</span><span class="tl">Send</span></button>
       <button class="sheet-tab tab-inspect ${sheetTab === 'tower' ? 'on' : ''}" data-sheet-tab="tower"><span class="ti">🛠</span><span class="tl">Inspect</span></button>
       <button class="sheet-tab tab-learn ${sheetTab === 'learn' ? 'on' : ''}" data-sheet-tab="learn"><span class="ti">🎓</span><span class="tl">Learn</span></button>
@@ -16084,7 +16274,7 @@ function renderCommandSheet() {
       <button id="sheet-close" class="sheet-tab tab-close" aria-label="Close"><span class="ti">✕</span><span class="tl">Close</span></button>
     </div>
     <div class="sheet-econ">
-      <button id="sheet-lumber" class="econ-chip" ${player.gold < LUMBER_PRICE ? 'disabled' : ''}>' + LUMBER_ICON + ' ×${player.lumber} <i>buy • ${LUMBER_PRICE}g</i></button>
+      <button id="sheet-lumber" class="econ-chip" ${player.gold < lumberPrice() ? 'disabled' : ''}>' + LUMBER_ICON + ' ×${player.lumber} <i>buy • ${hudNum(lumberPrice())}g</i></button>
       ${player.shrine < SHRINE_MAX ? `<button id="sheet-shrine" class="econ-chip" ${player.lumber < 1 ? 'disabled' : ''}>⛩ Shrine L${player.shrine} <i>upgrade • 1' + LUMBER_ICON + '</i></button>` : `<span class="econ-chip econ-max">⛩ Shrine MAX</span>`}
       <button id="sheet-boxsel" class="econ-chip ${selectMode === 'box' ? 'econ-on' : ''}">▭ <i>box</i></button>
       <button id="sheet-lasso" class="econ-chip ${selectMode === 'lasso' ? 'econ-on' : ''}">➰ <i>lasso</i></button>
@@ -16092,7 +16282,7 @@ function renderCommandSheet() {
       <button id="sheet-quit" class="econ-chip econ-quit">⏏ <i>leave match</i></button>
       <label class="sheet-opacity" title="Slide left to see the board through this panel">◐<input id="sheet-opacity" type="range" min="25" max="100" value="${sheetOpacity()}" /></label>
     </div>${body}`;
-  if (isRosterWars() && sheetTab === 'sends') wireRosterPanel(sheet, () => { sheetKey = ''; renderCommandSheet(); });
+  if (isRosterWars() && sheetTab === 'roster') wireRosterPanel(sheet, () => { sheetKey = ''; renderCommandSheet(); });
   sheet.style.opacity = sheetOpacity() / 100;
   sheet.querySelectorAll('[data-sheet-tab]').forEach((b) => b.addEventListener('click', () => { sheetTab = b.dataset.sheetTab; sheetKey = ''; renderCommandSheet(); }));
   $('sheet-close').addEventListener('click', closeCommandSheet);

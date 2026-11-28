@@ -2,6 +2,39 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 28, 2026 — Send upgrades, aura creeps, lumber priced by income, Roster Wars overhaul (Claude)
+
+Gene: "it's almost impossible to end the game because the creeps are so weak and the effects are so
+strong"; "the gold is too much, like when it gets to 1 million ... increase how much gold is one
+lumber"; and for Roster Wars: regular sends allowed, ranks in lumber and past 10, one slot to start,
+both lanes.
+
+- **Lumber** costs `max(500, 2 × your payout)` (`lumberPrice`, two significant figures): 500 at the
+  start, 11,000 at a 5,000 income, ~600,000 for a computer at minute 14. `payWithLumber` buys missing
+  lumber for you. Every lumber price is therefore a number of payouts.
+- **Send upgrades** (`SEND_UPGRADES`; dock tab ⬆ UPGRADE): Vigor +25% HP, Plating +2 armour, Haste
+  (to +60%), Warding (shield 8% of HP a rank), Resolve (slow resistance to 80%); lumber
+  `base × 1.18^rank`, no cap; applied at spawn to sends and Roster units (`applySendUps`), carried in
+  `t:send` / `t:squad` as `u`. Computers buy the cheapest rank every 15 s from wave 12 (8 s after 20
+  min). Measured (`airanks.js`): Vigor 18 / Plating 14 at minute 14, Vigor 23 / Plating 22 / Haste 11
+  at 20. Against a 120-tower maxed, attuned Fire + Ice wall (`wallvsends.js`), 16 World Titans leak
+  0 plain, 0 at minute-14 ranks, 14 at minute-20 ranks with auras, 16 at minute 25.
+- **Aura creeps** (dock tab AURAS): five lumber sends with lumber income; `applyRosterAuras` now runs
+  in every mode and carries haste and armour as short buffs; computers send one where they used to
+  send an attacker (at most one per 30 s). A brutal computer sent 52 over 25 minutes.
+- **Roster Wars**: sends allowed (ROSTER is a dock tab and a sheet tab); squads spawn down both lanes;
+  ranks cost lumber `base × 1.25^(rank-1)`, uncapped, effects that would break level off (speed, slow
+  resistance, regen, shield regen, heal aura) and Split caps at four children with more HP; each rank
+  adds gold income worth 11% of what it cost at the lumber price paid; selling refunds half the gold
+  and half the lumber; one slot to start, `ROSTER_SLOT_COSTS` 1M+10L, 2.5M+20L, 6.25M+40L, 15.6M+80L.
+  Gene suggested 500,000 lumber for slot 2; at two payouts a lumber that is unreachable, so it is 10.
+  Roster income is added to send income instead of replacing it.
+
+Checks: `econtest.js` (lumber price, upgrades on spawned sends, auras reaching a pack, Roster unlock,
+ranks past 10, refund, both lanes, sends in Roster, computers buying both) clean; teamboard,
+rosterroom PASS; four-mode smoke, allreact, sealtest clean. `rostertest.js` is retired (econtest
+covers it under the new rules).
+
 ## November 28, 2026 — Every phone sees every opponent (Claude)
 
 Gene: "only one of us can see both of the enemies. The other one will just see one enemy and a blank
