@@ -2,6 +2,24 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 28, 2026 — Menus: the bottom bar, the send tabs, an audit pass (Claude)
+
+Gene: "the send multiple feature is gone and there's space there. And I think the tabs for roster,
+flying, auras, attack, upgrade are too small"; "have the roster where the tower is instead ... and
+also get rid of enemy as well".
+
+- **Bottom bar**: MAP · BUILD · SENDS · UPGRADES (· ROSTER in Roster Wars). TOWER and ENEMY left the
+  bar (their panels still open on a tap and close on bare board). UPGRADES and ROSTER are views of the
+  dock (`mobile-panel-econ` / `mobile-panel-roster`, which also carry `mobile-panel-sends`).
+- **Sends tray**: only the send list; four 45 px tabs at 11 px and the send multiplier as a fifth
+  button (it had moved to the econ strip, and in Roster Wars was hidden, leaving the gap). The econ
+  strip lives on UPGRADES, regrouped: element rows, lumber +1 / ALL, Shrine / second element.
+- **Audit** (`tools/harness/uxaudit.js`, eight screens at 390×844): the wave card sat mid-board at
+  every wave for 5.5 s; it rides the board's top edge for 3.2 s. Tower cards listed all 11 reactions
+  in 8 px in the retired then-wording; they now say "reacts with 11 elements (◈ Elements chart)".
+  Build-tray and creep-card text raised to 10 px; top-bar buttons 30 → 38 px with the top-bar
+  contract clean at 360/390/430; menu and result buttons 44 px. teamboard, rosterroom, allreact PASS.
+
 ## November 28, 2026 — Send upgrades, aura creeps, lumber priced by income, Roster Wars overhaul (Claude)
 
 Gene: "it's almost impossible to end the game because the creeps are so weak and the effects are so

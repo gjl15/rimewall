@@ -464,7 +464,12 @@ h2 span { color:#7583a6; }
 .wave-banner b { font-weight:700; color:#fff2c8; }
 .wave-banner small { font-size:8px; opacity:.75; color:#bcd2ff; }
 .wave-banner { opacity:0; transition:opacity .3s; }
-.wave-banner.banner-fade { animation:banner-show 5.5s ease forwards; }
+.wave-banner.banner-fade { animation:banner-show 3.2s ease forwards; }
+/* THE WAVE CARD IS A GLANCE (audit, 2026-11-28): it sat in the middle of the board, big, for 5.5 s at
+   every wave, over the cells you build on. It rides the top edge of the board now, smaller, for 3 s;
+   the HUD keeps the wave number and the threat chip the whole time. */
+body.playing.arena .wave-banner { top:8px !important; transform:translateX(-50%) !important; font-size:11px !important; padding:4px 12px !important; pointer-events:none; }
+body.playing.arena .wave-banner small { font-size:9px !important; }
 @keyframes banner-show { 0%{opacity:0;} 7%{opacity:1;} 82%{opacity:1;} 100%{opacity:0;} }
 .debug-bar { display:flex; align-items:center; flex-wrap:wrap; gap:14px; margin-top:10px; padding:7px 12px; border:1px solid #233150; border-radius:9px; color:#8e9ab8; background:#0d1424; font:9px 'DM Mono',monospace; letter-spacing:.06em; text-transform:uppercase; }
 .debug-bar label { display:flex; align-items:center; gap:5px; cursor:pointer; }
@@ -1640,7 +1645,7 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
   body.playing.arena .hud .hud-actions { grid-area:actions; justify-self:end; gap:3px; }
   body.playing.arena #pause-button,
   body.playing.arena #undo-slot,
-  body.playing.arena #hud-menu-button { display:flex !important; min-width:30px; min-height:30px; padding:3px 5px; }
+  body.playing.arena #hud-menu-button { display:flex !important; min-width:38px; min-height:38px; padding:3px 5px; }
   body.playing.arena #restart-button,
   body.playing.arena .hud-target,
   body.playing.arena #settings-open-hud { display:none !important; }
@@ -1650,7 +1655,7 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
 
   body.playing.arena .mobile-tactical-nav {
     position:fixed; left:0; right:0; bottom:0; z-index:176;
-    display:grid; grid-template-columns:repeat(5,minmax(0,1fr));
+    display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr);
     min-height:58px; padding:5px max(5px,env(safe-area-inset-right)) calc(5px + env(safe-area-inset-bottom)) max(5px,env(safe-area-inset-left));
     border-top:1px solid #314264; background:#080e1cf5;
     box-shadow:0 -10px 28px #000a; backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
@@ -1661,7 +1666,8 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
     border-radius:7px; background:transparent; color:#7f8dab;
   }
   .mobile-tactical-button span { font-size:16px; line-height:1; }
-  .mobile-tactical-button small { font:700 8px 'DM Mono',monospace; letter-spacing:.07em; }
+  .mobile-tactical-button small { font:700 9px 'DM Mono',monospace; letter-spacing:.06em; }
+  .mobile-tactical-button[hidden] { display:none !important; }
   .mobile-tactical-button.active { border-color:#3e5f88; background:#12213a; color:#bdeeff; box-shadow:inset 0 -2px 0 #77d6ff; }
 
   /* Shared phone tray geometry. Each requested desktop region remains the same
@@ -1796,7 +1802,8 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
   body.playing.arena .tower-inspector #td-close { min-width:44px; min-height:44px; }
   body.playing.arena.mobile-panel-sends .tactical-dock { height:min(56dvh,480px); }
   body.playing.arena .econ-strip { flex:0 0 auto; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.5fr); gap:6px; padding:8px 8px 6px; border-bottom:1px solid #2a3550; background:#0d1424; }
-  body.playing.arena .econ-strip .econ-row2 { grid-column:1 / -1; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:6px; }
+  body.playing.arena .econ-strip .econ-row2 { grid-column:1 / -1; display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:6px; }
+  body.playing.arena .econ-strip { grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) !important; }
   body.playing.arena .econ-strip .econ-elems { grid-column:1 / -1; display:grid; gap:6px; }
   body.playing.arena .econ-strip .econ-el { display:grid; grid-template-columns:minmax(0,1.7fr) minmax(0,.75fr) minmax(0,1fr); gap:6px; }
   body.playing.arena .econ-strip .econ-attune b { color:#ffe49a; }
@@ -1846,7 +1853,25 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
 .roster-upgrade span { color:#91a6c9; font-size:10px; }
 .roster-upgrade b { color:#92dfbd; font-size:11px; }
 body.playing .desktop-send-list.roster-dock-list, body.playing.arena .desktop-send-list.roster-dock-list { display:block; overflow:auto; scroll-snap-type:none; }
-body.mode-roster .econ-btn[data-econ="mult"] { display:none; }
+/* phone dock views */
+body.playing.arena.mobile-panel-sends:not(.mobile-panel-econ) .econ-strip { display:none !important; }
+body.playing.arena.mobile-panel-econ .send-dock-tabs,
+body.playing.arena.mobile-panel-roster .send-dock-tabs { display:none !important; }
+body.playing.arena .send-dock-tab.upgrades, body.playing.arena .send-dock-tab.roster { display:none; }
+body.playing.arena.mobile-panel-econ .tactical-dock { height:min(62dvh,560px); }
+body.playing.arena.mobile-panel-econ .desktop-send-list { overflow-y:auto; }
+/* four send tabs, each a real button */
+body.playing.arena .send-dock-tabs { flex:0 0 46px !important; grid-template-columns:repeat(4,minmax(0,1fr)) 54px !important; }
+/* AUDIT, 2026-11-28: nothing a player has to read is under 10 px, nothing they tap is under 44 px */
+body.playing.arena .tower-row small, body.playing.arena .tower-row .tower-stats, body.playing.arena .tower-details small,
+body.playing.arena .td-desc, body.playing.arena .profile-line { font-size:10px !important; line-height:1.4; }
+body.playing.arena .selected-enemy-panel small, body.playing.arena .selected-enemy-panel .enemy-meta,
+body.playing.arena .selected-enemy-panel span, body.playing.arena .selected-enemy-panel em { font-size:10.5px !important; }
+.settings-card .ghost-button, #settings-close, #summary-copy, #summary-share, #summary-back { min-height:44px; }
+#settings-close { min-width:44px; }
+body.playing.arena .send-dock-tab.mult { color:#ffe49a !important; background:#141c30 !important; border-left:1px solid #2a3550; }
+body.playing.arena .econ-btn[data-econ="mult"] { display:none; }
+body.playing.arena .send-dock-tab { font:700 11px/1.1 'DM Mono',monospace !important; letter-spacing:.05em !important; min-height:44px; }
 /* send upgrades */
 .sendup-panel { display:grid; gap:6px; padding:6px 2px; grid-column:1 / -1; width:100%; }
 body.playing.arena .desktop-send-list .sendup-panel { grid-column:1 / -1; }
@@ -1858,7 +1883,7 @@ body.playing.arena .desktop-send-list .sendup-panel { grid-column:1 / -1; }
 .sendup-buy { display:grid; justify-items:center; gap:1px; min-height:44px; border:1px solid #354463; border-radius:8px; background:#16233d; color:#ffe49a; cursor:pointer; }
 .sendup-buy small { color:#8e98b7; font-size:9.5px; }
 .sendup-buy:disabled { opacity:.45; }
-.send-dock-tab { font-size:10px; }
+
 body.mode-roster #send-dock-tabs:empty { display:none; }
 /* THE ELEMENTS CHART (Gene, 2026-11-25: "add the elements chart into the game"). Built from
    ARMOR_RULES and REACTIONS at open time, so it can never drift from the rules. */
@@ -2236,8 +2261,10 @@ body.mode-roster #send-dock-tabs:empty { display:none; }
             <button class="mobile-tactical-button active" data-mobile-panel="map" aria-pressed="true"><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2zM9 4v14M15 6v14"/></svg></span><small>MAP</small></button>
             <button class="mobile-tactical-button" data-mobile-panel="build" aria-pressed="false"><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21h12M8 21V9M16 21V9M6 9h12M6 9V5h3v2h2V5h2v2h2V5h3v4"/></svg></span><small>BUILD</small></button>
             <button class="mobile-tactical-button" data-mobile-panel="sends" aria-pressed="false"><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4L4 14.5l5.5 5.5M9.5 4L20 14.5 14.5 20M3 21l3-3M21 21l-3-3"/></svg></span><small>SENDS</small></button>
-            <button class="mobile-tactical-button" data-mobile-panel="tower" aria-pressed="false"><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></span><small>TOWER</small></button>
-            <button class="mobile-tactical-button" data-mobile-panel="enemy" aria-pressed="false"><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a8 8 0 0 0-8 8c0 3 2 5 3 6v3h10v-3c1-1 3-3 3-6a8 8 0 0 0-8-8zM9 19v3M15 19v3"/><circle class="f" cx="9" cy="10" r="1.5"/><circle class="f" cx="15" cy="10" r="1.5"/></svg></span><small>ENEMY</small></button>
+            <button class="mobile-tactical-button" data-mobile-panel="econ" aria-pressed="false"><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/><path d="M5 21h14"/></svg></span><small>UPGRADES</small></button>
+            <button class="mobile-tactical-button nav-roster" data-mobile-panel="roster" aria-pressed="false" hidden><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21V4M6 4h11l-2 4 2 4H6"/></svg></span><small>ROSTER</small></button>
+            <button class="mobile-tactical-button nav-hidden" hidden data-mobile-panel="tower" aria-pressed="false"><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></span><small>TOWER</small></button>
+            <button class="mobile-tactical-button nav-hidden" hidden data-mobile-panel="enemy" aria-pressed="false"><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a8 8 0 0 0-8 8c0 3 2 5 3 6v3h10v-3c1-1 3-3 3-6a8 8 0 0 0-8-8zM9 19v3M15 19v3"/><circle class="f" cx="9" cy="10" r="1.5"/><circle class="f" cx="15" cy="10" r="1.5"/></svg></span><small>ENEMY</small></button>
           </nav>
         </div>
       </section>
@@ -2857,9 +2884,10 @@ function attackProfileText(raceId, def) {
   const tail = own.length ? ` · this tower: ${own.join(' ')}` : '';
   if (p.chaos) return 'Chaos: 100% damage against every armor class; ignores armor value' + tail;
   const strong = elementStrongVs(raceId), weak = elementWeakVs(raceId);
-  const rx = REACTIONS.filter((x) => x.trigger === raceId || x.primer.includes(raceId))
-    .map((x) => `${x.name[0] + x.name.slice(1).toLowerCase()} (${x.primer.map(raceName).join('/')} then ${raceName(x.trigger)})`);
-  return `${p.label}: strong vs ${strong.join(', ') || '—'} (x${ARMOR_STRONG}) · weak vs ${weak.join(', ') || '—'} (x${ARMOR_WEAK})${rx.length ? ' · reacts: ' + rx.join(', ') : ''}${tail}`;
+  // eleven reactions do not fit on a tower card (audit, 2026-11-28: it printed all of them, in 8 px, in the old
+  // first-then-second wording); the card says how many and the Elements chart has them
+  const rxN = REACTIONS.filter((x) => x.trigger === raceId || x.primer.includes(raceId)).length;
+  return `${p.label}: strong vs ${strong.join(', ') || '—'} (x${ARMOR_STRONG}) · weak vs ${weak.join(', ') || '—'} (x${ARMOR_WEAK})${rxN ? ` · reacts with ${rxN} elements (◈ Elements chart)` : ''}${tail}`;
 }
 /* WHAT A SPECIAL DOES, WITH THE ODDS AND THE RATE SPELLED OUT.
    The old table was a dozen hand-written sentences, and Gene was right that you
@@ -5006,6 +5034,7 @@ function resetMatchState() {
   rosterNextLane = 'west'; rosterSelectedSlot = 0; rosterRecruitId = '';
   document.body.classList.toggle('mode-roster', matchMode === 'roster');
   desktopSendTab = matchMode === 'roster' ? 'roster' : 'sends';
+  document.querySelectorAll('.nav-roster').forEach((b) => { b.hidden = matchMode !== 'roster'; });
   const lives = startingLives();
   // the seat you took in the lobby decides your lane colour and home ground
   const mySeats = seatsOn(PLAYER_HALF), mySeat = humanSeatIndex();
@@ -12526,8 +12555,8 @@ function renderEconStrip() {
     <div class="econ-row2">
       <button class="econ-btn" data-econ="mult" aria-label="Sends per tap: ${multText}. Tap to change"><b>${multText}</b><small>per send</small></button>
       <button class="econ-btn" data-econ="lumberall" ${player.gold < lumberPrice() ? 'disabled' : ''} aria-label="Spend all gold on lumber"><b>${LUMBER_ICON} ALL</b><small>${Math.floor(player.gold / lumberPrice())} × ${hudNum(lumberPrice())}g</small></button>
+      <button class="econ-btn" data-econ="lumber" ${player.gold < lumberPrice() ? 'disabled' : ''} aria-label="Buy one lumber for ${hudNum(lumberPrice())} gold"><b>${LUMBER_ICON} ${player.lumber}</b><small>+1 · ${hudNum(lumberPrice())}g</small></button>
     </div>
-    <button class="econ-btn" data-econ="lumber" ${player.gold < lumberPrice() ? 'disabled' : ''} aria-label="Buy one lumber for ${hudNum(lumberPrice())} gold"><b>${LUMBER_ICON} ${player.lumber}</b><small>+1 · ${hudNum(lumberPrice())}g</small></button>
     <button class="econ-btn" data-econ="shrine" ${maxed || player.lumber < 1 ? 'disabled' : ''} aria-label="${maxed ? 'Shrine is at its top level' : `Upgrade the Shrine to level ${player.shrine + 1} for one lumber`}"><b>${icon('shrine')} L${player.shrine}</b><small>${maxed ? 'max' : `→ L${player.shrine + 1} · 1${LUMBER_ICON}`}</small></button>
     ${second
       ? `<div class="econ-btn econ-done" aria-label="Second element licensed"><b style="color:${second.color}">${second.symbol} ${second.name}</b><small>2nd element</small></div>`
@@ -12560,6 +12589,11 @@ function renderTacticalDock() {
     tabs.addEventListener('click', (event) => {
       const button = event.target.closest('button');
       if (!button) return;
+      if (button.dataset.dockMult !== undefined) {
+        sendMult = SEND_MULTS[(SEND_MULTS.indexOf(sendMult) + 1) % SEND_MULTS.length];
+        tacticalDockKey = ''; renderTacticalDock(); renderEconStrip();
+        return;
+      }
       if (button.dataset.dockShrine !== undefined) {
         upgradeShrine();
         tacticalDockKey = '';
@@ -12610,6 +12644,7 @@ function renderTacticalDock() {
       <button class="send-dock-tab attackers ${desktopSendTab === 'attackers' ? 'active' : ''}" data-dock-tab="attackers">ATTACK</button>
       <button class="send-dock-tab flying ${desktopSendTab === 'flying' ? 'active' : ''}" data-dock-tab="flying">FLYING</button>
       <button class="send-dock-tab auras ${desktopSendTab === 'auras' ? 'active' : ''}" data-dock-tab="auras">AURAS</button>
+      <button class="send-dock-tab mult" data-dock-mult="1" title="Sends per tap — tap to change">${sendMult === 'max' ? 'MAX' : '×' + sendMult}</button>
       <button class="send-dock-tab upgrades ${desktopSendTab === 'upgrades' ? 'active' : ''}" data-dock-tab="upgrades">⬆ UPGRADE</button>
       <button class="send-dock-tab shrine" hidden data-dock-shrine="1" ${shrineMaxed || player.lumber < 1 ? 'disabled' : ''} title="${shrineMaxed ? 'Shrine is fully upgraded' : `Upgrade Shrine to level ${player.shrine + 1} for 1 lumber`}">
         ♠ UPGRADE SHRINE · ${shrineMaxed ? 'MAX' : `L${player.shrine}→${player.shrine + 1}`}
@@ -15510,7 +15545,12 @@ let sheetTab = 'sends', sheetKey = '';
 let barTab = 'build', barKey = '', barStructKey = '', autoSend = { on:false, last:null };
 let barBuildCollapsed = false, barSendCollapsed = false;
 let mobileTacticalPanel = 'map';
-const MOBILE_TACTICAL_CLASSES = ['mobile-panel-build','mobile-panel-sends','mobile-panel-tower','mobile-panel-enemy'];
+/* THE BOTTOM BAR (Gene, 2026-11-28: "have the roster where the tower is instead ... and also get rid of
+   enemy as well"). TOWER and ENEMY left the bar: a tap on a tower or a creep opens its card by itself,
+   and the card closes on a tap on bare board. Their place went to UPGRADES, which takes the economy
+   strip (attune, levels, lumber, Shrine, second element) and the send upgrades off the SENDS tray, so
+   the send list has the room, and in Roster Wars to ROSTER. Both are views of the same dock. */
+const MOBILE_TACTICAL_CLASSES = ['mobile-panel-build','mobile-panel-sends','mobile-panel-tower','mobile-panel-enemy','mobile-panel-econ','mobile-panel-roster'];
 
 /* One state owner for the phone adaptation of the tactical shell. MAP closes
    the tray; tapping the already-open tab does the same. Nothing here mutates
@@ -15520,10 +15560,18 @@ function setMobileTacticalPanel(requested, force = false) {
   if (!nav) return;
   let next = requested || 'map';
   if (!force && next !== 'map' && next === mobileTacticalPanel) next = 'map';
-  if (!['map','build','sends','tower','enemy'].includes(next)) next = 'map';
+  if (!['map','build','sends','tower','enemy','econ','roster'].includes(next)) next = 'map';
+  if (next === 'roster' && !isRosterWars()) next = 'sends';
   mobileTacticalPanel = next;
   MOBILE_TACTICAL_CLASSES.forEach((name) => document.body.classList.remove(name));
   if (next !== 'map') document.body.classList.add(`mobile-panel-${next}`);
+  if (next === 'econ' || next === 'roster') document.body.classList.add('mobile-panel-sends');   // same dock, its own contents
+  const wasTab = desktopSendTab;
+  if (next === 'econ') desktopSendTab = 'upgrades';
+  else if (next === 'roster') desktopSendTab = 'roster';
+  else if (next === 'sends' && (desktopSendTab === 'upgrades' || desktopSendTab === 'roster')) desktopSendTab = 'sends';
+  if (wasTab !== desktopSendTab) tacticalDockKey = '';
+  const rb = nav.querySelector('.nav-roster'); if (rb) rb.hidden = !isRosterWars();
   nav.querySelectorAll('[data-mobile-panel]').forEach((button) => {
     const on = button.dataset.mobilePanel === next;
     
@@ -15531,7 +15579,7 @@ function setMobileTacticalPanel(requested, force = false) {
     button.setAttribute('aria-pressed', String(on));
   });
   if (next === 'build') { renderTowerList(); renderTowerDetails(); }
-  if (next === 'sends') renderTacticalDock();
+  if (next === 'sends' || next === 'econ' || next === 'roster') renderTacticalDock();
   if (next === 'tower') renderTowerDetails();
   if (next === 'enemy') renderSelectedEnemyPanel();
   requestAnimationFrame(fitBoardToViewport);
@@ -15844,6 +15892,11 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    new tag, then collapses and stays collapsed. */
 const RELEASE_TAG = '2026-11-14-elemental';
 const RELEASE_NOTES = [
+  { date:'2026-11-28', title:'A cleaner bottom bar', items:[
+    'The bottom bar is Map · Build · Sends · Upgrades, with Roster in Roster Wars. Tower and Enemy left it: tapping a tower or a creep opens its card by itself.',
+    'UPGRADES holds attune, level-all, lumber, the Shrine, your second element and the send upgrades, so the Sends tray is only sends, with four full-size tabs and the ×1 send multiplier beside them.',
+    'The wave card rides the top of the board for three seconds instead of sitting over the middle of it. Tower cards say how many elements they react with instead of listing them in tiny print. Text you need to read is at least 10 px and the top-bar buttons are bigger.',
+  ] },
   { date:'2026-11-28', title:'Matches that can end: send upgrades, aura creeps, dearer lumber', items:[
     'Send upgrades (Sends → ⬆ UPGRADE): Vigor, Plating, Haste, Warding and Resolve make every send you make tougher, Roster units included. They cost lumber, have no top rank, and computers buy them too. A strong late wall now holds for about 20 minutes before an upgraded rival breaks it.',
     'Aura creeps (Sends → AURAS): War Drum, Mending Totem, Aegis Banner, Iron Standard and Battle Hymn walk with the wave and lift every creep within 3 tiles: speed, healing, a shield, armour. They cost lumber and pay lumber income.',
