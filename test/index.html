@@ -3422,7 +3422,7 @@ const LANE_COLORS = {
   north:[{ id:'red', name:'Red', color:'#ff6b6b' }, { id:'blue', name:'Blue', color:'#6ba8ff' }, { id:'teal', name:'Teal', color:'#54d6c4' }],
   south:[{ id:'purple', name:'Purple', color:'#b07cff' }, { id:'yellow', name:'Yellow', color:'#ffd86b' }, { id:'orange', name:'Orange', color:'#ff9f4d' }]
 };
-const laneColor = (half, side) => LANE_COLORS[mp.active && half===ENEMY_HALF && mp.viewSeat ? mp.viewSeat.split(':')[0] : rosterHalfFor(half)][side === 'west' ? 0 : 2].color;
+const laneColor = (half, side) => LANE_COLORS[mp.active && half===ENEMY_HALF && mp.viewSeat ? (mp.viewSeat === 'foes' ? mpFoeHalf() : mp.viewSeat.split(':')[0]) : rosterHalfFor(half)][side === 'west' ? 0 : 2].color;
 // Node 0 = river edge (creeps still sweep the full river), nodes 1-2 are the only FLAGS —
 // lane-bottom + a SHARED middle-base cell (both lanes cross the same center square, so it
 // renders as a single middle flag). Node 3 = the exit under the crystal (the cave-mouth node went
@@ -11099,7 +11099,7 @@ function renderSeatWatch() {
   if (!box) return;
   const seats = mp.active ? mpViewableSeats() : [];
   if (!battleRunning || seats.length < 2) { box.classList.add('hidden'); box.innerHTML = ''; seatWatchKey = ''; return; }
-  if (!mp.viewSeat || !seats.some((s) => s.key === mp.viewSeat)) mp.viewSeat = mpDefaultViewSeat();
+  if (!mp.viewSeat || (mp.viewSeat !== MP_ALL_FOES && !seats.some((s) => s.key === mp.viewSeat))) mpSetViewSeat(mpDefaultViewSeat());
   box.classList.remove('hidden');
   /* REBUILD ONLY WHEN THE SHAPE CHANGES. renderHud runs five times a second,
      and this used to rewrite its own innerHTML every time — so a chip was
@@ -11117,6 +11117,7 @@ function renderSeatWatch() {
     box.innerHTML = `<span class="sw-label">WATCHING</span>`
       + seats.filter((s) => s.friendly).map(chip).join('')
       + `<span class="sw-vs">⚔</span>`
+      + `<button class="sw-chip sw-foe sw-all" data-watch="${MP_ALL_FOES}" title="Every opponent at once"><i></i><b>All</b><em>⚔</em></button>`
       + seats.filter((s) => !s.friendly).map(chip).join('');
     if (!box._wired) {
       box._wired = true;
@@ -11132,6 +11133,7 @@ function renderSeatWatch() {
     const btn = box.querySelector(`[data-watch="${s.key}"]`);
     if (btn) btn.classList.toggle('on', s.key === mp.viewSeat);
   });
+  box.querySelector(`[data-watch="${MP_ALL_FOES}"]`)?.classList.toggle('on', mp.viewSeat === MP_ALL_FOES);
 }
 function renderSquadIncome() {
   const box = $('squad-income');
@@ -11156,7 +11158,7 @@ function renderSquadIncome() {
     const watched=seats.find(s=>s.key===mp.viewSeat && !s.mine);
     box.innerHTML='<div class="si-head">YOUR TEAM</div>'+group(true)
       +'<div class="si-head">OPPONENTS</div>'+group(false)
-      +`<div class="si-view">BOTTOM: YOUR BOARD${watched ? `<br>TOP: ${escapeHTML(watched.name)} · ${watched.friendly?'TEAMMATE':'OPPONENT'}` : ''}</div>`;
+      +`<div class="si-view">BOTTOM: YOUR BOARD${mp.viewSeat === MP_ALL_FOES ? '<br>TOP: ALL OPPONENTS' : watched ? `<br>TOP: ${escapeHTML(watched.name)} · ${watched.friendly?'TEAMMATE':'OPPONENT'}` : ''}</div>`;
     return;
   }
   const mine = allies.filter((a) => a.half === PLAYER_HALF);
@@ -14304,8 +14306,30 @@ function mpViewableSeats() {
    person sharing your lifeforce is building far more than you need to see the
    enemy's, and defaulting to the enemy is why "allies should see what maze I'm
    building" read as broken — the feature was there and pointed the wrong way. */
+/* EVERY OPPONENT, ON EVERY PHONE (Gene, 2026-11-28: "only one of us can see both of the enemies. The
+   other one will just see one enemy and a blank map for the rest"). The top half showed ONE seat's
+   board, and it opened on a team-mate's (measured, 2 people vs 2 computers: the host drew all 14
+   computer towers because it runs them; the guest held both computers' boards and drew a blank
+   team-mate board instead). Team-mates' towers are built on your own half now, so the top half's
+   job is the other side: by default it shows every opponent at once ('foes'), each person's board
+   in their own lane plus the computers' board once. A single seat can still be picked. */
+const MP_ALL_FOES = 'foes';
+function mpEnemySnap() {
+  const towers = [], creeps = [];
+  let botsTaken = false;
+  for (const s of mpViewableSeats()) {
+    if (s.friendly || s.mine) continue;
+    const sn = mp.seatSnaps[s.key]; if (!sn) continue;
+    if (s.kind === 'ai') { if (botsTaken) continue; botsTaken = true; }   // every computer seat carries the same whole-side board
+    for (const t of sn.towers || []) towers.push(t);
+    for (const c of sn.creeps || []) creeps.push(c);
+  }
+  return { towers, creeps };
+}
+function mpIsFoeSeat(key) { return mpViewableSeats().some((s) => s.key === key && !s.friendly); }
 function mpDefaultViewSeat() {
   const seats = mpViewableSeats();
+  if (seats.some((s) => !s.friendly)) return MP_ALL_FOES;
   const mate = seats.find((s) => s.friendly && !s.mine && s.hasBoard) || seats.find((s) => s.friendly && !s.mine);
   if (mate) return mate.key;
   const foe = seats.find((s) => !s.friendly && s.hasBoard) || seats.find((s) => !s.friendly);
@@ -14313,7 +14337,7 @@ function mpDefaultViewSeat() {
 }
 function mpSetViewSeat(key) {
   mp.viewSeat = key;
-  mp.snap = mp.seatSnaps[key] || { towers:[], creeps:[] };
+  mp.snap = key === MP_ALL_FOES ? mpEnemySnap() : (mp.seatSnaps[key] || { towers:[], creeps:[] });
   mirrorFx = [];   // the old board's tracers are not this board's
   renderHud();
 }
@@ -14430,6 +14454,7 @@ function mpBotSeatKeys() {
   return mpSeatsInPlay(half).map((s, i) => (s.kind === 'ai' ? mpSeatKey(half, s.index) : null)).filter(Boolean);
 }
 function mpSeatName(key) {
+  if (key === MP_ALL_FOES) return 'the opponents';
   const seat = mpFoeSeats().find((f) => f.key === key);
   if (!seat) return 'the other side';
   if (seat.sid && mp.peers[seat.sid]) return mp.peers[seat.sid].name || 'Commander';
@@ -14838,7 +14863,7 @@ function mpOnMessage(msg) {
       creeps:Array.isArray(msg.creeps) ? msg.creeps : []
     };
     // replay the sender's combat on whichever board we are watching
-    if (Array.isArray(msg.fx) && msg.fx.length && msg.seat === mp.viewSeat) mpPlayMirrorFx(msg.fx);
+    if (Array.isArray(msg.fx) && msg.fx.length && (msg.seat === mp.viewSeat || (mp.viewSeat === MP_ALL_FOES && mpIsFoeSeat(msg.seat)))) mpPlayMirrorFx(msg.fx);
     const from = mpPeer(msg.__from || msg.sid);
     if (from) from.snap = snap;
     // keep every board, not just the last one to speak: mp.snap used to be
@@ -14847,7 +14872,8 @@ function mpOnMessage(msg) {
     if (msg.seat) mp.seatSnaps[msg.seat] = snap;
     if (msg.seat && Array.isArray(msg.towers)) mpSyncTeammateTowers(msg.seat, msg.towers);
     if (!mp.viewSeat) mp.viewSeat = mpDefaultViewSeat();
-    if (!msg.seat || msg.seat === mp.viewSeat) mp.snap = snap;
+    if (mp.viewSeat === MP_ALL_FOES) { if (!msg.seat || mpIsFoeSeat(msg.seat)) mp.snap = mpEnemySnap(); }
+    else if (!msg.seat || msg.seat === mp.viewSeat) mp.snap = snap;
   } else if (msg.t === 'over') {
     const source=mpSeatForSid(msg.__from||msg.sid);
     if(mp.active&&battleRunning&&!matchOver&&source&&mpCurrentMatchMessage(msg)&&['victory','defeat'].includes(msg.result)) {
@@ -15078,7 +15104,10 @@ function mpTick(dt) {
   if (mp.snapClock <= 0) {
     mp.snapClock = .3;
     // my own board, in my own coordinates, tagged with my seat
-    const mine = mpSnapOf((t) => (t.owner === 'player' || t.allyHalf === PLAYER_HALF) && !t.remoteSeat, false);
+    /* A computer team-mate's towers ride my snapshot only if I am the phone that runs the computers.
+       Otherwise the host already shows its own copy of that computer, and mine drew a second set
+       on top of it (measured, 1 person vs a person + a computer: the host drew 13 + 9 for 13 + 5). */
+    const mine = mpSnapOf((t) => ((t.owner === 'player' && t.allySeat == null) || ((t.allySeat != null || t.allyHalf === PLAYER_HALF) && t.allyHalf !== ENEMY_HALF && mpHostRunsBots())) && !t.remoteSeat, false);
     const fx = mp.fxOut; mp.fxOut = [];
     /* Towers change only when somebody builds or upgrades, and they are the
        bulk of the message — so send them only when they actually differ and
@@ -15632,6 +15661,10 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    new tag, then collapses and stays collapsed. */
 const RELEASE_TAG = '2026-11-14-elemental';
 const RELEASE_NOTES = [
+  { date:'2026-11-28', title:'Every phone sees every opponent', items:[
+    'In a room, the top half now shows all your opponents at once on every phone. Before, only the phone running the computers saw them all; the other phone showed one board, or a blank one. Tap a name in the WATCHING row to see one opponent on their own, or All to see everyone again.',
+    'Fixed a computer team-mate being drawn twice on the other side\'s phone.',
+  ] },
   { date:'2026-11-28', title:'A quicker tower tap, and Shrine groups that fold', items:[
     'Tapping a tower opens a small card above the bottom bar instead of a panel over most of the screen. Tap the board anywhere to put it away; selling the tower closes it too. That first tap only closes the card, so it can never buy or build by accident.',
     'Send menus open with only your current Shrine tier showing. The tiers below and the locked ones above are folded; tap a header to open or fold it, and the game remembers. A new tier opens itself when your Shrine reaches it. The phone send sheet has the same headers.',

@@ -2,6 +2,26 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 28, 2026 — Every phone sees every opponent (Claude)
+
+Gene: "only one of us can see both of the enemies. The other one will just see one enemy and a blank
+map for the rest."
+
+Measured with `tools/harness/mpview.js` (two clients, 2 people vs 2 computers): the host draws all
+14 computer towers because it simulates them; the guest held both computers' boards in
+`mp.seatSnaps` but its top half showed ONE watched seat, and `mpDefaultViewSeat` opened it on the
+team-mate, whose towers are already built on the guest's own half by the shared-board mirror. So
+the guest saw a blank enemy side. The top half's default is now `'foes'`: `mpEnemySnap` merges
+every opponent seat's snapshot (each human's board in their lane, the computers' whole-side board
+once, since every computer seat carries the same one). The WATCHING row gains an All chip; a single
+seat can still be picked. `laneColor` and `mpSeatName` understand the new key.
+
+Also: a guest's snapshot carried its locally simulated computer team-mate, which the host already
+draws from its own simulation, so the host drew that computer twice (13 + 9 towers where 13 + 5 were
+real). Computer towers ride a snapshot only from the phone that runs the computers. After: 2v2 vs
+computers, both phones 15 opponent towers; 1 vs person + computer, host 15 + 5, guest 5; teamboard
+and rosterroom PASS.
+
 ## November 28, 2026 — The tower tap; folding Shrine groups (Claude)
 
 Gene: "when you click a tower, there's an extra screen that lingers and it really slows down the
