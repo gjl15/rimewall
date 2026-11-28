@@ -2,6 +2,21 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 28, 2026 — The tower tap; folding Shrine groups (Claude)
+
+Gene: "when you click a tower, there's an extra screen that lingers and it really slows down the
+gameplay", and "make [the Shrine sections] collapsible".
+
+- **Tower tap.** The phone inspector was a fixed `min(62dvh,560px)` tray (measured 523 px of an
+  844 px screen, mostly empty) over the board, and it covered the cells you tap to dismiss it:
+  measured, a tap meant to close it landed on Finish Rank and bought a rank. It sizes to content
+  now (max 40dvh; measured 300 px), a tap on bare board closes the tray (and only closes it), and
+  selling the tower closes it.
+- **Shrine groups.** The headers already folded but every group started open and nothing was
+  kept. `sendTierOpen` opens only the current Shrine tier by default; taps are stored per Shrine
+  level in `profile.sendTiers`; a tier opens itself when the Shrine reaches it unless you chose
+  otherwise; the phone send sheet uses `sendTierMarkup` too, with a count on folded headers.
+
 ## November 28, 2026 — Attune and level per element; the stale tower panel (Claude)
 
 Gene: "we have to fix the menu where you can max all towers of beam or max all towers of the other

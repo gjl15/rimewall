@@ -99,6 +99,8 @@ h1 { margin-top:9px; font-size:clamp(42px,7vw,86px); line-height:.94; letter-spa
 h1 span { color:var(--ice); }
 .lede { margin-top:20px; color:#aeb8d3; font-size:clamp(14px,1.5vw,18px); }
 .version-pill { border:1px solid #334264; border-radius:99px; padding:10px 14px; color:#a8b3d0; font:500 10px 'DM Mono',monospace; letter-spacing:.08em; white-space:nowrap; }
+.sheet-grid .send-shrine-heading { grid-column:1 / -1; margin:6px 0 2px; }
+.send-shrine-heading small, .dock-shrine-divider small { opacity:.7; font-weight:600; }
 .send-shrine-heading { width:100%; min-height:44px; margin:12px 0 6px; padding:7px 8px; border:0; border-bottom:1px solid #334264; color:#bcd7ff; background:#10233a; text-align:left; font:700 10px 'DM Mono',monospace; cursor:pointer; }
 .dock-shrine-divider { flex:0 0 68px; min-height:44px; display:flex; align-items:center; justify-content:center; padding:5px; border:0; border-left:2px solid #77d6ff; color:#bcd7ff; background:#10233a; font:700 9px/1.5 'DM Mono',monospace; text-align:center; scroll-snap-align:start; cursor:pointer; }
 .send-card[hidden], .dock-send-card[hidden] { display:none; }
@@ -1706,9 +1708,15 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
   body.playing.arena.mobile-panel-build .send-command-source,
   body.playing.arena.mobile-panel-build .hint-box { display:none !important; }
 
+  /* A TOWER TAP IS A GLANCE, NOT A SCREEN (Gene, 2026-11-28: "when you click a tower, there's an
+     extra screen that lingers and it really slows down the gameplay"). It was a fixed 62% of the
+     phone, mostly empty, over the board, and it covered the very cells you tap to put it away
+     (measured: a tap meant to dismiss it bought a rank). It sizes to its content now, at most 40%
+     of the screen, and a tap on bare board closes it. */
   body.playing.arena.mobile-panel-tower .tower-inspector {
-    display:flex !important; flex-direction:column; height:min(62dvh,560px); padding:12px; overflow:hidden;
+    display:flex !important; flex-direction:column; height:auto; max-height:min(40dvh,340px); padding:8px 10px 10px; overflow:hidden;
   }
+  body.playing.arena.mobile-panel-tower .tower-inspector .inspector-title { padding-bottom:4px; }
   body.playing.arena .tower-inspector .inspector-title { display:flex; align-items:center; justify-content:space-between; gap:8px; flex:0 0 auto; padding-bottom:8px; border-bottom:1px solid #2a3550; }
   body.playing.arena .tower-inspector .inspector-title > span:last-child { padding:3px 6px; border:1px solid #2c4a7a; color:#8adcff; font:600 7px 'DM Mono',monospace; }
   body.playing.arena .tower-inspector .tower-details { display:block !important; flex:1 1 auto; min-height:0; margin-top:8px; overflow-y:auto; }
@@ -3938,22 +3946,42 @@ function orderedSends(list = SENDS) {
     || (a.cost || a.lumber || 0) - (b.cost || b.lumber || 0)
     || a.name.localeCompare(b.name));
 }
-const collapsedSendTiers = new Set();
+/* SHRINE GROUPS THAT STAY OUT OF THE WAY (Gene, 2026-11-28: "make it so it's collapsible, so if I
+   don't want to cycle through sends, Shrine level 1, 2, 3 all the way up to max tier all the time").
+   The headers could already be tapped, but every group started open and nothing was remembered.
+   Now only your current Shrine tier starts open; the tiers below it and the locked ones above start
+   folded, a new tier opens itself when the Shrine reaches it, and every header you tap is remembered
+   across matches (profile.sendTiers, keyed by Shrine level). The phone's send sheet has them too. */
+const collapsedSendTiers = new Set();   // kept for anything that still reads it; the state lives in profile.sendTiers
+function sendTierOpen(shrine) {
+  const pref = profile && profile.sendTiers ? profile.sendTiers[shrine] : undefined;
+  if (pref === true || pref === false) return pref;
+  return !player || shrine === player.shrine;
+}
+function toggleSendTier(shrine) {
+  profile.sendTiers = profile.sendTiers || {};
+  profile.sendTiers[shrine] = !sendTierOpen(shrine);
+  saveProfile();
+}
+function sendTierHeading(shrine, cls, count) {
+  const open = sendTierOpen(shrine), locked = player && shrine > player.shrine;
+  return `<button type="button" class="${cls}" data-send-shrine="${shrine}" data-send-tier-toggle="${shrine}" aria-expanded="${open}" aria-label="${open ? 'Fold' : 'Show'} Shrine ${shrine} sends">${open ? '▾' : '▸'} Shrine ${shrine}${locked ? ' 🔒' : ''}${open ? '' : ` <small>${count}</small>`}</button>`;
+}
 function sendTierMarkup(list, render, dock = false) {
   let lastTier = null;
-  const scope=dock?desktopSendTab:'mixed';
-  return orderedSends(list).map(send => {
-    const key=scope+':'+send.shrine,collapsed=collapsedSendTiers.has(key);
-    const heading = send.shrine === lastTier ? '' : `<button type="button" class="${dock ? 'dock-shrine-divider' : 'send-shrine-heading'}" data-send-shrine="${send.shrine}" data-send-tier-toggle="${key}" aria-expanded="${!collapsed}" aria-label="${collapsed?'Expand':'Collapse'} Shrine ${send.shrine}">${collapsed?'▸':'▾'} Shrine ${send.shrine}</button>`;
+  const ordered = orderedSends(list);
+  const counts = {}; ordered.forEach((s) => { counts[s.shrine] = (counts[s.shrine] || 0) + 1; });
+  return ordered.map(send => {
+    const open = sendTierOpen(send.shrine);
+    const heading = send.shrine === lastTier ? '' : sendTierHeading(send.shrine, dock ? 'dock-shrine-divider' : 'send-shrine-heading', counts[send.shrine]);
     lastTier = send.shrine;
-    return heading + (collapsed?render(send).replace('<button ','<button hidden '):render(send));
+    return heading + (open ? render(send) : render(send).replace('<button ','<button hidden '));
   }).join('');
 }
 document.addEventListener('click',e=>{
   const heading=e.target.closest('[data-send-tier-toggle]');if(!heading)return;
-  const key=heading.dataset.sendTierToggle;
-  collapsedSendTiers.has(key)?collapsedSendTiers.delete(key):collapsedSendTiers.add(key);
-  tacticalDockKey='';renderSendPanel();renderTacticalDock();
+  toggleSendTier(Number(heading.dataset.sendTierToggle));
+  tacticalDockKey='';sheetKey='';renderSendPanel();renderTacticalDock();renderCommandSheet();
 });
 const SEND_SHORTCUT_KEYS = ['1','2','3','4','5','6','7','8','9','0','-'];
 function sendShortcutAt(index) {
@@ -11857,6 +11885,7 @@ function towerAction(kind) {
     recordSell(sold, refund, soldName);
     player.gold += refund;
     selectedGroupKeys = []; selectedTowerKey = null;
+    if (touchUI() && mobileTacticalPanel === 'tower') setMobileTacticalPanel('map', true);   // nothing left to inspect
     log(`${n > 1 ? `${n} towers` : 'Tower'} sold for ${refund}g — ↩ undo for ${SELL_UNDO_WINDOW}s. ${cachedRouteText}.`);
   } else if (kind === 'selectall') {
     /* Double-tap was the only way to batch-select, and a double-tap on a phone
@@ -12631,11 +12660,13 @@ function handleBoardTap(event) {
      away. It used to drop the selection and close the rail drawer only, leaving
      the wisp panel and the command sheet covering the ground. */
   lastTapKey = null;
+  const hadPanel = touchUI() && (mobileTacticalPanel === 'tower' || mobileTacticalPanel === 'enemy');
   selectedTowerKey = null; selectedGroupKeys = []; inspectEntity = null;
   renderTowerDetails(); renderRing();
   railClose();
   closeWispMenus();
   if (touchUI()) closeCommandSheet();
+  if (hadPanel) { setMobileTacticalPanel('map', true); return; }   // the first tap only puts the inspector away; it never builds
   if (matchOver) return;
   const t = terrainAt(cell.r, cell.c);
   if (ghost && (t !== T.FLOOR || !isPlayerBuildRow(cell.r))) { ghost = null; ghostChips = []; }
@@ -15601,6 +15632,10 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    new tag, then collapses and stays collapsed. */
 const RELEASE_TAG = '2026-11-14-elemental';
 const RELEASE_NOTES = [
+  { date:'2026-11-28', title:'A quicker tower tap, and Shrine groups that fold', items:[
+    'Tapping a tower opens a small card above the bottom bar instead of a panel over most of the screen. Tap the board anywhere to put it away; selling the tower closes it too. That first tap only closes the card, so it can never buy or build by accident.',
+    'Send menus open with only your current Shrine tier showing. The tiers below and the locked ones above are folded; tap a header to open or fold it, and the game remembers. A new tier opens itself when your Shrine reaches it. The phone send sheet has the same headers.',
+  ] },
   { date:'2026-11-28', title:'Attune and level every element', items:[
     'Each element you hold has its own row in the economy strip: attune it, attune it as far as your gold goes, or level every tower of it at once. Attune used to act only on whichever element the build panel was showing.',
     'Fixed: after Attune MAX or levelling a batch, tapping a tower showed its old damage. The tower panel now redraws whenever its numbers change.',
@@ -15966,9 +16001,8 @@ function renderCommandSheet() {
       : wager.tokens < 1 ? 'no proposals left this match'
       : wagerReady ? `both bank +${wagerBonus()}g if accepted` : `ready in ${Math.max(1, Math.ceil(wager.cooldownUntil - simTime))}s`;
     body = `${!hasNeutralWaves() ? '' : `<button id="sheet-wager" class="wager-chip ${wagerReady ? '' : 'cooling'}"><span>⏩</span><b>Rush the wave</b><small>${wagerLine}</small><i>×${wager.tokens}</i></button>`}
-      <div class="sheet-grid">${orderedSends().map((send) => { const inc = sendIncomeLabel(send); const gain = send.attacker ? `+${send.woodIncome || 0}${LUMBER_ICON}` : inc.text; return `
-      <button class="sheet-chip ${player.shrine < send.shrine ? 'locked' : ''} ${sendAffordable(send) ? '' : 'poor'}" data-sheet-send="${send.id}" title="${send.name} — Shrine ${send.shrine}, ROI ${sendRoiLabel(send)}, ${sendTypeLabel(send)}, ${sendPriceText(send)}, ${send.attacker ? `${gain} per cycle` : `ladder +${send.income} income${inc.cut ? `, ${inc.text} after diminishing returns` : ''}`}">
-        <span>${sendGlyph(send)}</span><small>${send.name.split(' ')[0]}</small><b>${sendPriceText(send)}<i class="${!send.attacker && inc.cut ? 'inc-cut' : ''}">${gain}</i></b></button>`; }).join('')}</div>
+      <div class="sheet-grid">${sendTierMarkup(SENDS, (send) => { const inc = sendIncomeLabel(send); const gain = send.attacker ? `+${send.woodIncome || 0}${LUMBER_ICON}` : inc.text; return `<button class="sheet-chip ${player.shrine < send.shrine ? 'locked' : ''} ${sendAffordable(send) ? '' : 'poor'}" data-sheet-send="${send.id}" title="${send.name} — Shrine ${send.shrine}, ROI ${sendRoiLabel(send)}, ${sendTypeLabel(send)}, ${sendPriceText(send)}, ${send.attacker ? `${gain} per cycle` : `ladder +${send.income} income${inc.cut ? `, ${inc.text} after diminishing returns` : ''}`}">
+        <span>${sendGlyph(send)}</span><small>${send.name.split(' ')[0]}</small><b>${sendPriceText(send)}<i class="${!send.attacker && inc.cut ? 'inc-cut' : ''}">${gain}</i></b></button>`; })}</div>
       <p class="sheet-hint"><b>↗ Income</b> sends raise gold income, <b>▲ Flying</b> sends cross the maze, and <b>⚒ Attackers</b> cost lumber to break towers. Shrine tier is first; highest income ROI within that tier is first. ROI is income per cycle divided by its price, using lumber for attackers. You are paid <b>${goldIncomePerCycle(player.income)}g</b> every ${currentIncomePeriod()}s.${player.shrine < SHRINE_MAX ? 'Higher shrine levels unlock the elite tiers.' : 'Shrine is maxed.'}</p>`;
   } else if (sheetTab === 'tower') {
     const sel = selectionTowers().filter(isMine);
