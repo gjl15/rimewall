@@ -1788,7 +1788,9 @@ body.dev #set-dev, body.dev #set-mpdiag, body.dev #dev-unlock-toggle { display:b
   body.playing.arena .tower-inspector #td-close { min-width:44px; min-height:44px; }
   body.playing.arena.mobile-panel-sends .tactical-dock { height:min(56dvh,480px); }
   body.playing.arena .econ-strip { flex:0 0 auto; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.5fr); gap:6px; padding:8px 8px 6px; border-bottom:1px solid #2a3550; background:#0d1424; }
-  body.playing.arena .econ-strip .econ-row2 { grid-column:1 / -1; display:grid; grid-template-columns:minmax(0,1.7fr) minmax(0,.8fr) minmax(0,.8fr) minmax(0,1fr); gap:6px; }
+  body.playing.arena .econ-strip .econ-row2 { grid-column:1 / -1; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:6px; }
+  body.playing.arena .econ-strip .econ-elems { grid-column:1 / -1; display:grid; gap:6px; }
+  body.playing.arena .econ-strip .econ-el { display:grid; grid-template-columns:minmax(0,1.7fr) minmax(0,.75fr) minmax(0,1fr); gap:6px; }
   body.playing.arena .econ-strip .econ-attune b { color:#ffe49a; }
   body.playing.arena .econ-btn { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-height:48px; padding:4px 6px; border:1px solid #2c3959; border-radius:10px; background:#111a30; color:#eafcff; }
   body.playing.arena .econ-btn b { font:700 13px 'DM Mono',monospace; }
@@ -3112,6 +3114,28 @@ function buyAttuneMax(raceId) {
   if (n) { log(`${name} attuned ${n === 1 ? 'once' : n + ' times'} — level ${attuneLevel(player, raceId)}, every ${name} tower at ×${attuneMult({ owner:'player', raceId }).toFixed(2)} damage.`); hudTick('gold-label'); }
   else log(`Attuning ${name} costs ${attuneCost(player, raceId).toLocaleString()}g.`);
   renderHud(); return n;
+}
+function levelAllTargets(raceId) { return [...towers.values()].filter((t) => isMine(t) && t.raceId === raceId && !underConstruction(t) && canLevel(t) && towerTotalRank(t) < MAX_LEVEL); }
+function levelAllCost(raceId) {
+  const list = levelAllTargets(raceId);
+  const costs = list.map(towerLevelCost);
+  return { count:list.length, next:costs.reduce((a, b) => a + b, 0), cheapest:costs.length ? Math.min(...costs) : 0 };
+}
+function levelAllOf(raceId) {
+  const name = races.find((r) => r.id === raceId)?.name || raceId;
+  let done = 0, spent = 0;
+  for (let pass = 0; pass < MAX_LEVEL + 1; pass += 1) {   // one level per tower per pass, cheapest first, until the gold runs out
+    let n = 0;
+    for (const t of levelAllTargets(raceId).sort((a, b) => towerLevelCost(a) - towerLevelCost(b))) {
+      const c = towerLevelCost(t);
+      if (player.gold < c) continue;
+      if (boostTowerRank(t)) { n += 1; spent += c; }
+    }
+    done += n; if (!n) break;
+  }
+  if (done) { towersVersion++; SFX.play('build'); log(`${name}: ${done} level${done > 1 ? 's' : ''} bought across your towers for ${hudNum(spent)}g.`); hudTick('gold-label'); }
+  else log(levelAllTargets(raceId).length ? `Levelling your ${name} towers needs ${hudNum(levelAllCost(raceId).cheapest)}g.` : `Every ${name} tower is fully levelled. Hits keep earning ranks for free.`);
+  renderHud(); return done;
 }
 function towerLiveStats(tower) {
   const att = attuneLevel(towerPurse(tower), tower.raceId);
@@ -12096,7 +12120,12 @@ function renderTowerDetails() {
   const sig = [tower.key, group.map((t) => t.key).join(','), tower.level, tower.tier, tower.priority,
     tower.raceId, isYours, upgradable.length, tierable.length, alike > 1,
     towerRank(tower), batchStateKey(group), tower.ward || '', (tower.bulwarkCore || []).join(','),
-    bulwarkRank(tower), Math.floor((tower.bulwarkDamageTaken || 0) / 25)].join('|');
+    bulwarkRank(tower), Math.floor((tower.bulwarkDamageTaken || 0) / 25),
+    /* ATTUNE AND BULK UPGRADES MUST SHOW (Gene, 2026-11-28: "when you do the max attune or the
+       upgrade all, it doesn't reflect when you click the towers"). Attunement changes the numbers
+       without touching anything above, so the panel kept the old ones: the live stats ride the
+       signature now, so anything that changes what the tower does redraws it. */
+    attuneLevel(towerPurse(tower), tower.raceId), Math.round(stats.dmg), stats.range.toFixed(1), (stats.cd || 0).toFixed(2), towerTotalRank(tower)].join('|');
   if (panel._sig === sig && panel._built) {
     // still optional-chained: a rival's tower renders the readout with no actions
     const setBtn = (id, off, text) => { const b = $(id); if (!b) return; b.disabled = !!off; if (text != null && b.textContent !== text) b.textContent = text; };
@@ -12148,7 +12177,7 @@ function renderTowerDetails() {
         <span>${n.dmg} dmg · ${n.range.toFixed(1)} reach · ${attackSpeedText(n)}${n.groundOnly ? ' · NO AIR' : ''}</span>
         <em>${n.desc || specialBlurbs[n.special] || ''}</em></p>`;
     })()}
-    <div class="td-stats"><span>DMG <b>${stats.dmg}</b></span><span>RANGE <b>${stats.range.toFixed(1)}</b></span><span>SPEED <b>${attackSpeedText(stats)}</b></span><span>DPS <b>${effectiveDps(stats, tower.raceId).toFixed(0)}</b></span><span>HP <b>${Math.max(0, Math.round(tower.blockHp))}/${tower.blockMaxHp}</b></span>${stats.special!=='bulwark'?`<span>RANK <b>${towerTotalRank(tower)}/50</b></span>`:''}</div>
+    <div class="td-stats"><span>DMG <b>${hudNum(Math.round(stats.dmg))}</b></span><span>RANGE <b>${stats.range.toFixed(1)}</b></span><span>SPEED <b>${attackSpeedText(stats)}</b></span><span>DPS <b>${effectiveDps(stats, tower.raceId).toFixed(0)}</b></span><span>HP <b>${Math.max(0, Math.round(tower.blockHp))}/${tower.blockMaxHp}</b></span>${stats.special!=='bulwark'?`<span>RANK <b>${towerTotalRank(tower)}/50</b></span>`:''}</div>
 
     <p class="td-desc profile-line">${attackProfileText(tower.raceId, stats)}</p>
     ${isYours ? weaponPanelHtml(group) + boltPanelHtml(group) + wardPanelHtml(group) + batchPanelHtml(group) : ''}`;
@@ -12272,14 +12301,26 @@ function renderEconStrip() {
   const second = player.races[1] ? races.find((r) => r.id === player.races[1]) : null;
   const options = races.filter((race) => race.id !== player.races[0] && raceUnlocked(race.id));
   const pick = box.querySelector('#econ-license')?.value || options[0]?.id || '';
-  const aRace = currentBuildRaceId(), aName = races.find((r) => r.id === aRace)?.name || '', aLv = attuneLevel(player, aRace), aCost = attuneCost(player, aRace);
+  /* ONE ROW PER ELEMENT (Gene, 2026-11-28: "fix the menu where you can max all towers of beam or max
+     all towers of the other element, not just the first one you have"). Attune used to act on
+     whichever element the build panel happened to show; each element you hold has its own row now:
+     attune once, attune as far as the gold goes, and level every tower of it (gold levels only:
+     lumber ranks stay a choice made tower by tower, so this never spends the Shrine's lumber). */
+  const elRows = player.races.map((rid) => {
+    const r = races.find((x) => x.id === rid); if (!r) return '';
+    const lv = attuneLevel(player, rid), cost = attuneCost(player, rid), lvl = levelAllCost(rid);
+    return `<div class="econ-el">
+      <button class="econ-btn econ-attune" data-econ="attune" data-race="${rid}" ${player.gold < cost ? 'disabled' : ''} aria-label="Attune ${r.name}: every ${r.name} tower +8% damage, ${cost} gold"><b><span style="color:${r.color}">${r.symbol}</span> ${r.name} ${lv ? 'A' + lv : ''}</b><small>+8% all · ${hudNum(cost)}g</small></button>
+      <button class="econ-btn" data-econ="attunemax" data-race="${rid}" ${player.gold < cost ? 'disabled' : ''} aria-label="Attune ${r.name} as many times as the gold allows"><b>MAX</b><small>attune</small></button>
+      <button class="econ-btn" data-econ="levelall" data-race="${rid}" ${!lvl.count || player.gold < lvl.cheapest ? 'disabled' : ''} aria-label="Level every ${r.name} tower as far as the gold allows"><b>${icon('rankUp')} ALL</b><small>${lvl.count ? `${lvl.count} · ${hudNum(lvl.next)}g` : 'all levelled'}</small></button>
+    </div>`;
+  }).join('');
   const multText = sendMult === 'max' ? 'MAX' : '×' + sendMult;
   box.innerHTML = `
+    <div class="econ-elems">${elRows}</div>
     <div class="econ-row2">
-      <button class="econ-btn econ-attune" data-econ="attune" ${player.gold < aCost ? 'disabled' : ''} aria-label="Attune ${aName}: every ${aName} tower +8% damage, ${aCost} gold"><b>${icon('sparkle')} ${aName} ${aLv ? 'A' + aLv : ''}</b><small>+8% all · ${aCost.toLocaleString()}g</small></button>
-      <button class="econ-btn" data-econ="attunemax" ${player.gold < aCost ? 'disabled' : ''} aria-label="Attune ${aName} as many times as the gold allows"><b>MAX</b><small>attune</small></button>
       <button class="econ-btn" data-econ="mult" aria-label="Sends per tap: ${multText}. Tap to change"><b>${multText}</b><small>per send</small></button>
-      <button class="econ-btn" data-econ="lumberall" ${player.gold < LUMBER_PRICE ? 'disabled' : ''} aria-label="Spend all gold on lumber"><b>${LUMBER_ICON} ALL</b><small>${Math.floor(player.gold / LUMBER_PRICE)} × ${LUMBER_PRICE}g</small></button>
+      <button class="econ-btn" data-econ="lumberall" ${player.gold < LUMBER_PRICE ? 'disabled' : ''} aria-label="Spend all gold on lumber"><b>${LUMBER_ICON} ALL</b><small>${Math.floor(player.gold / LUMBER_PRICE)} × ${hudNum(LUMBER_PRICE)}g</small></button>
     </div>
     <button class="econ-btn" data-econ="lumber" ${player.gold < LUMBER_PRICE ? 'disabled' : ''} aria-label="Buy one lumber for ${LUMBER_PRICE} gold"><b>${LUMBER_ICON} ${player.lumber}</b><small>+1 · ${LUMBER_PRICE}g</small></button>
     <button class="econ-btn" data-econ="shrine" ${maxed || player.lumber < 1 ? 'disabled' : ''} aria-label="${maxed ? 'Shrine is at its top level' : `Upgrade the Shrine to level ${player.shrine + 1} for one lumber`}"><b>${icon('shrine')} L${player.shrine}</b><small>${maxed ? 'max' : `→ L${player.shrine + 1} · 1${LUMBER_ICON}`}</small></button>
@@ -12292,12 +12333,13 @@ function renderEconStrip() {
       const b = event.target.closest('[data-econ]'); if (!b || b.disabled) return;
       if (b.dataset.econ === 'lumber') buyLumber();
       else if (b.dataset.econ === 'shrine') upgradeShrine();
-      else if (b.dataset.econ === 'attune') { if (buyAttune(player, currentBuildRaceId())) { log(`${races.find((r) => r.id === currentBuildRaceId())?.name} attuned — level ${attuneLevel(player, currentBuildRaceId())}.`); hudTick('gold-label'); renderHud(); } }
-      else if (b.dataset.econ === 'attunemax') buyAttuneMax(currentBuildRaceId());
+      else if (b.dataset.econ === 'attune') { const rid = b.dataset.race || currentBuildRaceId(); if (buyAttune(player, rid)) { log(`${races.find((r) => r.id === rid)?.name} attuned — level ${attuneLevel(player, rid)}.`); hudTick('gold-label'); renderHud(); } }
+      else if (b.dataset.econ === 'attunemax') buyAttuneMax(b.dataset.race || currentBuildRaceId());
+      else if (b.dataset.econ === 'levelall') levelAllOf(b.dataset.race);
       else if (b.dataset.econ === 'mult') { sendMult = SEND_MULTS[(SEND_MULTS.indexOf(sendMult) + 1) % SEND_MULTS.length]; }
       else if (b.dataset.econ === 'lumberall') buyLumberAll();
       else if (b.dataset.econ === 'license') licenseSecondElement($('econ-license')?.value);
-      tacticalDockKey = ''; renderTacticalDock(); renderTowerList();
+      tacticalDockKey = ''; renderTacticalDock(); renderTowerList(); renderTowerDetails(); sheetKey = ''; renderCommandSheet();
     });
   }
 }
@@ -12333,7 +12375,7 @@ function renderTacticalDock() {
     });
   }
   if (isRosterWars()) {
-    const rkey = `roster:${player.shrine}:${player.lumber}:${Math.floor(player.gold)}:${player.races.join('+')}:${JSON.stringify(player.attune || {})}`;
+    const rkey = `roster:${towersVersion}:${player.shrine}:${player.lumber}:${Math.floor(player.gold)}:${player.races.join('+')}:${JSON.stringify(player.attune || {})}`;
     if (tacticalDockKey !== rkey) { tacticalDockKey = rkey; renderEconStrip(); tabs.innerHTML = ''; }
     list.classList.add('roster-dock-list');
     renderRosterPanel(list);
@@ -12344,7 +12386,7 @@ function renderTacticalDock() {
   list.classList.remove('roster-dock-list');
   if (list.querySelector('.roster-panel')) { list.innerHTML = ''; list.dataset.rosterKey = ''; }
   const pool = desktopSendPool();
-  const key = [desktopSendTab, player.shrine, Math.floor(player.gold), player.lumber,
+  const key = [desktopSendTab, player.shrine, Math.floor(player.gold), player.lumber, towersVersion,
     Math.round(player.income), Math.round(sendGrowth() * 100), pool.map((send) => send.id).join(','), player.races.join('+'), sendMult, buildRaceIdx, JSON.stringify(player.attune || {})].join('|');
   if (key !== tacticalDockKey) {
     tacticalDockKey = key;
@@ -15559,6 +15601,10 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    new tag, then collapses and stays collapsed. */
 const RELEASE_TAG = '2026-11-14-elemental';
 const RELEASE_NOTES = [
+  { date:'2026-11-28', title:'Attune and level every element', items:[
+    'Each element you hold has its own row in the economy strip: attune it, attune it as far as your gold goes, or level every tower of it at once. Attune used to act only on whichever element the build panel was showing.',
+    'Fixed: after Attune MAX or levelling a batch, tapping a tower showed its old damage. The tower panel now redraws whenever its numbers change.',
+  ] },
   { date:'2026-11-25', title:'Every pair of elements reacts, in either order', items:[
     'Order no longer matters: hit a creep with one element and then the other, either way round, and they react.',
     'All 66 pairs of elements react now, up from 14. Every element has a reaction with each of the other eleven.',

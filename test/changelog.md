@@ -2,6 +2,22 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 28, 2026 — Attune and level per element; the stale tower panel (Claude)
+
+Gene: "we have to fix the menu where you can max all towers of beam or max all towers of the other
+element, not just the first one you have", and "when you do the max attune or the upgrade all, it
+doesn't reflect when you click the towers".
+
+- **Stale panel.** `renderTowerDetails` rebuilds only when its signature changes (so buttons are
+  not rebuilt under a finger), and the signature had no attune level or live stats. Attune MAX
+  changed the damage and the panel kept the old number (measured: 105 before and after; now 105 →
+  1,141). Attune level, rounded damage, range, cooldown and total rank are in the signature now;
+  damage is printed rounded.
+- **Per element.** The econ strip has a row per held element: Attune (+8%), MAX attune, and Level
+  ALL (`levelAllOf`: every tower of that element, cheapest first, as far as the gold goes; gold
+  levels only, so it never spends the Shrine's lumber). The dock key carries `towersVersion` so
+  the counts follow new towers.
+
 ## November 25, 2026 — Every pair reacts, in either order (Claude)
 
 Gene: "What do we think about the order matters aspect, does it make it too complicated? Does every
