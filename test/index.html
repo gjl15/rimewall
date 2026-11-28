@@ -2380,26 +2380,26 @@ const TOWERS = {
        attacking speed. Adds low amount of AoE within 1 cell radius." That is
        smallsplash exactly — radius 1.2, 40% to neighbours — on the longest reach
        in the game and the slowest cadence Tech has. The cheap answer to plate. */
-    { name:'Ballista', spriteTier:2, weapon:true, cost:120, dmg:300, cd:3.6, range:19, special:'smallsplash', armorPierce:6, vs:{ fortified:1.8, heavy:1.4 }, desc:'Enormous reach and a heavy bolt, reloaded slowly. Splinters into anything within a cell of the mark, and punches plate that Pierce cannot.' },
+    { name:'Ballista', spriteTier:2, weapon:true, cost:135, levelCost:48, boltBase:120, dmg:300, cd:3.6, range:19, special:'smallsplash', armorPierce:6, vs:{ fortified:1.8, heavy:1.4 }, desc:'Enormous reach and a heavy bolt, reloaded slowly. Splinters into anything within a cell of the mark, and punches plate that Pierce cannot.' },
     /* MULTISHOT, the weapon Gene named alongside the ballista. It fires three
        full-power bolts when three bodies are available, so it is deliberately
        front-loaded against crowds while its one-target ceiling stays fixed.
        Shot-count upgrades remain a later system rather than being implied. */
-    { name:'Multishot', spriteTier:3, weapon:true, cost:120, dmg:96, cd:1.1, range:14, special:'multishot', shots:3, armorPierce:4, airBonus:1.4, desc:'Three full-power bolts per volley when three targets are available. Its shot count is fixed for now, so it is strong into crowds and much weaker into one late-game body.' },
+    { name:'Multishot', spriteTier:3, weapon:true, cost:135, levelCost:48, boltBase:120, dmg:96, cd:1.1, range:14, special:'multishot', shots:3, armorPierce:4, airBonus:1.4, desc:'Three full-power bolts per volley when three targets are available. Its shot count is fixed for now, so it is strong into crowds and much weaker into one late-game body.' },
     /* Cheap crowd control rather than another damage capstone. The third shot
        roots no more than three bodies, and its cadence is long enough that one
        Bola cannot overlap its own roots. */
-    { name:'Bola Rig', spriteName:'Long Bolt', spriteTier:1, weapon:true, cost:55, dmg:30, cd:.78, range:9.5, special:'bola', armorPierce:2, rootEvery:3, rootDur:1.25, rootCap:3, desc:'Cheap close-control rig. Light one-cell splash on every hit; every third shot roots up to three nearby targets for 1.25s. Bosses are slowed instead.' },
+    { name:'Bola Rig', spriteName:'Long Bolt', spriteTier:1, weapon:true, cost:70, levelCost:22, boltBase:55, dmg:30, cd:.78, range:9.5, special:'bola', armorPierce:2, rootEvery:3, rootDur:1.25, rootCap:3, desc:'Cheap close-control rig. Light one-cell splash on every hit; every third shot roots up to three nearby targets for 1.25s. Bosses are slowed instead.' },
     /* THE SIEGE TANK: very close range, heavy damage into fortified, major
        splash. It gives up every bit of Tech's reach — 5.2 cells against a line
        that runs to 19 — so it has to be built IN the maze like a ninja blade,
        not behind it. Ground only, for the same reason the rocket rack was: a
        shell fired flat into a blast radius is the one thing that should not
        reach a flier. */
-    { name:'Siege Tank', spriteTier:4, weapon:true, cost:120, dmg:420, cd:2.4, range:5.2, special:'splash', groundOnly:true, vs:{ fortified:2.1, heavy:1.6 }, desc:'Point blank and enormous: the heaviest anti-plate gun Tech has, with a wide blast. Almost no range, and it cannot elevate to hit air.' },
-    { name:'Ion Array', spriteTier:5, weapon:true, cost:140, dmg:300, cd:3.0, range:15, special:'ion', desc:'The energy weapon: an ion beam that adds +500 against a target still near full health.' },
-    { name:'Doomsday Silo', spriteTier:6, weapon:true, cost:160, dmg:860, cd:7.0, range:17, special:'rocket', desc:'Slow reload, city-block splash. The widest blast in the arsenal.' },
-    { name:'Target Painter', spriteName:'Long Bolt', spriteTier:1, weapon:true, cost:80, dmg:0, cd:.35, range:13.5, special:'targetpainter', desc:'Tracks one enemy until it dies or leaves range. Choose Armor Analysis (+6 Tech armor penetration) or Coordinated Fire (+3% Tech damage per distinct weapon, max 15%). Nearby Tech towers may prioritize its mark.' }
+    { name:'Siege Tank', spriteTier:4, weapon:true, cost:135, levelCost:48, boltBase:120, dmg:420, cd:2.4, range:5.2, special:'splash', groundOnly:true, vs:{ fortified:2.1, heavy:1.6 }, desc:'Point blank and enormous: the heaviest anti-plate gun Tech has, with a wide blast. Almost no range, and it cannot elevate to hit air.' },
+    { name:'Ion Array', spriteTier:5, weapon:true, cost:155, levelCost:56, boltBase:140, dmg:300, cd:3.0, range:15, special:'ion', desc:'The energy weapon: an ion beam that adds +500 against a target still near full health.' },
+    { name:'Doomsday Silo', spriteTier:6, weapon:true, cost:175, levelCost:64, boltBase:160, dmg:860, cd:7.0, range:17, special:'rocket', desc:'Slow reload, city-block splash. The widest blast in the arsenal.' },
+    { name:'Target Painter', spriteName:'Long Bolt', spriteTier:1, weapon:true, cost:95, levelCost:32, boltBase:80, dmg:0, cd:.35, range:13.5, special:'targetpainter', desc:'Tracks one enemy until it dies or leaves range. Choose Armor Analysis (+6 Tech armor penetration) or Coordinated Fire (+3% Tech damage per distinct weapon, max 15%). Nearby Tech towers may prioritize its mark.' }
   ],
   crystal:[
     { name:'Shardcaster', cost:10, dmg:10, cd:.9, range:5.9, special:'splinter', desc:'Chaos bolts that ignore armor and splinter into one creep beside the target.' },
@@ -2506,10 +2506,10 @@ const TOWERS = {
        race is supposed to be for.
        Reach is still the identity: 1.5 covers the eight cells around the blade,
        and nothing beyond them. */
-    { name:'Fist Master', spriteName:'Shadow Initiate', spriteTier:0, weaponKind:'fist', weaponGlyph:'拳', chassis:true, cost:5, levelCost:10, maxLevel:8, dmg:8, cd:.30, range:1.5, special:'fistcombo', doubleChance:.50, desc:'The base Ninja discipline. Every hit has a 50% chance to strike twice; the second hit also triggers its imbuement.' },
-    { name:'Dagger Master', spriteName:'Dagger Adept', spriteTier:1, weaponKind:'dagger', weaponGlyph:'†', weapon:true, cost:5, levelCost:10, maxLevel:8, dmg:20, cd:.25, range:2.0, special:'dagger', armorPierce:8, desc:'Fast and precise. More reach than Fist or Shadow, and ignores 8 armor on every stab.' },
-    { name:'Sword Master', spriteName:'Sword Ronin', spriteTier:2, weaponKind:'sword', weaponGlyph:'╱', weapon:true, cost:5, levelCost:10, maxLevel:8, dmg:34, cd:.40, range:2.5, special:'swordcrit', critChance:.30, critMult:2.5, desc:'A measured blade with a 30% chance to crit for 2.5× damage.' },
-    { name:'Mace Master', spriteName:'Mace Breaker', spriteTier:3, weaponKind:'mace', weaponGlyph:'●', weapon:true, cost:5, levelCost:10, maxLevel:8, dmg:70, cd:1.1, range:2.7, special:'macepulse', armorShred:3, armorShredDur:4, desc:'A slow radial shockwave. It hits everything in reach, deals more damage near the outer edge, and reduces armor by 3 for 4 seconds.' },
+    { name:'Fist Master', spriteName:'Shadow Initiate', spriteTier:0, weaponKind:'fist', weaponGlyph:'拳', chassis:true, cost:5, levelCost:60, maxLevel:8, dmg:12, cd:.30, range:1.5, special:'fistcombo', doubleChance:.50, desc:'The base Ninja discipline. Every hit has a 50% chance to strike twice; the second hit also triggers its imbuement.' },
+    { name:'Dagger Master', spriteName:'Dagger Adept', spriteTier:1, weaponKind:'dagger', weaponGlyph:'†', weapon:true, cost:10, levelCost:60, maxLevel:8, dmg:20, cd:.25, range:2.0, special:'dagger', armorPierce:8, desc:'Fast and precise. More reach than Fist or Shadow, and ignores 8 armor on every stab.' },
+    { name:'Sword Master', spriteName:'Sword Ronin', spriteTier:2, weaponKind:'sword', weaponGlyph:'╱', weapon:true, cost:10, levelCost:60, maxLevel:8, dmg:34, cd:.40, range:2.5, special:'swordcrit', critChance:.30, critMult:2.5, desc:'A measured blade with a 30% chance to crit for 2.5× damage.' },
+    { name:'Mace Master', spriteName:'Mace Breaker', spriteTier:3, weaponKind:'mace', weaponGlyph:'●', weapon:true, cost:10, levelCost:60, maxLevel:8, dmg:70, cd:1.1, range:2.7, special:'macepulse', armorShred:3, armorShredDur:4, desc:'A slow radial shockwave. It hits everything in reach, deals more damage near the outer edge, and reduces armor by 3 for 4 seconds.' },
     /* A SPEAR IS THROWN. Gene: "ninja spear shouldnt be the same as beam, it
        should be a a spear literally being thrown." It carried special:'beamline'
        — the same continuous-ray primitive Beam's whole identity is built on — so
@@ -2517,9 +2517,9 @@ const TOWERS = {
        effect, and there was no projectile in flight to look at because a ray is
        instantaneous. 'spearthrow' is a real projectile with a real flight time
        that pierces past its mark on impact, which is what the card always said. */
-    { name:'Spear Master', spriteName:'Spear Sentinel', spriteTier:4, weaponKind:'spear', weaponGlyph:'➤', weapon:true, cost:5, levelCost:10, maxLevel:8, dmg:75, cd:.85, range:3.4, special:'spearthrow', desc:'A thrown spear: full damage to its mark, then 45% through every creep lined up behind it for two more cells.' },
-    { name:'Shadow Master', spriteTier:5, weaponKind:'shadow', weaponGlyph:'✚', weapon:true, cost:5, levelCost:14, maxLevel:8, dmg:32, cd:.48, range:1.8, special:'shadowcross', crossWidth:.55, desc:'No single-target strike. It pulses only north, south, east, and west; its damage pool is distributed across the creeps caught in that cross.' },
-    { name:'Shuriken Master', spriteName:'Shadow Master', spriteTier:5, weaponKind:'shuriken', weaponGlyph:'✣', weapon:true, cost:5, levelCost:12, maxLevel:8, dmg:38, cd:.55, range:4.4, special:'shurikenbounce', bounceMult:.70, desc:'The longest Ninja reach. Hits ground or air; only an air-first hit bounces to a second flier for 70% damage.' }
+    { name:'Spear Master', spriteName:'Spear Sentinel', spriteTier:4, weaponKind:'spear', weaponGlyph:'➤', weapon:true, cost:10, levelCost:60, maxLevel:8, dmg:75, cd:.85, range:3.4, special:'spearthrow', desc:'A thrown spear: full damage to its mark, then 45% through every creep lined up behind it for two more cells.' },
+    { name:'Shadow Master', spriteTier:5, weaponKind:'shadow', weaponGlyph:'✚', weapon:true, cost:10, levelCost:84, maxLevel:8, dmg:32, cd:.48, range:1.8, special:'shadowcross', crossWidth:.55, desc:'No single-target strike. It pulses only north, south, east, and west; its damage pool is distributed across the creeps caught in that cross.' },
+    { name:'Shuriken Master', spriteName:'Shadow Master', spriteTier:5, weaponKind:'shuriken', weaponGlyph:'✣', weapon:true, cost:10, levelCost:72, maxLevel:8, dmg:38, cd:.55, range:4.4, special:'shurikenbounce', bounceMult:.70, desc:'The longest Ninja reach. Hits ground or air; only an air-first hit bounces to a second flier for 70% damage.' }
   ],
   gravity:[
     { name:'Gravity Well', cost:10, dmg:9, cd:.95, range:5.5, special:'warp', desc:'A single warped slug that drags its target to a crawl.' },
@@ -2530,11 +2530,11 @@ const TOWERS = {
     { name:'Event Horizon', cost:350, dmg:400, cd:1.6, range:4.5, special:'blackhole', desc:'Every warp effect at once — slow, slam, lift, shove, and the rare fling forward.' }
   ],
   wind:[
-    { name:'Wind Needle', chassis:true, cost:10, dmg:8, cd:.95, range:5, special:'windneedle', airBonus:1.25, desc:'Piercing gusts fan out behind the target. In a maze, they follow five path cells toward incoming enemies with +20% damage and +25% slow strength.' },
-    { name:'Gale', weapon:true, cost:50, dmg:36, cd:1.10, range:4.5, special:'windgale', airBonus:1.25, pushChance:.15, desc:'Directional wind with a 15% chance to shove the primary ground target back along the lane.' },
-    { name:'Razorwind', weapon:true, cost:100, dmg:80, cd:1.15, range:5, special:'windrazor', airBonus:1.25, critChance:.15, critMult:1.75, desc:'A piercing gust with a 15% chance to deal 1.75× damage.' },
-    { name:'Vortex', weapon:true, cost:100, dmg:105, cd:1.20, range:3.2, special:'windvortex', airBonus:1.25, desc:'An expanding ring deals 105 damage close up and 52.5 at the edge. The slow grows from 10% to 25% with distance.' },
-    { name:'Tempest', weapon:true, cost:285, dmg:250, cd:.90, range:5.5, special:'windtempest', airBonus:1.80, desc:'Directional wind with +80% air damage, a stronger air slow, and more frequent air stuns.' }
+    { name:'Wind Needle', chassis:true, cost:10, dmg:10, cd:.95, range:5, special:'windneedle', airBonus:1.25, desc:'Piercing gusts fan out behind the target. In a maze, they follow five path cells toward incoming enemies with +20% damage and +25% slow strength.' },
+    { name:'Gale', weapon:true, cost:50, dmg:50, cd:1.10, range:4.5, special:'windgale', airBonus:1.25, pushChance:.15, desc:'Directional wind with a 15% chance to shove the primary ground target back along the lane.' },
+    { name:'Razorwind', weapon:true, cost:100, dmg:110, cd:1.15, range:5, special:'windrazor', airBonus:1.25, critChance:.15, critMult:1.75, desc:'A piercing gust with a 15% chance to deal 1.75× damage.' },
+    { name:'Vortex', weapon:true, cost:100, dmg:145, cd:1.20, range:3.2, special:'windvortex', airBonus:1.25, desc:'An expanding ring deals 145 damage close up and 72.5 at the edge. The slow grows from 10% to 25% with distance.' },
+    { name:'Tempest', weapon:true, cost:285, dmg:400, cd:.90, range:5.5, special:'windtempest', airBonus:1.80, desc:'Directional wind with +80% air damage, a stronger air slow, and more frequent air stuns.' }
   ]
 };
 /* THE LASER CANNON IS GONE. Gene, on the four open calls: "none except the one
@@ -2607,8 +2607,16 @@ function towerListFor(raceId) { return [...(TOWERS[raceId] || TOWERS.ice), BULWA
    looking at. Listing all six as separate builds made the decision happen on an
    empty cell before you knew what was coming, which is the opposite of the
    point, and buried the two cheap rungs under four you cannot afford yet. */
+/* EVERY WEAPON ON THE BUILD LIST, FOR TECH AND NINJA (Gene, 2026-11-28: "make the ninja builder and
+   tech builder similar to the others where you have the ability to build or see all of the towers
+   rather than only one and upgrading it. It should save a lot of microtasking"). Placing a chassis
+   and then fitting it, cell by cell, was two taps and a panel per tower. Now a weapon goes straight
+   onto the cell at its all-in price (chassis plus fitting, so neither path is cheaper), and the rack
+   on a placed tower still swaps it later, keeping levels, ranks and imbuing. Wind keeps its rack. */
+const BUILD_ALL_WEAPONS = new Set(['tech', 'ninja']);
 function buildableListFor(raceId) {
-  return towerListFor(raceId).map((def, tier) => ({ def, tier })).filter(({ def }) => !def.weapon);
+  const all = BUILD_ALL_WEAPONS.has(raceId);
+  return towerListFor(raceId).map((def, tier) => ({ def, tier })).filter(({ def }) => all || !def.weapon);
 }
 /* The weapons a placed tower can be fitted with. A chassis takes any of them; a
    tower that already carries one can swap, because the alternative is selling a
@@ -2623,7 +2631,7 @@ function weaponsFor(tower) {
 function weaponCost(tower, tier) {
   const to = towerDef(tower.raceId, tier);
   const from = towerDef(tower.raceId, tower.tier);
-  if (tower.raceId === 'wind' && from.chassis) return to.cost - from.cost;
+  if ((tower.raceId === 'wind' || BUILD_ALL_WEAPONS.has(tower.raceId)) && from.chassis) return Math.max(0, to.cost - from.cost);
   // swapping one weapon for another only charges the difference, never less than a quarter
   return from.weapon ? Math.max(Math.round(to.cost * .25), to.cost - from.cost) : to.cost;
 }
@@ -3054,7 +3062,7 @@ function boltEligible(tower) {
    the tower for a fraction of its damage, so another turret always won. Bolts
    are what you buy when you are out of CELLS rather than out of gold — which is
    the whole late game — so they have to undercut a level upgrade, not a tower. */
-function boltCost(tower) { return Math.max(10, Math.round(towerDef(tower.raceId, tower.tier).cost * .4)); }
+function boltCost(tower) { const d = towerDef(tower.raceId, tower.tier); return Math.max(10, Math.round((d.boltBase || d.cost) * .4)); }
 function boltOf(tower) { return tower && tower.bolt ? BOLT_BY_ID[tower.bolt] : null; }
 /* A RACE CAN SET WHAT A LEVEL IS WORTH, the way it already sets how many levels
    it gets and what they cost. +15% is right for a ladder race, where levels are
@@ -3067,6 +3075,15 @@ function boltOf(tower) { return tower && tower.bolt ? BOLT_BY_ID[tower.bolt] : n
    The cap was the defect: past ~385g a ninja cell had nowhere to put gold. */
 const LEVEL_DMG_DEFAULT = .10;
 function levelDmgStep(raceId) { return LEVEL_DMG_DEFAULT; }
+/* NINJA LEVELS ARE THE NINJA POWER CURVE (2026-11-28, Gene: "buff wind and ninja towers"). Every
+   tower stops at three levels, so a blade's whole cell came to about 70g and 144 dps at the top,
+   while every other element's top tower puts 500-1,200 dps on one cell. Ninja was the best buy in
+   the game for ten minutes and had nowhere to put gold after. A Ninja level now costs six times as
+   much and multiplies damage by a further 1 + 0.85 a level, so a levelled blade lands about 3.5x
+   harder: ~500 dps on a 370g cell, the most damage per gold in the game on the shortest reach.
+   Multiplied rather than added, so the hit ranks still grow it at the same rate as everyone else. */
+const NINJA_LEVEL_MULT = .85;
+function raceLevelMult(raceId, level) { return raceId === 'ninja' ? 1 + NINJA_LEVEL_MULT * level : 1; }
 /* One landed attack/volley earns one hit, including at rank zero. No purchased
    cap or currency is required. Paid progress is tracked separately from hits. */
 /* RANKS THAT HAPPEN (2026-11-14). A single-target tower needed 100*(r+1)^2 landed hits a rank
@@ -3202,7 +3219,7 @@ function towerStatsRO(tower) { towerLiveStats(tower); return tower._stats; }
 function towerLiveStatsCompute(tower) {
   const def = towerDef(tower.raceId, tower.tier);
   const level = Math.min(MAX_LEVEL, tower.level || 0);
-  const stats = { ...def, dmg:Math.round(def.dmg * (1 + levelDmgStep(tower.raceId) * level + RANK_DMG * towerRank(tower)) * bannerBonus(tower) * attuneMult(tower) * 1000) / 1000, range:def.range + .5 * level, cd:1 / (1 / def.cd + .1 * level) };
+  const stats = { ...def, dmg:Math.round(def.dmg * (1 + levelDmgStep(tower.raceId) * level + RANK_DMG * towerRank(tower)) * raceLevelMult(tower.raceId, level) * bannerBonus(tower) * attuneMult(tower) * 1000) / 1000, range:def.range + .5 * level, cd:1 / (1 / def.cd + .1 * level) };
   if (tower.bolt) {
     stats.bolt = tower.bolt;
     // piercing is the only bolt that touches the tower's own numbers
@@ -5117,8 +5134,8 @@ function applyGlobalPriority(next) {
 }
 function makeTower(r, c, raceId, tier, owner) {
   const def = towerDef(raceId, tier);
-  const buildTime = 1.2 + tier * .4;   // classic-style construction; canceling during it refunds fully
-  return { key:idx(r, c), r, c, raceId, tier, level:0, owner, cooldown:0, priority:owner === 'player' ? globalPriority : 'first', kills:0, rank:0, xp:0, invested:def.cost, placedAt:simTime, buildTime, buildUntil:simTime + buildTime,
+  const buildTime = 1.2 + (def.weapon && BUILD_ALL_WEAPONS.has(raceId) ? 1 : tier) * .4;   // classic-style construction; canceling during it refunds fully
+  return { key:idx(r, c), r, c, raceId, tier, level:0, owner, cooldown:0, priority:owner === 'player' && def.special !== 'targetpainter' ? globalPriority : 'first', kills:0, rank:0, xp:0, invested:def.cost, placedAt:simTime, buildTime, buildUntil:simTime + buildTime,
     ward:null, bulwarkCore:[], bulwarkRank:0, bulwarkDamageTaken:0,
     blockHp:towerMaxHp(def, tier, 0), blockMaxHp:towerMaxHp(def, tier, 0), underAttack:0, lastHitAt:-Infinity };
 }
@@ -15892,6 +15909,11 @@ function sheetOpacity() { return typeof profile.sheetOpacity === 'number' ? prof
    new tag, then collapses and stays collapsed. */
 const RELEASE_TAG = '2026-11-14-elemental';
 const RELEASE_NOTES = [
+  { date:'2026-11-28', title:'Build any Tech or Ninja weapon', items:[
+    'Tech and Ninja list every weapon in the build menu. Tap a Ballista or a Spear Master and place it, instead of placing a platform and fitting it tower by tower. The price is the same either way, and the weapon rack on a placed tower still swaps it.',
+    'Ninja levels are where a blade grows: each one costs more and lands far harder, so a levelled blade hits about 3.5 times as hard as before.',
+    'Wind hits harder all the way up: Tempest 250 to 400, Vortex 105 to 145, Razorwind 80 to 110, Gale 36 to 50.',
+  ] },
   { date:'2026-11-28', title:'A cleaner bottom bar', items:[
     'The bottom bar is Map · Build · Sends · Upgrades, with Roster in Roster Wars. Tower and Enemy left it: tapping a tower or a creep opens its card by itself.',
     'UPGRADES holds attune, level-all, lumber, the Shrine, your second element and the send upgrades, so the Sends tray is only sends, with four full-size tabs and the ×1 send multiplier beside them.',
@@ -16053,7 +16075,7 @@ const RELEASE_NOTES = [
   { date:'2026-10-18', title:'Reference spirals, builder updates, and ready checks', items:[
     'Computers build square spirals around their checkpoints using the uploaded maze reference. Each computer stays within its seat zone, keeps the walking corridor open, and checks both ground routes before paying for a tower.',
     'Ninja has seven distinct weapons: Fist, Dagger, Sword, Mace, Spear, Shadow, and Shuriken. Shuriken targets ground or air, with an air-only bounce after an air hit.',
-    'Tech starts with one Bolt Platform and fits weapons from its rack, including Bola Rig roots and Target Painter marks. Weapon changes retain ranks and imbuements; Multishot keeps three distinct full-power shots.',
+    'Tech can build any weapon straight from the build list, or start with one Bolt Platform and fits weapons from its rack, including Bola Rig roots and Target Painter marks. Weapon changes retain ranks and imbuements; Multishot keeps three distinct full-power shots.',
     'Bulwark core upgrades and its exclusive aura advance through its own expertise ranks. Bulwarks cannot take elemental imbuements.',
     'Crystal formations connect two to four adjacent towers with a choice of damage, attack speed, or range. Switching is free. Chaos ignores armor; Crystal does not strip armor.',
     'Earth has the paid Fault Line and Tremor choices, both ground-only. Stone has Frequent, Heavy, and Steady critical profiles.',

@@ -2,6 +2,27 @@
 
 Newest changes appear first. Dates use America/Los_Angeles time.
 
+## November 28, 2026 — Tech and Ninja build any weapon; Wind and Ninja buffs (Claude)
+
+Gene: "yes buff wind and ninja towers. make the ninja builder and tech builder similar to the others
+where you have the ability to build or see all of the towers rather than only one and upgrading it."
+
+- **Build list**: Tech and Ninja list every weapon (`BUILD_ALL_WEAPONS`). A weapon goes straight onto
+  a cell at its all-in price, chassis included, so placing a Ballista costs what platform + fit did
+  (135g) and a blade costs 10g. Fitting a chassis now charges the difference, so both paths match.
+  The rack on a placed tower still swaps weapons and keeps levels, ranks and imbuing. A directly
+  placed weapon builds in 1.6 s, and a Target Painter starts on `first`. Tech level and imbuing
+  prices are pinned to their old values (`levelCost`, `boltBase`). Wind keeps its rack.
+- **Ninja**: every tower stops at three levels, so a blade's cell topped out near 70g and 110-144
+  dps while the field's top towers put 500-1,200 dps on a cell. Ninja levels now cost 60/120/180
+  (Shadow 84, Shuriken 72) and multiply damage by a further 1 + 0.85 a level (`raceLevelMult`), so a
+  levelled blade is about 3.5x harder: Spear 511 dps on a 380g cell. Fist Master 8 to 12 damage.
+  Wall test, 120 levelled blades: Spear held nothing past wave 30 before and holds to 35 now;
+  Mace holds to 40, level with Fire.
+- **Wind**: Tempest 250 to 400, Vortex 105 to 145, Razorwind 80 to 110, Gale 36 to 50, Needle 8 to
+  10. Tempest goes from 0.47 to 0.76 dps per gold, level with Stone and Beam. Wall test: wave 45
+  leaks 30% (was 70%).
+
 ## November 28, 2026 — Menus: the bottom bar, the send tabs, an audit pass (Claude)
 
 Gene: "the send multiple feature is gone and there's space there. And I think the tabs for roster,
